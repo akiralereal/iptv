@@ -19,8 +19,6 @@
 
 ```
 https://raw.githubusercontent.com/akiralereal/iptv/main/interface.txt
-
-https://akiralereal.github.io/iptv/interface.txt
 ```
 
 ## 本地部署

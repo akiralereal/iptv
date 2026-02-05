@@ -11,34 +11,28 @@
 - ✅ **Web 管理后台** - 可视化自定义频道分组
 - ✅ 自动更新节目单
 
-# 使用方式
+# 快速开始
 
-账号🐔了。~~只有标清..~~ 高清为主😅 gitee仓库被改私有了..
+## 在线播放列表
 
-~~gitee ip被ban，仓库链接已失效~~
-
-仓库地址临时复活，能活多久看运气，存在频道缺失或无法播放的问题，回放功能仅migu源生效，还在测试。
-
-访问地址(可回看当天内容)
+直接使用以下地址添加到播放器（支持回看当天内容）：
 
 ```
-https://raw.githubusercontent.com/akiralereal/iPTV/main/interface.txt
+https://raw.githubusercontent.com/akiralereal/iptv/main/interface.txt
 
-https://akiralereal.github.io/iPTV/interface.txt
+https://akiralereal.github.io/iptv/interface.txt
 ```
 
-# 本地部署
+## 本地部署
 
-> [!warning]
-> 注意事项
->
-> 1. 登录后使用不保证安全，请谨慎使用
-> 1. 需要国内IP才可正常访问（非港澳台地区）
+### 注意事项
 
-## 配置
+1. 登录后使用请注意账号安全
+2. 需要中国大陆网络环境才可正常访问
 
-默认本机和局域网可用，提供自定义token，格式: <http://ip:port/mpass/userid/token>（未设置mpass请删除），使用此方式建议把画质改到蓝光或更高<br>
-配置信息如下:
+### 配置说明
+
+服务默认支持本机和局域网访问。如需使用账号登录获取高画质，请配置以下参数。
 
 | 变量名          | 默认值 | 类型    | 介绍                                                                                      |
 | --------------- | ------ | ------- | ----------------------------------------------------------------------------------------- |

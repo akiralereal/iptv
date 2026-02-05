@@ -16,8 +16,8 @@ docker-compose up -d
 
 ### 2. 访问管理后台
 
-- **无密码**：http://localhost:1234/admin
-- **有密码**（如设置 `mpass=mypass`）：http://localhost:1234/mypass/admin
+- **无密码**：http://localhost:1905/admin
+- **有密码**（如设置 `mpass=mypass`）：http://localhost:1905/mypass/admin
 
 ## 界面说明
 

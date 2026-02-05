@@ -44,7 +44,7 @@ https://akiralereal.github.io/iPTV/interface.txt
 | --------------- | ------ | ------- | ----------------------------------------------------------------------------------------- |
 | muserId         |        | string  | 用户id<br>可在网页端登录获取                                                              |
 | mtoken          |        | string  | 用户token<br>可在网页端登录获取                                                           |
-| mport           | 1234   | number  | 本地运行端口号                                                                            |
+| mport           | 1905   | number  | 本地运行端口号                                                                            |
 | mhost           |        | string  | 公网/自定义访问地址<br>格式<http://ip:port>                                               |
 | mrateType       | 3      | number  | 画质<br>2: 标清<br>3: 高清<br>4: 蓝光<br>7: 原画<br>9: 4k<br>ps:蓝光及以上需要登录且有VIP |
 | mpass           |        | string  | 访问密码 大小写字母和数字<br>添加后访问格式 <http://ip:port/mpass/>...                    |
@@ -104,10 +104,10 @@ https://akiralereal.github.io/iPTV/interface.txt
 node app.js
 
 # 访问管理后台
-http://localhost:1234/admin
+http://localhost:1905/admin
 
 # 如果设置了密码 (mpass=mypass)
-http://localhost:1234/mypass/admin
+http://localhost:1905/mypass/admin
 ```
 
 ### Docker 环境使用
@@ -170,17 +170,17 @@ docker pull akiralereal/iptv:1.0.0
 ### 快速运行
 
 ```shell
-docker run -d -p 1234:1234 --name iptv akiralereal/iptv:latest
+docker run -d -p 1905:1905 --name iptv akiralereal/iptv:latest
 ```
 
 ### 自定义配置运行
 
 ```shell
-docker run -d -p 1234:1234 \
+docker run -d -p 1905:1905 \
   -e muserId=你的ID \
   -e mtoken=你的token \
-  -e mport=1234 \
-  -e mhost="http://192.168.1.100:1234" \
+  -e mport=1905 \
+  -e mhost="http://192.168.1.100:1905" \
   -e mrateType=4 \
   --name iptv \
   akiralereal/iptv:latest
@@ -196,12 +196,12 @@ services:
     image: akiralereal/iptv:latest              # 使用最新版本镜像
     container_name: iptv                        # 自定义容器名称
     ports:
-      - "1234:1234"                             # 宿主机:容器端口映射
+      - "1905:1905"                             # 宿主机:容器端口映射
     environment:
       - muserId=                                # 可选：咪咕账号ID（留空为游客模式）
       - mtoken=                                 # 可选：咪咕登录令牌（用于高画质/VIP）
-      - mport=1234                              # 必须：容器监听端口，与 ports 对应
-      - mhost=                                  # 可选：外部访问地址（如 http://192.168.1.100:1234）
+      - mport=1905                              # 必须：容器监听端口，与 ports 对应
+      - mhost=                                  # 可选：外部访问地址（如 http://192.168.1.100:1905）
       - mrateType=3                             # 画质：2=标清，3=高清，4=蓝光(需VIP)
       - mpass=                                  # 可选：访问密码（设置后访问: http://ip:port/密码/...）
       - menableHDR=true                         # 可选：是否开启HDR

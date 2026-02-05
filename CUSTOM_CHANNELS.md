@@ -125,7 +125,7 @@ cat interface.txt | grep "tvg-name"
 
 **方法 2：访问服务接口**
 ```
-http://your-ip:1234/
+http://your-ip:1905/
 ```
 查看返回的 M3U 文件中的频道名称。
 
@@ -142,7 +142,7 @@ http://your-ip:1234/
 ### 方法 1：挂载配置文件（推荐）
 
 ```bash
-docker run -d -p 1234:1234 \
+docker run -d -p 1905:1905 \
   -v $(pwd)/custom-channels.json:/migu/custom-channels.json \
   --name iptv \
   akiralereal/iptv:latest
@@ -156,7 +156,7 @@ services:
     image: akiralereal/iptv:latest
     container_name: iptv
     ports:
-      - "1234:1234"
+      - "1905:1905"
     volumes:
       - ./custom-channels.json:/migu/custom-channels.json
     restart: always

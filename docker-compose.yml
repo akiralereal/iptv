@@ -3,12 +3,12 @@ services:
     image: akiralereal/iptv:latest              # 使用最新版本镜像
     container_name: iptv                        # 自定义容器名称
     ports:
-      - "1234:1234"                             # 宿主机:容器端口映射
+      - "1905:1905"                             # 宿主机:容器端口映射
     environment:
       - muserId=                                # 可选：咪咕账号ID（留空为游客模式）
       - mtoken=                                 # 可选：咪咕登录令牌（用于高画质/VIP）
-      - mport=1234                              # 必须：容器监听端口，与 ports 对应
-      - mhost=                                  # 可选：外部访问地址（如 http://192.168.1.100:1234）
+      - mport=1905                              # 必须：容器监听端口，与 ports 对应
+      - mhost=                                  # 可选：外部访问地址（如 http://192.168.1.100:1905）
       - mrateType=3                             # 画质：2=标清，3=高清，4=蓝光(需VIP)
       - mpass=                                  # 可选：访问密码（设置后访问: http://ip:port/密码/...）
       - menableHDR=true                         # 可选：是否开启HDR

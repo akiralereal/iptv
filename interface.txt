@@ -447,8 +447,10 @@ ${replace}/962896640
 ${replace}/962894126
 #EXTINF:-1 tvg-id="快船VS骑士" tvg-name="NBA 快船VS骑士 全场回放（英文原声） 11:25" tvg-logo="https://img.cmvideo.cn/sports/uploadImages/2020/1/10/7f7fd4d8-7213-412b-8a19-02521a6ef852.png" group-title="体育-今天",NBA 快船VS骑士 全场回放（英文原声） 11:25
 ${replace}/962896497
-#EXTINF:-1 tvg-id="韦克林出战 肖国栋斯佳辉晋级" tvg-name="斯诺克 韦克林出战 肖国栋斯佳辉晋级 3号桌 13:00" tvg-logo="https://img.cmvideo.cn/sports/uploadImages/2024/1/16/100000001001106678f6.jpg" group-title="体育-今天",斯诺克 韦克林出战 肖国栋斯佳辉晋级 3号桌 13:00
-${replace}/962747091
+#EXTINF:-1 tvg-id="肖国栋5-3奥沙利文 张安达斯佳辉晋级" tvg-name="斯诺克 肖国栋5-3奥沙利文 张安达斯佳辉晋级 2026斯诺克世界大奖赛1/8决赛回放：巴里·霍金斯3-5张安达（朱蒙） 13:00" tvg-logo="https://img.cmvideo.cn/sports/uploadImages/2024/1/16/100000001001106678f6.jpg" group-title="体育-今天",斯诺克 肖国栋5-3奥沙利文 张安达斯佳辉晋级 2026斯诺克世界大奖赛1/8决赛回放：巴里·霍金斯3-5张安达（朱蒙） 13:00
+${replace}/962897322
+#EXTINF:-1 tvg-id="肖国栋5-3奥沙利文 张安达斯佳辉晋级" tvg-name="斯诺克 肖国栋5-3奥沙利文 张安达斯佳辉晋级 2026斯诺克世界大奖赛1/8决赛回放：肖国栋5-3罗尼·奥沙利文（柏林） 13:00" tvg-logo="https://img.cmvideo.cn/sports/uploadImages/2024/1/16/100000001001106678f6.jpg" group-title="体育-今天",斯诺克 肖国栋5-3奥沙利文 张安达斯佳辉晋级 2026斯诺克世界大奖赛1/8决赛回放：肖国栋5-3罗尼·奥沙利文（柏林） 13:00
+${replace}/962896979
 #EXTINF:-1 tvg-id="伊拉克VS伊朗" tvg-name="五人制亚洲杯 伊拉克VS伊朗 乔迁 15:45" tvg-logo="https://img.cmvideo.cn/sports/uploadImages/2024/4/10/100000001181106bf55f.png" group-title="体育-今天",五人制亚洲杯 伊拉克VS伊朗 乔迁 15:45
 ${replace}/962763964
 #EXTINF:-1 tvg-id="伊拉克VS伊朗" tvg-name="五人制亚洲杯 伊拉克VS伊朗 赛场原声 15:45" tvg-logo="https://img.cmvideo.cn/sports/uploadImages/2024/4/10/100000001181106bf55f.png" group-title="体育-今天",五人制亚洲杯 伊拉克VS伊朗 赛场原声 15:45
@@ -555,7 +557,7 @@ ${replace}/962771705
 ${replace}/962780971
 #EXTINF:-1 tvg-id="太阳VS勇士" tvg-name="NBA 太阳VS勇士 洪荒 10:55" tvg-logo="https://img.cmvideo.cn/sports/uploadImages/2020/1/10/7f7fd4d8-7213-412b-8a19-02521a6ef852.png" group-title="体育-明天",NBA 太阳VS勇士 洪荒 10:55
 ${replace}/962780984
-#EXTINF:-1 tvg-id="太阳VS勇士" tvg-name="NBA 太阳VS勇士 马布里视角 10:20" tvg-logo="https://img.cmvideo.cn/sports/uploadImages/2020/1/10/7f7fd4d8-7213-412b-8a19-02521a6ef852.png" group-title="体育-明天",NBA 太阳VS勇士 马布里视角 10:20
+#EXTINF:-1 tvg-id="太阳VS勇士" tvg-name="NBA 太阳VS勇士 25/26赛季NBA常规赛: 金州勇士 vs 菲尼克斯太阳（马布里视角） 10:20" tvg-logo="https://img.cmvideo.cn/sports/uploadImages/2020/1/10/7f7fd4d8-7213-412b-8a19-02521a6ef852.png" group-title="体育-明天",NBA 太阳VS勇士 25/26赛季NBA常规赛: 金州勇士 vs 菲尼克斯太阳（马布里视角） 10:20
 ${replace}/962780997
 #EXTINF:-1 tvg-id="太阳VS勇士" tvg-name="NBA 太阳VS勇士 英文原声 10:55" tvg-logo="https://img.cmvideo.cn/sports/uploadImages/2020/1/10/7f7fd4d8-7213-412b-8a19-02521a6ef852.png" group-title="体育-明天",NBA 太阳VS勇士 英文原声 10:55
 ${replace}/962781045

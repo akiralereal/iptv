@@ -1,5 +1,7 @@
 # iPTV
 
+**当前版本：v1.0.0**
+
 # 使用方式
 
 账号🐔了。~~只有标清..~~ 高清为主😅 gitee仓库被改私有了..
@@ -81,32 +83,85 @@ $Env:mport=3000; $Env:mhost="http://localhost:3000"; node app.js
 
 ## docker
 
-初次使用，如有错误还请大佬指正。
-
-### 安装
+### Docker Pull
 
 ```shell
-docker pull ifansclub/iptv:latest
+docker pull akiralereal/iptv:latest
+# 或指定版本
+docker pull akiralereal/iptv:1.0.0
 ```
 
-### 运行
+### 快速运行
 
 ```shell
-docker run -p 1234:1234 --name iptv ifansclub/iptv:latest
+docker run -d -p 1234:1234 --name iptv akiralereal/iptv:latest
 ```
 
-若需要修改配置，可以使用以下命令
+### 自定义配置运行
 
 ```shell
-docker run -p 3000:3000 -e mport=3000 -e mhost="http://localhost:3000" --name iptv ifansclub/iptv:latest
+docker run -d -p 1234:1234 \
+  -e muserId=你的ID \
+  -e mtoken=你的token \
+  -e mport=1234 \
+  -e mhost="http://192.168.1.100:1234" \
+  -e mrateType=4 \
+  --name iptv \
+  akiralereal/iptv:latest
 ```
 
-### 构建
+### Docker Compose 部署
+
+创建 `docker-compose.yml` 文件：
+
+```yaml
+services:
+  iptv:
+    image: akiralereal/iptv:latest              # 使用最新版本镜像
+    container_name: iptv                        # 自定义容器名称
+    ports:
+      - "1234:1234"                             # 宿主机:容器端口映射
+    environment:
+      - muserId=                                # 可选：咪咕账号ID（留空为游客模式）
+      - mtoken=                                 # 可选：咪咕登录令牌（用于高画质/VIP）
+      - mport=1234                              # 必须：容器监听端口，与 ports 对应
+      - mhost=                                  # 可选：外部访问地址（如 http://192.168.1.100:1234）
+      - mrateType=3                             # 画质：2=标清，3=高清，4=蓝光(需VIP)
+      - mpass=                                  # 可选：访问密码（设置后访问: http://ip:port/密码/...）
+      - menableHDR=true                         # 可选：是否开启HDR
+      - menableH265=true                        # 可选：是否开启H265原画（可能有兼容性问题）
+      - mupdateInterval=6                       # 可选：节目信息更新间隔（小时）
+    restart: always                             # 容器异常退出后自动重启
+```
+
+启动服务：
+
+```shell
+docker-compose up -d
+```
+
+常用命令：
+
+```shell
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+
+# 重启服务
+docker-compose restart
+
+# 更新镜像
+docker-compose pull && docker-compose up -d
+```
+
+### 手动构建镜像
 
 若需要手动构建镜像，可以使用以下命令
 
 ```shell
-docker build -t ifansclub/iptv .
+docker build -t akiralereal/iptv:latest .
 ```
 
 # 免责声明

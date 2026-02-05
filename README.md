@@ -11,15 +11,9 @@
 访问地址(可回看当天内容)
 
 ```
-https://raw.githubusercontent.com/develop202/migu_video/refs/heads/main/interface.txt
+https://raw.githubusercontent.com/akiralereal/iPTV/main/interface.txt
 
-https://develop202.github.io/migu_video/interface.txt
-```
-
-网络环境差的话可以用这个(不一定稳定,其他加速网站也可以)
-
-```
-https://gh-proxy.com/https://raw.githubusercontent.com/develop202/migu_video/refs/heads/main/interface.txt
+https://akiralereal.github.io/iPTV/interface.txt
 ```
 
 # 本地部署
@@ -56,8 +50,8 @@ https://gh-proxy.com/https://raw.githubusercontent.com/develop202/migu_video/ref
 ### 安装
 
 ```shell
-git clone git@github.com:develop202/migu_video.git
-cd migu_video
+git clone <your-repository-url>
+cd iPTV
 ```
 
 ### 运行
@@ -92,19 +86,19 @@ $Env:mport=3000; $Env:mhost="http://localhost:3000"; node app.js
 ### 安装
 
 ```shell
-docker pull develop767/migu_video:latest
+docker pull ifansclub/iptv:latest
 ```
 
 ### 运行
 
 ```shell
-docker run -p 1234:1234 --name migu_video develop767/migu_video
+docker run -p 1234:1234 --name iptv ifansclub/iptv:latest
 ```
 
 若需要修改配置，可以使用以下命令
 
 ```shell
-docker run -p 3000:3000 -e mport=3000 -e mhost="http://localhost:3000" --name migu_video develop767/migu_video
+docker run -p 3000:3000 -e mport=3000 -e mhost="http://localhost:3000" --name iptv ifansclub/iptv:latest
 ```
 
 ### 构建
@@ -112,7 +106,7 @@ docker run -p 3000:3000 -e mport=3000 -e mhost="http://localhost:3000" --name mi
 若需要手动构建镜像，可以使用以下命令
 
 ```shell
-docker build -t migu_video .
+docker build -t ifansclub/iptv .
 ```
 
 # 免责声明

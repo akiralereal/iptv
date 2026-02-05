@@ -73,7 +73,7 @@ async function getAllURL() {
     // console.log(datas_js.toString())
     writeFileSync(data_jsPath, datas_js.toString().replace(repoLinkUpdateTimestamp, result.timestamp))
 
-    channelsURLM3U.push(`#EXTM3U x-tvg-url="https://gh-proxy.com/https://raw.githubusercontent.com/develop202/migu_video/refs/heads/main/playback.xml,https://hk.gh-proxy.org/raw.githubusercontent.com/develop202/migu_video/refs/heads/main/playback.xml,https://develop202.github.io/migu_video/playback.xml,https://raw.githubusercontents.com/develop202/migu_video/refs/heads/main/playback.xml" catchup="append" catchup-source="&playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"`)
+    channelsURLM3U.push(`#EXTM3U x-tvg-url="https://raw.githubusercontent.com/akiralereal/iPTV/main/playback.xml" catchup="append" catchup-source="&playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"`)
     let i = 0
     let lastChannelCate = ""
     for (const channel of result?.data) {

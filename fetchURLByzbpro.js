@@ -43,7 +43,7 @@ if (!(start.getHours() % 6)) {
     const playbackFile = `${process.cwd()}/playback.xml.bak`
 
     writeFileSync(playbackFile, `<?xml version="1.0" encoding="UTF-8"?>\n` +
-      `<tv generator-info-name="Tak" generator-info-url="https://github.com/develop202/migu_video">\n`)
+      `<tv generator-info-name="iFansClub" generator-info-url="https://github.com/akiralereal/iPTV">\n`)
     printMagenta("开始更新回放文件...")
     for (const data of datas) {
       for (const dataList of data?.dataList) {

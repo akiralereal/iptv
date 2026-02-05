@@ -44,7 +44,7 @@ async function updateTV(hours) {
   const playbackFile = `${process.cwd()}/playback.xml.bak`
   writeFile(playbackFile,
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<tv generator-info-name="Tak" generator-info-url="${host}">\n`)
+    `<tv generator-info-name="iFansClub" generator-info-url="https://github.com/akiralereal/iPTV">\n`)
 
   // 分类列表
   for (let i = 0; i < datas.length; i++) {

@@ -139,7 +139,7 @@ server.listen(port, async () => {
 
   printGreen(`本地地址: http://localhost:${port}${pass == "" ? "" : "/" + pass}`)
   printGreen(`本程序完全免费，如果您是通过付费渠道获取，那么恭喜你成功被骗了`)
-  printGreen("开源地址: https://github.com/develop202/migu_video 欢迎issue 感谢star")
+  printGreen("开源地址: https://github.com/akiralereal/iPTV 欢迎使用")
   if (host != "") {
     printGreen(`自定义地址: ${host}${pass == "" ? "" : "/" + pass}`)
   }

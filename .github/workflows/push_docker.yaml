@@ -29,4 +29,8 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64/v8,linux/arm/v7,linux/arm/v6,linux/s390x
           push: true
-          tags: akiralereal/iptv:latest
+          tags: |
+            akiralereal/iptv:latest
+            akiralereal/iptv:1.0.0
+            akiralereal/iptv:1.0
+            akiralereal/iptv:1

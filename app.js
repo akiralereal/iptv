@@ -1,10 +1,12 @@
 import http from "node:http"
+import { readFileSync } from "node:fs"
 import { host, pass, port, programInfoUpdateInterval, token, userId } from "./config.js";
 import { getDateTimeStr } from "./utils/time.js";
 import update from "./utils/updateData.js";
 import { printBlue, printGreen, printMagenta, printRed } from "./utils/colorOut.js";
 import { delay } from "./utils/fetchList.js";
 import { channel, interfaceStr } from "./utils/appUtils.js";
+import { getChannelsAPI, getConfigAPI, saveConfigAPI } from "./utils/adminAPI.js";
 
 // 运行时长
 var hours = 0
@@ -20,6 +22,96 @@ const server = http.createServer(async (req, res) => {
 
   // 获取请求方法、URL 和请求头
   let { method, url, headers } = req;
+  
+  // 清理 URL，去除查询参数
+  const urlPath = url.split('?')[0]
+  
+  // 处理 favicon.ico 请求
+  if (urlPath === '/favicon.ico') {
+    res.writeHead(204);
+    res.end();
+    loading = false
+    return
+  }
+  
+  // 管理后台路由（需要密码访问）
+  if (urlPath === '/admin' || urlPath.startsWith('/admin/')) {
+    if (pass !== "" && !urlPath.includes(`/${pass}/admin`)) {
+      // 需要密码但未提供
+      const redirectUrl = `/${pass}/admin`
+      printRed(`管理后台访问需要密码，请访问: ${redirectUrl}`)
+      res.writeHead(200, { 'Content-Type': 'text/html;charset=UTF-8' });
+      res.end(`<html><body>请访问: <a href="${redirectUrl}">${redirectUrl}</a></body></html>`);
+      loading = false
+      return
+    }
+    
+    // 返回管理页面
+    if (urlPath.endsWith('/admin') || urlPath === '/admin/') {
+      try {
+        const html = readFileSync(`${process.cwd()}/web/admin.html`, 'utf-8')
+        res.writeHead(200, { 'Content-Type': 'text/html;charset=UTF-8' });
+        res.end(html);
+        printGreen("管理后台访问")
+      } catch (error) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Admin page not found');
+        printRed("管理页面文件不存在")
+      }
+      loading = false
+      return
+    }
+  }
+  
+  // API 路由
+  if (urlPath.startsWith('/api/')) {
+    // 需要密码时检查
+    if (pass !== "" && !req.headers.referer?.includes(`/${pass}/admin`)) {
+      res.writeHead(403, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify({ success: false, message: '未授权访问' }));
+      loading = false
+      return
+    }
+    
+    if (urlPath === '/api/channels' && method === 'GET') {
+      printBlue("API: 获取频道列表")
+      const result = await getChannelsAPI()
+      printGreen(`API: 返回 ${result.success ? result.data.length : 0} 个分类`)
+      res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify(result.success ? result.data : []));
+      loading = false
+      return
+    }
+    
+    if (urlPath === '/api/config' && method === 'GET') {
+      printBlue("API: 获取配置")
+      const result = getConfigAPI()
+      res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify(result.success ? result.data : {}));
+      loading = false
+      return
+    }
+    
+    if (urlPath === '/api/config' && method === 'POST') {
+      let body = ''
+      req.on('data', chunk => { body += chunk })
+      req.on('end', () => {
+        try {
+          const config = JSON.parse(body)
+          const result = saveConfigAPI(config)
+          res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
+          res.end(JSON.stringify(result));
+          printGreen("配置已保存")
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+          res.end(JSON.stringify({ success: false, message: error.message }));
+        }
+        loading = false
+      })
+      return
+    }
+  }
+  
   // 身份认证
   if (pass != "") {
     const urlSplit = url.split("/")
@@ -58,12 +150,12 @@ const server = http.createServer(async (req, res) => {
   // printGreen("")
   printMagenta("请求地址：" + url)
 
-  if (method != "GET") {
+  if (method != "GET" && method != "POST") {
     res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
     res.end(JSON.stringify({
-      data: '请使用GET请求',
+      data: '请使用GET或POST请求',
     }));
-    printRed(`使用非GET请求:${method}`)
+    printRed(`使用非GET/POST请求:${method}`)
 
     loading = false
     return
@@ -138,8 +230,7 @@ server.listen(port, async () => {
   }
 
   printGreen(`本地地址: http://localhost:${port}${pass == "" ? "" : "/" + pass}`)
-  printGreen(`本程序完全免费，如果您是通过付费渠道获取，那么恭喜你成功被骗了`)
-  printGreen("开源地址: https://github.com/akiralereal/iPTV 欢迎使用")
+  printGreen("开源地址: https://github.com/akiralereal/iptv 欢迎使用")
   if (host != "") {
     printGreen(`自定义地址: ${host}${pass == "" ? "" : "/" + pass}`)
   }

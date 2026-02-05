@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV 频道管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #1890ff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #40a9ff;
+        }
+
+        .btn-success {
+            background: #52c41a;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #73d13d;
+        }
+
+        .btn-danger {
+            background: #ff4d4f;
+            color: white;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #1890ff;
+            padding-bottom: 8px;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .channel-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .category {
+            margin-bottom: 20px;
+        }
+
+        .category-name {
+            font-weight: bold;
+            color: #1890ff;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+            margin-bottom: 10px;
+        }
+
+        .channel-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #fafafa;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .channel-item:hover {
+            background: #e6f7ff;
+            transform: translateX(5px);
+        }
+
+        .channel-item.selected {
+            background: #bae7ff;
+            border-left: 3px solid #1890ff;
+        }
+
+        .custom-groups {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .group {
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .group-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .group-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        .group-channels {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .channel-tag {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .channel-tag .remove {
+            color: #ff4d4f;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .channel-tag .remove:hover {
+            color: #ff7875;
+        }
+
+        .empty-group {
+            color: #999;
+            font-size: 13px;
+            font-style: italic;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 400px;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 20px;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status.success {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+
+        .status.error {
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📺 IPTV 频道管理</h1>
+            <div class="status" id="status"></div>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="addGroup()">➕ 新建分组</button>
+                <button class="btn btn-danger" onclick="resetAllGroups()">🔄 重置所有分组</button>
+                <button class="btn btn-success" onclick="saveConfig()">💾 保存配置</button>
+                <label>
+                    <input type="checkbox" id="enableCustom" onchange="toggleCustomGroups()">
+                    启用自定义分组
+                </label>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="panel">
+                <h2>📋 所有频道</h2>
+                <input type="text" class="search-box" id="searchBox" placeholder="搜索频道..." onkeyup="filterChannels()">
+                <div class="channel-list" id="channelList"></div>
+            </div>
+
+            <div class="panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0;">⭐ 自定义分组</h2>
+                    <button class="btn btn-primary" onclick="addGroup()" style="font-size: 13px;">➕ 添加新分组</button>
+                </div>
+                <div class="custom-groups" id="customGroups"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建/编辑分组对话框 -->
+    <div class="modal" id="groupModal">
+        <div class="modal-content">
+            <h3 id="modalTitle">新建分组</h3>
+            <input type="text" id="groupNameInput" placeholder="输入分组名称">
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="confirmGroup()">确定</button>
+                <button class="btn" onclick="closeModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allChannels = [];
+        let config = {
+            enableCustomGroups: false,
+            customGroups: [],
+            excludeChannels: []
+        };
+        let currentEditingGroup = null;
+
+        // 加载数据
+        async function loadData() {
+            try {
+                // 加载所有频道
+                const channelsRes = await fetch('/api/channels');
+                allChannels = await channelsRes.json();
+                
+                // 加载配置
+                const configRes = await fetch('/api/config');
+                config = await configRes.json();
+                
+                renderChannels();
+                renderGroups();
+                document.getElementById('enableCustom').checked = config.enableCustomGroups;
+            } catch (error) {
+                showStatus('加载数据失败: ' + error.message, 'error');
+            }
+        }
+
+        // 渲染频道列表
+        function renderChannels() {
+            const container = document.getElementById('channelList');
+            container.innerHTML = '';
+            
+            allChannels.forEach(category => {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'category';
+                categoryDiv.innerHTML = `<div class="category-name">${category.name}</div>`;
+                
+                category.dataList.forEach(channel => {
+                    const channelDiv = document.createElement('div');
+                    channelDiv.className = 'channel-item';
+                    channelDiv.innerHTML = `
+                        <span>${channel.name}</span>
+                        <button class="btn btn-small btn-primary" onclick="addChannelToGroup('${channel.name}')">添加 ➜</button>
+                    `;
+                    categoryDiv.appendChild(channelDiv);
+                });
+                
+                container.appendChild(categoryDiv);
+            });
+        }
+
+        // 搜索频道
+        function filterChannels() {
+            const keyword = document.getElementById('searchBox').value.toLowerCase();
+            const items = document.querySelectorAll('.channel-item');
+            
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(keyword) ? 'flex' : 'none';
+            });
+        }
+
+        // 渲染分组
+        function renderGroups() {
+            const container = document.getElementById('customGroups');
+            container.innerHTML = '';
+            
+            if (config.customGroups.length === 0) {
+                container.innerHTML = '<div class="empty-group">暂无自定义分组，点击上方"➕ 添加新分组"按钮开始创建</div>';
+                return;
+            }
+            
+            config.customGroups.forEach((group, index) => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'group';
+                
+                const channelsHtml = group.channels.length > 0 
+                    ? group.channels.map(ch => `
+                        <div class="channel-tag">
+                            ${ch}
+                            <span class="remove" onclick="removeChannelFromGroup(${index}, '${ch}')">×</span>
+                        </div>
+                    `).join('')
+                    : '<div class="empty-group">暂无频道，从左侧添加频道</div>';
+                
+                groupDiv.innerHTML = `
+                    <div class="group-header">
+                        <div class="group-name">${group.name}</div>
+                        <div class="group-actions">
+                            <button class="btn btn-small btn-primary" onclick="editGroup(${index})">编辑</button>
+                            <button class="btn btn-small btn-danger" onclick="deleteGroup(${index})">删除</button>
+                        </div>
+                    </div>
+                    <div class="group-channels">${channelsHtml}</div>
+                `;
+                
+                container.appendChild(groupDiv);
+            });
+        }
+
+        // 新建分组
+        function addGroup() {
+            currentEditingGroup = null;
+            document.getElementById('modalTitle').textContent = '新建分组';
+            document.getElementById('groupNameInput').value = '';
+            document.getElementById('groupModal').style.display = 'block';
+        }
+
+        // 编辑分组
+        function editGroup(index) {
+            currentEditingGroup = index;
+            document.getElementById('modalTitle').textContent = '编辑分组';
+            document.getElementById('groupNameInput').value = config.customGroups[index].name;
+            document.getElementById('groupModal').style.display = 'block';
+        }
+
+        // 确认分组
+        function confirmGroup() {
+            const name = document.getElementById('groupNameInput').value.trim();
+            if (!name) {
+                alert('请输入分组名称');
+                return;
+            }
+            
+            if (currentEditingGroup === null) {
+                // 新建
+                config.customGroups.push({
+                    name: name,
+                    channels: []
+                });
+            } else {
+                // 编辑
+                config.customGroups[currentEditingGroup].name = name;
+            }
+            
+            closeModal();
+            renderGroups();
+        }
+
+        // 删除分组
+        function deleteGroup(index) {
+            if (confirm('确定要删除这个分组吗？')) {
+                config.customGroups.splice(index, 1);
+                renderGroups();
+            }
+        }
+
+        // 重置所有分组
+        function resetAllGroups() {
+            if (config.customGroups.length === 0) {
+                showStatus('当前没有任何分组', 'error');
+                return;
+            }
+            
+            const groupCount = config.customGroups.length;
+            if (confirm(`确定要删除所有 ${groupCount} 个分组吗？此操作不可恢复！`)) {
+                config.customGroups = [];
+                config.enableCustomGroups = false;
+                document.getElementById('enableCustom').checked = false;
+                renderGroups();
+                showStatus('已重置所有分组', 'success');
+            }
+        }
+
+        // 添加频道到当前选中分组
+        let currentSelectedGroup = 0;
+        function addChannelToGroup(channelName) {
+            if (config.customGroups.length === 0) {
+                alert('请先创建分组');
+                return;
+            }
+            
+            // 简单实现：添加到第一个分组，可以改进为弹窗选择
+            const groupIndex = currentSelectedGroup % config.customGroups.length;
+            const group = config.customGroups[groupIndex];
+            
+            if (!group.channels.includes(channelName)) {
+                group.channels.push(channelName);
+                renderGroups();
+                showStatus(`已添加 "${channelName}" 到 "${group.name}"`, 'success');
+            } else {
+                showStatus(`"${channelName}" 已在分组中`, 'error');
+            }
+        }
+
+        // 从分组移除频道
+        function removeChannelFromGroup(groupIndex, channelName) {
+            const group = config.customGroups[groupIndex];
+            group.channels = group.channels.filter(ch => ch !== channelName);
+            renderGroups();
+        }
+
+        // 切换自定义分组
+        function toggleCustomGroups() {
+            config.enableCustomGroups = document.getElementById('enableCustom').checked;
+        }
+
+        // 保存配置
+        async function saveConfig() {
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                if (response.ok) {
+                    showStatus('配置保存成功！', 'success');
+                } else {
+                    showStatus('配置保存失败', 'error');
+                }
+            } catch (error) {
+                showStatus('保存失败: ' + error.message, 'error');
+            }
+        }
+
+        // 关闭对话框
+        function closeModal() {
+            document.getElementById('groupModal').style.display = 'none';
+        }
+
+        // 显示状态消息
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        }
+
+        // 页面加载时初始化
+        window.onload = loadData;
+    </script>
+</body>
+</html>

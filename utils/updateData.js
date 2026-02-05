@@ -3,9 +3,10 @@ import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile } f
 import { updatePlaybackData } from "./playback.js"
 import { /* refreshToken as mrefreshToken, */ host, pass, token, userId } from "../config.js"
 import refreshToken from "./refreshToken.js"
-import { printGreen, printRed, printYellow } from "./colorOut.js"
+import { printGreen, printRed, printYellow, printBlue } from "./colorOut.js"
 import { getDateString } from "./time.js"
 import { fetchUrl } from "./net.js"
+import { loadCustomChannels, applyCustomGroups, filterExcludedChannels } from "./customChannels.js"
 
 /**
  * @param {Number} hours -更新小时数 
@@ -17,8 +18,26 @@ async function updateTV(hours) {
   let interfacePath = ""
   let interfaceTXTPath = ""
   // 获取数据
-  const datas = await dataList()
+  let datas = await dataList()
   printGreen("TV数据获取成功！")
+
+  // 加载自定义频道配置
+  const customConfig = loadCustomChannels()
+  if (customConfig) {
+    printBlue("检测到自定义频道配置")
+    
+    // 应用排除规则
+    if (customConfig.excludeChannels && customConfig.excludeChannels.length > 0) {
+      datas = filterExcludedChannels(datas, customConfig.excludeChannels)
+      printBlue(`已过滤排除频道`)
+    }
+    
+    // 应用自定义分组
+    if (customConfig.enableCustomGroups) {
+      datas = applyCustomGroups(datas, customConfig)
+      printGreen("已应用自定义频道分组")
+    }
+  }
 
   interfacePath = `${process.cwd()}/interface.txt.bak`
   // txt

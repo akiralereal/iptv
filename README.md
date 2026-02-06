@@ -28,17 +28,33 @@ https://raw.githubusercontent.com/akiralereal/iptv/main/interface.txt
 1. 登录后使用请注意账号安全
 2. 需要中国大陆网络环境才可正常访问
 
-### 配置说明
+### 使用模式
 
-服务默认支持本机和局域网访问。如需使用账号登录获取高画质，请配置以下参数。
+#### 🎯 游客模式（推荐，无需配置）
+
+- ✅ 无需配置账号，开箱即用
+- ✅ 支持所有普通频道（央视、卫视、地方台等）
+- ✅ 支持回看功能
+- ⚠️ 画质限制为 **720p**
+
+#### 🎫 VIP 会员模式
+
+- ✅ 支持高清及以上画质（1080p、蓝光、4K）
+- ✅ 支持体育赛事等会员内容
+- ⚠️ 需要配置 `muserId` 和 `mtoken`
+- ⚠️ 需要咪咕视频 VIP 会员
+
+> **提示**：登录普通账号（无VIP）与游客模式效果相同，都是 720p 画质。只有 VIP 会员才能观看高清及以上画质。
+
+### 配置说明
 
 | 变量名          | 默认值 | 类型    | 介绍                                                                                      |
 | --------------- | ------ | ------- | ----------------------------------------------------------------------------------------- |
-| muserId         |        | string  | 用户id<br>可在网页端登录获取                                                              |
-| mtoken          |        | string  | 用户token<br>可在网页端登录获取                                                           |
+| muserId         |        | string  | 用户id（仅VIP用户需要配置）<br>可在网页端登录获取                                          |
+| mtoken          |        | string  | 用户token（仅VIP用户需要配置）<br>可在网页端登录获取                                       |
 | mport           | 1905   | number  | 本地运行端口号                                                                            |
 | mhost           |        | string  | 公网/自定义访问地址<br>格式<http://ip:port>                                               |
-| mrateType       | 3      | number  | 画质<br>2: 标清<br>3: 高清<br>4: 蓝光<br>7: 原画<br>9: 4k<br>ps:蓝光及以上需要登录且有VIP |
+| mrateType       | 3      | number  | 画质<br>2: 标清<br>3: 高清 (需VIP)<br>4: 蓝光 (需VIP)<br>7: 原画 (需VIP)<br>9: 4K (需VIP)<br>**无VIP时自动降级为720p** |
 | mpass           |        | string  | 访问密码 大小写字母和数字<br>添加后访问格式 <http://ip:port/mpass/>...                    |
 | menableHDR      | true   | boolean | 是否开启HDR                                                                               |
 | menableH265     | true   | boolean | 是否开启h265(原画画质)，开启后可能存在兼容性问题，比如浏览器播放没有画面                  |

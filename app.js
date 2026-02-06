@@ -8,7 +8,8 @@ import { delay } from "./utils/fetchList.js";
 import { channel, interfaceStr } from "./utils/appUtils.js";
 import { getChannelsAPI, getConfigAPI, saveConfigAPI, 
          getExternalSourcesAPI, saveExternalSourcesAPI, addExternalSourceAPI,
-         removeExternalSourceAPI, updateExternalSourceAPI, setExternalSourceM3u8API } from "./utils/adminAPI.js";
+         removeExternalSourceAPI, updateExternalSourceAPI, setExternalSourceM3u8API,
+         resetGroupsToDefaultAPI } from "./utils/adminAPI.js";
 
 // 运行时长
 var hours = 0
@@ -113,6 +114,16 @@ const server = http.createServer(async (req, res) => {
       return
     }
     
+    if (urlPath === '/api/reset-groups' && method === 'POST') {
+      printBlue("API: 重置分组为默认分组")
+      const result = await resetGroupsToDefaultAPI()
+      res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify(result));
+      printGreen(result.success ? "分组已重置为默认分组" : "重置失败")
+      loading = false
+      return
+    }
+    
     // 外部源管理API
     if (urlPath === '/api/external-sources' && method === 'GET') {
       printBlue("API: 获取外部源配置")
@@ -132,7 +143,7 @@ const server = http.createServer(async (req, res) => {
           let result
           
           if (data.action === 'save') {
-            result = saveExternalSourcesAPI(data.sources)
+            result = await saveExternalSourcesAPI(data.sources)
           } else if (data.action === 'add') {
             result = addExternalSourceAPI(data.source)
           } else if (data.action === 'remove') {

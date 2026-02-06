@@ -781,20 +781,31 @@
             }
         }
 
-        // 重置所有分组
-        function resetAllGroups() {
-            if (config.customGroups.length === 0) {
-                showStatus('当前没有任何分组', 'error');
-                return;
-            }
-            
-            const groupCount = config.customGroups.length;
-            if (confirm(`确定要删除所有 ${groupCount} 个分组吗？此操作不可恢复！`)) {
-                config.customGroups = [];
-                config.enableCustomGroups = false;
-                document.getElementById('enableCustom').checked = false;
-                renderGroups();
-                showStatus('已重置所有分组', 'success');
+        // 重置所有分组（将默认分组作为自定义分组的初始值）
+        async function resetAllGroups() {
+            if (confirm('确定要重置分组吗？\n\n这将把当前的默认分组导入为自定义分组，您可以在此基础上进行调整。')) {
+                try {
+                    const response = await fetch('/api/reset-groups', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // 重新加载配置
+                        config = result.data;
+                        document.getElementById('enableCustom').checked = config.enableCustomGroups;
+                        renderGroups();
+                        showStatus(result.message, 'success');
+                    } else {
+                        showStatus(result.message || '重置失败', 'error');
+                    }
+                } catch (error) {
+                    showStatus('重置失败: ' + error.message, 'error');
+                }
             }
         }
 

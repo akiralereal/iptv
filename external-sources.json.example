@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "includeInPlaylists": true,
+  "sources": [
+    {
+      "name": "示例频道",
+      "group": "体育",
+      "webUrl": "https://example.com/channel.html",
+      "m3u8Url": "",
+      "enabled": true,
+      "extractOptions": {
+        "waitTime": 5000,
+        "headless": true
+      },
+      "lastUpdated": null
+    }
+  ],
+  "lastGlobalUpdate": null
+}

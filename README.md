@@ -105,6 +105,46 @@ https://raw.githubusercontent.com/akiralereal/iptv/main/interface.txt
 - 配置保存在 `custom-channels.json` 文件中
 - 服务重启后自动加载配置
 
+### 配置文件说明
+
+项目提供了示例配置文件，首次使用时需要复制并修改：
+
+#### 自定义分组配置
+
+```bash
+# 复制示例文件
+cp custom-channels.json.example custom-channels.json
+```
+
+`custom-channels.json` 配置说明：
+- `enableCustomGroups`: 是否启用自定义分组（true/false）
+- `customGroups`: 自定义分组列表
+  - `name`: 分组名称
+  - `channels`: 该分组包含的频道名称列表
+- `excludeChannels`: 要排除的频道名称列表
+
+#### 外部源配置
+
+```bash
+# 复制示例文件
+cp external-sources.json.example external-sources.json
+```
+
+`external-sources.json` 配置说明：
+- `enabled`: 是否启用外部源（true/false）
+- `includeInPlaylists`: 是否将外部源包含在播放列表中（true/false）
+- `sources`: 外部源列表
+  - `name`: 频道名称
+  - `group`: 分组名称
+  - `webUrl`: 网页地址（用于自动抓取 m3u8）
+  - `m3u8Url`: 直播流地址（可手动填写或自动抓取）
+  - `enabled`: 是否启用该频道
+  - `extractOptions`: 抓取选项
+    - `waitTime`: 等待时间（毫秒）
+    - `headless`: 是否使用无头浏览器
+
+**注意**：配置文件为个人配置，不会被提交到 Git 仓库。
+
 ### 使用示例
 
 ```bash

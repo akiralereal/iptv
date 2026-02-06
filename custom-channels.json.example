@@ -1,0 +1,24 @@
+{
+  "enableCustomGroups": false,
+  "customGroups": [
+    {
+      "name": "我的常看频道",
+      "channels": [
+        "CCTV1综合",
+        "CCTV5体育",
+        "CCTV13新闻"
+      ]
+    },
+    {
+      "name": "体育频道",
+      "channels": [
+        "CCTV5体育",
+        "CCTV5+体育赛事"
+      ]
+    }
+  ],
+  "excludeChannels": [
+    "广告频道",
+    "购物频道"
+  ]
+}

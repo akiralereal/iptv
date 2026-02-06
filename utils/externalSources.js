@@ -115,27 +115,31 @@ class ExternalSourceManager {
     if (index < 0 || index >= this.sources.sources.length) {
       return { success: false, message: '索引无效' }
     }
-    
     const source = this.sources.sources[index]
     if (!source.enabled) {
       return { success: false, message: '源已禁用' }
     }
-    
+
+    // 新增：如果 webUrl 为空且 m3u8Url 已填写，直接视为抓取成功
+    if (!source.webUrl && source.m3u8Url) {
+      this.sources.sources[index].lastUpdated = new Date().toISOString()
+      this.saveSources()
+      printGreen(`${source.name} 已手动填写m3u8，跳过网页抓取`)
+      return { success: true, m3u8Url: source.m3u8Url, info: '已手动填写m3u8，跳过网页抓取' }
+    }
+
     try {
       printBlue(`更新外部源: ${source.name}`)
-      
       const extracted = await extractM3u8FromWeb(source.webUrl, {
         playButtonSelector: source.playButtonSelector,
         returnAll: true,
         ...source.extractOptions
       })
-      
       const candidates = Array.isArray(extracted)
         ? extracted
         : extracted
           ? [extracted]
           : []
-
       if (candidates.length > 0) {
         // 验证链接有效性（逐个尝试）
         for (const candidate of candidates) {
@@ -148,7 +152,6 @@ class ExternalSourceManager {
             return { success: true, m3u8Url: candidate }
           }
         }
-
         // 校验失败时仍保存首个链接，避免防盗链导致无法更新
         const fallback = candidates[0]
         this.sources.sources[index].m3u8Url = fallback
@@ -160,7 +163,6 @@ class ExternalSourceManager {
         printRed(`${source.name} 未能提取到m3u8链接`)
         return { success: false, message: '未能提取到m3u8链接' }
       }
-      
     } catch (error) {
       printRed(`${source.name} 更新失败: ${error.message}`)
       return { success: false, message: error.message }

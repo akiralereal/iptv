@@ -4,6 +4,7 @@ package-lock.json
 # 个人配置文件（包含个人频道源和自定义分组）
 custom-channels.json
 external-sources.json
+system-config.json
 
 # 生成的播放列表文件（根据配置自动生成）
 interface.txt

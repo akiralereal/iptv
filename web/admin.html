@@ -376,6 +376,47 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .system-config-item {
+            margin-bottom: 15px;
+        }
+
+        .system-config-item label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .system-config-item input[type="text"],
+        .system-config-item input[type="number"],
+        .system-config-item select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .system-config-item input[type="checkbox"] {
+            margin-right: 6px;
+        }
+
+        .system-config-hint {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        .system-config-warning {
+            background: #fff7e6;
+            border: 1px solid #ffd666;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 15px;
+            color: #ad6800;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -433,6 +474,65 @@
                 </div>
                 <div class="external-list" id="externalSourceList"></div>
             </div>
+
+            <div class="panel">
+                <h2>⚙️ 系统配置</h2>
+                <div class="system-config-warning">
+                    ⚠️ 修改系统配置后需要<strong>重启服务</strong>才能生效
+                </div>
+                <div class="system-config-item">
+                    <label>咪咕用户ID</label>
+                    <input type="text" id="sysUserId" placeholder="留空为游客模式">
+                    <div class="system-config-hint">VIP用户填写，游客模式可留空</div>
+                </div>
+                <div class="system-config-item">
+                    <label>咪咕Token</label>
+                    <input type="text" id="sysToken" placeholder="留空为游客模式">
+                    <div class="system-config-hint">VIP用户填写，游客模式可留空</div>
+                </div>
+                <div class="system-config-item">
+                    <label>画质</label>
+                    <select id="sysRateType">
+                        <option value="2">标清</option>
+                        <option value="3">高清（需VIP）</option>
+                        <option value="4">蓝光（需VIP）</option>
+                        <option value="7">原画（需VIP）</option>
+                        <option value="9">4K（需VIP）</option>
+                    </select>
+                    <div class="system-config-hint">无VIP时自动降级为720p</div>
+                </div>
+                <div class="system-config-item">
+                    <label>服务端口</label>
+                    <input type="number" id="sysPort" placeholder="1905">
+                </div>
+                <div class="system-config-item">
+                    <label>公网地址</label>
+                    <input type="text" id="sysHost" placeholder="http://ip:port">
+                    <div class="system-config-hint">选填，用于生成播放列表链接</div>
+                </div>
+                <div class="system-config-item">
+                    <label>访问密码</label>
+                    <input type="text" id="sysPass" placeholder="留空表示无密码">
+                    <div class="system-config-hint">设置后访问格式：http://ip:port/密码/...</div>
+                </div>
+                <div class="system-config-item">
+                    <label>节目单更新间隔（小时）</label>
+                    <input type="number" id="sysProgramInterval" placeholder="6">
+                </div>
+                <div class="system-config-item">
+                    <label>
+                        <input type="checkbox" id="sysEnableHDR">
+                        启用 HDR
+                    </label>
+                </div>
+                <div class="system-config-item">
+                    <label>
+                        <input type="checkbox" id="sysEnableH265">
+                        启用 H.265（可能存在兼容性问题）
+                    </label>
+                </div>
+                <button class="btn btn-success" onclick="saveSystemConfig()">💾 保存系统配置</button>
+            </div>
         </div>
     </div>
 
@@ -460,6 +560,7 @@
             includeInPlaylists: true,
             sources: []
         };
+        let systemConfig = {};
         let currentEditingGroup = null;
         let updatingSourceIndex = null; // 记录正在更新的源索引
 
@@ -479,9 +580,14 @@
                 const externalPayload = await externalRes.json();
                 externalConfig = normalizeExternalConfig(externalPayload);
                 
+                // 加载系统配置
+                const systemRes = await fetch('/api/system-config');
+                systemConfig = await systemRes.json();
+                
                 renderChannels();
                 renderGroups();
                 renderExternalSources();
+                renderSystemConfig();
                 document.getElementById('enableCustom').checked = config.enableCustomGroups;
             } catch (error) {
                 showStatus('加载数据失败: ' + error.message, 'error');
@@ -886,6 +992,54 @@
             setTimeout(() => {
                 status.style.display = 'none';
             }, 3000);
+        }
+
+        // 渲染系统配置
+        function renderSystemConfig() {
+            document.getElementById('sysUserId').value = systemConfig.userId || '';
+            document.getElementById('sysToken').value = systemConfig.token || '';
+            document.getElementById('sysPort').value = systemConfig.port || 1905;
+            document.getElementById('sysHost').value = systemConfig.host || '';
+            document.getElementById('sysRateType').value = systemConfig.rateType || 3;
+            document.getElementById('sysPass').value = systemConfig.pass || '';
+            document.getElementById('sysProgramInterval').value = systemConfig.programInfoUpdateInterval || '6';
+            document.getElementById('sysEnableHDR').checked = systemConfig.enableHDR !== false;
+            document.getElementById('sysEnableH265').checked = systemConfig.enableH265 !== false;
+        }
+
+        // 保存系统配置
+        async function saveSystemConfig() {
+            try {
+                const config = {
+                    userId: document.getElementById('sysUserId').value,
+                    token: document.getElementById('sysToken').value,
+                    port: parseInt(document.getElementById('sysPort').value) || 1905,
+                    host: document.getElementById('sysHost').value,
+                    rateType: parseInt(document.getElementById('sysRateType').value) || 3,
+                    pass: document.getElementById('sysPass').value,
+                    programInfoUpdateInterval: document.getElementById('sysProgramInterval').value || '6',
+                    enableHDR: document.getElementById('sysEnableHDR').checked,
+                    enableH265: document.getElementById('sysEnableH265').checked
+                };
+
+                const response = await fetch('/api/system-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus(result.message, 'success');
+                } else {
+                    showStatus(result.message || '保存失败', 'error');
+                }
+            } catch (error) {
+                showStatus('保存失败: ' + error.message, 'error');
+            }
         }
 
         // 页面加载时初始化

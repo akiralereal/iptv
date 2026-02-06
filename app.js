@@ -10,6 +10,7 @@ import { getChannelsAPI, getConfigAPI, saveConfigAPI,
          getExternalSourcesAPI, saveExternalSourcesAPI, addExternalSourceAPI,
          removeExternalSourceAPI, updateExternalSourceAPI, setExternalSourceM3u8API,
          resetGroupsToDefaultAPI } from "./utils/adminAPI.js";
+import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 
 // 运行时长
 var hours = 0
@@ -121,6 +122,34 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify(result));
       printGreen(result.success ? "分组已重置为默认分组" : "重置失败")
       loading = false
+      return
+    }
+    
+    if (urlPath === '/api/system-config' && method === 'GET') {
+      printBlue("API: 获取系统配置")
+      const result = getSystemConfigAPI()
+      res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify(result.success ? result.data : {}));
+      loading = false
+      return
+    }
+    
+    if (urlPath === '/api/system-config' && method === 'POST') {
+      let body = ''
+      req.on('data', chunk => { body += chunk })
+      req.on('end', () => {
+        try {
+          const config = JSON.parse(body)
+          const result = saveSystemConfigAPI(config)
+          res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
+          res.end(JSON.stringify(result));
+          printGreen(result.success ? "系统配置已保存" : "保存失败")
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+          res.end(JSON.stringify({ success: false, message: error.message }));
+        }
+        loading = false
+      })
       return
     }
     

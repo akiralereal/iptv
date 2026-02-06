@@ -1,0 +1,11 @@
+{
+  "userId": "",
+  "token": "",
+  "port": 1905,
+  "host": "",
+  "rateType": 3,
+  "pass": "",
+  "enableHDR": true,
+  "enableH265": true,
+  "programInfoUpdateInterval": "6"
+}

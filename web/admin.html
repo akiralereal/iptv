@@ -348,6 +348,12 @@
             font-size: 13px;
         }
 
+        .form-hint {
+            margin-top: 4px;
+            font-size: 12px;
+            color: #888;
+        }
+
         .external-item .full {
             grid-column: 1 / -1;
         }
@@ -602,6 +608,7 @@
                     <div class="full">
                         <label>m3u8 链接</label>
                         <input type="text" value="${source.m3u8Url || ''}" oninput="updateExternalField(${index}, 'm3u8Url', this.value)">
+                        <div class="form-hint">网页地址为空时，将直接使用 m3u8 链接。</div>
                     </div>
                     <div class="external-actions full">
                         <label>

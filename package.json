@@ -1,5 +1,9 @@
 {
   "name": "iptv",
   "version": "1.0.1",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^24.37.1"
+  }
 }

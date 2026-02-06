@@ -108,6 +108,8 @@ https://raw.githubusercontent.com/akiralereal/iptv/main/interface.txt
 ### 使用示例
 
 ```bash
+# 杀掉进程
+pkill -f "node app.js"
 # 启动服务
 node app.js
 

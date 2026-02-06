@@ -2,10 +2,7 @@
   "customGroups": [
     {
       "name": "娱乐",
-      "channels": [
-        "CCTV5体育",
-        "CCTV3综艺"
-      ]
+      "channels": []
     }
   ],
   "excludeChannels": [],

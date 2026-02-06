@@ -1,4 +1,4 @@
-import { dataList } from "./fetchList.js"
+import { getAllChannels, updateExternalSources, externalSourceManager } from "./channelMerger.js"
 import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile } from "./fileUtil.js"
 import { updatePlaybackData } from "./playback.js"
 import { /* refreshToken as mrefreshToken, */ host, pass, token, userId } from "../config.js"
@@ -17,8 +17,13 @@ async function updateTV(hours) {
   const start = date.getTime()
   let interfacePath = ""
   let interfaceTXTPath = ""
-  // 获取数据
-  let datas = await dataList()
+  
+  // 更新外部源
+  printBlue("开始更新外部源...")
+  await updateExternalSources()
+  
+  // 获取数据（咪咕 + 外部源）
+  let datas = await getAllChannels()
   printGreen("TV数据获取成功！")
 
   // 加载自定义频道配置
@@ -66,6 +71,7 @@ async function updateTV(hours) {
     `<tv generator-info-name="iFansClub" generator-info-url="https://github.com/akiralereal/iPTV">\n`)
 
   // 分类列表
+  const includeExternalInPlaylists = externalSourceManager.sources?.includeInPlaylists !== false
   for (let i = 0; i < datas.length; i++) {
 
     const data = datas[i].dataList
@@ -73,13 +79,23 @@ async function updateTV(hours) {
     appendFile(interfaceTXTPath, `${datas[i].name},#genre#\n`)
     // 写入节目
     for (let j = 0; j < data.length; j++) {
+      const channelItem = data[j]
+      const isExternal = channelItem.source === 'external' || !!channelItem.url
+      const logoUrl = channelItem.pics?.highResolutionH || channelItem.logo || ""
+      const playUrl = isExternal ? channelItem.url : `\${replace}/${channelItem.pID}`
 
-      await updatePlaybackData(data[j], playbackFile)
+      if (isExternal && !includeExternalInPlaylists) {
+        continue
+      }
+
+      if (!isExternal) {
+        await updatePlaybackData(channelItem, playbackFile)
+      }
 
       // 写入节目
-      appendFile(interfacePath, `#EXTINF:-1 tvg-id="${data[j].name}" tvg-name="${data[j].name}" tvg-logo="${data[j].pics.highResolutionH}" group-title="${datas[i].name}",${data[j].name}\n\${replace}/${data[j].pID}\n`)
+      appendFile(interfacePath, `#EXTINF:-1 tvg-id="${channelItem.name}" tvg-name="${channelItem.name}" tvg-logo="${logoUrl}" group-title="${datas[i].name}",${channelItem.name}\n${playUrl}\n`)
       // txt
-      appendFile(interfaceTXTPath, `${data[j].name},\${replace}/${data[j].pID}\n`)
+      appendFile(interfaceTXTPath, `${channelItem.name},${playUrl}\n`)
       // printGreen(`    节目链接更新成功`)
     }
     printGreen(`分类###:${datas[i].name} 更新完成！`)

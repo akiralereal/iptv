@@ -1,4 +1,5 @@
 import os from "os"
+import fetch from 'node-fetch'
 import { printRed } from "./colorOut.js";
 
 function getLocalIPv(ver = 4) {

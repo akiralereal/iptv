@@ -1,14 +1,14 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
-import { dataList } from "./fetchList.js"
+import { getAllChannels, externalSourceManager } from "./channelMerger.js"
 
 const CONFIG_PATH = `${process.cwd()}/custom-channels.json`
 
 /**
- * 获取所有频道数据
+ * 获取所有频道数据（咪咕 + 外部源）
  */
 export async function getChannelsAPI() {
   try {
-    const channels = await dataList()
+    const channels = await getAllChannels()
     return {
       success: true,
       data: channels
@@ -61,6 +61,100 @@ export function saveConfigAPI(config) {
       success: true,
       message: '配置保存成功'
     }
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message
+    }
+  }
+}
+
+/**
+ * 获取外部源配置
+ */
+export function getExternalSourcesAPI() {
+  try {
+    return {
+      success: true,
+      data: externalSourceManager.sources
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message
+    }
+  }
+}
+
+/**
+ * 保存外部源配置
+ */
+export function saveExternalSourcesAPI(sources) {
+  try {
+    const result = externalSourceManager.saveSources(sources)
+    return result
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message
+    }
+  }
+}
+
+/**
+ * 添加外部源
+ */
+export function addExternalSourceAPI(sourceConfig) {
+  try {
+    return externalSourceManager.addSource(sourceConfig)
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message
+    }
+  }
+}
+
+/**
+ * 删除外部源
+ */
+export function removeExternalSourceAPI(index) {
+  try {
+    return externalSourceManager.removeSource(index)
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message
+    }
+  }
+}
+
+/**
+ * 更新外部源
+ */
+export async function updateExternalSourceAPI(index) {
+  try {
+    if (index === -1) {
+      // 更新所有源
+      return await externalSourceManager.updateAllSources()
+    } else {
+      // 更新单个源
+      return await externalSourceManager.updateSource(index)
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message
+    }
+  }
+}
+
+/**
+ * 手动设置外部源的 m3u8 链接
+ */
+export function setExternalSourceM3u8API(index, m3u8Url) {
+  try {
+    return externalSourceManager.setM3u8Url(index, m3u8Url)
   } catch (error) {
     return {
       success: false,

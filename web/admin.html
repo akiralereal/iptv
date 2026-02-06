@@ -23,11 +23,14 @@
         }
 
         .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
             background: white;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
 
         .header h1 {
@@ -76,7 +79,7 @@
 
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 20px;
         }
 
@@ -272,7 +275,97 @@
             color: #ff4d4f;
         }
 
-        @media (max-width: 1024px) {
+        .external-panel {
+            margin-top: 20px;
+        }
+
+        .external-usage {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 4px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        .external-usage h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #1890ff;
+        }
+
+        .external-usage ol {
+            margin: 0;
+            padding-left: 20px;
+            color: #595959;
+        }
+
+        .external-usage li {
+            margin-bottom: 4px;
+        }
+
+        .external-toggles {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .external-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .external-list {
+            max-height: 520px;
+            overflow-y: auto;
+        }
+
+        .external-item {
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: #fafafa;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .external-item label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .external-item input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .external-item .full {
+            grid-column: 1 / -1;
+        }
+
+        .external-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 1280px) {
+            .main-content {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 900px) {
             .main-content {
                 grid-template-columns: 1fr;
             }
@@ -284,15 +377,6 @@
         <div class="header">
             <h1>📺 IPTV 频道管理</h1>
             <div class="status" id="status"></div>
-            <div class="controls">
-                <button class="btn btn-primary" onclick="addGroup()">➕ 新建分组</button>
-                <button class="btn btn-danger" onclick="resetAllGroups()">🔄 重置所有分组</button>
-                <button class="btn btn-success" onclick="saveConfig()">💾 保存配置</button>
-                <label>
-                    <input type="checkbox" id="enableCustom" onchange="toggleCustomGroups()">
-                    启用自定义分组
-                </label>
-            </div>
         </div>
 
         <div class="main-content">
@@ -303,11 +387,44 @@
             </div>
 
             <div class="panel">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h2 style="margin: 0;">⭐ 自定义分组</h2>
-                    <button class="btn btn-primary" onclick="addGroup()" style="font-size: 13px;">➕ 添加新分组</button>
+                <h2>⭐ 自定义分组</h2>
+                <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="addGroup()">➕ 新建分组</button>
+                    <button class="btn btn-danger" onclick="resetAllGroups()">🔄 重置所有分组</button>
+                    <button class="btn btn-success" onclick="saveConfig()">💾 保存配置</button>
+                    <label>
+                        <input type="checkbox" id="enableCustom" onchange="toggleCustomGroups()">
+                        启用自定义分组
+                    </label>
                 </div>
                 <div class="custom-groups" id="customGroups"></div>
+            </div>
+
+            <div class="panel">
+                <h2>🌐 外部源管理</h2>
+                <div class="external-usage">
+                    <h4>📖 使用说明</h4>
+                    <ol>
+                        <li>填写外部源信息：<strong>名称、分组、待抓取链接</strong></li>
+                        <li>点击 <strong>"抓取"</strong> 按钮，抓取完成后频道链接会自动填充到 "m3u8 链接" 输入框</li>
+                        <li>修改频道名、分组等信息后，记得点击 <strong>"💾 保存"</strong> 按钮保存配置</li>
+                    </ol>
+                </div>
+                <div class="external-toggles">
+                    <label>
+                        <input type="checkbox" id="externalEnabled" onchange="toggleExternalEnabled()">
+                        启用外部源
+                    </label>
+                    <label>
+                        <input type="checkbox" id="externalIncludeInPlaylists" onchange="toggleExternalIncludeInPlaylists()">
+                        写入 m3u/txt
+                    </label>
+                </div>
+                <div class="external-buttons">
+                    <button class="btn btn-primary" onclick="addExternalSource()">➥ 添加外部源</button>
+                    <button class="btn btn-success" onclick="saveExternalSources()">💾 保存</button>
+                </div>
+                <div class="external-list" id="externalSourceList"></div>
             </div>
         </div>
     </div>
@@ -331,7 +448,13 @@
             customGroups: [],
             excludeChannels: []
         };
+        let externalConfig = {
+            enabled: false,
+            includeInPlaylists: true,
+            sources: []
+        };
         let currentEditingGroup = null;
+        let updatingSourceIndex = null; // 记录正在更新的源索引
 
         // 加载数据
         async function loadData() {
@@ -343,9 +466,15 @@
                 // 加载配置
                 const configRes = await fetch('/api/config');
                 config = await configRes.json();
+
+                // 加载外部源配置
+                const externalRes = await fetch('/api/external-sources');
+                const externalPayload = await externalRes.json();
+                externalConfig = normalizeExternalConfig(externalPayload);
                 
                 renderChannels();
                 renderGroups();
+                renderExternalSources();
                 document.getElementById('enableCustom').checked = config.enableCustomGroups;
             } catch (error) {
                 showStatus('加载数据失败: ' + error.message, 'error');
@@ -423,6 +552,186 @@
                 
                 container.appendChild(groupDiv);
             });
+        }
+
+        function normalizeExternalConfig(payload) {
+            const data = payload && payload.data !== undefined ? payload.data : payload || {};
+            if (Array.isArray(data)) {
+                return {
+                    enabled: true,
+                    includeInPlaylists: true,
+                    sources: data
+                };
+            }
+            return {
+                enabled: !!data.enabled,
+                includeInPlaylists: data.includeInPlaylists !== false,
+                sources: Array.isArray(data.sources) ? data.sources : []
+            };
+        }
+
+        function renderExternalSources() {
+            const container = document.getElementById('externalSourceList');
+            container.innerHTML = '';
+
+            document.getElementById('externalEnabled').checked = !!externalConfig.enabled;
+            document.getElementById('externalIncludeInPlaylists').checked = externalConfig.includeInPlaylists !== false;
+
+            if (!externalConfig.sources || externalConfig.sources.length === 0) {
+                container.innerHTML = '<div class="empty-group">暂无外部源，点击“添加外部源”开始配置</div>';
+                return;
+            }
+
+            externalConfig.sources.forEach((source, index) => {
+                const item = document.createElement('div');
+                item.className = 'external-item';
+                item.innerHTML = `
+                    <div>
+                        <label>名称</label>
+                        <input type="text" value="${source.name || ''}" oninput="updateExternalField(${index}, 'name', this.value)">
+                    </div>
+                    <div>
+                        <label>分组</label>
+                        <input type="text" value="${source.group || ''}" oninput="updateExternalField(${index}, 'group', this.value)">
+                    </div>
+                    <div class="full">
+                        <label>网页地址</label>
+                        <input type="text" value="${source.webUrl || ''}" oninput="updateExternalField(${index}, 'webUrl', this.value)">
+                    </div>
+                    <div class="full">
+                        <label>m3u8 链接</label>
+                        <input type="text" value="${source.m3u8Url || ''}" oninput="updateExternalField(${index}, 'm3u8Url', this.value)">
+                    </div>
+                    <div class="external-actions full">
+                        <label>
+                            <input type="checkbox" ${source.enabled !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'enabled', this.checked)">
+                            启用
+                        </label>
+                        <button class="btn btn-small btn-primary" onclick="updateExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>
+                            ${updatingSourceIndex === index ? '抓取中...' : '抓取'}
+                        </button>
+                        <button class="btn btn-small btn-danger" onclick="removeExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>删除</button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function toggleExternalEnabled() {
+            externalConfig.enabled = document.getElementById('externalEnabled').checked;
+        }
+
+        function toggleExternalIncludeInPlaylists() {
+            externalConfig.includeInPlaylists = document.getElementById('externalIncludeInPlaylists').checked;
+        }
+
+        function addExternalSource() {
+            externalConfig.sources.push({
+                name: '',
+                group: '其他',
+                webUrl: '',
+                m3u8Url: '',
+                enabled: true,
+                extractOptions: {
+                    waitTime: 5000,
+                    headless: true
+                }
+            });
+            renderExternalSources();
+        }
+
+        function removeExternalSource(index) {
+            externalConfig.sources.splice(index, 1);
+            renderExternalSources();
+        }
+
+        function updateExternalField(index, field, value) {
+            externalConfig.sources[index][field] = value;
+        }
+
+        async function updateExternalSource(index) {
+            if (updatingSourceIndex !== null) {
+                showStatus('请等待当前抓取完成', 'error');
+                return;
+            }
+            
+            const sourceName = externalConfig.sources[index].name || '外部源';
+            updatingSourceIndex = index;
+            renderExternalSources(); // 刷新UI显示loading状态
+            
+            try {
+                // 先保存配置，确保后端索引同步
+                showStatus(`正在保存配置...`, 'info');
+                const saveResponse = await fetch('/api/external-sources', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: 'save', sources: externalConfig })
+                });
+                
+                if (!saveResponse.ok) {
+                    showStatus('配置保存失败，无法更新', 'error');
+                    return;
+                }
+                
+                // 保存成功后执行更新
+                showStatus(`正在提取 ${sourceName} 的 m3u8 链接...`, 'info');
+                
+                const response = await fetch('/api/external-sources', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: 'update', index })
+                });
+
+                const result = await response.json();
+                
+                // 重新加载配置确保UI同步（无论成功失败都加载）
+                const externalRes = await fetch('/api/external-sources');
+                const externalPayload = await externalRes.json();
+                externalConfig = normalizeExternalConfig(externalPayload);
+                
+                // 根据 result.success 判断而不是 response.ok
+                if (result.success !== false) {
+                    const message = result.warning 
+                        ? `${sourceName} 更新成功（${result.warning}）` 
+                        : `${sourceName} 更新成功！m3u8 链接已自动填充`;
+                    showStatus(message, 'success');
+                } else {
+                    showStatus(`${sourceName} 更新失败: ${result.message || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`${sourceName} 更新失败: ${error.message}`, 'error');
+            } finally {
+                updatingSourceIndex = null;
+                renderExternalSources(); // 清除loading状态并刷新UI
+            }
+        }
+
+        async function saveExternalSources() {
+            try {
+                showStatus('正在保存配置...', 'info');
+                
+                const response = await fetch('/api/external-sources', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: 'save', sources: externalConfig })
+                });
+
+                const result = await response.json();
+                if (response.ok && result.success !== false) {
+                    showStatus('外部源配置保存成功', 'success');
+                    renderExternalSources(); // 保存成功后刷新UI
+                } else {
+                    showStatus(result.message || '外部源配置保存失败', 'error');
+                }
+            } catch (error) {
+                showStatus('外部源配置保存失败: ' + error.message, 'error');
+            }
         }
 
         // 新建分组

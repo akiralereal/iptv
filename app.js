@@ -6,7 +6,9 @@ import update from "./utils/updateData.js";
 import { printBlue, printGreen, printMagenta, printRed } from "./utils/colorOut.js";
 import { delay } from "./utils/fetchList.js";
 import { channel, interfaceStr } from "./utils/appUtils.js";
-import { getChannelsAPI, getConfigAPI, saveConfigAPI } from "./utils/adminAPI.js";
+import { getChannelsAPI, getConfigAPI, saveConfigAPI, 
+         getExternalSourcesAPI, saveExternalSourcesAPI, addExternalSourceAPI,
+         removeExternalSourceAPI, updateExternalSourceAPI, setExternalSourceM3u8API } from "./utils/adminAPI.js";
 
 // 运行时长
 var hours = 0
@@ -102,6 +104,50 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
           res.end(JSON.stringify(result));
           printGreen("配置已保存")
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+          res.end(JSON.stringify({ success: false, message: error.message }));
+        }
+        loading = false
+      })
+      return
+    }
+    
+    // 外部源管理API
+    if (urlPath === '/api/external-sources' && method === 'GET') {
+      printBlue("API: 获取外部源配置")
+      const result = getExternalSourcesAPI()
+      res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify(result));
+      loading = false
+      return
+    }
+    
+    if (urlPath === '/api/external-sources' && method === 'POST') {
+      let body = ''
+      req.on('data', chunk => { body += chunk })
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body)
+          let result
+          
+          if (data.action === 'save') {
+            result = saveExternalSourcesAPI(data.sources)
+          } else if (data.action === 'add') {
+            result = addExternalSourceAPI(data.source)
+          } else if (data.action === 'remove') {
+            result = removeExternalSourceAPI(data.index)
+          } else if (data.action === 'update') {
+            result = await updateExternalSourceAPI(data.index || -1)
+          } else if (data.action === 'setM3u8') {
+            result = setExternalSourceM3u8API(data.index, data.m3u8Url)
+          } else {
+            result = { success: false, message: '未知操作' }
+          }
+          
+          res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
+          res.end(JSON.stringify(result));
+          printGreen(`外部源${data.action}操作完成`)
         } catch (error) {
           res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
           res.end(JSON.stringify({ success: false, message: error.message }));

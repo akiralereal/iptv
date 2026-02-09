@@ -761,10 +761,19 @@
                         <input type="text" value="${source.m3u8Url || ''}" oninput="updateExternalField(${index}, 'm3u8Url', this.value)">
                         <div class="form-hint">网页地址为空时，将直接使用 m3u8 链接。</div>
                     </div>
+                    <div>
+                        <label>自动刷新间隔（分钟）</label>
+                        <input type="number" min="1" value="${source.refreshInterval || 60}" oninput="updateExternalField(${index}, 'refreshInterval', parseInt(this.value) || 60)">
+                        <div class="form-hint">多久自动刷新一次 m3u8 链接</div>
+                    </div>
                     <div class="external-actions full">
                         <label>
                             <input type="checkbox" ${source.enabled !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'enabled', this.checked)">
                             启用
+                        </label>
+                        <label style="margin-left: 15px;">
+                            <input type="checkbox" ${source.autoRefresh !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'autoRefresh', this.checked)">
+                            自动刷新
                         </label>
                         <button class="btn btn-small btn-primary" onclick="updateExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>
                             ${updatingSourceIndex === index ? '抓取中...' : '抓取'}
@@ -791,6 +800,8 @@
                 webUrl: '',
                 m3u8Url: '',
                 enabled: true,
+                autoRefresh: true, // 默认开启自动刷新
+                refreshInterval: 60, // 默认60分钟刷新一次
                 extractOptions: {
                     waitTime: 5000,
                     headless: true

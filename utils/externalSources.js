@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
 import path from "node:path"
-import { printBlue, printGreen, printRed } from "./colorOut.js"
+import { printBlue, printGreen, printRed, printYellow } from "./colorOut.js"
 import { extractM3u8FromWeb, validateM3u8 } from "./webSourceExtractor.js"
 
 const EXTERNAL_SOURCES_PATH = path.join(process.cwd(), 'external-sources.json')
@@ -85,6 +85,8 @@ class ExternalSourceManager {
       m3u8Url: sourceConfig.m3u8Url || "",
       logo: sourceConfig.logo || "",
       enabled: sourceConfig.enabled !== false,
+      autoRefresh: sourceConfig.autoRefresh !== false, // 是否自动刷新，默认开启
+      refreshInterval: sourceConfig.refreshInterval || 60, // 刷新间隔（分钟），默认60分钟
       lastUpdated: null,
       extractOptions: {
         waitTime: sourceConfig.waitTime || 5000,
@@ -170,17 +172,62 @@ class ExternalSourceManager {
   }
 
   /**
-   * 更新所有启用的外部源
+   * 检查源是否需要刷新
    */
-  async updateAllSources() {
-    printBlue(`开始更新所有外部源...`)
+  needsRefresh(source) {
+    // 未设置自动刷新
+    if (source.autoRefresh === false) {
+      return false
+    }
+    
+    // 从未更新过，需要刷新
+    if (!source.lastUpdated) {
+      return true
+    }
+    
+    // 检查时间间隔
+    const lastUpdateTime = new Date(source.lastUpdated).getTime()
+    const now = Date.now()
+    const intervalMs = (source.refreshInterval || 60) * 60 * 1000 // 转换为毫秒
+    
+    return (now - lastUpdateTime) >= intervalMs
+  }
+
+  /**
+   * 更新所有启用的外部源
+   * @param {Object} options - 选项
+   * @param {boolean} options.autoOnly - 仅更新设置了自动刷新的源
+   * @param {boolean} options.forceAll - 强制更新所有源（忽略时间间隔）
+   */
+  async updateAllSources(options = {}) {
+    const { autoOnly = false, forceAll = false } = options
+    
+    printBlue(`开始更新外部源${autoOnly ? '（仅自动刷新）' : ''}...`)
     const results = []
+    let skipped = 0
     
     for (let i = 0; i < this.sources.sources.length; i++) {
+      const source = this.sources.sources[i]
+      
+      // 跳过禁用的源
+      if (!source.enabled) {
+        skipped++
+        continue
+      }
+      
+      // 如果是仅自动模式，检查是否需要刷新
+      if (autoOnly && !forceAll) {
+        if (!this.needsRefresh(source)) {
+          printYellow(`${source.name} 无需刷新（上次更新: ${source.lastUpdated || '从未'}, 间隔: ${source.refreshInterval || 60}分钟）`)
+          skipped++
+          continue
+        }
+      }
+      
       const result = await this.updateSource(i)
       results.push({
         index: i,
-        name: this.sources.sources[i].name,
+        name: source.name,
         ...result
       })
       
@@ -194,7 +241,7 @@ class ExternalSourceManager {
     this.saveSources()
     
     const successful = results.filter(r => r.success).length
-    printGreen(`外部源更新完成: ${successful}/${results.length} 成功`)
+    printGreen(`外部源更新完成: ${successful}/${results.length} 成功${skipped > 0 ? `, ${skipped} 个跳过` : ''}`)
     
     return results
   }

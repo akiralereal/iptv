@@ -8,6 +8,8 @@
       "webUrl": "https://example.com/channel.html",
       "m3u8Url": "",
       "enabled": true,
+      "autoRefresh": true,
+      "refreshInterval": 60,
       "extractOptions": {
         "waitTime": 5000,
         "headless": true
@@ -15,5 +17,10 @@
       "lastUpdated": null
     }
   ],
-  "lastGlobalUpdate": null
+  "lastGlobalUpdate": null,
+  "_comments": {
+    "autoRefresh": "是否自动刷新该源（默认true）",
+    "refreshInterval": "自动刷新间隔（分钟，默认60）",
+    "咪咕源说明": "咪咕源的更新频率由 config.js 中的 programInfoUpdateInterval 控制，不受外部源配置影响"
+  }
 }

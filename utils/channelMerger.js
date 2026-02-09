@@ -65,8 +65,11 @@ async function getAllChannels() {
 
 /**
  * 更新外部源
+ * @param {Object} options - 更新选项
+ * @param {boolean} options.autoOnly - 仅更新设置了自动刷新的源（默认true）
+ * @param {boolean} options.forceAll - 强制更新所有源
  */
-async function updateExternalSources() {
+async function updateExternalSources(options = { autoOnly: true }) {
   if (!externalSourceManager.sources.enabled) {
     printYellow("外部源功能已禁用，跳过更新")
     return { success: true, message: "外部源已禁用" }
@@ -78,10 +81,15 @@ async function updateExternalSources() {
   }
   
   printBlue("开始更新外部源...")
-  const results = await externalSourceManager.updateAllSources()
+  const results = await externalSourceManager.updateAllSources(options)
   
   const successful = results.filter(r => r.success).length
   const total = results.length
+  
+  if (results.length === 0) {
+    printYellow("所有外部源均无需更新")
+    return { success: true, message: "无需更新" }
+  }
   
   if (successful === total) {
     printGreen(`所有外部源更新成功 (${successful}/${total})`)

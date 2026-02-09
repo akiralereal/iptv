@@ -567,30 +567,62 @@
         // 加载数据
         async function loadData() {
             try {
+                console.log('开始加载数据...');
+                
                 // 加载所有频道
+                console.log('请求频道列表...');
                 const channelsRes = await fetch('/api/channels');
+                if (!channelsRes.ok) {
+                    throw new Error(`频道API请求失败: ${channelsRes.status}`);
+                }
                 allChannels = await channelsRes.json();
+                console.log('频道数据加载成功:', allChannels.length, '个分类');
                 
                 // 加载配置
+                console.log('请求配置...');
                 const configRes = await fetch('/api/config');
+                if (!configRes.ok) {
+                    throw new Error(`配置API请求失败: ${configRes.status}`);
+                }
                 config = await configRes.json();
+                console.log('配置加载成功');
 
                 // 加载外部源配置
+                console.log('请求外部源配置...');
                 const externalRes = await fetch('/api/external-sources');
+                if (!externalRes.ok) {
+                    throw new Error(`外部源API请求失败: ${externalRes.status}`);
+                }
                 const externalPayload = await externalRes.json();
                 externalConfig = normalizeExternalConfig(externalPayload);
+                console.log('外部源配置加载成功:', externalConfig.sources?.length || 0, '个源');
                 
                 // 加载系统配置
+                console.log('请求系统配置...');
                 const systemRes = await fetch('/api/system-config');
+                if (!systemRes.ok) {
+                    throw new Error(`系统配置API请求失败: ${systemRes.status}`);
+                }
                 systemConfig = await systemRes.json();
+                console.log('系统配置加载成功');
                 
+                // 渲染所有内容
+                console.log('开始渲染页面...');
                 renderChannels();
                 renderGroups();
                 renderExternalSources();
                 renderSystemConfig();
                 document.getElementById('enableCustom').checked = config.enableCustomGroups;
+                console.log('页面渲染完成');
+                
+                showStatus('数据加载成功', 'success');
             } catch (error) {
+                console.error('加载数据失败:', error);
                 showStatus('加载数据失败: ' + error.message, 'error');
+                // 即使失败也尝试渲染，显示空状态
+                renderChannels();
+                renderGroups();
+                renderExternalSources();
             }
         }
 
@@ -599,10 +631,23 @@
             const container = document.getElementById('channelList');
             container.innerHTML = '';
             
+            if (!allChannels || allChannels.length === 0) {
+                container.innerHTML = '<div class="empty-group">暂无频道数据<br><br>可能原因：<br>1. 服务刚启动，数据正在加载中...<br>2. 未配置咪咕账号（请在"系统配置"中填写）<br>3. 网络连接问题</div>';
+                console.log('频道数据为空:', allChannels);
+                return;
+            }
+            
+            console.log(`正在渲染 ${allChannels.length} 个频道分类`);
+            
             allChannels.forEach(category => {
                 const categoryDiv = document.createElement('div');
                 categoryDiv.className = 'category';
                 categoryDiv.innerHTML = `<div class="category-name">${category.name}</div>`;
+                
+                if (!category.dataList || category.dataList.length === 0) {
+                    console.warn(`分类 "${category.name}" 没有频道`);
+                    return;
+                }
                 
                 category.dataList.forEach(channel => {
                     const channelDiv = document.createElement('div');

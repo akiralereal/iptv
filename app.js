@@ -114,6 +114,21 @@ const server = http.createServer(async (req, res) => {
       return
     }
     
+    // 重启服务API
+    if (urlPath === '/api/restart' && method === 'POST') {
+      printMagenta("API: 收到重启请求")
+      res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify({ success: true, message: '服务将在 2 秒后重启...' }));
+      loading = false
+      
+      // 2秒后执行重启
+      setTimeout(() => {
+        printMagenta("正在重启服务...")
+        process.exit(0)
+      }, 2000)
+      return
+    }
+    
     // 外部源管理API
     if (urlPath === '/api/external-sources' && method === 'GET') {
       printBlue("API: 获取外部源配置")

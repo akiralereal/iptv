@@ -27,22 +27,46 @@
             top: 0;
             z-index: 100;
             background: white;
-            padding: 20px;
+            padding: 12px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-
-        .header h1 {
-            font-size: 24px;
-            color: #333;
-            margin-bottom: 10px;
         }
 
         .header .controls {
             display: flex;
             gap: 10px;
             margin-top: 15px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 15px;
+            color: #666;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .tab:hover {
+            color: #1890ff;
+            background: #f5f5f5;
+        }
+
+        .tab.active {
+            color: #1890ff;
+            border-bottom-color: #1890ff;
+            font-weight: 600;
         }
 
         .btn {
@@ -78,9 +102,15 @@
         }
 
         .main-content {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 20px;
+            margin-top: 0;
+        }
+
+        .panel {
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
         }
 
         .panel {
@@ -107,47 +137,81 @@
             font-size: 14px;
         }
 
-        .channel-list {
-            max-height: 600px;
+        .channels-container {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 20px;
+            height: calc(100vh - 250px);
+        }
+
+        .category-sidebar {
+            border-right: 2px solid #f0f0f0;
+            padding-right: 15px;
             overflow-y: auto;
+            height: 100%;
         }
 
-        .category {
-            margin-bottom: 20px;
-        }
-
-        .category-name {
-            font-weight: bold;
-            color: #1890ff;
-            padding: 8px 0;
-            border-bottom: 1px solid #f0f0f0;
-            margin-bottom: 10px;
-        }
-
-        .channel-item {
-            padding: 10px;
-            margin: 5px 0;
+        .category-nav-item {
+            padding: 10px 15px;
+            margin-bottom: 5px;
             background: #fafafa;
             border-radius: 4px;
             cursor: pointer;
             transition: all 0.3s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            font-size: 14px;
+            color: #333;
+            border-left: 3px solid transparent;
+        }
+
+        .category-nav-item:hover {
+            background: #e6f7ff;
+            border-left-color: #40a9ff;
+        }
+
+        .category-nav-item.active {
+            background: #e6f7ff;
+            border-left-color: #1890ff;
+            color: #1890ff;
+            font-weight: 600;
+        }
+
+        .category-nav-item .count {
+            float: right;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .channels-content {
+            overflow-y: auto;
+            height: 100%;
+        }
+
+        .channel-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .channel-item {
+            padding: 12px;
+            background: #fafafa;
+            border-radius: 4px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            font-size: 14px;
+            border: 1px solid transparent;
         }
 
         .channel-item:hover {
             background: #e6f7ff;
-            transform: translateX(5px);
-        }
-
-        .channel-item.selected {
-            background: #bae7ff;
-            border-left: 3px solid #1890ff;
+            border-color: #1890ff;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
         }
 
         .custom-groups {
-            max-height: 600px;
+            max-height: calc(100vh - 250px);
             overflow-y: auto;
         }
 
@@ -257,21 +321,39 @@
         }
 
         .status {
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            min-width: 300px;
+            max-width: 500px;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            font-size: 16px;
+            font-weight: 500;
+            text-align: center;
+            z-index: 9999;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        .status.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
         }
 
         .status.success {
             background: #f6ffed;
-            border: 1px solid #b7eb8f;
+            border: 1px solid #52c41a;
             color: #52c41a;
         }
 
         .status.error {
             background: #fff2f0;
-            border: 1px solid #ffccc7;
+            border: 1px solid #ff4d4f;
             color: #ff4d4f;
         }
 
@@ -282,7 +364,7 @@
         .external-usage {
             background: #e6f7ff;
             border: 1px solid #91d5ff;
-            border-radius: 4px;
+            border-radius: 6px;
             padding: 12px 16px;
             margin-bottom: 12px;
             font-size: 13px;
@@ -319,61 +401,338 @@
             margin-bottom: 12px;
         }
 
-        .external-list {
-            max-height: 520px;
+        .external-container {
+            display: grid;
+            grid-template-columns: 250px 1fr 280px;
+            gap: 20px;
+            height: calc(100vh - 250px);
+        }
+
+        .external-sidebar {
+            border-right: 2px solid #f0f0f0;
+            padding-right: 15px;
             overflow-y: auto;
+            height: 100%;
+        }
+
+        .external-nav-item {
+            padding: 12px 15px;
+            margin-bottom: 5px;
+            background: #fafafa;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+            position: relative;
+        }
+
+        .external-nav-item:hover {
+            background: #e6f7ff;
+            border-left-color: #40a9ff;
+        }
+
+        .external-nav-item.active {
+            background: #e6f7ff;
+            border-left-color: #1890ff;
+            font-weight: 600;
+        }
+
+        .external-nav-title {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .external-nav-item.active .external-nav-title {
+            color: #1890ff;
+        }
+
+        .external-nav-meta {
+            font-size: 11px;
+            color: #999;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .external-detail {
+            background: white;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .external-usage-side {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-size: 13px;
+            line-height: 1.8;
+            overflow-y: auto;
+            height: 100%;
+        }
+
+        .external-usage-side h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #1890ff;
+        }
+
+        .external-usage-side ol {
+            margin: 0;
+            padding-left: 20px;
+            color: #595959;
+        }
+
+        .external-usage-side li {
+            margin-bottom: 8px;
+        }
+
+        .external-detail-header {
+            padding: 16px 20px;
+            background: #fafafa;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .external-detail-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .external-detail-body {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .external-detail-footer {
+            padding: 16px 20px;
+            background: #fafafa;
+            border-top: 1px solid #e8e8e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .external-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #999;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .external-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+            gap: 16px;
+            max-height: calc(100vh - 380px);
+            overflow-y: auto;
+            padding: 4px;
         }
 
         .external-item {
             border: 1px solid #d9d9d9;
-            border-radius: 4px;
-            padding: 12px;
-            margin-bottom: 12px;
-            background: #fafafa;
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s;
         }
 
-        .external-item label {
+        .external-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .external-item-header {
+            padding: 12px 16px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #e8e8e8;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .external-item-title {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .external-item-status {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .status-badge.enabled {
+            background: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+        }
+
+        .status-badge.disabled {
+            background: #f5f5f5;
+            color: #999;
+            border: 1px solid #d9d9d9;
+        }
+
+        .external-item-body {
+            padding: 16px;
+            flex: 1;
+        }
+
+        .external-field {
+            margin-bottom: 12px;
+        }
+
+        .external-field:last-child {
+            margin-bottom: 0;
+        }
+
+        .external-field label {
+            display: block;
             font-size: 12px;
             color: #666;
+            margin-bottom: 4px;
+            font-weight: 500;
         }
 
-        .external-item input[type="text"] {
+        .external-field input[type="text"],
+        .external-field input[type="number"] {
             width: 100%;
-            padding: 8px;
+            padding: 8px 10px;
             border: 1px solid #d9d9d9;
             border-radius: 4px;
             font-size: 13px;
+            transition: all 0.3s;
+        }
+
+        .external-field input:focus {
+            border-color: #1890ff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+        }
+
+        .external-field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
         }
 
         .form-hint {
             margin-top: 4px;
-            font-size: 12px;
-            color: #888;
+            font-size: 11px;
+            color: #999;
+            line-height: 1.4;
         }
 
-        .external-item .full {
-            grid-column: 1 / -1;
+        .external-item-footer {
+            padding: 12px 16px;
+            background: #fafafa;
+            border-top: 1px solid #e8e8e8;
+            border-radius: 0 0 8px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .external-switches {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .external-switches label {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            color: #666;
+            cursor: pointer;
+        }
+
+        .external-switches input[type="checkbox"] {
+            margin-right: 4px;
         }
 
         .external-actions {
             display: flex;
             gap: 8px;
-            align-items: center;
-            flex-wrap: wrap;
         }
 
-        @media (max-width: 1280px) {
-            .main-content {
-                grid-template-columns: 1fr 1fr;
+        @media (max-width: 768px) {
+            .tabs {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
             }
-        }
+            
+            .tab {
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
 
-        @media (max-width: 900px) {
-            .main-content {
+            .external-container {
                 grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .external-sidebar {
+                border-right: none;
+                border-bottom: 2px solid #f0f0f0;
+                padding-right: 0;
+                padding-bottom: 10px;
+                margin-bottom: 15px;
+                max-height: 150px;
+                height: auto;
+            }
+
+            .external-usage-side {
+                display: none;
+            }
+
+            .external-detail {
+                height: auto;
+                min-height: 400px;
+            }
+
+            .external-field-row {
+                grid-template-columns: 1fr;
+            }
+
+            .channels-container {
+                grid-template-columns: 1fr;
+            }
+
+            .category-sidebar {
+                border-right: none;
+                border-bottom: 2px solid #f0f0f0;
+                padding-right: 0;
+                padding-bottom: 10px;
+                margin-bottom: 15px;
+                max-height: 150px;
             }
         }
 
@@ -417,37 +776,52 @@
             color: #ad6800;
             font-size: 13px;
         }
+
+        .system-config-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .btn-warning {
+            background: #faad14;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #ffc53d;
+        }
     </style>
 </head>
 <body>
+    <!-- Toast 通知 -->
+    <div class="status" id="status"></div>
+    
     <div class="container">
         <div class="header">
-            <h1>📺 IPTV 频道管理</h1>
-            <div class="status" id="status"></div>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab(0)">📋 所有频道</button>
+                <button class="tab" onclick="switchTab(1)">🌐 源管理</button>
+                <button class="tab" onclick="switchTab(2)">⚙️ 系统配置</button>
+            </div>
         </div>
 
         <div class="main-content">
-            <div class="panel">
-                <h2>📋 所有频道</h2>
+            <div class="panel active">
                 <input type="text" class="search-box" id="searchBox" placeholder="搜索频道..." onkeyup="filterChannels()">
-                <div class="channel-list" id="channelList"></div>
+                <div class="channels-container">
+                    <div class="category-sidebar" id="categorySidebar"></div>
+                    <div class="channels-content">
+                        <div class="channel-list" id="channelList"></div>
+                    </div>
+                </div>
             </div>
 
             <div class="panel">
-                <h2>🌐 外部源管理</h2>
-                <div class="external-usage">
-                    <h4>📖 使用说明</h4>
-                    <ol>
-                        <li>填写外部源信息：<strong>名称、分组、待抓取链接</strong></li>
-                        <li>点击 <strong>"抓取"</strong> 按钮，抓取完成后频道链接会自动填充到 "m3u8 链接" 输入框</li>
-                        <li>如果只填写 <strong>m3u8 链接</strong> 且 <strong>网页地址留空</strong>，系统会直接使用该链接并跳过抓取</li>
-                        <li>修改频道名、分组等信息后，记得点击 <strong>"💾 保存"</strong> 按钮保存配置</li>
-                    </ol>
-                </div>
                 <div class="external-toggles">
                     <label>
                         <input type="checkbox" id="externalEnabled" onchange="toggleExternalEnabled()">
-                        启用外部源
+                        启用自定义源
                     </label>
                     <label>
                         <input type="checkbox" id="externalIncludeInPlaylists" onchange="toggleExternalIncludeInPlaylists()">
@@ -459,14 +833,27 @@
                     </label>
                 </div>
                 <div class="external-buttons">
-                    <button class="btn btn-primary" onclick="addExternalSource()">➥ 添加外部源</button>
+                    <button class="btn btn-primary" onclick="addExternalSource()">➥ 添加源</button>
                     <button class="btn btn-success" onclick="saveExternalSources()">💾 保存</button>
                 </div>
-                <div class="external-list" id="externalSourceList"></div>
+                <div class="external-container">
+                    <div class="external-sidebar" id="externalSidebar"></div>
+                    <div class="external-detail" id="externalDetail">
+                        <div class="external-empty">请在左侧选择或添加源</div>
+                    </div>
+                    <div class="external-usage-side">
+                        <h4>📖 使用说明</h4>
+                        <ol>
+                            <li>点击左侧列表选择要编辑的外部源</li>
+                            <li>填写<strong>网页地址</strong>后点击<strong>"抓取"</strong>，m3u8 链接会自动填充</li>
+                            <li>也可直接填写 <strong>m3u8 链接</strong>，留空网页地址</li>
+                            <li>修改后点击 <strong>"💾 保存"</strong> 保存配置</li>
+                        </ol>
+                    </div>
+                </div>
             </div>
 
             <div class="panel">
-                <h2>⚙️ 系统配置</h2>
                 <div class="system-config-warning">
                     ⚠️ 修改系统配置后需要<strong>重启服务</strong>才能生效
                 </div>
@@ -521,7 +908,10 @@
                         启用 H.265（可能存在兼容性问题）
                     </label>
                 </div>
-                <button class="btn btn-success" onclick="saveSystemConfig()">💾 保存系统配置</button>
+                <div class="system-config-actions">
+                    <button class="btn btn-success" onclick="saveSystemConfig()">💾 保存系统配置</button>
+                    <button class="btn btn-warning" onclick="restartService()">🔄 重启服务</button>
+                </div>
             </div>
         </div>
     </div>
@@ -535,6 +925,28 @@
         };
         let systemConfig = {};
         let updatingSourceIndex = null; // 记录正在更新的源索引
+
+        // Tab 切换功能
+        function switchTab(index) {
+            const tabs = document.querySelectorAll('.tab');
+            const panels = document.querySelectorAll('.panel');
+            
+            tabs.forEach((tab, i) => {
+                if (i === index) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+            
+            panels.forEach((panel, i) => {
+                if (i === index) {
+                    panel.classList.add('active');
+                } else {
+                    panel.classList.remove('active');
+                }
+            });
+        }
 
         // 加载数据
         async function loadData() {
@@ -587,41 +999,98 @@
             }
         }
 
+        let currentCategory = 'all'; // 当前选中的分类
+        let selectedExternalIndex = null; // 当前选中的外部源索引
+
         // 渲染频道列表
         function renderChannels() {
-            const container = document.getElementById('channelList');
-            container.innerHTML = '';
+            const channelContainer = document.getElementById('channelList');
+            const categoryContainer = document.getElementById('categorySidebar');
             
             if (!allChannels || allChannels.length === 0) {
-                container.innerHTML = '<div class="empty-group">暂无频道数据<br><br>可能原因：<br>1. 服务刚启动，数据正在加载中...<br>2. 未配置咪咕账号（请在"系统配置"中填写）<br>3. 网络连接问题</div>';
+                channelContainer.innerHTML = '<div class="empty-group" style="grid-column: 1/-1;">暂无频道数据<br><br>可能原因：<br>1. 服务刚启动，数据正在加载中...<br>2. 未配置咪咕账号（请在"系统配置"中填写）<br>3. 网络连接问题</div>';
                 console.log('频道数据为空:', allChannels);
                 return;
             }
             
             console.log(`正在渲染 ${allChannels.length} 个频道分类`);
             
-            allChannels.forEach(category => {
-                const categoryDiv = document.createElement('div');
-                categoryDiv.className = 'category';
-                categoryDiv.innerHTML = `<div class="category-name">${category.name}</div>`;
+            // 渲染左侧分类导航
+            categoryContainer.innerHTML = '';
+            
+            // 添加"全部"选项
+            const totalCount = allChannels.reduce((sum, cat) => sum + (cat.dataList ? cat.dataList.length : 0), 0);
+            const allItem = document.createElement('div');
+            allItem.className = 'category-nav-item' + (currentCategory === 'all' ? ' active' : '');
+            allItem.innerHTML = `全部<span class="count">${totalCount}</span>`;
+            allItem.onclick = () => selectCategory('all');
+            categoryContainer.appendChild(allItem);
+            
+            // 添加各个分类
+            allChannels.forEach((category, index) => {
+                if (!category.dataList || category.dataList.length === 0) return;
                 
-                if (!category.dataList || category.dataList.length === 0) {
-                    console.warn(`分类 "${category.name}" 没有频道`);
-                    return;
-                }
-                
-                category.dataList.forEach(channel => {
-                    const channelDiv = document.createElement('div');
-                    channelDiv.className = 'channel-item';
-                    channelDiv.innerHTML = `
-                        <span>${channel.name}</span>
-                        <button class="btn btn-small btn-primary" onclick="addChannelToGroup('${channel.name}')">添加 ➜</button>
-                    `;
-                    categoryDiv.appendChild(channelDiv);
-                });
-                
-                container.appendChild(categoryDiv);
+                const navItem = document.createElement('div');
+                navItem.className = 'category-nav-item' + (currentCategory === index ? ' active' : '');
+                navItem.innerHTML = `${category.name}<span class="count">${category.dataList.length}</span>`;
+                navItem.onclick = () => selectCategory(index);
+                categoryContainer.appendChild(navItem);
             });
+            
+            // 渲染右侧频道列表
+            renderChannelList();
+        }
+
+        function selectCategory(categoryIndex) {
+            currentCategory = categoryIndex;
+            
+            // 更新分类高亮
+            document.querySelectorAll('.category-nav-item').forEach((item, index) => {
+                if (categoryIndex === 'all' && index === 0) {
+                    item.classList.add('active');
+                } else if (categoryIndex === index - 1) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+            
+            // 渲染频道列表
+            renderChannelList();
+        }
+
+        function renderChannelList() {
+            const container = document.getElementById('channelList');
+            container.innerHTML = '';
+            
+            if (currentCategory === 'all') {
+                // 显示所有频道
+                allChannels.forEach(category => {
+                    if (!category.dataList || category.dataList.length === 0) return;
+                    
+                    category.dataList.forEach(channel => {
+                        const channelDiv = document.createElement('div');
+                        channelDiv.className = 'channel-item';
+                        channelDiv.innerHTML = channel.name;
+                        channelDiv.dataset.categoryName = category.name;
+                        channelDiv.dataset.channelName = channel.name;
+                        container.appendChild(channelDiv);
+                    });
+                });
+            } else {
+                // 显示特定分类的频道
+                const category = allChannels[currentCategory];
+                if (category && category.dataList) {
+                    category.dataList.forEach(channel => {
+                        const channelDiv = document.createElement('div');
+                        channelDiv.className = 'channel-item';
+                        channelDiv.innerHTML = channel.name;
+                        channelDiv.dataset.categoryName = category.name;
+                        channelDiv.dataset.channelName = channel.name;
+                        container.appendChild(channelDiv);
+                    });
+                }
+            }
         }
 
         // 搜索频道
@@ -629,10 +1098,18 @@
             const keyword = document.getElementById('searchBox').value.toLowerCase();
             const items = document.querySelectorAll('.channel-item');
             
-            items.forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(keyword) ? 'flex' : 'none';
-            });
+            if (!keyword) {
+                // 没有搜索关键词，显示当前分类的所有频道
+                items.forEach(item => {
+                    item.style.display = 'block';
+                });
+            } else {
+                // 有搜索关键词，筛选匹配的频道
+                items.forEach(item => {
+                    const text = item.textContent.toLowerCase();
+                    item.style.display = text.includes(keyword) ? 'block' : 'none';
+                });
+            }
         }
 
         function normalizeExternalConfig(payload) {
@@ -654,65 +1131,134 @@
         }
 
         function renderExternalSources() {
-            const container = document.getElementById('externalSourceList');
-            container.innerHTML = '';
+            const sidebar = document.getElementById('externalSidebar');
+            const detail = document.getElementById('externalDetail');
 
             document.getElementById('externalEnabled').checked = !!externalConfig.enabled;
             document.getElementById('externalIncludeInPlaylists').checked = externalConfig.includeInPlaylists !== false;
             document.getElementById('miguUpdateOnStartup').checked = externalConfig.updateOnStartup !== false;
 
+            // 渲染左侧列表
+            sidebar.innerHTML = '';
             if (!externalConfig.sources || externalConfig.sources.length === 0) {
-                container.innerHTML = '<div class="empty-group">暂无外部源，点击“添加外部源”开始配置</div>';
+                sidebar.innerHTML = '<div class="empty-group">暂无外部源<br><br>点击"添加源"<br>开始配置</div>';
+                detail.innerHTML = '<div class="external-empty">请在左侧选择或添加源</div>';
+                selectedExternalIndex = null;
                 return;
             }
 
             externalConfig.sources.forEach((source, index) => {
-                const item = document.createElement('div');
-                item.className = 'external-item';
-                item.innerHTML = `
-                    <div>
-                        <label>名称</label>
-                        <input type="text" value="${source.name || ''}" oninput="updateExternalField(${index}, 'name', this.value)">
+                const navItem = document.createElement('div');
+                navItem.className = 'external-nav-item' + (selectedExternalIndex === index ? ' active' : '');
+                
+                const statusIcon = source.enabled !== false ? '✓' : '×';
+                const statusColor = source.enabled !== false ? '#52c41a' : '#999';
+                
+                navItem.innerHTML = `
+                    <div class="external-nav-title">${source.name || '未命名源'}</div>
+                    <div class="external-nav-meta">
+                        <span>${source.group || '未分组'}</span>
+                        <span style="color: ${statusColor};">${statusIcon}</span>
                     </div>
-                    <div>
-                        <label>分组</label>
-                        <input type="text" value="${source.group || ''}" oninput="updateExternalField(${index}, 'group', this.value)">
+                `;
+                navItem.onclick = () => selectExternalSource(index);
+                sidebar.appendChild(navItem);
+            });
+
+            // 渲染右侧详情
+            if (selectedExternalIndex !== null && externalConfig.sources[selectedExternalIndex]) {
+                renderExternalDetail(selectedExternalIndex);
+            } else if (externalConfig.sources.length > 0) {
+                // 默认选中第一个
+                selectExternalSource(0);
+            }
+        }
+
+        function selectExternalSource(index) {
+            selectedExternalIndex = index;
+            
+            // 更新左侧高亮
+            document.querySelectorAll('.external-nav-item').forEach((item, i) => {
+                if (i === index) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+            
+            // 渲染右侧详情
+            renderExternalDetail(index);
+        }
+
+        function renderExternalDetail(index) {
+            const detail = document.getElementById('externalDetail');
+            const source = externalConfig.sources[index];
+            
+            if (!source) {
+                detail.innerHTML = '<div class="external-empty">请在左侧选择或添加源</div>';
+                return;
+            }
+            
+            const isEnabled = source.enabled !== false;
+            const statusBadge = isEnabled 
+                ? '<span class="status-badge enabled">✓ 已启用</span>' 
+                : '<span class="status-badge disabled">× 已禁用</span>';
+            
+            detail.innerHTML = `
+                <div class="external-detail-header">
+                    <div class="external-detail-title">${source.name || '未命名源'}</div>
+                    ${statusBadge}
+                </div>
+                <div class="external-detail-body">
+                    <div class="external-field-row">
+                        <div class="external-field">
+                            <label>频道名称 *</label>
+                            <input type="text" value="${source.name || ''}" oninput="updateExternalField(${index}, 'name', this.value)" placeholder="例：体育频道">
+                        </div>
+                        <div class="external-field">
+                            <label>所属分组 *</label>
+                            <input type="text" value="${source.group || ''}" oninput="updateExternalField(${index}, 'group', this.value)" placeholder="例：体育">
+                        </div>
                     </div>
-                    <div class="full">
-                        <label>网页地址</label>
-                        <input type="text" value="${source.webUrl || ''}" oninput="updateExternalField(${index}, 'webUrl', this.value)">
+                    <div class="external-field">
+                        <label>网页地址（待抓取）</label>
+                        <input type="text" value="${source.webUrl || ''}" oninput="updateExternalField(${index}, 'webUrl', this.value)" placeholder="留空则直接使用 m3u8 链接">
+                        <div class="form-hint">填写后点击"抓取"按钮，系统会自动提取 m3u8 链接</div>
                     </div>
-                    <div class="full">
-                        <label>m3u8 链接</label>
-                        <input type="text" value="${source.m3u8Url || ''}" oninput="updateExternalField(${index}, 'm3u8Url', this.value)">
-                        <div class="form-hint">网页地址为空时，将直接使用 m3u8 链接。</div>
+                    <div class="external-field">
+                        <label>m3u8 直播链接 *</label>
+                        <input type="text" value="${source.m3u8Url || ''}" oninput="updateExternalField(${index}, 'm3u8Url', this.value)" placeholder="抓取后自动填充，也可手动输入">
+                        <div class="form-hint">抓取成功后会自动填充，也可以直接手动填写</div>
                     </div>
-                    <div>
+                    <div class="external-field">
                         <label>自动刷新间隔（分钟）</label>
-                        <input type="number" min="1" value="${source.refreshInterval || 60}" oninput="updateExternalField(${index}, 'refreshInterval', parseInt(this.value) || 60)">
-                        <div class="form-hint">多久自动刷新一次 m3u8 链接</div>
+                        <input type="number" min="1" value="${source.refreshInterval || 60}" oninput="updateExternalField(${index}, 'refreshInterval', parseInt(this.value) || 60)" placeholder="60">
+                        <div class="form-hint">每隔多少分钟自动刷新 m3u8 链接，默认 60 分钟</div>
                     </div>
-                    <div class="external-actions full">
+                </div>
+                <div class="external-detail-footer">
+                    <div class="external-switches">
                         <label>
                             <input type="checkbox" ${source.enabled !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'enabled', this.checked)">
-                            启用
+                            启用此源
                         </label>
-                        <label style="margin-left: 15px;">
+                        <label>
                             <input type="checkbox" ${source.autoRefresh !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'autoRefresh', this.checked)">
                             自动刷新
                         </label>
-                        <label style="margin-left: 15px;">
+                        <label>
                             <input type="checkbox" ${source.updateOnStartup !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'updateOnStartup', this.checked)">
                             重启时更新
                         </label>
-                        <button class="btn btn-small btn-primary" onclick="updateExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>
-                            ${updatingSourceIndex === index ? '抓取中...' : '抓取'}
-                        </button>
-                        <button class="btn btn-small btn-danger" onclick="removeExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>删除</button>
                     </div>
-                `;
-                container.appendChild(item);
-            });
+                    <div class="external-actions">
+                        <button class="btn btn-small btn-primary" onclick="updateExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>
+                            ${updatingSourceIndex === index ? '🔄 抓取中...' : '🔍 抓取'}
+                        </button>
+                        <button class="btn btn-small btn-danger" onclick="removeExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>🗑️ 删除</button>
+                    </div>
+                </div>
+            `;
         }
 
         function toggleExternalEnabled() {
@@ -742,16 +1288,28 @@
                     headless: true
                 }
             });
+            selectedExternalIndex = externalConfig.sources.length - 1;
             renderExternalSources();
         }
 
         function removeExternalSource(index) {
-            externalConfig.sources.splice(index, 1);
-            renderExternalSources();
+            if (confirm('确定要删除这个外部源吗?')) {
+                externalConfig.sources.splice(index, 1);
+                if (selectedExternalIndex === index) {
+                    selectedExternalIndex = externalConfig.sources.length > 0 ? 0 : null;
+                } else if (selectedExternalIndex > index) {
+                    selectedExternalIndex--;
+                }
+                renderExternalSources();
+            }
         }
 
         function updateExternalField(index, field, value) {
             externalConfig.sources[index][field] = value;
+            // 更新左侧列表和头部状态
+            if (field === 'name' || field === 'enabled') {
+                renderExternalSources();
+            }
         }
 
         async function updateExternalSource(index) {
@@ -839,15 +1397,20 @@
             }
         }
 
-        // 显示状态消息
+        // 显示状态消息（Toast 通知）
         function showStatus(message, type) {
             const status = document.getElementById('status');
             status.textContent = message;
             status.className = 'status ' + type;
-            status.style.display = 'block';
             
+            // 触发动画
             setTimeout(() => {
-                status.style.display = 'none';
+                status.classList.add('show');
+            }, 10);
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                status.classList.remove('show');
             }, 3000);
         }
 
@@ -896,6 +1459,36 @@
                 }
             } catch (error) {
                 showStatus('保存失败: ' + error.message, 'error');
+            }
+        }
+
+        // 重启服务
+        async function restartService() {
+            if (!confirm('确定要重启服务吗？\n\n注意：\n1. 重启期间服务将暂时不可用（约5-10秒）\n2. 请确保已保存所有配置\n3. Docker/PM2 会自动重启，直接运行 node 需要手动重启')) {
+                return;
+            }
+
+            try {
+                showStatus('正在重启服务，请稍候...', 'success');
+
+                const response = await fetch('/api/restart', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('服务重启中...请等待约 5-10 秒后刷新页面', 'success');
+                    
+                    // 15秒后自动刷新页面
+                    setTimeout(() => {
+                        location.reload();
+                    }, 15000);
+                } else {
+                    showStatus(result.message || '重启失败', 'error');
+                }
+            } catch (error) {
+                showStatus('重启请求失败: ' + error.message, 'error');
             }
         }
 

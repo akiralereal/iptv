@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
 import path from "node:path"
-import { printBlue, printGreen, printRed, printYellow } from "./colorOut.js"
+import { printBlue, printGreen, printGrey, printRed, printYellow } from "./colorOut.js"
 import { extractM3u8FromWeb, validateM3u8 } from "./webSourceExtractor.js"
 
 const EXTERNAL_SOURCES_PATH = path.join(process.cwd(), 'external-sources.json')
@@ -165,13 +165,14 @@ class ExternalSourceManager {
             return { success: true, m3u8Url: candidate }
           }
         }
-        // 校验失败时仍保存首个链接，避免防盗链导致无法更新
-        const fallback = candidates[0]
+        // 校验失败时选择最有可能正确的链接（优先选择链接最长的，通常包含完整参数）
+        const fallback = candidates.sort((a, b) => b.length - a.length)[0]
         this.sources.sources[index].m3u8Url = fallback
         this.sources.sources[index].lastUpdated = new Date().toISOString()
         this.saveSources()
-        printRed(`${source.name} m3u8校验失败，已保存未验证链接`)
-        return { success: true, m3u8Url: fallback, warning: 'm3u8校验失败，已保存未验证链接' }
+        printYellow(`${source.name} m3u8校验失败，已保存最长链接（共${candidates.length}个候选）`)
+        printGrey(`  选中: ${fallback.substring(0, 100)}...`)
+        return { success: true, m3u8Url: fallback, warning: `m3u8校验失败，已保存最长链接（共${candidates.length}个候选）` }
       } else {
         printRed(`${source.name} 未能提取到m3u8链接`)
         return { success: false, message: '未能提取到m3u8链接' }

@@ -21,7 +21,7 @@ export function getSystemConfigAPI() {
           pass: "",
           enableHDR: true,
           enableH265: true,
-          programInfoUpdateInterval: "6"
+          programInfoUpdateInterval: "8"
         }
       }
     }
@@ -54,7 +54,7 @@ export function saveSystemConfigAPI(config) {
       pass: config.pass || "",
       enableHDR: config.enableHDR !== false,
       enableH265: config.enableH265 !== false,
-      programInfoUpdateInterval: config.programInfoUpdateInterval || "6"
+      programInfoUpdateInterval: config.programInfoUpdateInterval || "8"
     }
     
     writeFileSync(SYSTEM_CONFIG_PATH, JSON.stringify(validated, null, 2), 'utf-8')

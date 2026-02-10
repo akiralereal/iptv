@@ -9,7 +9,7 @@ services:
       - mtoken=                                 # 可选：咪咕登录令牌（用于高画质/VIP）
       - mport=1905                              # 必须：容器监听端口，与 ports 对应
       - mhost=                                  # 可选：外部访问地址（如 http://192.168.1.100:1905）
-      - mrateType=3                             # 画质：2=标清，3=高清，4=蓝光(需VIP)
+      - mrateType=3                             # 画质：2=标清(480p)，3=高清(720p)，4=蓝光(1080p,需VIP)
       - mpass=                                  # 可选：访问密码（设置后访问: http://ip:port/密码/...）
       - menableHDR=true                         # 可选：是否开启HDR
       - menableH265=true                        # 可选：是否开启H265原画（可能有兼容性问题）

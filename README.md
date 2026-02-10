@@ -54,11 +54,107 @@ https://raw.githubusercontent.com/akiralereal/iptv/main/interface.txt
 | mtoken          |        | string  | 用户token（仅VIP用户需要配置）<br>可在网页端登录获取                                       |
 | mport           | 1905   | number  | 本地运行端口号                                                                            |
 | mhost           |        | string  | 公网/自定义访问地址<br>格式<http://ip:port>                                               |
-| mrateType       | 3      | number  | 画质<br>2: 标清<br>3: 高清 (需VIP)<br>4: 蓝光 (需VIP)<br>7: 原画 (需VIP)<br>9: 4K (需VIP)<br>**无VIP时自动降级为720p** |
+| mrateType       | 3      | number  | 画质<br>2: 标清 (480p)<br>3: 高清 (720p)<br>4: 蓝光 (1080p，需VIP)<br>7: 原画 (1080p+，需VIP)<br>9: 4K (2160p，需VIP) |
 | mpass           |        | string  | 访问密码 大小写字母和数字<br>添加后访问格式 <http://ip:port/mpass/>...                    |
 | menableHDR      | true   | boolean | 是否开启HDR                                                                               |
 | menableH265     | true   | boolean | 是否开启h265(原画画质)，开启后可能存在兼容性问题，比如浏览器播放没有画面                  |
-| mupdateInterval | 6      | string  | 节目信息更新间隔，单位小时，不建议设置太短                                                |
+| mupdateInterval | 8      | string  | 节目信息更新间隔，单位小时，不建议设置太短                                                |
+
+### 高级功能详解
+
+#### 📡 公网地址配置 (mhost)
+
+公网地址用于生成可分享的播放列表链接，支持内网和公网同时访问。
+
+**使用场景：**
+- ✅ 使用反向代理（如 nginx）访问服务
+- ✅ 通过域名访问服务
+- ✅ 需要分享播放列表给他人使用
+- ❌ 仅本地/局域网使用（留空即可）
+
+**配置方式：**
+
+通过 Web 管理后台配置时：
+- 只需输入域名/IP（如 `http://example.com`），端口会自动使用服务端口
+- 也可手动指定端口（如 `http://example.com:8080`）
+
+通过环境变量配置：
+```bash
+mhost="http://yourdomain.com:1905"
+```
+
+**智能路径选择：**
+- **内网直接访问** → 播放列表使用内网地址（如 `http://192.168.1.100:1905`）
+- **公网直接访问** → 播放列表使用访问时的地址
+- **反向代理访问** → 自动使用配置的公网地址（检测到 `X-Forwarded-For` 或 `X-Real-IP` 请求头）
+
+**示例：**
+```bash
+# 场景1: 内网访问
+访问: http://192.168.1.100:1905/m3u
+结果: 播放列表中的链接为 http://192.168.1.100:1905/...
+
+# 场景2: 通过 nginx 反向代理访问（已配置 mhost）
+访问: http://yourdomain.com/m3u
+结果: 播放列表中的链接为 http://yourdomain.com:1905/...
+```
+
+#### 🔐 访问密码功能 (mpass)
+
+设置访问密码后，所有服务（播放列表、管理后台、频道直播）都需要在 URL 中包含密码路径。
+
+**配置方式：**
+
+通过 Web 管理后台：
+- 在"系统配置"中设置访问密码（只支持字母和数字）
+- 保存并重启服务生效
+
+通过环境变量：
+```bash
+mpass="yourpassword"
+```
+
+**访问格式：**
+
+| 服务 | 无密码访问 | 有密码访问 |
+|------|-----------|-----------|
+| 播放列表 (m3u) | `http://ip:port/m3u` | `http://ip:port/密码/m3u` |
+| 播放列表 (txt) | `http://ip:port/txt` | `http://ip:port/密码/txt` |
+| 回放文件 | `http://ip:port/playback.xml` | `http://ip:port/密码/playback.xml` |
+| 频道直播 | `http://ip:port/608807420` | `http://ip:port/密码/608807420` |
+| 管理后台 | `http://ip:port/admin` | `http://ip:port/密码/admin` |
+
+**自动路径注入：**
+
+设置密码后，系统会自动处理：
+- ✅ 播放列表中的所有频道链接自动包含密码路径
+- ✅ 回放文件路径自动包含密码
+- ✅ 管理后台 API 自动鉴权
+- ✅ 未授权访问会返回友好提示信息
+
+**测试示例：**
+```bash
+# 设置密码为 test123 后
+
+# 场景1: 不带密码访问（失败）
+curl http://localhost:1905/m3u
+# 返回：身份认证失败
+
+# 场景2: 带密码访问（成功）
+curl http://localhost:1905/test123/m3u
+# 返回：正常的播放列表
+# 列表中的链接: http://localhost:1905/test123/608807420
+
+# 场景3: 管理后台重定向
+访问: http://localhost:1905/admin
+# 提示：请访问 /test123/admin
+```
+
+**安全建议：**
+- 🔒 使用复杂密码（字母+数字组合）
+- 🔒 定期更换密码
+- 🔒 不要在公开场合分享带密码的链接
+- 🔒 如果只是内网使用，可以不设置密码
 
 ## Web 管理后台
 
@@ -204,7 +300,7 @@ services:
       - mtoken=                                 # 可选：咪咕登录令牌（用于高画质/VIP）
       - mport=1905                              # 必须：容器监听端口，与 ports 对应
       - mhost=                                  # 可选：外部访问地址（如 http://192.168.1.100:1905）
-      - mrateType=3                             # 画质：2=标清，3=高清，4=蓝光(需VIP)
+      - mrateType=3                             # 画质：2=标清(480p)，3=高清(720p)，4=蓝光(1080p,需VIP)
       - mpass=                                  # 可选：访问密码（设置后访问: http://ip:port/密码/...）
       - menableHDR=true                         # 可选：是否开启HDR
       - menableH265=true                        # 可选：是否开启H265原画（可能有兼容性问题）

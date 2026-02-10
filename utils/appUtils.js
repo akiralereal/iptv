@@ -43,7 +43,9 @@ function interfaceStr(url, headers, urlUserId, urlToken) {
 
   let replaceHost = `http://${headers.host}`
 
-  if (host != "" && (headers["x-real-ip"] || headers["x-forwarded-for"] || host.indexOf(headers.host) != -1)) {
+  // 检测到反向代理且配置了公网地址时，使用公网地址
+  // 否则使用访问时的地址（支持内网和公网直接访问）
+  if (host != "" && (headers["x-real-ip"] || headers["x-forwarded-for"])) {
     replaceHost = host
   }
 

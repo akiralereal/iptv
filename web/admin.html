@@ -995,13 +995,13 @@
                 <div class="system-config-item">
                     <label>画质</label>
                     <select id="sysRateType">
-                        <option value="2">标清</option>
-                        <option value="3">高清（需VIP）</option>
-                        <option value="4">蓝光（需VIP）</option>
-                        <option value="7">原画（需VIP）</option>
-                        <option value="9">4K（需VIP）</option>
+                        <option value="2">标清 (480p)</option>
+                        <option value="3">高清 (720p)</option>
+                        <option value="4">蓝光 (1080p · 需VIP)</option>
+                        <option value="7">原画 (1080p+ · 需VIP)</option>
+                        <option value="9">4K (2160p · 需VIP)</option>
                     </select>
-                    <div class="system-config-hint">无VIP时自动降级为720p</div>
+                    <div class="system-config-hint">720p及以下免费，更高画质需要VIP</div>
                 </div>
                 <div class="system-config-item">
                     <label>服务端口</label>
@@ -1009,25 +1009,25 @@
                 </div>
                 <div class="system-config-item">
                     <label>公网地址</label>
-                    <input type="text" id="sysHost" placeholder="http://ip:port">
-                    <div class="system-config-hint">选填，用于生成播放列表链接</div>
+                    <input type="text" id="sysHost" placeholder="http://example.com:xxxx">
+                    <div class="system-config-hint">选填，未指定端口时自动使用上方的服务端口</div>
                 </div>
                 <div class="system-config-item">
                     <label>访问密码</label>
                     <input type="text" id="sysPass" placeholder="留空表示无密码">
                     <div class="system-config-hint">设置后访问格式：http://ip:port/密码/...</div>
                 </div>
-                <div class="system-config-item">
+                <div class="system-config-item" style="display: none;">
                     <label>节目单更新间隔（小时）</label>
                     <input type="number" id="sysProgramInterval" placeholder="6">
                 </div>
-                <div class="system-config-item">
+                <div class="system-config-item" style="display: none;">
                     <label>
                         <input type="checkbox" id="sysEnableHDR">
                         启用 HDR
                     </label>
                 </div>
-                <div class="system-config-item">
+                <div class="system-config-item" style="display: none;">
                     <label>
                         <input type="checkbox" id="sysEnableH265">
                         启用 H.265（可能存在兼容性问题）
@@ -1816,7 +1816,7 @@
             document.getElementById('sysHost').value = systemConfig.host || '';
             document.getElementById('sysRateType').value = systemConfig.rateType || 3;
             document.getElementById('sysPass').value = systemConfig.pass || '';
-            document.getElementById('sysProgramInterval').value = systemConfig.programInfoUpdateInterval || '6';
+            document.getElementById('sysProgramInterval').value = systemConfig.programInfoUpdateInterval || '8';
             document.getElementById('sysEnableHDR').checked = systemConfig.enableHDR !== false;
             document.getElementById('sysEnableH265').checked = systemConfig.enableH265 !== false;
         }
@@ -1824,14 +1824,22 @@
         // 保存系统配置
         async function saveSystemConfig() {
             try {
+                const port = parseInt(document.getElementById('sysPort').value) || 1905;
+                let host = document.getElementById('sysHost').value.trim();
+                
+                // 智能处理公网地址：如果没有指定端口，自动添加服务端口
+                if (host && !host.match(/:\d+$/)) {
+                    host = `${host}:${port}`;
+                }
+                
                 const config = {
                     userId: document.getElementById('sysUserId').value,
                     token: document.getElementById('sysToken').value,
-                    port: parseInt(document.getElementById('sysPort').value) || 1905,
-                    host: document.getElementById('sysHost').value,
+                    port: port,
+                    host: host,
                     rateType: parseInt(document.getElementById('sysRateType').value) || 3,
                     pass: document.getElementById('sysPass').value,
-                    programInfoUpdateInterval: document.getElementById('sysProgramInterval').value || '6',
+                    programInfoUpdateInterval: document.getElementById('sysProgramInterval').value || '8',
                     enableHDR: document.getElementById('sysEnableHDR').checked,
                     enableH265: document.getElementById('sysEnableH265').checked
                 };

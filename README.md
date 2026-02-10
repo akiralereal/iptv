@@ -179,6 +179,24 @@ docker run -d -p 1905:1905 \
 
 > **提示**：登录普通账号（无VIP）与游客模式效果相同，都是 720p 画质。只有 VIP 会员才能观看高清及以上画质。
 
+#### 📝 如何获取 userId 和 token
+
+如需使用 VIP 会员功能，需要获取咪咕账号的 `userId` 和 `token`。
+
+> [!IMPORTANT]
+> **获取步骤：**
+> 1. 使用浏览器访问 [咪咕视频官网](https://www.miguvideo.com/)
+> 2. 登录你的咪咕 VIP 账号
+> 3. 打开浏览器开发者工具（F12）
+> 4. 切换到"网络"(Network) 标签
+> 5. 刷新页面，在请求中找到包含认证信息的 API 请求
+> 6. 从请求头或响应中提取 `userId` 和 `token` 参数
+
+<div align="center">
+  <img src="Resources/000.png" alt="获取userId和token示例" width="800"/>
+  <p><i>浏览器开发者工具获取 userId 和 token 示例</i></p>
+</div>
+
 ### 配置说明
 
 | 变量名          | 默认值 | 类型    | 介绍                                                                                      |

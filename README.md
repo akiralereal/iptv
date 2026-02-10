@@ -1,6 +1,6 @@
 # iPTV
 
-**当前版本：v1.1.0**
+**当前版本：v1.1.1**
 
 > 一个基于 Node.js 的 IPTV 直播源管理和分发系统，支持咪咕视频源抓取和外部直播源管理。
 
@@ -72,7 +72,7 @@ docker-compose pull && docker-compose up -d
 ```bash
 docker pull akiralereal/iptv:latest
 # 或指定版本
-docker pull akiralereal/iptv:1.1.0
+docker pull akiralereal/iptv:1.1.1
 ```
 
 #### 快速运行（游客模式）
@@ -207,7 +207,7 @@ docker run -d -p 1905:1905 \
 | mhost           |        | string  | 公网/自定义访问地址<br>格式<http://ip:port>                                               |
 | mrateType       | 3      | number  | 画质<br>2: 标清 (480p)<br>3: 高清 (720p)<br>4: 蓝光 (1080p，需VIP)<br>7: 原画 (1080p+，需VIP)<br>9: 4K (2160p，需VIP) |
 | mpass           |        | string  | 访问密码 大小写字母和数字<br>添加后访问格式 <http://ip:port/mpass/>...                    |
-| menableHDR      | true   | boolean | 是否开启                                             |
+                                           |
 
 ### 高级功能详解
 

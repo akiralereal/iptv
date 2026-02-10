@@ -38,7 +38,7 @@ services:
       - mtoken=                                 # 可选：咪咕登录令牌（用于高画质/VIP）
       - mport=1905                              # 必须：容器监听端口，与 ports 对应
       - mhost=                                  # 可选：外部访问地址（如 http://test.com:1905）
-      - mrateType=3                             # 画质：2=标清，3=高清，4=蓝光(需VIP)
+      - mrateType=4                             # 画质：2=标清，3=高清，4=蓝光(需VIP)
       - mpass=                                  # 可选：访问密码（设置后访问: http://ip:port/密码/...）
     restart: always                             # 容器异常退出后自动重启
 ```
@@ -272,6 +272,23 @@ curl http://localhost:1905/test123/m3u
 ## Web 管理后台
 
 本项目提供可视化的 Web 管理界面,方便您管理外部直播源。
+
+### 界面预览
+
+<div align="center">
+  <img src="Resources/111.png" alt="频道列表界面" width="800"/>
+  <p><i>频道列表 - 支持分类浏览和实时搜索</i></p>
+</div>
+
+<div align="center">
+  <img src="Resources/222.png" alt="外部源管理界面" width="800"/>
+  <p><i>外部源管理 - 支持自动抓取和手动添加</i></p>
+</div>
+
+<div align="center">
+  <img src="Resources/333.png" alt="系统配置界面" width="800"/>
+  <p><i>系统配置 - 灵活的画质和访问控制设置</i></p>
+</div>
 
 ### 访问地址
 

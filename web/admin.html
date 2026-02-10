@@ -600,6 +600,54 @@
             border: 1px solid #d9d9d9;
         }
 
+        .mode-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            background: #e6f7ff;
+            color: #1890ff;
+            border: 1px solid #91d5ff;
+            margin-left: 8px;
+        }
+
+        .mode-badge.mode-direct {
+            background: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+        }
+
+        .mode-switcher {
+            display: flex;
+            gap: 8px;
+            padding: 12px 16px;
+            background: #fafafa;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .mode-switch-btn {
+            padding: 6px 16px;
+            border: 1px solid #d9d9d9;
+            background: white;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #666;
+        }
+
+        .mode-switch-btn:hover {
+            border-color: #40a9ff;
+            color: #40a9ff;
+        }
+
+        .mode-switch-btn.active {
+            background: #1890ff;
+            border-color: #1890ff;
+            color: white;
+            font-weight: 500;
+        }
+
         .external-item-body {
             padding: 16px;
             flex: 1;
@@ -844,10 +892,10 @@
                     <div class="external-usage-side">
                         <h4>📖 使用说明</h4>
                         <ol>
-                            <li>点击左侧列表选择要编辑的外部源</li>
-                            <li>填写<strong>网页地址</strong>后点击<strong>"抓取"</strong>，m3u8 链接会自动填充</li>
-                            <li>也可直接填写 <strong>m3u8 链接</strong>，留空网页地址</li>
-                            <li>修改后点击 <strong>"💾 保存"</strong> 保存配置</li>
+                            <li>点击"添加源"选择模式：<strong>抓取模式</strong>或<strong>直连模式</strong></li>
+                            <li><strong>抓取模式</strong>：填写频道名、分组和网页地址，点击"抓取并保存"自动提取m3u8并同步到列表</li>
+                            <li><strong>直连模式</strong>：填写频道名、分组和m3u8链接，点击"保存"即可同步到列表</li>
+                            <li>已有源可在左侧列表中选择查看和修改</li>
                         </ol>
                     </div>
                 </div>
@@ -1204,61 +1252,122 @@
                 ? '<span class="status-badge enabled">✓ 已启用</span>' 
                 : '<span class="status-badge disabled">× 已禁用</span>';
             
-            detail.innerHTML = `
-                <div class="external-detail-header">
-                    <div class="external-detail-title">${source.name || '未命名源'}</div>
-                    ${statusBadge}
-                </div>
-                <div class="external-detail-body">
-                    <div class="external-field-row">
-                        <div class="external-field">
-                            <label>频道名称 *</label>
-                            <input type="text" value="${source.name || ''}" oninput="updateExternalField(${index}, 'name', this.value)" placeholder="例：体育频道">
-                        </div>
-                        <div class="external-field">
-                            <label>所属分组 *</label>
-                            <input type="text" value="${source.group || ''}" oninput="updateExternalField(${index}, 'group', this.value)" placeholder="例：体育">
-                        </div>
-                    </div>
-                    <div class="external-field">
-                        <label>网页地址（待抓取）</label>
-                        <input type="text" value="${source.webUrl || ''}" oninput="updateExternalField(${index}, 'webUrl', this.value)" placeholder="留空则直接使用 m3u8 链接">
-                        <div class="form-hint">填写后点击"抓取"按钮，系统会自动提取 m3u8 链接</div>
-                    </div>
-                    <div class="external-field">
-                        <label>m3u8 直播链接 *</label>
-                        <input type="text" value="${source.m3u8Url || ''}" oninput="updateExternalField(${index}, 'm3u8Url', this.value)" placeholder="抓取后自动填充，也可手动输入">
-                        <div class="form-hint">抓取成功后会自动填充，也可以直接手动填写</div>
-                    </div>
-                    <div class="external-field">
-                        <label>自动刷新间隔（分钟）</label>
-                        <input type="number" min="1" value="${source.refreshInterval || 60}" oninput="updateExternalField(${index}, 'refreshInterval', parseInt(this.value) || 60)" placeholder="60">
-                        <div class="form-hint">每隔多少分钟自动刷新 m3u8 链接，默认 60 分钟</div>
-                    </div>
-                </div>
-                <div class="external-detail-footer">
-                    <div class="external-switches">
-                        <label>
-                            <input type="checkbox" ${source.enabled !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'enabled', this.checked)">
-                            启用此源
-                        </label>
-                        <label>
-                            <input type="checkbox" ${source.autoRefresh !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'autoRefresh', this.checked)">
-                            自动刷新
-                        </label>
-                        <label>
-                            <input type="checkbox" ${source.updateOnStartup !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'updateOnStartup', this.checked)">
-                            重启时更新
-                        </label>
-                    </div>
-                    <div class="external-actions">
-                        <button class="btn btn-small btn-primary" onclick="updateExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>
-                            ${updatingSourceIndex === index ? '🔄 抓取中...' : '🔍 抓取'}
-                        </button>
-                        <button class="btn btn-small btn-danger" onclick="removeExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>🗑️ 删除</button>
-                    </div>
+            // 智能判断模式：如果没有 mode 字段，根据是否有 webUrl 来判断
+            let mode = source.mode;
+            if (!mode) {
+                // 兼容旧数据：有 webUrl 且非空则为抓取模式，否则为直连模式
+                mode = (source.webUrl && source.webUrl.trim()) ? 'fetch' : 'direct';
+                // 自动设置 mode 字段，避免下次再判断
+                source.mode = mode;
+            }
+            
+            // 模式切换器
+            const modeSwitcher = `
+                <div class="mode-switcher">
+                    <button class="mode-switch-btn ${mode === 'direct' ? 'active' : ''}" onclick="switchSourceMode(${index}, 'direct')">
+                        直连模式
+                    </button>
+                    <button class="mode-switch-btn ${mode === 'fetch' ? 'active' : ''}" onclick="switchSourceMode(${index}, 'fetch')">
+                        抓取模式
+                    </button>
                 </div>
             `;
+            
+            // 根据模式渲染不同的表单
+            if (mode === 'fetch') {
+                // 抓取模式：网页地址 -> 自动抓取m3u8
+                detail.innerHTML = `
+                    <div class="external-detail-header">
+                        <div class="external-detail-title">${source.name || '未命名源'}</div>
+                        ${statusBadge}
+                    </div>
+                    ${modeSwitcher}
+                    <div class="external-detail-body">
+                        <div class="external-field-row">
+                            <div class="external-field">
+                                <label>频道名称 *</label>
+                                <input type="text" value="${source.name || ''}" oninput="updateExternalField(${index}, 'name', this.value)" placeholder="例：体育频道">
+                            </div>
+                            <div class="external-field">
+                                <label>所属分组 *</label>
+                                <input type="text" value="${source.group || ''}" oninput="updateExternalField(${index}, 'group', this.value)" placeholder="例：体育">
+                            </div>
+                        </div>
+                        <div class="external-field">
+                            <label>播放页面地址 *</label>
+                            <input type="text" value="${source.webUrl || ''}" oninput="updateExternalField(${index}, 'webUrl', this.value)" placeholder="例：https://example.com/live.html">
+                            <div class="form-hint">填写直播页面地址，点击"抓取并保存"后系统会自动提取m3u8链接</div>
+                        </div>
+                        <div class="external-field">
+                            <label>自动刷新间隔（分钟）</label>
+                            <input type="number" min="1" value="${source.refreshInterval || 60}" oninput="updateExternalField(${index}, 'refreshInterval', parseInt(this.value) || 60)" placeholder="60">
+                            <div class="form-hint">每隔多少分钟自动重新抓取m3u8链接，默认60分钟</div>
+                        </div>
+                    </div>
+                    <div class="external-detail-footer">
+                        <div class="external-switches">
+                            <label>
+                                <input type="checkbox" ${source.enabled !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'enabled', this.checked)">
+                                启用此源
+                            </label>
+                            <label>
+                                <input type="checkbox" ${source.autoRefresh !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'autoRefresh', this.checked)">
+                                自动刷新
+                            </label>
+                            <label>
+                                <input type="checkbox" ${source.updateOnStartup !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'updateOnStartup', this.checked)">
+                                重启时更新
+                            </label>
+                        </div>
+                        <div class="external-actions">
+                            <button class="btn btn-small btn-primary" onclick="fetchAndSaveSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>
+                                ${updatingSourceIndex === index ? '🔄 抓取中...' : '🔍 抓取并保存'}
+                            </button>
+                            <button class="btn btn-small btn-danger" onclick="removeExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>🗑️ 删除</button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // 直连模式：直接填写m3u8链接
+                detail.innerHTML = `
+                    <div class="external-detail-header">
+                        <div class="external-detail-title">${source.name || '未命名源'}</div>
+                        ${statusBadge}
+                    </div>
+                    ${modeSwitcher}
+                    <div class="external-detail-body">
+                        <div class="external-field-row">
+                            <div class="external-field">
+                                <label>频道名称 *</label>
+                                <input type="text" value="${source.name || ''}" oninput="updateExternalField(${index}, 'name', this.value)" placeholder="例：体育频道">
+                            </div>
+                            <div class="external-field">
+                                <label>所属分组 *</label>
+                                <input type="text" value="${source.group || ''}" oninput="updateExternalField(${index}, 'group', this.value)" placeholder="例：体育">
+                            </div>
+                        </div>
+                        <div class="external-field">
+                            <label>m3u8 直播链接 *</label>
+                            <input type="text" value="${source.m3u8Url || ''}" oninput="updateExternalField(${index}, 'm3u8Url', this.value)" placeholder="例：https://example.com/live.m3u8">
+                            <div class="form-hint">直接填写m3u8直播流地址</div>
+                        </div>
+                    </div>
+                    <div class="external-detail-footer">
+                        <div class="external-switches">
+                            <label>
+                                <input type="checkbox" ${source.enabled !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'enabled', this.checked)">
+                                启用此源
+                            </label>
+                        </div>
+                        <div class="external-actions">
+                            <button class="btn btn-small btn-success" onclick="saveDirectSource(${index})">
+                                💾 保存
+                            </button>
+                            <button class="btn btn-small btn-danger" onclick="removeExternalSource(${index})">🗑️ 删除</button>
+                        </div>
+                    </div>
+                `;
+            }
         }
 
         function toggleExternalEnabled() {
@@ -1274,22 +1383,44 @@
         }
 
         function addExternalSource() {
-            externalConfig.sources.push({
+            // 默认添加直连模式
+            const newSource = {
                 name: '',
                 group: '其他',
-                webUrl: '',
-                m3u8Url: '',
                 enabled: true,
-                autoRefresh: true, // 默认开启自动刷新
-                refreshInterval: 60, // 默认60分钟刷新一次
-                updateOnStartup: true, // 默认重启时更新
-                extractOptions: {
-                    waitTime: 5000,
-                    headless: true
-                }
-            });
+                mode: 'direct', // 默认直连模式
+                m3u8Url: '',
+                webUrl: ''
+            };
+            
+            externalConfig.sources.push(newSource);
             selectedExternalIndex = externalConfig.sources.length - 1;
             renderExternalSources();
+        }
+
+        function switchSourceMode(index, newMode) {
+            const source = externalConfig.sources[index];
+            if (!source) return;
+            
+            // 切换模式
+            source.mode = newMode;
+            
+            // 根据新模式设置默认值
+            if (newMode === 'fetch') {
+                // 切换到抓取模式，添加必要的配置
+                if (!source.autoRefresh) source.autoRefresh = true;
+                if (!source.refreshInterval) source.refreshInterval = 60;
+                if (!source.updateOnStartup) source.updateOnStartup = true;
+                if (!source.extractOptions) {
+                    source.extractOptions = {
+                        waitTime: 5000,
+                        headless: true
+                    };
+                }
+            }
+            
+            // 重新渲染详情面板
+            renderExternalDetail(index);
         }
 
         function removeExternalSource(index) {
@@ -1306,8 +1437,24 @@
 
         function updateExternalField(index, field, value) {
             externalConfig.sources[index][field] = value;
-            // 更新左侧列表和头部状态
-            if (field === 'name' || field === 'enabled') {
+            
+            // 只更新左侧列表的对应项，避免重新渲染整个表单导致输入框失焦
+            if (field === 'name') {
+                // 更新左侧导航项的标题和头部标题
+                const navItems = document.querySelectorAll('.external-nav-item');
+                if (navItems[index]) {
+                    const titleEl = navItems[index].querySelector('.external-nav-title');
+                    if (titleEl) {
+                        titleEl.textContent = value || '未命名源';
+                    }
+                }
+                // 更新详情面板的标题
+                const detailTitle = document.querySelector('.external-detail-title');
+                if (detailTitle) {
+                    detailTitle.textContent = value || '未命名源';
+                }
+            } else if (field === 'enabled') {
+                // 只有 enabled 字段变化时才重新渲染，因为需要更新图标和徽章
                 renderExternalSources();
             }
         }
@@ -1394,6 +1541,125 @@
                 }
             } catch (error) {
                 showStatus('外部源配置保存失败: ' + error.message, 'error');
+            }
+        }
+
+        // 抓取模式：抓取并保存
+        async function fetchAndSaveSource(index) {
+            if (updatingSourceIndex !== null) {
+                showStatus('请等待当前抓取完成', 'error');
+                return;
+            }
+            
+            const source = externalConfig.sources[index];
+            
+            // 验证必填字段
+            if (!source.name || !source.name.trim()) {
+                showStatus('请填写频道名称', 'error');
+                return;
+            }
+            if (!source.group || !source.group.trim()) {
+                showStatus('请填写所属分组', 'error');
+                return;
+            }
+            if (!source.webUrl || !source.webUrl.trim()) {
+                showStatus('请填写播放页面地址', 'error');
+                return;
+            }
+            
+            const sourceName = source.name;
+            updatingSourceIndex = index;
+            renderExternalSources(); // 刷新UI显示loading状态
+            
+            try {
+                // 先保存配置
+                showStatus(`正在保存配置...`, 'info');
+                const saveResponse = await fetch('/api/external-sources', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: 'save', sources: externalConfig })
+                });
+                
+                if (!saveResponse.ok) {
+                    showStatus('配置保存失败，无法抓取', 'error');
+                    return;
+                }
+                
+                // 执行抓取
+                showStatus(`正在抓取 ${sourceName} 的 m3u8 链接...`, 'info');
+                
+                const response = await fetch('/api/external-sources', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: 'update', index })
+                });
+
+                const result = await response.json();
+                
+                // 重新加载配置确保UI同步
+                const externalRes = await fetch('/api/external-sources');
+                const externalPayload = await externalRes.json();
+                externalConfig = normalizeExternalConfig(externalPayload);
+                
+                // 判断抓取结果
+                if (result.success !== false) {
+                    const message = result.warning 
+                        ? `${sourceName} 抓取成功（${result.warning}）并已同步到频道列表` 
+                        : `${sourceName} 抓取成功！已同步到频道列表`;
+                    showStatus(message, 'success');
+                } else {
+                    showStatus(`${sourceName} 抓取失败: ${result.message || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`${sourceName} 抓取失败: ${error.message}`, 'error');
+            } finally {
+                updatingSourceIndex = null;
+                renderExternalSources(); // 清除loading状态并刷新UI
+            }
+        }
+
+        // 直连模式：直接保存
+        async function saveDirectSource(index) {
+            const source = externalConfig.sources[index];
+            
+            // 验证必填字段
+            if (!source.name || !source.name.trim()) {
+                showStatus('请填写频道名称', 'error');
+                return;
+            }
+            if (!source.group || !source.group.trim()) {
+                showStatus('请填写所属分组', 'error');
+                return;
+            }
+            if (!source.m3u8Url || !source.m3u8Url.trim()) {
+                showStatus('请填写m3u8直播链接', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('正在保存...', 'info');
+                
+                const response = await fetch('/api/external-sources', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: 'save', sources: externalConfig })
+                });
+
+                const result = await response.json();
+                if (response.ok && result.success !== false) {
+                    showStatus(`${source.name} 保存成功并已同步到频道列表`, 'success');
+                    renderExternalSources(); // 保存成功后刷新UI
+                } else {
+                    showStatus(result.message || '保存失败', 'error');
+                }
+            } catch (error) {
+                showStatus('保存失败: ' + error.message, 'error');
             }
         }
 

@@ -31,6 +31,6 @@ jobs:
           push: true
           tags: |
             akiralereal/iptv:latest
-            akiralereal/iptv:1.0.1
-            akiralereal/iptv:1.0
+            akiralereal/iptv:1.1.0
+            akiralereal/iptv:1.1
             akiralereal/iptv:1

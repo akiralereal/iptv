@@ -6,10 +6,9 @@ import update from "./utils/updateData.js";
 import { printBlue, printGreen, printMagenta, printRed } from "./utils/colorOut.js";
 import { delay } from "./utils/fetchList.js";
 import { channel, interfaceStr } from "./utils/appUtils.js";
-import { getChannelsAPI, getConfigAPI, saveConfigAPI, 
-         getExternalSourcesAPI, saveExternalSourcesAPI, addExternalSourceAPI,
-         removeExternalSourceAPI, updateExternalSourceAPI, setExternalSourceM3u8API,
-         resetGroupsToDefaultAPI } from "./utils/adminAPI.js";
+import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI, 
+         addExternalSourceAPI, removeExternalSourceAPI, updateExternalSourceAPI, 
+         setExternalSourceM3u8API } from "./utils/adminAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 
 // 运行时长
@@ -83,44 +82,6 @@ const server = http.createServer(async (req, res) => {
       printGreen(`API: 返回 ${result.success ? result.data.length : 0} 个分类`)
       res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
       res.end(JSON.stringify(result.success ? result.data : []));
-      loading = false
-      return
-    }
-    
-    if (urlPath === '/api/config' && method === 'GET') {
-      printBlue("API: 获取配置")
-      const result = getConfigAPI()
-      res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
-      res.end(JSON.stringify(result.success ? result.data : {}));
-      loading = false
-      return
-    }
-    
-    if (urlPath === '/api/config' && method === 'POST') {
-      let body = ''
-      req.on('data', chunk => { body += chunk })
-      req.on('end', () => {
-        try {
-          const config = JSON.parse(body)
-          const result = saveConfigAPI(config)
-          res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
-          res.end(JSON.stringify(result));
-          printGreen("配置已保存")
-        } catch (error) {
-          res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
-          res.end(JSON.stringify({ success: false, message: error.message }));
-        }
-        loading = false
-      })
-      return
-    }
-    
-    if (urlPath === '/api/reset-groups' && method === 'POST') {
-      printBlue("API: 重置分组为默认分组")
-      const result = await resetGroupsToDefaultAPI()
-      res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
-      res.end(JSON.stringify(result));
-      printGreen(result.success ? "分组已重置为默认分组" : "重置失败")
       loading = false
       return
     }
@@ -308,8 +269,8 @@ server.listen(port, async () => {
   }, updateInterval * 60 * 60 * 1000);
 
   try {
-    // 初始化数据
-    await update(hours)
+    // 初始化数据（启动模式）
+    await update(hours, { startupMode: true })
   } catch (error) {
     console.log(error)
     printRed("更新失败")

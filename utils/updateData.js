@@ -6,43 +6,35 @@ import refreshToken from "./refreshToken.js"
 import { printGreen, printRed, printYellow, printBlue } from "./colorOut.js"
 import { getDateString } from "./time.js"
 import { fetchUrl } from "./net.js"
-import { loadCustomChannels, applyCustomGroups, filterExcludedChannels } from "./customChannels.js"
 
 /**
- * @param {Number} hours -更新小时数 
+ * @param {Number} hours -更新小时数
+ * @param {Object} options - 更新选项
+ * @param {boolean} options.startupMode - 启动模式，根据配置决定是否更新
  */
-async function updateTV(hours) {
+async function updateTV(hours, options = {}) {
+  const { startupMode = false } = options
+  
+  printBlue(`开始更新TV...${startupMode ? '（启动模式）' : ''}`)
 
   const date = new Date()
   const start = date.getTime()
   let interfacePath = ""
   let interfaceTXTPath = ""
   
-  // 更新外部源
-  printBlue("开始更新外部源...")
-  await updateExternalSources()
+  // 检查是否需要跳过咪咕更新
+  const externalConfig = externalSourceManager.sources
+  const skipMigu = startupMode && externalConfig.updateOnStartup === false
+  
+  if (skipMigu) {
+    printYellow("启动模式：跳过咪咕频道更新，保留现有播放列表文件")
+    printYellow("提示：定时更新仍会正常执行完整更新")
+    return
+  }
   
   // 获取数据（咪咕 + 外部源）
-  let datas = await getAllChannels()
+  let datas = await getAllChannels({ skipMigu })
   printGreen("TV数据获取成功！")
-
-  // 加载自定义频道配置
-  const customConfig = loadCustomChannels()
-  if (customConfig) {
-    printBlue("检测到自定义频道配置")
-    
-    // 应用排除规则
-    if (customConfig.excludeChannels && customConfig.excludeChannels.length > 0) {
-      datas = filterExcludedChannels(datas, customConfig.excludeChannels)
-      printBlue(`已过滤排除频道`)
-    }
-    
-    // 应用自定义分组
-    if (customConfig.enableCustomGroups) {
-      datas = applyCustomGroups(datas, customConfig)
-      printGreen("已应用自定义频道分组")
-    }
-  }
 
   interfacePath = `${process.cwd()}/interface.txt.bak`
   // txt
@@ -212,9 +204,11 @@ async function updatePE(hours) {
 
 /**
  * @param {Number} hours - 更新小时数
+ * @param {Object} options - 更新选项
+ * @param {boolean} options.startupMode - 启动模式
  */
-async function update(hours) {
-  await updateTV(hours)
+async function update(hours, options = {}) {
+  await updateTV(hours, options)
   await updatePE(hours)
 }
 

@@ -4,12 +4,20 @@ import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 
 /**
  * 获取所有频道数据（咪咕 + 外部源）
+ * @param {Object} options - 选项
+ * @param {boolean} options.skipMigu - 跳过咪咕数据获取
  */
-async function getAllChannels() {
+async function getAllChannels(options = {}) {
+  const { skipMigu = false } = options
   try {
     // 获取咪咕频道
-    printBlue("获取咪咕频道数据...")
-    const miguChannels = await getMiguChannels()
+    let miguChannels = []
+    if (skipMigu) {
+      printYellow("跳过咪咕频道获取（启动时更新已关闭）")
+    } else {
+      printBlue("获取咪咕频道数据...")
+      miguChannels = await getMiguChannels()
+    }
     
     // 获取外部源频道
     printBlue("获取外部源频道数据...")
@@ -68,8 +76,11 @@ async function getAllChannels() {
  * @param {Object} options - 更新选项
  * @param {boolean} options.autoOnly - 仅更新设置了自动刷新的源（默认true）
  * @param {boolean} options.forceAll - 强制更新所有源
+ * @param {boolean} options.startupMode - 启动模式，仅更新设置了updateOnStartup的源
  */
-async function updateExternalSources(options = { autoOnly: true }) {
+async function updateExternalSources(options = {}) {
+  const { autoOnly = true, forceAll = false, startupMode = false } = options
+  
   if (!externalSourceManager.sources.enabled) {
     printYellow("外部源功能已禁用，跳过更新")
     return { success: true, message: "外部源已禁用" }
@@ -81,7 +92,7 @@ async function updateExternalSources(options = { autoOnly: true }) {
   }
   
   printBlue("开始更新外部源...")
-  const results = await externalSourceManager.updateAllSources(options)
+  const results = await externalSourceManager.updateAllSources({ autoOnly, forceAll, startupMode })
   
   const successful = results.filter(r => r.success).length
   const total = results.length

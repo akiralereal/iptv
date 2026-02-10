@@ -8,7 +8,7 @@
 - ✅ 支持回看功能（当天内容）
 - ✅ 多画质选择（标清/高清/蓝光/原画/4K）
 - ✅ Docker 一键部署
-- ✅ **Web 管理后台** - 可视化自定义频道分组
+- ✅ **Web 管理后台** - 可视化管理外部直播源
 - ✅ 自动更新节目单
 
 # 快速开始
@@ -62,7 +62,7 @@ https://raw.githubusercontent.com/akiralereal/iptv/main/interface.txt
 
 ## Web 管理后台
 
-本项目提供可视化的 Web 管理界面，方便您自定义频道分组。
+本项目提供可视化的 Web 管理界面,方便您管理外部直播源。
 
 ### 访问地址
 
@@ -79,49 +79,9 @@ https://raw.githubusercontent.com/akiralereal/iptv/main/interface.txt
 - 支持实时搜索，快速查找您想要的频道
 - 支持模糊匹配频道名称
 
-#### 3. 创建自定义分组
-- 点击"➕ 新建分组"按钮创建自定义分组
-- 支持自定义分组名称（如"常看频道"、"体育频道"、"家人最爱"等）
-- 可创建多个分组进行分类管理
-
-#### 4. 添加频道到分组
-- 点击频道旁的"添加 ➜"按钮快速将频道加入分组
-- 自动去重，避免重复添加
-- 支持批量添加多个频道
-
-#### 5. 管理分组
-- **编辑分组名称** - 修改分组名称
-- **删除分组** - 删除整个分组及其所有频道
-- **移除频道** - 从分组中移除单个频道
-- **重置所有分组** - 一键清空所有自定义分组（需确认）
-
-#### 6. 启用/禁用自定义分组
-- 勾选"启用自定义分组"后，播放列表将**只显示**您自定义的频道
-- 取消勾选后恢复显示所有原始频道
-- 可随时切换，方便灵活使用
-
-#### 7. 保存配置
-- 点击"💾 保存配置"按钮保存您的所有设置
-- 配置保存在 `custom-channels.json` 文件中
-- 服务重启后自动加载配置
-
-### 配置文件说明
+###配置文件说明
 
 项目提供了示例配置文件，首次使用时需要复制并修改：
-
-#### 自定义分组配置
-
-```bash
-# 复制示例文件
-cp custom-channels.json.example custom-channels.json
-```
-
-`custom-channels.json` 配置说明：
-- `enableCustomGroups`: 是否启用自定义分组（true/false）
-- `customGroups`: 自定义分组列表
-  - `name`: 分组名称
-  - `channels`: 该分组包含的频道名称列表
-- `excludeChannels`: 要排除的频道名称列表
 
 #### 外部源配置
 
@@ -160,14 +120,6 @@ http://localhost:1905/admin
 http://localhost:1905/mypass/admin
 ```
 
-### Docker 环境使用
-
-如果使用 Docker，配置会自动持久化。也可以挂载配置文件：
-
-```yaml
-volumes:
-  - ./custom-channels.json:/migu/custom-channels.json
-```
 
 ## node
 

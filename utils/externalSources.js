@@ -22,6 +22,7 @@ class ExternalSourceManager {
       const defaultConfig = {
         enabled: false,
         includeInPlaylists: true,
+        updateOnStartup: true, // 默认重启时更新咪咕源
         sources: [],
         updateInterval: 60, // 更新间隔（分钟）
         lastGlobalUpdate: null
@@ -38,7 +39,8 @@ class ExternalSourceManager {
         return {
           enabled: true,
           includeInPlaylists: true,
-          sources: parsed,
+          updateOnStartup: true,
+          sources: parsed.map(s => ({ ...s, updateOnStartup: s.updateOnStartup !== false })),
           updateInterval: 60,
           lastGlobalUpdate: null
         }
@@ -50,12 +52,20 @@ class ExternalSourceManager {
         if (typeof parsed.includeInPlaylists !== 'boolean') {
           parsed.includeInPlaylists = true
         }
+        if (typeof parsed.updateOnStartup !== 'boolean') {
+          parsed.updateOnStartup = true // 默认开启
+        }
+        // 为每个源添加默认的 updateOnStartup
+        parsed.sources = parsed.sources.map(s => ({
+          ...s,
+          updateOnStartup: s.updateOnStartup !== false
+        }))
         return parsed
       }
-      return { enabled: false, includeInPlaylists: true, sources: [] }
+      return { enabled: false, includeInPlaylists: true, updateOnStartup: true, sources: [] }
     } catch (error) {
       printRed(`加载外部源配置失败: ${error.message}`)
-      return { enabled: false, includeInPlaylists: true, sources: [] }
+      return { enabled: false, includeInPlaylists: true, updateOnStartup: true, sources: [] }
     }
   }
 
@@ -87,6 +97,7 @@ class ExternalSourceManager {
       enabled: sourceConfig.enabled !== false,
       autoRefresh: sourceConfig.autoRefresh !== false, // 是否自动刷新，默认开启
       refreshInterval: sourceConfig.refreshInterval || 60, // 刷新间隔（分钟），默认60分钟
+      updateOnStartup: sourceConfig.updateOnStartup !== false, // 重启时是否更新，默认开启
       lastUpdated: null,
       extractOptions: {
         waitTime: sourceConfig.waitTime || 5000,
@@ -198,11 +209,12 @@ class ExternalSourceManager {
    * @param {Object} options - 选项
    * @param {boolean} options.autoOnly - 仅更新设置了自动刷新的源
    * @param {boolean} options.forceAll - 强制更新所有源（忽略时间间隔）
+   * @param {boolean} options.startupMode - 启动模式，仅更新设置了updateOnStartup的源
    */
   async updateAllSources(options = {}) {
-    const { autoOnly = false, forceAll = false } = options
+    const { autoOnly = false, forceAll = false, startupMode = false } = options
     
-    printBlue(`开始更新外部源${autoOnly ? '（仅自动刷新）' : ''}...`)
+    printBlue(`开始更新外部源${autoOnly ? '（仅自动刷新）' : ''}${startupMode ? '（启动模式）' : ''}...`)
     const results = []
     let skipped = 0
     
@@ -211,6 +223,13 @@ class ExternalSourceManager {
       
       // 跳过禁用的源
       if (!source.enabled) {
+        skipped++
+        continue
+      }
+      
+      // 启动模式：只更新设置了updateOnStartup的源
+      if (startupMode && source.updateOnStartup === false) {
+        printYellow(`${source.name} 跳过启动更新（未启用启动时更新）`)
         skipped++
         continue
       }
@@ -300,12 +319,21 @@ class ExternalSourceManager {
   }
 
   /**
+   * 设置重启时是否更新（全局-咪咕源）
+   */
+  setUpdateOnStartup(enabled) {
+    this.sources.updateOnStartup = enabled
+    return this.saveSources()
+  }
+
+  /**
    * 获取配置信息
    */
   getConfig() {
     return {
       enabled: this.sources.enabled,
       includeInPlaylists: this.sources.includeInPlaylists !== false,
+      updateOnStartup: this.sources.updateOnStartup !== false,
       sourcesCount: this.sources.sources.length,
       validSourcesCount: this.sources.sources.filter(s => s.enabled && s.m3u8Url).length,
       lastGlobalUpdate: this.sources.lastGlobalUpdate

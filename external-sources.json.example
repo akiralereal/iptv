@@ -1,6 +1,7 @@
 {
   "enabled": true,
   "includeInPlaylists": true,
+  "updateOnStartup": true,
   "sources": [
     {
       "name": "示例频道",
@@ -10,6 +11,7 @@
       "enabled": true,
       "autoRefresh": true,
       "refreshInterval": 60,
+      "updateOnStartup": true,
       "extractOptions": {
         "waitTime": 5000,
         "headless": true
@@ -19,8 +21,9 @@
   ],
   "lastGlobalUpdate": null,
   "_comments": {
+    "updateOnStartup": "重启时是否更新（全局控制咪咕源，单个控制外部源，默认true）",
     "autoRefresh": "是否自动刷新该源（默认true）",
     "refreshInterval": "自动刷新间隔（分钟，默认60）",
-    "咪咕源说明": "咪咕源的更新频率由 config.js 中的 programInfoUpdateInterval 控制，不受外部源配置影响"
+    "咪咕源说明": "咪咕源的定时更新频率由 config.js 中的 programInfoUpdateInterval 控制"
   }
 }

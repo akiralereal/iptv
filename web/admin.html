@@ -434,20 +434,6 @@
             </div>
 
             <div class="panel">
-                <h2>⭐ 自定义分组</h2>
-                <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
-                    <button class="btn btn-primary" onclick="addGroup()">➕ 新建分组</button>
-                    <button class="btn btn-danger" onclick="resetAllGroups()">🔄 重置所有分组</button>
-                    <button class="btn btn-success" onclick="saveConfig()">💾 保存配置</button>
-                    <label>
-                        <input type="checkbox" id="enableCustom" onchange="toggleCustomGroups()">
-                        启用自定义分组
-                    </label>
-                </div>
-                <div class="custom-groups" id="customGroups"></div>
-            </div>
-
-            <div class="panel">
                 <h2>🌐 外部源管理</h2>
                 <div class="external-usage">
                     <h4>📖 使用说明</h4>
@@ -466,6 +452,10 @@
                     <label>
                         <input type="checkbox" id="externalIncludeInPlaylists" onchange="toggleExternalIncludeInPlaylists()">
                         写入 m3u/txt
+                    </label>
+                    <label>
+                        <input type="checkbox" id="miguUpdateOnStartup" onchange="toggleMiguUpdateOnStartup()">
+                        咪咕源重启时更新
                     </label>
                 </div>
                 <div class="external-buttons">
@@ -536,32 +526,14 @@
         </div>
     </div>
 
-    <!-- 新建/编辑分组对话框 -->
-    <div class="modal" id="groupModal">
-        <div class="modal-content">
-            <h3 id="modalTitle">新建分组</h3>
-            <input type="text" id="groupNameInput" placeholder="输入分组名称">
-            <div class="modal-actions">
-                <button class="btn btn-primary" onclick="confirmGroup()">确定</button>
-                <button class="btn" onclick="closeModal()">取消</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         let allChannels = [];
-        let config = {
-            enableCustomGroups: false,
-            customGroups: [],
-            excludeChannels: []
-        };
         let externalConfig = {
             enabled: false,
             includeInPlaylists: true,
             sources: []
         };
         let systemConfig = {};
-        let currentEditingGroup = null;
         let updatingSourceIndex = null; // 记录正在更新的源索引
 
         // 加载数据
@@ -578,15 +550,6 @@
                 allChannels = await channelsRes.json();
                 console.log('频道数据加载成功:', allChannels.length, '个分类');
                 
-                // 加载配置
-                console.log('请求配置...');
-                const configRes = await fetch('/api/config');
-                if (!configRes.ok) {
-                    throw new Error(`配置API请求失败: ${configRes.status}`);
-                }
-                config = await configRes.json();
-                console.log('配置加载成功');
-
                 // 加载外部源配置
                 console.log('请求外部源配置...');
                 const externalRes = await fetch('/api/external-sources');
@@ -609,10 +572,8 @@
                 // 渲染所有内容
                 console.log('开始渲染页面...');
                 renderChannels();
-                renderGroups();
                 renderExternalSources();
                 renderSystemConfig();
-                document.getElementById('enableCustom').checked = config.enableCustomGroups;
                 console.log('页面渲染完成');
                 
                 showStatus('数据加载成功', 'success');
@@ -674,56 +635,20 @@
             });
         }
 
-        // 渲染分组
-        function renderGroups() {
-            const container = document.getElementById('customGroups');
-            container.innerHTML = '';
-            
-            if (config.customGroups.length === 0) {
-                container.innerHTML = '<div class="empty-group">暂无自定义分组，点击上方"➕ 添加新分组"按钮开始创建</div>';
-                return;
-            }
-            
-            config.customGroups.forEach((group, index) => {
-                const groupDiv = document.createElement('div');
-                groupDiv.className = 'group';
-                
-                const channelsHtml = group.channels.length > 0 
-                    ? group.channels.map(ch => `
-                        <div class="channel-tag">
-                            ${ch}
-                            <span class="remove" onclick="removeChannelFromGroup(${index}, '${ch}')">×</span>
-                        </div>
-                    `).join('')
-                    : '<div class="empty-group">暂无频道，从左侧添加频道</div>';
-                
-                groupDiv.innerHTML = `
-                    <div class="group-header">
-                        <div class="group-name">${group.name}</div>
-                        <div class="group-actions">
-                            <button class="btn btn-small btn-primary" onclick="editGroup(${index})">编辑</button>
-                            <button class="btn btn-small btn-danger" onclick="deleteGroup(${index})">删除</button>
-                        </div>
-                    </div>
-                    <div class="group-channels">${channelsHtml}</div>
-                `;
-                
-                container.appendChild(groupDiv);
-            });
-        }
-
         function normalizeExternalConfig(payload) {
             const data = payload && payload.data !== undefined ? payload.data : payload || {};
             if (Array.isArray(data)) {
                 return {
                     enabled: true,
                     includeInPlaylists: true,
+                    updateOnStartup: true,
                     sources: data
                 };
             }
             return {
                 enabled: !!data.enabled,
                 includeInPlaylists: data.includeInPlaylists !== false,
+                updateOnStartup: data.updateOnStartup !== false,
                 sources: Array.isArray(data.sources) ? data.sources : []
             };
         }
@@ -734,6 +659,7 @@
 
             document.getElementById('externalEnabled').checked = !!externalConfig.enabled;
             document.getElementById('externalIncludeInPlaylists').checked = externalConfig.includeInPlaylists !== false;
+            document.getElementById('miguUpdateOnStartup').checked = externalConfig.updateOnStartup !== false;
 
             if (!externalConfig.sources || externalConfig.sources.length === 0) {
                 container.innerHTML = '<div class="empty-group">暂无外部源，点击“添加外部源”开始配置</div>';
@@ -775,6 +701,10 @@
                             <input type="checkbox" ${source.autoRefresh !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'autoRefresh', this.checked)">
                             自动刷新
                         </label>
+                        <label style="margin-left: 15px;">
+                            <input type="checkbox" ${source.updateOnStartup !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'updateOnStartup', this.checked)">
+                            重启时更新
+                        </label>
                         <button class="btn btn-small btn-primary" onclick="updateExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>
                             ${updatingSourceIndex === index ? '抓取中...' : '抓取'}
                         </button>
@@ -793,6 +723,10 @@
             externalConfig.includeInPlaylists = document.getElementById('externalIncludeInPlaylists').checked;
         }
 
+        function toggleMiguUpdateOnStartup() {
+            externalConfig.updateOnStartup = document.getElementById('miguUpdateOnStartup').checked;
+        }
+
         function addExternalSource() {
             externalConfig.sources.push({
                 name: '',
@@ -802,6 +736,7 @@
                 enabled: true,
                 autoRefresh: true, // 默认开启自动刷新
                 refreshInterval: 60, // 默认60分钟刷新一次
+                updateOnStartup: true, // 默认重启时更新
                 extractOptions: {
                     waitTime: 5000,
                     headless: true
@@ -902,140 +837,6 @@
             } catch (error) {
                 showStatus('外部源配置保存失败: ' + error.message, 'error');
             }
-        }
-
-        // 新建分组
-        function addGroup() {
-            currentEditingGroup = null;
-            document.getElementById('modalTitle').textContent = '新建分组';
-            document.getElementById('groupNameInput').value = '';
-            document.getElementById('groupModal').style.display = 'block';
-        }
-
-        // 编辑分组
-        function editGroup(index) {
-            currentEditingGroup = index;
-            document.getElementById('modalTitle').textContent = '编辑分组';
-            document.getElementById('groupNameInput').value = config.customGroups[index].name;
-            document.getElementById('groupModal').style.display = 'block';
-        }
-
-        // 确认分组
-        function confirmGroup() {
-            const name = document.getElementById('groupNameInput').value.trim();
-            if (!name) {
-                alert('请输入分组名称');
-                return;
-            }
-            
-            if (currentEditingGroup === null) {
-                // 新建
-                config.customGroups.push({
-                    name: name,
-                    channels: []
-                });
-            } else {
-                // 编辑
-                config.customGroups[currentEditingGroup].name = name;
-            }
-            
-            closeModal();
-            renderGroups();
-        }
-
-        // 删除分组
-        function deleteGroup(index) {
-            if (confirm('确定要删除这个分组吗？')) {
-                config.customGroups.splice(index, 1);
-                renderGroups();
-            }
-        }
-
-        // 重置所有分组（将默认分组作为自定义分组的初始值）
-        async function resetAllGroups() {
-            if (confirm('确定要重置分组吗？\n\n这将把当前的默认分组导入为自定义分组，您可以在此基础上进行调整。')) {
-                try {
-                    const response = await fetch('/api/reset-groups', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        // 重新加载配置
-                        config = result.data;
-                        document.getElementById('enableCustom').checked = config.enableCustomGroups;
-                        renderGroups();
-                        showStatus(result.message, 'success');
-                    } else {
-                        showStatus(result.message || '重置失败', 'error');
-                    }
-                } catch (error) {
-                    showStatus('重置失败: ' + error.message, 'error');
-                }
-            }
-        }
-
-        // 添加频道到当前选中分组
-        let currentSelectedGroup = 0;
-        function addChannelToGroup(channelName) {
-            if (config.customGroups.length === 0) {
-                alert('请先创建分组');
-                return;
-            }
-            
-            // 简单实现：添加到第一个分组，可以改进为弹窗选择
-            const groupIndex = currentSelectedGroup % config.customGroups.length;
-            const group = config.customGroups[groupIndex];
-            
-            if (!group.channels.includes(channelName)) {
-                group.channels.push(channelName);
-                renderGroups();
-                showStatus(`已添加 "${channelName}" 到 "${group.name}"`, 'success');
-            } else {
-                showStatus(`"${channelName}" 已在分组中`, 'error');
-            }
-        }
-
-        // 从分组移除频道
-        function removeChannelFromGroup(groupIndex, channelName) {
-            const group = config.customGroups[groupIndex];
-            group.channels = group.channels.filter(ch => ch !== channelName);
-            renderGroups();
-        }
-
-        // 切换自定义分组
-        function toggleCustomGroups() {
-            config.enableCustomGroups = document.getElementById('enableCustom').checked;
-        }
-
-        // 保存配置
-        async function saveConfig() {
-            try {
-                const response = await fetch('/api/config', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(config)
-                });
-                
-                if (response.ok) {
-                    showStatus('配置保存成功！', 'success');
-                } else {
-                    showStatus('配置保存失败', 'error');
-                }
-            } catch (error) {
-                showStatus('保存失败: ' + error.message, 'error');
-            }
-        }
-
-        // 关闭对话框
-        function closeModal() {
-            document.getElementById('groupModal').style.display = 'none';
         }
 
         // 显示状态消息

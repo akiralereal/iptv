@@ -2,21 +2,40 @@ import { dataList as getMiguChannels } from "./fetchList.js"
 import externalSourceManager from "./externalSources.js"
 import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 
+// 缓存最近一次获取的咪咕频道数据
+let cachedMiguChannels = []
+
 /**
  * 获取所有频道数据（咪咕 + 外部源）
  * @param {Object} options - 选项
  * @param {boolean} options.skipMigu - 跳过咪咕数据获取
+ * @param {boolean} options.useCachedMigu - 使用缓存的咪咕数据（用于仅更新外部源时）
  */
 async function getAllChannels(options = {}) {
-  const { skipMigu = false } = options
+  const { skipMigu = false, useCachedMigu = false } = options
   try {
     // 获取咪咕频道
     let miguChannels = []
     if (skipMigu) {
       printYellow("跳过咪咕频道获取（启动时更新已关闭）")
+    } else if (useCachedMigu && cachedMiguChannels.length > 0) {
+      // 使用缓存数据（快速模式）
+      const channelCount = cachedMiguChannels.reduce((sum, g) => sum + g.dataList.length, 0)
+      printGreen(`使用缓存的咪咕频道数据 (${channelCount} 个频道) - 快速模式`)
+      miguChannels = cachedMiguChannels
+    } else if (useCachedMigu && cachedMiguChannels.length === 0) {
+      // 缓存为空，降级为完整更新（仅第一次操作时发生）
+      printYellow("缓存未初始化，执行完整更新（首次操作需要较长时间）")
+      miguChannels = await getMiguChannels()
+      cachedMiguChannels = miguChannels
+      const channelCount = miguChannels.reduce((sum, g) => sum + g.dataList.length, 0)
+      printGreen(`咪咕频道数据已缓存 (${channelCount} 个频道) - 后续操作将使用快速模式`)
     } else {
       printBlue("获取咪咕频道数据...")
       miguChannels = await getMiguChannels()
+      cachedMiguChannels = miguChannels
+      const channelCount = miguChannels.reduce((sum, g) => sum + g.dataList.length, 0)
+      printGreen(`咪咕频道数据已缓存 (${channelCount} 个频道)`)
     }
     
     // 获取外部源频道

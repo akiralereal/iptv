@@ -11,11 +11,12 @@ import { fetchUrl } from "./net.js"
  * @param {Number} hours -更新小时数
  * @param {Object} options - 更新选项
  * @param {boolean} options.startupMode - 启动模式，根据配置决定是否更新
+ * @param {boolean} options.regenerateOnly - 仅重新生成播放列表，使用缓存的咪咕数据（用于外部源变更时）
  */
 async function updateTV(hours, options = {}) {
-  const { startupMode = false } = options
+  const { startupMode = false, regenerateOnly = false } = options
   
-  printBlue(`开始更新TV...${startupMode ? '（启动模式）' : ''}`)
+  printBlue(`开始更新TV...${startupMode ? '（启动模式）' : ''}${regenerateOnly ? '（仅重新生成播放列表）' : ''}`)
 
   const date = new Date()
   const start = date.getTime()
@@ -32,8 +33,14 @@ async function updateTV(hours, options = {}) {
     return
   }
   
+  // regenerateOnly: 仅重新生成播放列表，跳过playback更新
+  if (regenerateOnly) {
+    printYellow("快速模式：跳过节目单更新，保留现有playback.xml")
+  }
+  
   // 获取数据（咪咕 + 外部源）
-  let datas = await getAllChannels({ skipMigu })
+  // regenerateOnly: 使用缓存的咪咕数据 + 最新的外部源数据
+  let datas = await getAllChannels({ skipMigu, useCachedMigu: regenerateOnly })
   printGreen("TV数据获取成功！")
 
   interfacePath = `${process.cwd()}/interface.txt.bak`
@@ -56,11 +63,15 @@ async function updateTV(hours, options = {}) {
   }
   appendFile(interfacePath, `#EXTM3U x-tvg-url="\${replace}/playback.xml" catchup="append" catchup-source="?playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`)
   printYellow("开始更新TV...")
-  // 回放
-  const playbackFile = `${process.cwd()}/playback.xml.bak`
-  writeFile(playbackFile,
-    `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<tv generator-info-name="iFansClub" generator-info-url="https://github.com/akiralereal/iPTV">\n`)
+  
+  // 回放数据：regenerateOnly模式下跳过playback更新
+  let playbackFile = ""
+  if (!regenerateOnly) {
+    playbackFile = `${process.cwd()}/playback.xml.bak`
+    writeFile(playbackFile,
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<tv generator-info-name="iFansClub" generator-info-url="https://github.com/akiralereal/iPTV">\n`)
+  }
 
   // 分类列表
   const includeExternalInPlaylists = externalSourceManager.sources?.includeInPlaylists !== false
@@ -80,7 +91,8 @@ async function updateTV(hours, options = {}) {
         continue
       }
 
-      if (!isExternal) {
+      // regenerateOnly模式下跳过playback更新（仅更新播放列表）
+      if (!isExternal && !regenerateOnly) {
         await updatePlaybackData(channelItem, playbackFile)
       }
 
@@ -93,10 +105,11 @@ async function updateTV(hours, options = {}) {
     printGreen(`分类###:${datas[i].name} 更新完成！`)
   }
 
-  appendFileSync(playbackFile, `</tv>\n`)
-
-  // 重命名
-  renameFileSync(playbackFile, playbackFile.replace(".bak", ""))
+  // regenerateOnly模式下跳过playback文件生成
+  if (!regenerateOnly) {
+    appendFileSync(playbackFile, `</tv>\n`)
+    renameFileSync(playbackFile, playbackFile.replace(".bak", ""))
+  }
   renameFileSync(interfacePath, interfacePath.replace(".bak", ""))
   // txt
   renameFileSync(interfaceTXTPath, interfaceTXTPath.replace(".bak", ""))
@@ -206,10 +219,18 @@ async function updatePE(hours) {
  * @param {Number} hours - 更新小时数
  * @param {Object} options - 更新选项
  * @param {boolean} options.startupMode - 启动模式
+ * @param {boolean} options.regenerateOnly - 仅重新生成播放列表，跳过PE更新
  */
 async function update(hours, options = {}) {
+  const { regenerateOnly = false } = options
   await updateTV(hours, options)
-  await updatePE(hours)
+  
+  // regenerateOnly模式下跳过体育赛事更新（仅更新自定义源相关数据）
+  if (!regenerateOnly) {
+    await updatePE(hours)
+  } else {
+    printYellow("快速模式：跳过体育赛事更新")
+  }
 }
 
 export default update

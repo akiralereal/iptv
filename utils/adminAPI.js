@@ -44,8 +44,8 @@ export async function saveExternalSourcesAPI(sources) {
   try {
     const result = externalSourceManager.saveSources(sources)
     if (result.success !== false) {
-      // 保存成功后自动触发更新，重新生成播放列表
-      await update(0).catch(err => {
+      // 保存成功后自动触发更新，仅重新生成播放列表（不重新抓取咪咕数据）
+      await update(0, { regenerateOnly: true }).catch(err => {
         console.error('更新播放列表失败:', err)
       })
     }

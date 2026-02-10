@@ -242,8 +242,8 @@
         }
 
         .btn-small {
-            padding: 4px 8px;
-            font-size: 12px;
+            padding: 8px 16px;
+            font-size: 14px;
         }
 
         .group-channels {
@@ -387,17 +387,11 @@
             margin-bottom: 4px;
         }
 
-        .external-toggles {
+        .external-header {
             display: flex;
             gap: 16px;
             align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-        }
-
-        .external-buttons {
-            display: flex;
-            gap: 12px;
+            justify-content: center;
             margin-bottom: 12px;
         }
 
@@ -839,9 +833,107 @@
         .btn-warning:hover {
             background: #ffc53d;
         }
+        /* 自定义确认对话框 */
+        .confirm-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .confirm-overlay.show {
+            display: flex;
+        }
+
+        .confirm-dialog {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            min-width: 350px;
+            max-width: 500px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            animation: confirmSlideIn 0.2s ease-out;
+        }
+
+        @keyframes confirmSlideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .confirm-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .confirm-message {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .confirm-btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .confirm-btn-cancel {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .confirm-btn-cancel:hover {
+            background: #e0e0e0;
+        }
+
+        .confirm-btn-confirm {
+            background: #1890ff;
+            color: white;
+        }
+
+        .confirm-btn-confirm:hover {
+            background: #40a9ff;
+        }
+
     </style>
 </head>
 <body>
+    <!-- 自定义确认对话框 -->
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-dialog">
+            <div class="confirm-title" id="confirmTitle">localhost:1905 显示</div>
+            <div class="confirm-message" id="confirmMessage">确认要删除这个外部源吗？</div>
+            <div class="confirm-buttons">
+                <button class="confirm-btn confirm-btn-cancel" onclick="hideConfirm(false)">取消</button>
+                <button class="confirm-btn confirm-btn-confirm" onclick="hideConfirm(true)">确定</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Toast 通知 -->
     <div class="status" id="status"></div>
     
@@ -866,23 +958,8 @@
             </div>
 
             <div class="panel">
-                <div class="external-toggles">
-                    <label>
-                        <input type="checkbox" id="externalEnabled" onchange="toggleExternalEnabled()">
-                        启用自定义源
-                    </label>
-                    <label>
-                        <input type="checkbox" id="externalIncludeInPlaylists" onchange="toggleExternalIncludeInPlaylists()">
-                        写入 m3u/txt
-                    </label>
-                    <label>
-                        <input type="checkbox" id="miguUpdateOnStartup" onchange="toggleMiguUpdateOnStartup()">
-                        咪咕源重启时更新
-                    </label>
-                </div>
-                <div class="external-buttons">
+                <div class="external-header">
                     <button class="btn btn-primary" onclick="addExternalSource()">➥ 添加源</button>
-                    <button class="btn btn-success" onclick="saveExternalSources()">💾 保存</button>
                 </div>
                 <div class="external-container">
                     <div class="external-sidebar" id="externalSidebar"></div>
@@ -1171,7 +1248,7 @@
                 };
             }
             return {
-                enabled: !!data.enabled,
+                enabled: true, // 默认始终启用自定义源
                 includeInPlaylists: data.includeInPlaylists !== false,
                 updateOnStartup: data.updateOnStartup !== false,
                 sources: Array.isArray(data.sources) ? data.sources : []
@@ -1181,10 +1258,6 @@
         function renderExternalSources() {
             const sidebar = document.getElementById('externalSidebar');
             const detail = document.getElementById('externalDetail');
-
-            document.getElementById('externalEnabled').checked = !!externalConfig.enabled;
-            document.getElementById('externalIncludeInPlaylists').checked = externalConfig.includeInPlaylists !== false;
-            document.getElementById('miguUpdateOnStartup').checked = externalConfig.updateOnStartup !== false;
 
             // 渲染左侧列表
             sidebar.innerHTML = '';
@@ -1370,18 +1443,6 @@
             }
         }
 
-        function toggleExternalEnabled() {
-            externalConfig.enabled = document.getElementById('externalEnabled').checked;
-        }
-
-        function toggleExternalIncludeInPlaylists() {
-            externalConfig.includeInPlaylists = document.getElementById('externalIncludeInPlaylists').checked;
-        }
-
-        function toggleMiguUpdateOnStartup() {
-            externalConfig.updateOnStartup = document.getElementById('miguUpdateOnStartup').checked;
-        }
-
         function addExternalSource() {
             // 默认添加直连模式
             const newSource = {
@@ -1393,8 +1454,9 @@
                 webUrl: ''
             };
             
-            externalConfig.sources.push(newSource);
-            selectedExternalIndex = externalConfig.sources.length - 1;
+            // 插入到数组开头，让新增的源显示在最上面
+            externalConfig.sources.unshift(newSource);
+            selectedExternalIndex = 0;
             renderExternalSources();
         }
 
@@ -1423,14 +1485,83 @@
             renderExternalDetail(index);
         }
 
-        function removeExternalSource(index) {
-            if (confirm('确定要删除这个外部源吗?')) {
+        // 自定义确认对话框
+        let confirmCallback = null;
+
+        function showConfirm(message, title = 'localhost:1905 显示') {
+            return new Promise((resolve) => {
+                document.getElementById('confirmTitle').textContent = title;
+                document.getElementById('confirmMessage').textContent = message;
+                document.getElementById('confirmOverlay').classList.add('show');
+                confirmCallback = resolve;
+            });
+        }
+
+        function hideConfirm(result) {
+            document.getElementById('confirmOverlay').classList.remove('show');
+            if (confirmCallback) {
+                confirmCallback(result);
+                confirmCallback = null;
+            }
+        }
+
+        async function removeExternalSource(index) {
+            const confirmed = await showConfirm('确定要删除这个外部源吗？');
+            if (!confirmed) {
+                return;
+            }
+            
+            const sourceName = externalConfig.sources[index]?.name || '未命名源';
+            
+            try {
+                showStatus('正在删除...', 'info');
+                
+                // 从配置中删除
                 externalConfig.sources.splice(index, 1);
-                if (selectedExternalIndex === index) {
-                    selectedExternalIndex = externalConfig.sources.length > 0 ? 0 : null;
-                } else if (selectedExternalIndex > index) {
-                    selectedExternalIndex--;
+                
+                // 调用保存API，服务器会自动重新生成播放列表
+                const response = await fetch('/api/external-sources', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: 'save', sources: externalConfig })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.success !== false) {
+                    showStatus(`${sourceName} 删除成功并已从频道列表中移除`, 'success');
+                    
+                    // 调整选中索引
+                    if (selectedExternalIndex === index) {
+                        selectedExternalIndex = externalConfig.sources.length > 0 ? 0 : null;
+                    } else if (selectedExternalIndex > index) {
+                        selectedExternalIndex--;
+                    }
+                    
+                    renderExternalSources();
+                    
+                    // 重新加载所有频道数据以刷新显示
+                    const channelsRes = await fetch('/api/channels');
+                    if (channelsRes.ok) {
+                        allChannels = await channelsRes.json();
+                        renderChannels();
+                    }
+                } else {
+                    // 删除失败，恢复数据（需要重新加载配置）
+                    showStatus(result.message || '删除失败', 'error');
+                    const externalRes = await fetch('/api/external-sources');
+                    const externalPayload = await externalRes.json();
+                    externalConfig = normalizeExternalConfig(externalPayload);
+                    renderExternalSources();
                 }
+            } catch (error) {
+                showStatus('删除失败: ' + error.message, 'error');
+                // 恢复数据
+                const externalRes = await fetch('/api/external-sources');
+                const externalPayload = await externalRes.json();
+                externalConfig = normalizeExternalConfig(externalPayload);
                 renderExternalSources();
             }
         }
@@ -1509,6 +1640,13 @@
                         ? `${sourceName} 更新成功（${result.warning}）` 
                         : `${sourceName} 更新成功！m3u8 链接已自动填充`;
                     showStatus(message, 'success');
+                    
+                    // 重新加载所有频道数据以刷新显示
+                    const channelsRes = await fetch('/api/channels');
+                    if (channelsRes.ok) {
+                        allChannels = await channelsRes.json();
+                        renderChannels();
+                    }
                 } else {
                     showStatus(`${sourceName} 更新失败: ${result.message || '未知错误'}`, 'error');
                 }
@@ -1517,30 +1655,6 @@
             } finally {
                 updatingSourceIndex = null;
                 renderExternalSources(); // 清除loading状态并刷新UI
-            }
-        }
-
-        async function saveExternalSources() {
-            try {
-                showStatus('正在保存配置...', 'info');
-                
-                const response = await fetch('/api/external-sources', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ action: 'save', sources: externalConfig })
-                });
-
-                const result = await response.json();
-                if (response.ok && result.success !== false) {
-                    showStatus('外部源配置保存成功', 'success');
-                    renderExternalSources(); // 保存成功后刷新UI
-                } else {
-                    showStatus(result.message || '外部源配置保存失败', 'error');
-                }
-            } catch (error) {
-                showStatus('外部源配置保存失败: ' + error.message, 'error');
             }
         }
 
@@ -1611,6 +1725,13 @@
                         ? `${sourceName} 抓取成功（${result.warning}）并已同步到频道列表` 
                         : `${sourceName} 抓取成功！已同步到频道列表`;
                     showStatus(message, 'success');
+                    
+                    // 重新加载所有频道数据以刷新显示
+                    const channelsRes = await fetch('/api/channels');
+                    if (channelsRes.ok) {
+                        allChannels = await channelsRes.json();
+                        renderChannels();
+                    }
                 } else {
                     showStatus(`${sourceName} 抓取失败: ${result.message || '未知错误'}`, 'error');
                 }
@@ -1655,6 +1776,13 @@
                 if (response.ok && result.success !== false) {
                     showStatus(`${source.name} 保存成功并已同步到频道列表`, 'success');
                     renderExternalSources(); // 保存成功后刷新UI
+                    
+                    // 重新加载所有频道数据以刷新显示
+                    const channelsRes = await fetch('/api/channels');
+                    if (channelsRes.ok) {
+                        allChannels = await channelsRes.json();
+                        renderChannels();
+                    }
                 } else {
                     showStatus(result.message || '保存失败', 'error');
                 }

@@ -3,14 +3,73 @@ import { getAllChannels, externalSourceManager } from "./channelMerger.js"
 import update from "./updateData.js"
 
 /**
- * 获取所有频道数据（咪咕 + 外部源）
+ * 从interface.txt解析体育赛事数据
+ */
+function parsePEChannels() {
+  try {
+    const interfacePath = `${process.cwd()}/interface.txt`
+    if (!existsSync(interfacePath)) {
+      return []
+    }
+    
+    const content = readFileSync(interfacePath, 'utf-8')
+    const lines = content.split('\n')
+    const peGroups = {}
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (line.includes('group-title="体育-')) {
+        const groupMatch = line.match(/group-title="(体育-[^"]+)"/)
+        const nameMatch = line.match(/tvg-name="([^"]+)"/)
+        const logoMatch = line.match(/tvg-logo="([^"]+)"/)
+        
+        if (groupMatch && nameMatch && i + 1 < lines.length) {
+          const groupName = groupMatch[1]
+          const channelName = nameMatch[1]
+          const logo = logoMatch ? logoMatch[1] : ''
+          const url = lines[i + 1].trim()
+          
+          if (!peGroups[groupName]) {
+            peGroups[groupName] = []
+          }
+          
+          peGroups[groupName].push({
+            name: channelName,
+            logo: logo,
+            url: url,
+            source: 'pe' // 标记为体育赛事
+          })
+        }
+      }
+    }
+    
+    // 转换为频道列表格式
+    return Object.entries(peGroups).map(([name, dataList]) => ({
+      name: name,
+      source: 'pe',
+      dataList: dataList
+    }))
+    
+  } catch (error) {
+    console.error('解析PE频道失败:', error)
+    return []
+  }
+}
+
+/**
+ * 获取所有频道数据（咪咕 + 外部源 + 体育赛事）
  */
 export async function getChannelsAPI() {
   try {
     const channels = await getAllChannels()
+    const peChannels = parsePEChannels()
+    
+    // 合并PE频道（追加到末尾）
+    const allChannels = [...channels, ...peChannels]
+    
     return {
       success: true,
-      data: channels
+      data: allChannels
     }
   } catch (error) {
     return {

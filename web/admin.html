@@ -963,10 +963,24 @@
         }
 
         .my-playlist-left {
-            width: 300px;
+            width: 220px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            overflow: hidden;
+        }
+
+        .my-playlist-middle {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .my-playlist-right {
+            width: 220px;
+            display: flex;
+            flex-direction: column;
             overflow: hidden;
         }
 
@@ -977,16 +991,7 @@
             border-radius: 8px;
             background: #f9f9f9;
             overflow: hidden;
-        }
-
-        .my-playlist-section.active-section {
-            flex: 1;
-            min-height: 0;
-        }
-
-        .my-playlist-section.deleted-section {
-            flex: 1;
-            min-height: 0;
+            height: 100%;
         }
 
         .my-playlist-section-title {
@@ -1062,13 +1067,6 @@
         .my-playlist-group-item.deleted:hover {
             background: #e8e8e8;
             color: #000;
-        }
-
-        .my-playlist-right {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
         }
 
         .my-playlist-detail-header {
@@ -1254,23 +1252,25 @@
                 </div>
                 <div class="my-playlist-container">
                     <div class="my-playlist-left">
-                        <div class="my-playlist-section active-section">
+                        <div class="my-playlist-section">
                             <div class="my-playlist-section-title">
                                 <span>✅ 我的频道</span>
                             </div>
                             <div class="my-playlist-group-list" id="activeGroupList"></div>
                         </div>
-                        <div class="my-playlist-section deleted-section">
-                            <div class="my-playlist-section-title"><span>🚫 已隐藏</span></div>
-                            <div class="my-playlist-group-list" id="deletedGroupList"></div>
-                        </div>
                     </div>
-                    <div class="my-playlist-right">
+                    <div class="my-playlist-middle">
                         <div class="my-playlist-detail-header" id="detailHeader" style="display: none;">
                             <div class="my-playlist-detail-title" id="detailTitle"></div>
                             <div class="my-playlist-detail-actions" id="detailActions"></div>
                         </div>
                         <div class="my-playlist-groups" id="myPlaylistGroups"></div>
+                    </div>
+                    <div class="my-playlist-right">
+                        <div class="my-playlist-section">
+                            <div class="my-playlist-section-title"><span>🚫 已隐藏</span></div>
+                            <div class="my-playlist-group-list" id="deletedGroupList"></div>
+                        </div>
                     </div>
                 </div>
             </div>

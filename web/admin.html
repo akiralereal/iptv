@@ -1230,6 +1230,20 @@
     <!-- Toast 通知 -->
     <div class="status" id="status"></div>
     
+    <!-- 频道详情弹窗 -->
+    <div class="modal" id="channelDetailModal">
+        <div class="modal-content" style="width: 600px; max-width: 90%;">
+            <h3 id="channelDetailTitle">频道详情</h3>
+            <div id="channelDetailContent" style="max-height: 500px; overflow-y: auto;">
+                <!-- 动态内容将在这里插入 -->
+            </div>
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeChannelDetail()">关闭</button>
+                <button class="btn btn-primary" id="channelDetailEditBtn" style="display: none;" onclick="editChannelFromDetail()">编辑</button>
+            </div>
+        </div>
+    </div>
+    
     <div class="container">
         <div class="header">
             <div class="tabs">
@@ -2454,10 +2468,10 @@
                                            onchange="toggleChannelSelection('${channel.id}')" 
                                            ${selectedChannels.has(channel.id) ? 'checked' : ''}>
                                 ` : ''}
-                                <div class="my-playlist-channel-name" title="${channel.name}">${channel.name}</div>
+                                <div class="my-playlist-channel-name" title="${channel.name}" onclick="showChannelDetail('${channel.id}', true)" style="cursor: pointer;">${channel.name}</div>
                                 ${group.isPartialDelete && !isBatchMode ? `
                                     <div class="my-playlist-channel-actions" style="opacity: 1 !important;">
-                                        <button class="btn btn-primary btn-sm" onclick="restoreChannel('${channel.id}')">恢复</button>
+                                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); restoreChannel('${channel.id}')">恢复</button>
                                     </div>
                                 ` : ''}
                             </div>
@@ -2520,10 +2534,10 @@
                                            onchange="toggleChannelSelection('${channel.id}')" 
                                            ${selectedChannels.has(channel.id) ? 'checked' : ''}>
                                 ` : ''}
-                                <div class="my-playlist-channel-name" title="${channel.name}">${channel.name}</div>
+                                <div class="my-playlist-channel-name" title="${channel.name}" onclick="showChannelDetail('${channel.id}', false)" style="cursor: pointer;">${channel.name}</div>
                                 ${!isBatchMode ? `
                                     <div class="my-playlist-channel-actions">
-                                        <button onclick="hideChannel('${channel.id}')">隐藏</button>
+                                        <button onclick="event.stopPropagation(); hideChannel('${channel.id}')">隐藏</button>
                                     </div>
                                 ` : ''}
                             </div>
@@ -2980,6 +2994,172 @@
                 showStatus('恢复失败: ' + error.message, 'error');
             }
         }
+
+        // 频道详情相关功能
+        let currentChannelDetail = null;
+
+        function showChannelDetail(channelId, isDeleted) {
+            // 从原始数据中查找频道
+            let channel = null;
+            let groupName = null;
+            let isExternal = false;
+
+            // 在原始数据中查找
+            for (const group of myPlaylistOriginalData) {
+                const found = group.channels.find(ch => ch.id === channelId);
+                if (found) {
+                    channel = found;
+                    groupName = group.name;
+                    // 判断是否为外部源频道（分组为"未分组"）
+                    isExternal = group.name === '未分组';
+                    break;
+                }
+            }
+
+            if (!channel) {
+                showStatus('频道未找到', 'error');
+                return;
+            }
+
+            currentChannelDetail = { ...channel, groupName, isExternal, isDeleted };
+
+            // 构建详情HTML
+            let detailHTML = `
+                <div style="line-height: 1.8;">
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">频道名称：</strong>
+                        <span>${channel.name || '未知'}</span>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">所属分组：</strong>
+                        <span>${groupName || '未知'}</span>
+                        ${isDeleted ? '<span style="color: #999; margin-left: 10px;">(已隐藏)</span>' : ''}
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">频道ID：</strong>
+                        <span style="font-family: monospace; background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">${channel.id || '未知'}</span>
+                    </div>
+            `;
+
+            // 显示URL
+            if (channel.url) {
+                detailHTML += `
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">播放地址：</strong>
+                        <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin-top: 5px; word-break: break-all; font-family: monospace; font-size: 12px;">
+                            ${channel.url}
+                        </div>
+                        <button class="btn btn-sm" onclick="copyToClipboard('${channel.url.replace(/'/g, "\\'")}', '播放地址')" style="margin-top: 8px;">📋 复制地址</button>
+                    </div>
+                `;
+            }
+
+            // 显示其他可用信息
+            if (channel.tvgId) {
+                detailHTML += `
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">TVG ID：</strong>
+                        <span>${channel.tvgId}</span>
+                    </div>
+                `;
+            }
+
+            if (channel.tvgName) {
+                detailHTML += `
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">TVG名称：</strong>
+                        <span>${channel.tvgName}</span>
+                    </div>
+                `;
+            }
+
+            if (channel.tvgLogo) {
+                detailHTML += `
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">频道图标：</strong>
+                        <div style="margin-top: 8px;">
+                            <img src="${channel.tvgLogo}" alt="频道图标" style="max-width: 150px; max-height: 150px; border-radius: 4px;" onerror="this.style.display='none'">
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 显示来源信息
+            if (isExternal) {
+                detailHTML += `
+                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+                        <span style="color: #999; font-size: 13px;">
+                            ℹ️ 此频道来自外部源
+                        </span>
+                    </div>
+                `;
+            } else {
+                detailHTML += `
+                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+                        <span style="color: #999; font-size: 13px;">
+                            ℹ️ 此频道来自咪咕源
+                        </span>
+                    </div>
+                `;
+            }
+
+            detailHTML += '</div>';
+
+            // 更新弹窗内容
+            document.getElementById('channelDetailTitle').textContent = `频道详情 - ${channel.name}`;
+            document.getElementById('channelDetailContent').innerHTML = detailHTML;
+            
+            // 显示/隐藏编辑按钮
+            const editBtn = document.getElementById('channelDetailEditBtn');
+            if (isExternal) {
+                editBtn.style.display = 'block';
+            } else {
+                editBtn.style.display = 'none';
+            }
+
+            // 显示弹窗
+            document.getElementById('channelDetailModal').style.display = 'block';
+        }
+
+        function closeChannelDetail() {
+            document.getElementById('channelDetailModal').style.display = 'none';
+            currentChannelDetail = null;
+        }
+
+        function copyToClipboard(text, label) {
+            navigator.clipboard.writeText(text).then(() => {
+                showStatus(`${label}已复制到剪贴板`, 'success');
+            }).catch(err => {
+                showStatus('复制失败', 'error');
+                console.error('复制失败:', err);
+            });
+        }
+
+        function editChannelFromDetail() {
+            if (!currentChannelDetail || !currentChannelDetail.isExternal) {
+                showStatus('此频道不可编辑', 'error');
+                return;
+            }
+
+            // 关闭详情弹窗
+            closeChannelDetail();
+
+            // 切换到源管理tab
+            switchTab(1);
+
+            // 延迟一下确保tab切换完成，然后滚动到对应的源
+            setTimeout(() => {
+                showStatus('请在源管理中查找并编辑对应的源', 'info');
+            }, 300);
+        }
+
+        // 点击弹窗外部关闭
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('channelDetailModal');
+            if (event.target === modal) {
+                closeChannelDetail();
+            }
+        });
 
         // 页面加载时初始化
         window.onload = loadData;

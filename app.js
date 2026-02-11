@@ -10,6 +10,7 @@ import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
          addExternalSourceAPI, removeExternalSourceAPI, updateExternalSourceAPI, 
          setExternalSourceM3u8API } from "./utils/adminAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
+import { readConfig, saveConfig, parseInterfaceTxt, applyConfig } from "./utils/playlistConfig.js";
 
 // 运行时长
 var hours = 0
@@ -164,6 +165,62 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
           res.end(JSON.stringify(result));
           printGreen(`外部源${data.action}操作完成`)
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+          res.end(JSON.stringify({ success: false, message: error.message }));
+        }
+        loading = false
+      })
+      return
+    }
+    
+    // 我的播放列表API
+    if (urlPath === '/api/my-playlist' && method === 'GET') {
+      printBlue("API: 获取我的播放列表")
+      try {
+        const groups = parseInterfaceTxt()
+        const config = readConfig()
+        const result = applyConfig(groups, config)
+        res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
+        // 同时返回原始数据和应用配置后的数据
+        res.end(JSON.stringify({ 
+          success: true, 
+          data: result,
+          originalData: groups  // 原始未过滤的数据
+        }));
+        printGreen(`API: 返回 ${result.length} 个分组（原始: ${groups.length} 个）`)
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: false, message: error.message }));
+      }
+      loading = false
+      return
+    }
+    
+    if (urlPath === '/api/my-playlist-config' && method === 'GET') {
+      printBlue("API: 获取播放列表配置")
+      try {
+        const config = readConfig()
+        res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: true, data: config }));
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: false, message: error.message }));
+      }
+      loading = false
+      return
+    }
+    
+    if (urlPath === '/api/my-playlist-config' && method === 'POST') {
+      let body = ''
+      req.on('data', chunk => { body += chunk })
+      req.on('end', () => {
+        try {
+          const config = JSON.parse(body)
+          const result = saveConfig(config)
+          res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
+          res.end(JSON.stringify(result));
+          printGreen("播放列表配置已保存")
         } catch (error) {
           res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
           res.end(JSON.stringify({ success: false, message: error.message }));

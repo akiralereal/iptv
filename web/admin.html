@@ -44,6 +44,7 @@
             gap: 8px;
             margin-top: 10px;
             border-bottom: 2px solid #f0f0f0;
+            justify-content: center;
         }
 
         .tab {
@@ -919,6 +920,300 @@
             background: #40a9ff;
         }
 
+        /* 我的频道样式 */
+        .my-playlist-header {
+            background: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .my-playlist-info h3 {
+            margin: 0;
+            color: #333;
+        }
+
+        .my-playlist-info p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .my-playlist-info code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .my-playlist-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .my-playlist-container {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+            height: calc(100vh - 200px);
+        }
+
+        .my-playlist-left {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .my-playlist-section {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9f9f9;
+            overflow: hidden;
+        }
+
+        .my-playlist-section.active-section {
+            flex: 1;
+            min-height: 0;
+        }
+
+        .my-playlist-section.deleted-section {
+            flex: 1;
+            min-height: 0;
+        }
+
+        .my-playlist-section-title {
+            padding: 12px 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .my-playlist-section-title button {
+            padding: 4px 10px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .my-playlist-section-title button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .my-playlist-section.deleted-section .my-playlist-section-title {
+            background: linear-gradient(135deg, #868686 0%, #5a5a5a 100%);
+        }
+
+        .my-playlist-group-list {
+            overflow-y: auto;
+            flex: 1;
+            padding: 8px;
+        }
+
+        .my-playlist-group-item {
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .my-playlist-group-item:hover {
+            background: #f0f0f0;
+            border-color: #667eea;
+            transform: translateX(2px);
+        }
+
+        .my-playlist-group-item.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .my-playlist-group-item.deleted {
+            background: #f5f5f5;
+            color: #333;
+            border-color: #ccc;
+        }
+
+        .my-playlist-group-item.deleted:hover {
+            background: #e8e8e8;
+            color: #000;
+        }
+
+        .my-playlist-right {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .my-playlist-detail-header {
+            padding: 15px 20px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .my-playlist-detail-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .my-playlist-detail-actions button {
+            margin-left: 8px;
+        }
+
+        .my-playlist-groups {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 5px;
+        }
+
+        .my-playlist-group {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        .my-playlist-group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .my-playlist-group-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .my-playlist-group-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .my-playlist-group-actions button {
+            padding: 4px 12px;
+            font-size: 13px;
+        }
+
+        .my-playlist-channels {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .my-playlist-channel {
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+        }
+
+        .my-playlist-channel.batch-mode {
+            cursor: default;
+        }
+
+        .my-playlist-channel-checkbox {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .my-playlist-channel:hover {
+            background: #f0f8ff;
+            border-color: #1890ff;
+        }
+
+        .my-playlist-channel-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .my-playlist-channel-actions {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .my-playlist-channel:hover .my-playlist-channel-actions {
+            opacity: 1;
+        }
+
+        .my-playlist-channel.deleted .my-playlist-channel-actions {
+            opacity: 1;
+        }
+
+        .my-playlist-channel-actions button {
+            padding: 2px 6px;
+            font-size: 12px;
+            background: transparent;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+            color: #333;
+        }
+
+        .my-playlist-channel-actions button.btn-primary {
+            background: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+
+        .my-playlist-channel-actions button.btn-primary:hover {
+            background: #40a9ff;
+            border-color: #40a9ff;
+        }
+
+        .my-playlist-channel-actions button:hover {
+            background: #f5f5f5;
+        }
+
     </style>
 </head>
 <body>
@@ -940,7 +1235,7 @@
     <div class="container">
         <div class="header">
             <div class="tabs">
-                <button class="tab active" onclick="switchTab(0)">📋 所有频道</button>
+                <button class="tab active" onclick="switchTab(0)">📺 我的频道</button>
                 <button class="tab" onclick="switchTab(1)">🌐 源管理</button>
                 <button class="tab" onclick="switchTab(2)">⚙️ 系统配置</button>
             </div>
@@ -948,11 +1243,34 @@
 
         <div class="main-content">
             <div class="panel active">
-                <input type="text" class="search-box" id="searchBox" placeholder="搜索频道..." onkeyup="filterChannels()">
-                <div class="channels-container">
-                    <div class="category-sidebar" id="categorySidebar"></div>
-                    <div class="channels-content">
-                        <div class="channel-list" id="channelList"></div>
+                <div class="my-playlist-header">
+                    <div class="my-playlist-info">
+                        <h3>📺 我的频道</h3>
+                    </div>
+                    <div class="my-playlist-actions">
+                        <button class="btn btn-success" onclick="saveMyPlaylist()">💾 保存配置</button>
+                        <button class="btn btn-warning" onclick="resetMyPlaylist()">🔄 重置</button>
+                    </div>
+                </div>
+                <div class="my-playlist-container">
+                    <div class="my-playlist-left">
+                        <div class="my-playlist-section active-section">
+                            <div class="my-playlist-section-title">
+                                <span>✅ 我的频道</span>
+                            </div>
+                            <div class="my-playlist-group-list" id="activeGroupList"></div>
+                        </div>
+                        <div class="my-playlist-section deleted-section">
+                            <div class="my-playlist-section-title"><span>🚫 已隐藏</span></div>
+                            <div class="my-playlist-group-list" id="deletedGroupList"></div>
+                        </div>
+                    </div>
+                    <div class="my-playlist-right">
+                        <div class="my-playlist-detail-header" id="detailHeader" style="display: none;">
+                            <div class="my-playlist-detail-title" id="detailTitle"></div>
+                            <div class="my-playlist-detail-actions" id="detailActions"></div>
+                        </div>
+                        <div class="my-playlist-groups" id="myPlaylistGroups"></div>
                     </div>
                 </div>
             </div>
@@ -1052,7 +1370,7 @@
         let updatingSourceIndex = null; // 记录正在更新的源索引
 
         // Tab 切换功能
-        function switchTab(index) {
+        async function switchTab(index) {
             const tabs = document.querySelectorAll('.tab');
             const panels = document.querySelectorAll('.panel');
             
@@ -1071,6 +1389,14 @@
                     panel.classList.remove('active');
                 }
             });
+            
+            // 切换到我的频道Tab时加载数据
+            if (index === 0) {
+                // 重置选中状态
+                selectedGroupIndex = 0;
+                isViewingDeleted = false;
+                await loadMyPlaylist();
+            }
         }
 
         // 加载数据
@@ -1106,9 +1432,15 @@
                 systemConfig = await systemRes.json();
                 console.log('系统配置加载成功');
                 
+                // 加载我的频道配置
+                console.log('请求我的频道配置...');
+                await loadMyPlaylistConfig();
+                console.log('我的频道配置加载成功');
+                
                 // 渲染所有内容
                 console.log('开始渲染页面...');
-                renderChannels();
+                // renderChannels(); // 已移除所有频道UI
+                await loadMyPlaylist(); // 加载我的频道数据（因为默认显示此tab）
                 renderExternalSources();
                 renderSystemConfig();
                 console.log('页面渲染完成');
@@ -1118,8 +1450,7 @@
                 console.error('加载数据失败:', error);
                 showStatus('加载数据失败: ' + error.message, 'error');
                 // 即使失败也尝试渲染，显示空状态
-                renderChannels();
-                renderGroups();
+                // renderChannels(); // 已移除所有频道UI
                 renderExternalSources();
             }
         }
@@ -1891,6 +2222,762 @@
                 }
             } catch (error) {
                 showStatus('重启请求失败: ' + error.message, 'error');
+            }
+        }
+
+        // ========== 我的频道管理 ==========
+        let myPlaylistData = [];
+        let myPlaylistOriginalData = []; // 原始完整数据（用于显示被删除的频道）
+        let myPlaylistConfig = {
+            channelGroupMap: {},
+            hiddenChannels: [],
+            customGroups: [],
+            groupOrder: [],
+            deletedGroups: []
+        };
+        let selectedGroupIndex = 0; // 当前选中的分组索引
+        let isViewingDeleted = false; // 是否正在查看被删除区域
+        let isBatchMode = false; // 是否处于批量管理模式
+        let selectedChannels = new Set(); // 批量选中的频道ID
+
+        async function loadMyPlaylist(resetView = true) {
+            try {
+                const response = await fetch('/api/my-playlist');
+                const result = await response.json();
+                console.log('我的播放列表API返回:', result);
+                
+                if (result.success) {
+                    myPlaylistData = result.data;
+                    
+                    // 使用API返回的原始数据
+                    if (result.originalData && result.originalData.length > 0) {
+                        myPlaylistOriginalData = result.originalData;
+                        console.log('使用API返回的原始数据:', myPlaylistOriginalData.length, 'groups');
+                    } else {
+                        console.warn('API未返回原始数据，使用当前数据作为备份');
+                        myPlaylistOriginalData = JSON.parse(JSON.stringify(myPlaylistData));
+                    }
+                    
+                    // 只在需要时重置视图状态
+                    if (resetView) {
+                        selectedGroupIndex = 0;
+                        isViewingDeleted = false;
+                    }
+                    
+                    renderMyPlaylist();
+                }
+            } catch (error) {
+                console.error('加载我的频道失败:', error);
+                showStatus('加载我的频道失败', 'error');
+            }
+        }
+
+        async function loadMyPlaylistConfig() {
+            try {
+                const response = await fetch('/api/my-playlist-config');
+                const result = await response.json();
+                
+                if (result.success) {
+                    myPlaylistConfig = result.data;
+                }
+            } catch (error) {
+                console.error('加载配置失败:', error);
+            }
+        }
+
+        function renderMyPlaylist() {
+            renderGroupLists();
+            renderGroupDetail();
+        }
+
+        function renderGroupLists() {
+            // 渲染活跃分组列表
+            const activeList = document.getElementById('activeGroupList');
+            if (!activeList) return;
+
+            if (myPlaylistData.length === 0) {
+                activeList.innerHTML = '<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">暂无频道</div>';
+            } else {
+                // 过滤出非空分组，并保留原始索引
+                const nonEmptyGroups = myPlaylistData
+                    .map((group, originalIndex) => ({ group, originalIndex }))
+                    .filter(item => item.group.channels.length > 0);
+
+                if (nonEmptyGroups.length === 0) {
+                    activeList.innerHTML = '<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">无频道</div>';
+                } else {
+                    activeList.innerHTML = nonEmptyGroups.map(item => `
+                        <div class="my-playlist-group-item ${!isViewingDeleted && selectedGroupIndex === item.originalIndex ? 'active' : ''}" 
+                             onclick="selectGroup(${item.originalIndex}, false)">
+                            <span>${item.group.name}</span>
+                            <span style="color: #999; font-size: 12px;">${item.group.channels.length}</span>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // 渲染被删除分组列表
+            const deletedList = document.getElementById('deletedGroupList');
+            if (!deletedList) return;
+
+            console.log('myPlaylistOriginalData:', myPlaylistOriginalData.length, 'groups');
+            console.log('deletedGroups:', myPlaylistConfig.deletedGroups);
+            console.log('hiddenChannels:', myPlaylistConfig.hiddenChannels);
+
+            // 从原始数据中找出被删除的分组
+            const deletedGroups = myPlaylistOriginalData.filter(group => 
+                myPlaylistConfig.deletedGroups.includes(group.name)
+            );
+
+            console.log('找到被删除的分组:', deletedGroups.length);
+
+            // 从原始数据中找出被隐藏的频道（按原始分组显示）
+            const groupsWithHiddenChannels = myPlaylistOriginalData.map(group => {
+                const hiddenChannels = group.channels.filter(ch => 
+                    myPlaylistConfig.hiddenChannels.includes(ch.id) &&
+                    !myPlaylistConfig.deletedGroups.includes(group.name)
+                );
+                if (hiddenChannels.length > 0) {
+                    console.log(`分组 "${group.name}" 有 ${hiddenChannels.length} 个隐藏频道:`, hiddenChannels.map(ch => ch.name));
+                }
+                return hiddenChannels.length > 0 ? {
+                    ...group,
+                    channels: hiddenChannels,
+                    isPartialDelete: true
+                } : null;
+            }).filter(g => g !== null);
+
+            console.log('找到包含隐藏频道的分组:', groupsWithHiddenChannels.length);
+
+            const allDeletedGroups = [...deletedGroups, ...groupsWithHiddenChannels];
+
+            // 如果正在查看已隐藏区域，调整selectedGroupIndex到有效范围
+            if (isViewingDeleted && allDeletedGroups.length > 0) {
+                if (selectedGroupIndex >= allDeletedGroups.length) {
+                    selectedGroupIndex = allDeletedGroups.length - 1;
+                }
+            }
+
+            if (allDeletedGroups.length === 0) {
+                deletedList.innerHTML = '<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">无隐藏内容</div>';
+            } else {
+                deletedList.innerHTML = allDeletedGroups.map((group, index) => `
+                    <div class="my-playlist-group-item deleted ${isViewingDeleted && selectedGroupIndex === index ? 'active' : ''}" 
+                         onclick="selectGroup(${index}, true)">
+                        <span>${group.name}${group.isPartialDelete ? ' (隐藏频道)' : ''}</span>
+                        <span style="color: #999; font-size: 12px;">${group.channels.length}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function selectGroup(index, isDeleted) {
+            selectedGroupIndex = index;
+            isViewingDeleted = isDeleted;
+            renderGroupLists();
+            renderGroupDetail();
+        }
+
+        function renderGroupDetail() {
+            const container = document.getElementById('myPlaylistGroups');
+            const header = document.getElementById('detailHeader');
+            const title = document.getElementById('detailTitle');
+            const actions = document.getElementById('detailActions');
+            
+            if (!container || !header || !title || !actions) return;
+
+            let group, groupIndex;
+
+            if (isViewingDeleted) {
+                // 显示被删除的分组
+                const deletedGroups = myPlaylistOriginalData.filter(g => 
+                    myPlaylistConfig.deletedGroups.includes(g.name)
+                );
+                const groupsWithHiddenChannels = myPlaylistOriginalData.map(g => {
+                    const hiddenChannels = g.channels.filter(ch => 
+                        myPlaylistConfig.hiddenChannels.includes(ch.id) &&
+                        !myPlaylistConfig.deletedGroups.includes(g.name)
+                    );
+                    return hiddenChannels.length > 0 ? {
+                        ...g,
+                        channels: hiddenChannels,
+                        isPartialDelete: true
+                    } : null;
+                }).filter(g => g !== null);
+
+                const allDeletedGroups = [...deletedGroups, ...groupsWithHiddenChannels];
+                
+                // 调整selectedGroupIndex到有效范围
+                if (allDeletedGroups.length === 0) {
+                    container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">无隐藏内容</div>';
+                    header.style.display = 'none';
+                    return;
+                }
+                
+                if (selectedGroupIndex >= allDeletedGroups.length) {
+                    selectedGroupIndex = allDeletedGroups.length - 1;
+                }
+
+                group = allDeletedGroups[selectedGroupIndex];
+                header.style.display = 'flex';
+                title.textContent = `${group.name} (${group.channels.length}个频道) - 已隐藏`;
+                
+                // 根据批量模式显示不同的操作按钮
+                if (isBatchMode && group.isPartialDelete) {
+                    // 批量模式，仅对包含隐藏频道的分组显示
+                    const selectedCount = selectedChannels.size;
+                    actions.innerHTML = `
+                        <button class="btn btn-sm" onclick="selectAllChannels()">全选</button>
+                        <button class="btn btn-sm" onclick="deselectAllChannels()">取消全选</button>
+                        <button class="btn btn-success btn-sm" onclick="restoreSelectedChannels()" ${selectedCount === 0 ? 'disabled' : ''}>恢复选中 (${selectedCount})</button>
+                        <button class="btn btn-primary btn-sm" onclick="toggleBatchMode()">退出批量</button>
+                    `;
+                } else if (group.isPartialDelete) {
+                    // 非批量模式，包含隐藏频道的分组
+                    actions.innerHTML = `
+                        <button class="btn btn-sm" onclick="toggleBatchMode()">批量管理</button>
+                        <button class="btn btn-primary btn-sm" onclick="restoreAllChannelsInGroup()">恢复所有频道</button>
+                    `;
+                } else {
+                    // 被隐藏的完整分组
+                    actions.innerHTML = '<button class="btn btn-primary btn-sm" onclick="restoreGroup()">恢复分组</button>';
+                }
+
+                // 对于被隐藏的完整分组，不显示单个频道的恢复按钮
+                // 对于包含隐藏频道的分组，根据批量模式显示不同内容
+                container.innerHTML = `
+                    <div class="my-playlist-channels">
+                        ${group.channels.map(channel => `
+                            <div class="my-playlist-channel deleted ${isBatchMode ? 'batch-mode' : ''}" data-channel-id="${channel.id}">
+                                ${isBatchMode && group.isPartialDelete ? `
+                                    <input type="checkbox" class="my-playlist-channel-checkbox" 
+                                           onchange="toggleChannelSelection('${channel.id}')" 
+                                           ${selectedChannels.has(channel.id) ? 'checked' : ''}>
+                                ` : ''}
+                                <div class="my-playlist-channel-name" title="${channel.name}">${channel.name}</div>
+                                ${group.isPartialDelete && !isBatchMode ? `
+                                    <div class="my-playlist-channel-actions" style="opacity: 1 !important;">
+                                        <button class="btn btn-primary btn-sm" onclick="restoreChannel('${channel.id}')">恢复</button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                // 显示活跃分组
+                if (myPlaylistData.length === 0 || selectedGroupIndex >= myPlaylistData.length) {
+                    container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">请选择左侧分组</div>';
+                    header.style.display = 'none';
+                    return;
+                }
+
+                group = myPlaylistData[selectedGroupIndex];
+                
+                // 如果当前选中的分组为空，切换到第一个非空分组
+                if (group.channels.length === 0) {
+                    const firstNonEmptyIndex = myPlaylistData.findIndex(g => g.channels.length > 0);
+                    if (firstNonEmptyIndex === -1) {
+                        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">无可显示的频道</div>';
+                        header.style.display = 'none';
+                        return;
+                    }
+                    selectedGroupIndex = firstNonEmptyIndex;
+                    group = myPlaylistData[selectedGroupIndex];
+                    // 重新渲染分组列表以更新选中状态
+                    renderGroupLists();
+                }
+                
+                groupIndex = selectedGroupIndex;
+                header.style.display = 'flex';
+                title.textContent = `${group.name} (${group.channels.length}个频道)`;
+                
+                // 根据批量模式显示不同的操作按钮
+                if (isBatchMode) {
+                    const selectedCount = selectedChannels.size;
+                    actions.innerHTML = `
+                        <button class="btn btn-sm" onclick="selectAllChannels()">全选</button>
+                        <button class="btn btn-sm" onclick="deselectAllChannels()">取消全选</button>
+                        <button class="btn btn-warning btn-sm" onclick="hideSelectedChannels()" ${selectedCount === 0 ? 'disabled' : ''}>隐藏选中 (${selectedCount})</button>
+                        <button class="btn btn-danger btn-sm" onclick="keepSelectedChannels()" ${selectedCount === 0 ? 'disabled' : ''}>只保留选中 (${selectedCount})</button>
+                        <button class="btn btn-primary btn-sm" onclick="toggleBatchMode()">退出批量</button>
+                    `;
+                } else {
+                    actions.innerHTML = `
+                        <button class="btn btn-sm" onclick="toggleBatchMode()">批量管理</button>
+                        <button class="btn btn-sm" onclick="moveGroupUp(${groupIndex})" ${groupIndex === 0 ? 'disabled' : ''}>↑ 上移</button>
+                        <button class="btn btn-sm" onclick="moveGroupDown(${groupIndex})" ${groupIndex === myPlaylistData.length - 1 ? 'disabled' : ''}>↓ 下移</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})">隐藏分组</button>
+                    `;
+                }
+
+                container.innerHTML = `
+                    <div class="my-playlist-channels">
+                        ${group.channels.map(channel => `
+                            <div class="my-playlist-channel ${isBatchMode ? 'batch-mode' : ''}" data-channel-id="${channel.id}">
+                                ${isBatchMode ? `
+                                    <input type="checkbox" class="my-playlist-channel-checkbox" 
+                                           onchange="toggleChannelSelection('${channel.id}')" 
+                                           ${selectedChannels.has(channel.id) ? 'checked' : ''}>
+                                ` : ''}
+                                <div class="my-playlist-channel-name" title="${channel.name}">${channel.name}</div>
+                                ${!isBatchMode ? `
+                                    <div class="my-playlist-channel-actions">
+                                        <button onclick="hideChannel('${channel.id}')">隐藏</button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        async function moveGroupUp(index) {
+            if (index === 0) return;
+            [myPlaylistData[index], myPlaylistData[index - 1]] = [myPlaylistData[index - 1], myPlaylistData[index]];
+            updateGroupOrder();
+            
+            // 自动保存配置
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    renderMyPlaylist();
+                    showStatus('已上移分组', 'success');
+                } else {
+                    showStatus('保存失败', 'error');
+                }
+            } catch (error) {
+                showStatus('保存失败: ' + error.message, 'error');
+            }
+        }
+
+        async function moveGroupDown(index) {
+            if (index === myPlaylistData.length - 1) return;
+            [myPlaylistData[index], myPlaylistData[index + 1]] = [myPlaylistData[index + 1], myPlaylistData[index]];
+            updateGroupOrder();
+            
+            // 自动保存配置
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    renderMyPlaylist();
+                    showStatus('已下移分组', 'success');
+                } else {
+                    showStatus('保存失败', 'error');
+                }
+            } catch (error) {
+                showStatus('保存失败: ' + error.message, 'error');
+            }
+        }
+
+        function updateGroupOrder() {
+            myPlaylistConfig.groupOrder = myPlaylistData.map(g => g.name);
+        }
+
+        async function deleteGroup(index) {
+            const group = myPlaylistData[index];
+            const confirmed = await showConfirm(`确定隐藏分组 "${group.name}" 吗？\n该分组的 ${group.channels.length} 个频道将被移到"已隐藏"区域`);
+            if (!confirmed) {
+                return;
+            }
+            
+            myPlaylistConfig.deletedGroups.push(group.name);
+            myPlaylistData.splice(index, 1);
+            
+            // 调整选中索引
+            if (selectedGroupIndex >= myPlaylistData.length) {
+                selectedGroupIndex = Math.max(0, myPlaylistData.length - 1);
+            }
+            
+            updateGroupOrder();
+            
+            // 自动保存配置并重新加载数据
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    await loadMyPlaylist(false);
+                    showStatus(`已隐藏分组 "${group.name}"`, 'success');
+                } else {
+                    showStatus('隐藏失败', 'error');
+                }
+            } catch (error) {
+                showStatus('隐藏失败: ' + error.message, 'error');
+            }
+        }
+
+        async function hideChannel(channelId) {
+            if (!myPlaylistConfig.hiddenChannels.includes(channelId)) {
+                myPlaylistConfig.hiddenChannels.push(channelId);
+            }
+            
+            // 自动保存配置并重新加载数据
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    await loadMyPlaylist(false);
+                    showStatus('频道已隐藏', 'success');
+                } else {
+                    showStatus('隐藏失败', 'error');
+                }
+            } catch (error) {
+                showStatus('隐藏失败: ' + error.message, 'error');
+            }
+        }
+
+
+
+        async function restoreGroup() {
+            if (!isViewingDeleted) return;
+
+            const deletedGroups = myPlaylistOriginalData.filter(g => 
+                myPlaylistConfig.deletedGroups.includes(g.name)
+            );
+            
+            if (selectedGroupIndex >= deletedGroups.length) return;
+
+            const group = deletedGroups[selectedGroupIndex];
+            
+            // 从deletedGroups中移除
+            myPlaylistConfig.deletedGroups = myPlaylistConfig.deletedGroups.filter(
+                name => name !== group.name
+            );
+
+            // 先保存配置到服务器
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    // 重新加载数据但保持当前视图
+                    await loadMyPlaylist(false);
+                    showStatus(`已恢复分组 "${group.name}"`, 'success');
+                } else {
+                    showStatus('恢复失败', 'error');
+                }
+            } catch (error) {
+                console.error('恢复分组失败:', error);
+                showStatus('恢复失败: ' + error.message, 'error');
+            }
+        }
+
+        async function restoreChannel(channelId) {
+            console.log('恢复频道:', channelId);
+            console.log('当前 hiddenChannels:', myPlaylistConfig.hiddenChannels);
+            
+            // 从hiddenChannels中移除
+            myPlaylistConfig.hiddenChannels = myPlaylistConfig.hiddenChannels.filter(
+                id => id !== channelId
+            );
+            
+            console.log('更新后 hiddenChannels:', myPlaylistConfig.hiddenChannels);
+
+            // 先保存配置到服务器
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                console.log('保存配置结果:', result);
+                
+                if (result.success) {
+                    // 重新加载数据但保持当前视图
+                    await loadMyPlaylist(false);
+                    console.log('数据重新加载完成');
+                    showStatus('频道已恢复', 'success');
+                } else {
+                    showStatus('恢复失败', 'error');
+                }
+            } catch (error) {
+                console.error('恢复频道失败:', error);
+                showStatus('恢复失败: ' + error.message, 'error');
+            }
+        }
+
+        async function restoreAllChannelsInGroup() {
+            if (!isViewingDeleted) return;
+
+            const deletedGroups = myPlaylistOriginalData.filter(g => 
+                myPlaylistConfig.deletedGroups.includes(g.name)
+            );
+            const groupsWithHiddenChannels = myPlaylistOriginalData.map(g => {
+                const hiddenChannels = g.channels.filter(ch => 
+                    myPlaylistConfig.hiddenChannels.includes(ch.id) &&
+                    !myPlaylistConfig.deletedGroups.includes(g.name)
+                );
+                return hiddenChannels.length > 0 ? {
+                    ...g,
+                    channels: hiddenChannels,
+                    isPartialDelete: true
+                } : null;
+            }).filter(g => g !== null);
+
+            const allDeletedGroups = [...deletedGroups, ...groupsWithHiddenChannels];
+            
+            if (selectedGroupIndex >= allDeletedGroups.length) return;
+
+            const group = allDeletedGroups[selectedGroupIndex];
+
+            // 恢复这个分组下的所有频道
+            const channelIds = group.channels.map(ch => ch.id);
+            myPlaylistConfig.hiddenChannels = myPlaylistConfig.hiddenChannels.filter(
+                id => !channelIds.includes(id)
+            );
+
+            // 先保存配置到服务器
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    // 重新加载数据但保持当前视图
+                    await loadMyPlaylist(false);
+                    showStatus(`已恢复 ${channelIds.length} 个频道`, 'success');
+                } else {
+                    showStatus('恢复失败', 'error');
+                }
+            } catch (error) {
+                console.error('恢复频道失败:', error);
+                showStatus('恢复失败: ' + error.message, 'error');
+            }
+        }
+
+
+
+        async function saveMyPlaylist() {
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showStatus('配置已保存', 'success');
+                } else {
+                    showStatus(result.message || '保存失败', 'error');
+                }
+            } catch (error) {
+                showStatus('保存失败: ' + error.message, 'error');
+            }
+        }
+
+        async function resetMyPlaylist() {
+            const confirmed = await showConfirm('确定重置配置吗？\n将恢复到默认状态');
+            if (!confirmed) {
+                return;
+            }
+
+            myPlaylistConfig = {
+                channelGroupMap: {},
+                hiddenChannels: [],
+                customGroups: [],
+                groupOrder: [],
+                deletedGroups: []
+            };
+
+            await saveMyPlaylist();
+            await loadMyPlaylist();
+            showStatus('配置已重置', 'success');
+        }
+
+        // 批量管理相关函数
+        function toggleBatchMode() {
+            isBatchMode = !isBatchMode;
+            selectedChannels.clear();
+            renderMyPlaylist();
+        }
+
+        function toggleChannelSelection(channelId) {
+            if (selectedChannels.has(channelId)) {
+                selectedChannels.delete(channelId);
+            } else {
+                selectedChannels.add(channelId);
+            }
+            renderGroupDetail(); // 重新渲染以更新按钮状态
+        }
+
+        function selectAllChannels() {
+            if (isViewingDeleted) {
+                // "已隐藏"区域
+                const deletedGroups = myPlaylistOriginalData.filter(g => 
+                    myPlaylistConfig.deletedGroups.includes(g.name)
+                );
+                const groupsWithHiddenChannels = myPlaylistOriginalData.map(g => {
+                    const hiddenChannels = g.channels.filter(ch => 
+                        myPlaylistConfig.hiddenChannels.includes(ch.id) &&
+                        !myPlaylistConfig.deletedGroups.includes(g.name)
+                    );
+                    return hiddenChannels.length > 0 ? {
+                        ...g,
+                        channels: hiddenChannels,
+                        isPartialDelete: true
+                    } : null;
+                }).filter(g => g !== null);
+
+                const allDeletedGroups = [...deletedGroups, ...groupsWithHiddenChannels];
+                if (selectedGroupIndex >= allDeletedGroups.length) return;
+                
+                const group = allDeletedGroups[selectedGroupIndex];
+                group.channels.forEach(channel => {
+                    selectedChannels.add(channel.id);
+                });
+            } else {
+                // "我的频道"区域
+                if (myPlaylistData.length === 0 || selectedGroupIndex >= myPlaylistData.length) return;
+                
+                const group = myPlaylistData[selectedGroupIndex];
+                group.channels.forEach(channel => {
+                    selectedChannels.add(channel.id);
+                });
+            }
+            renderGroupDetail();
+        }
+
+        function deselectAllChannels() {
+            selectedChannels.clear();
+            renderGroupDetail();
+        }
+
+        async function hideSelectedChannels() {
+            if (selectedChannels.size === 0) return;
+
+            const confirmed = await showConfirm(`确定隐藏选中的 ${selectedChannels.size} 个频道吗？`);
+            if (!confirmed) return;
+
+            // 将选中的频道添加到hiddenChannels
+            selectedChannels.forEach(channelId => {
+                if (!myPlaylistConfig.hiddenChannels.includes(channelId)) {
+                    myPlaylistConfig.hiddenChannels.push(channelId);
+                }
+            });
+
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    selectedChannels.clear();
+                    isBatchMode = false;
+                    await loadMyPlaylist(false);
+                    showStatus(`已隐藏频道`, 'success');
+                } else {
+                    showStatus('隐藏失败', 'error');
+                }
+            } catch (error) {
+                console.error('隐藏频道失败:', error);
+                showStatus('隐藏失败: ' + error.message, 'error');
+            }
+        }
+
+        async function keepSelectedChannels() {
+            if (selectedChannels.size === 0) return;
+            if (isViewingDeleted || myPlaylistData.length === 0 || selectedGroupIndex >= myPlaylistData.length) return;
+
+            const group = myPlaylistData[selectedGroupIndex];
+            const toHideCount = group.channels.length - selectedChannels.size;
+            
+            const confirmed = await showConfirm(
+                `确定只保留选中的 ${selectedChannels.size} 个频道吗？\n` +
+                `将隐藏其他 ${toHideCount} 个频道`
+            );
+            if (!confirmed) return;
+
+            // 隐藏未选中的频道
+            group.channels.forEach(channel => {
+                if (!selectedChannels.has(channel.id)) {
+                    if (!myPlaylistConfig.hiddenChannels.includes(channel.id)) {
+                        myPlaylistConfig.hiddenChannels.push(channel.id);
+                    }
+                }
+            });
+
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    selectedChannels.clear();
+                    isBatchMode = false;
+                    await loadMyPlaylist(false);
+                    showStatus(`已保留选中的频道`, 'success');
+                } else {
+                    showStatus('操作失败', 'error');
+                }
+            } catch (error) {
+                console.error('操作失败:', error);
+                showStatus('操作失败: ' + error.message, 'error');
+            }
+        }
+
+        async function restoreSelectedChannels() {
+            if (selectedChannels.size === 0) return;
+            if (!isViewingDeleted) return;
+
+            const confirmed = await showConfirm(`确定恢复选中的 ${selectedChannels.size} 个频道吗？`);
+            if (!confirmed) return;
+
+            // 从hiddenChannels中移除选中的频道
+            selectedChannels.forEach(channelId => {
+                const index = myPlaylistConfig.hiddenChannels.indexOf(channelId);
+                if (index !== -1) {
+                    myPlaylistConfig.hiddenChannels.splice(index, 1);
+                }
+            });
+
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    selectedChannels.clear();
+                    isBatchMode = false;
+                    await loadMyPlaylist(false);
+                    showStatus(`已恢复频道`, 'success');
+                } else {
+                    showStatus('恢复失败', 'error');
+                }
+            } catch (error) {
+                console.error('恢复频道失败:', error);
+                showStatus('恢复失败: ' + error.message, 'error');
             }
         }
 

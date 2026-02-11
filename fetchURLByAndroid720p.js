@@ -27,12 +27,12 @@ async function fetchURLByAndroid720p() {
   // 写入开头
   appendFile(path, `#EXTM3U x-tvg-url="https://raw.githubusercontent.com/akiralereal/iPTV/main/playback.xml" catchup="append" catchup-source="&playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`)
 
-  // 分类列表
+  // 分组列表
   for (let i = 0; i < datas.length; i++) {
 
     const data = datas[i].dataList
 
-    printBlue(`开始更新分类###: ${datas[i].name}`)
+    printBlue(`开始更新: ${datas[i].name}`)
     // 写入节目
     for (let j = 0; j < data.length; j++) {
 

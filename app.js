@@ -80,7 +80,7 @@ const server = http.createServer(async (req, res) => {
     if (urlPath === '/api/channels' && method === 'GET') {
       printBlue("API: 获取频道列表")
       const result = await getChannelsAPI()
-      printGreen(`API: 返回 ${result.success ? result.data.length : 0} 个分类`)
+      printGreen(`API: 返回 ${result.success ? result.data.length : 0} 个分组`)
       res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
       res.end(JSON.stringify(result.success ? result.data : []));
       loading = false

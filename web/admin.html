@@ -482,6 +482,27 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 8px;
+        }
+
+        .external-mode-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 11px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+
+        .external-mode-badge.fetch {
+            background: #e6f7ff;
+            color: #1890ff;
+            border: 1px solid #91d5ff;
+        }
+
+        .external-mode-badge.direct {
+            background: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
         }
 
         .external-detail {
@@ -891,6 +912,7 @@
             display: flex;
             gap: 12px;
             margin-top: 20px;
+            justify-content: center;
         }
 
         .btn-warning {
@@ -1501,7 +1523,7 @@
                     throw new Error(`频道API请求失败: ${channelsRes.status}`);
                 }
                 allChannels = await channelsRes.json();
-                console.log('频道数据加载成功:', allChannels.length, '个分类');
+                console.log('频道数据加载成功:', allChannels.length, '个分组');
                 
                 // 加载外部源配置
                 console.log('请求外部源配置...');
@@ -1545,7 +1567,7 @@
             }
         }
 
-        let currentCategory = 'all'; // 当前选中的分类
+        let currentCategory = 'all'; // 当前选中的分组
         let selectedExternalIndex = null; // 当前选中的外部源索引
 
         // 渲染频道列表
@@ -1559,9 +1581,9 @@
                 return;
             }
             
-            console.log(`正在渲染 ${allChannels.length} 个频道分类`);
+            console.log(`正在渲染 ${allChannels.length} 个频道分组`);
             
-            // 渲染左侧分类导航
+            // 渲染左侧分组导航
             categoryContainer.innerHTML = '';
             
             // 添加"全部"选项
@@ -1572,7 +1594,7 @@
             allItem.onclick = () => selectCategory('all');
             categoryContainer.appendChild(allItem);
             
-            // 添加各个分类
+            // 添加各个分组
             allChannels.forEach((category, index) => {
                 if (!category.dataList || category.dataList.length === 0) return;
                 
@@ -1590,7 +1612,7 @@
         function selectCategory(categoryIndex) {
             currentCategory = categoryIndex;
             
-            // 更新分类高亮
+            // 更新分组高亮
             document.querySelectorAll('.category-nav-item').forEach((item, index) => {
                 if (categoryIndex === 'all' && index === 0) {
                     item.classList.add('active');
@@ -1624,7 +1646,7 @@
                     });
                 });
             } else {
-                // 显示特定分类的频道
+                // 显示特定分组的频道
                 const category = allChannels[currentCategory];
                 if (category && category.dataList) {
                     category.dataList.forEach(channel => {
@@ -1645,7 +1667,7 @@
             const items = document.querySelectorAll('.channel-item');
             
             if (!keyword) {
-                // 没有搜索关键词，显示当前分类的所有频道
+                // 没有搜索关键词，显示当前分组的所有频道
                 items.forEach(item => {
                     item.style.display = 'block';
                 });
@@ -1696,10 +1718,15 @@
                 const statusIcon = source.enabled !== false ? '✓' : '×';
                 const statusColor = source.enabled !== false ? '#52c41a' : '#999';
                 
+                // 模式标识
+                const modeText = source.mode === 'fetch' ? '抓取' : '直连';
+                const modeClass = source.mode === 'fetch' ? 'fetch' : 'direct';
+                
                 navItem.innerHTML = `
                     <div class="external-nav-title">${source.name || '未命名源'}</div>
                     <div class="external-nav-meta">
                         <span>${source.group || '未分组'}</span>
+                        <span class="external-mode-badge ${modeClass}">${modeText}</span>
                         <span style="color: ${statusColor};">${statusIcon}</span>
                     </div>
                 `;

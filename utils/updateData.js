@@ -16,7 +16,7 @@ import { fetchUrl } from "./net.js"
 async function updateTV(hours, options = {}) {
   const { startupMode = false, regenerateOnly = false } = options
   
-  printBlue(`开始更新TV...${startupMode ? '（启动模式）' : ''}${regenerateOnly ? '（仅重新生成播放列表）' : ''}`)
+  printBlue(`开始更新电视频道...${startupMode ? '（启动模式）' : ''}${regenerateOnly ? '（仅重新生成播放列表）' : ''}`)
 
   const date = new Date()
   const start = date.getTime()
@@ -38,10 +38,23 @@ async function updateTV(hours, options = {}) {
     printYellow("快速模式：跳过节目单更新，保留现有playback.xml")
   }
   
+  // 更新外部源（在获取数据之前）
+  // regenerateOnly 模式下跳过外部源更新（因为这个模式用于配置变更后重新生成）
+  if (!regenerateOnly) {
+    if (startupMode) {
+      // 启动模式：只更新设置了 updateOnStartup: true 的源
+      printBlue("启动模式：检查需要更新的外部源...")
+      await updateExternalSources({ startupMode: true })
+    } else {
+      // 定时更新模式：更新所有设置了自动刷新的源
+      await updateExternalSources({ autoOnly: true })
+    }
+  }
+  
   // 获取数据（咪咕 + 外部源）
   // regenerateOnly: 使用缓存的咪咕数据 + 最新的外部源数据
   let datas = await getAllChannels({ skipMigu, useCachedMigu: regenerateOnly })
-  printGreen("TV数据获取成功！")
+  printGreen("电视频道-获取成功")
 
   interfacePath = `${process.cwd()}/interface.txt.bak`
   // txt
@@ -62,7 +75,7 @@ async function updateTV(hours, options = {}) {
     }
   }
   appendFile(interfacePath, `#EXTM3U x-tvg-url="\${replace}/playback.xml" catchup="append" catchup-source="?playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`)
-  printYellow("开始更新TV...")
+  printYellow("开始更新电视频道...")
   
   // 回放数据：regenerateOnly模式下跳过playback更新
   let playbackFile = ""
@@ -73,7 +86,7 @@ async function updateTV(hours, options = {}) {
       `<tv generator-info-name="iFansClub" generator-info-url="https://github.com/akiralereal/iPTV">\n`)
   }
 
-  // 分类列表
+  // 分组列表
   const includeExternalInPlaylists = externalSourceManager.sources?.includeInPlaylists !== false
   for (let i = 0; i < datas.length; i++) {
 
@@ -102,7 +115,7 @@ async function updateTV(hours, options = {}) {
       appendFile(interfaceTXTPath, `${channelItem.name},${playUrl}\n`)
       // printGreen(`    节目链接更新成功`)
     }
-    printGreen(`分类###:${datas[i].name} 更新完成！`)
+    printGreen(`分组:${datas[i].name} 更新完成！`)
   }
 
   // regenerateOnly模式下跳过playback文件生成
@@ -113,9 +126,9 @@ async function updateTV(hours, options = {}) {
   renameFileSync(interfacePath, interfacePath.replace(".bak", ""))
   // txt
   renameFileSync(interfaceTXTPath, interfaceTXTPath.replace(".bak", ""))
-  printGreen("TV更新完成！")
+  printGreen("电视频道更新完成！")
   const end = Date.now()
-  printYellow(`TV更新耗时: ${(end - start) / 1000}秒`)
+  printYellow(`电视频道更新耗时: ${(end - start) / 1000}秒`)
 }
 
 /**
@@ -127,7 +140,7 @@ async function updatePE(hours) {
   const start = date.getTime()
   // 获取PE数据
   const datas = await fetchUrl("http://v0-sc.miguvideo.com/vms-match/v6/staticcache/basic/match-list/normal-match-list/0/all/default/1/miguvideo")
-  printGreen("PE数据获取成功！")
+  printGreen("体育直播频道获取成功")
   // console.dir(datas, { depth: null })
 
   copyFileSync(`${process.cwd()}/interface.txt`, `${process.cwd()}/interface.txt.bak`, 0)
@@ -136,7 +149,7 @@ async function updatePE(hours) {
   const interfacePath = `${process.cwd()}/interface.txt.bak`
   const interfaceTXTPath = `${process.cwd()}/interfaceTXT.txt.bak`
 
-  printYellow("开始更新PE...")
+  printYellow("开始更新体育直播频道...")
 
   for (let i = 1; i < 4; i++) {
     // 日期
@@ -210,9 +223,9 @@ async function updatePE(hours) {
   // 重命名
   renameFileSync(interfacePath, interfacePath.replace(".bak", ""))
   renameFileSync(interfaceTXTPath, interfaceTXTPath.replace(".bak", ""))
-  printGreen("PE更新完成！")
+  printGreen("体育直播频道更新完成")
   const end = Date.now()
-  printYellow(`PE更新耗时: ${(end - start) / 1000}秒`)
+  printYellow(`体育直播频道更新耗时: ${(end - start) / 1000}秒`)
 }
 
 /**

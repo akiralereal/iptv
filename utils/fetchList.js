@@ -6,7 +6,7 @@ function delay(ms) {
   })
 }
 
-// 获取分类集合
+// 获取分组集合
 async function cateList() {
   const resp = await fetchUrl("https://program-sc.miguvideo.com/live/v2/tv-data/1ff892f2b5ab4a79be6e25b69d2f5d05")
   let liveList = resp.body.liveList
@@ -15,7 +15,7 @@ async function cateList() {
     return item.name != "热门"
   })
 
-  // 央视作为首个分类
+  // 央视作为首个分组
   liveList.sort((a, b) => {
     if (a.name === "央视") return -1;
     if (b.name === "央视") return 1
@@ -82,7 +82,7 @@ function uniqueData(liveList) {
     categoryMap[live.name] = []
   })
 
-  // 去除添加字段，根据分类填充内容
+  // 去除添加字段，根据分组填充内容
   uniqueItem.forEach(item => {
     const { categoryName, ...program } = item
     categoryMap[categoryName].push(program)

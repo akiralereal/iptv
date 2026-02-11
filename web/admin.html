@@ -27,7 +27,7 @@
             top: 0;
             z-index: 100;
             background: white;
-            padding: 12px 20px;
+            padding: 8px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
@@ -42,9 +42,40 @@
         .tabs {
             display: flex;
             gap: 8px;
-            margin-top: 10px;
             border-bottom: 2px solid #f0f0f0;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tabs-left {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex: 1;
             justify-content: center;
+        }
+
+        .tabs-right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding-right: 10px;
+        }
+
+        .restart-btn {
+            padding: 8px 16px;
+            background: #52c41a;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .restart-btn:hover {
+            background: #73d13d;
         }
 
         .tab {
@@ -732,6 +763,23 @@
             .tabs {
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .tabs-left {
+                width: 100%;
+                overflow-x: auto;
+            }
+
+            .tabs-right {
+                width: 100%;
+                justify-content: center;
+                padding-right: 0;
+            }
+
+            .restart-btn {
+                width: 100%;
             }
             
             .tab {
@@ -779,10 +827,26 @@
                 margin-bottom: 15px;
                 max-height: 150px;
             }
+
+            .system-config-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .system-config-item {
+                margin-bottom: 0;
+            }
+        }
+
+        .system-config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px 24px;
+            margin-bottom: 20px;
         }
 
         .system-config-item {
-            margin-bottom: 15px;
+            margin-bottom: 0;
         }
 
         .system-config-item label {
@@ -790,6 +854,7 @@
             font-size: 13px;
             color: #666;
             margin-bottom: 4px;
+            font-weight: 500;
         }
 
         .system-config-item input[type="text"],
@@ -1249,9 +1314,14 @@
     <div class="container">
         <div class="header">
             <div class="tabs">
-                <button class="tab active" onclick="switchTab(0)">📺 我的频道</button>
-                <button class="tab" onclick="switchTab(1)">🌐 源管理</button>
-                <button class="tab" onclick="switchTab(2)">⚙️ 系统配置</button>
+                <div class="tabs-left">
+                    <button class="tab active" onclick="switchTab(0)">📺 我的频道</button>
+                    <button class="tab" onclick="switchTab(1)">🌐 源管理</button>
+                    <button class="tab" onclick="switchTab(2)">⚙️ 系统配置</button>
+                </div>
+                <div class="tabs-right">
+                    <button class="restart-btn" onclick="restartService()">🔄 重启服务</button>
+                </div>
             </div>
         </div>
 
@@ -1316,60 +1386,64 @@
                 <div class="system-config-warning">
                     ⚠️ 修改系统配置后需要<strong>重启服务</strong>才能生效
                 </div>
-                <div class="system-config-item">
-                    <label>咪咕用户ID</label>
-                    <input type="text" id="sysUserId" placeholder="留空为游客模式">
-                    <div class="system-config-hint">VIP用户填写，游客模式可留空</div>
-                </div>
-                <div class="system-config-item">
-                    <label>咪咕Token</label>
-                    <input type="text" id="sysToken" placeholder="留空为游客模式">
-                    <div class="system-config-hint">VIP用户填写，游客模式可留空</div>
-                </div>
-                <div class="system-config-item">
-                    <label>画质</label>
-                    <select id="sysRateType">
-                        <option value="2">标清 (480p)</option>
-                        <option value="3">高清 (720p)</option>
-                        <option value="4">蓝光 (1080p · 需VIP)</option>
-                        <option value="7">原画 (1080p+ · 需VIP)</option>
-                        <option value="9">4K (2160p · 需VIP)</option>
-                    </select>
-                    <div class="system-config-hint">720p及以下免费，更高画质需要VIP</div>
-                </div>
-                <div class="system-config-item">
-                    <label>服务端口</label>
-                    <input type="number" id="sysPort" placeholder="1905">
-                </div>
-                <div class="system-config-item">
-                    <label>公网地址</label>
-                    <input type="text" id="sysHost" placeholder="http://example.com:xxxx">
-                    <div class="system-config-hint">选填，未指定端口时自动使用上方的服务端口</div>
-                </div>
-                <div class="system-config-item">
-                    <label>访问密码</label>
-                    <input type="text" id="sysPass" placeholder="留空表示无密码">
-                    <div class="system-config-hint">设置后访问格式：http://ip:port/密码/...</div>
-                </div>
-                <div class="system-config-item" style="display: none;">
-                    <label>节目单更新间隔（小时）</label>
-                    <input type="number" id="sysProgramInterval" placeholder="6">
-                </div>
-                <div class="system-config-item" style="display: none;">
-                    <label>
-                        <input type="checkbox" id="sysEnableHDR">
-                        启用 HDR
-                    </label>
-                </div>
-                <div class="system-config-item" style="display: none;">
-                    <label>
-                        <input type="checkbox" id="sysEnableH265">
-                        启用 H.265（可能存在兼容性问题）
-                    </label>
+                <div class="system-config-grid">
+                    <div class="system-config-item">
+                        <label>咪咕用户ID</label>
+                        <input type="text" id="sysUserId" placeholder="留空为游客模式">
+                        <div class="system-config-hint">VIP用户填写，游客模式可留空</div>
+                    </div>
+                    <div class="system-config-item">
+                        <label>咪咕Token</label>
+                        <input type="text" id="sysToken" placeholder="留空为游客模式">
+                        <div class="system-config-hint">VIP用户填写，游客模式可留空</div>
+                    </div>
+                    <div class="system-config-item">
+                        <label>画质</label>
+                        <select id="sysRateType">
+                            <option value="2">标清 (480p)</option>
+                            <option value="3">高清 (720p)</option>
+                            <option value="4">蓝光 (1080p · 需VIP)</option>
+                            <option value="7">原画 (1080p+ · 需VIP)</option>
+                            <option value="9">4K (2160p · 需VIP)</option>
+                        </select>
+                        <div class="system-config-hint">720p及以下免费，更高画质需要VIP</div>
+                    </div>
+                    <div class="system-config-item">
+                        <label>服务端口</label>
+                        <input type="number" id="sysPort" placeholder="1905">
+                    </div>
+                    <div class="system-config-item">
+                        <label>公网地址</label>
+                        <input type="text" id="sysHost" placeholder="http://example.com:xxxx">
+                        <div class="system-config-hint">选填，未指定端口时自动使用上方的服务端口</div>
+                    </div>
+                    <div class="system-config-item">
+                        <label>访问密码</label>
+                        <input type="text" id="sysPass" placeholder="留空表示无密码">
+                        <div class="system-config-hint">设置后访问格式：http://ip:port/密码/...</div>
+                    </div>
+                    <div class="system-config-item" style="display: none;">
+                        <label>节目单更新间隔（小时）</label>
+                        <input type="number" id="sysProgramInterval" placeholder="6">
+                    </div>
+                    <div class="system-config-item" style="display: none;">
+                        <label>
+                            <input type="checkbox" id="sysEnableHDR">
+                            启用 HDR
+                        </label>
+                    </div>
+                    <div class="system-config-item" style="display: none;">
+                        <label>
+                            <input type="checkbox" id="sysEnableH265">
+                            启用 H.265（可能存在兼容性问题）
+                        </label>
+                    </div>
                 </div>
                 <div class="system-config-actions">
                     <button class="btn btn-success" onclick="saveSystemConfig()">💾 保存系统配置</button>
-                    <button class="btn btn-warning" onclick="restartService()">🔄 重启服务</button>
+                </div>
+                <div style="margin-top: 12px; padding: 10px; background: #f0f0f0; border-radius: 4px; font-size: 13px; color: #666; text-align: center;">
+                    💡 提示：保存配置后，需点击页面顶部的"重启服务"按钮使新配置生效
                 </div>
             </div>
         </div>
@@ -2249,7 +2323,11 @@
 
         // 重启服务
         async function restartService() {
-            if (!confirm('确定要重启服务吗？\n\n注意：\n1. 重启期间服务将暂时不可用（约5-10秒）\n2. 请确保已保存所有配置\n3. Docker/PM2 会自动重启，直接运行 node 需要手动重启')) {
+            const confirmed = await showConfirm(
+                '确定要重启服务吗？\n\n注意：\n1. 重启期间服务将暂时不可用（约5-10秒）\n2. 请确保已保存所有配置\n3. Docker/PM2 会自动重启，直接运行 node 需要手动重启',
+                '重启服务'
+            );
+            if (!confirmed) {
                 return;
             }
 

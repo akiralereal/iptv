@@ -236,7 +236,8 @@ class ExternalSourceManager {
       }
       
       // 如果是仅自动模式，检查是否需要刷新
-      if (autoOnly && !forceAll) {
+      // 注意：启动模式下不检查刷新间隔，强制更新所有启用的源
+      if (autoOnly && !forceAll && !startupMode) {
         if (!this.needsRefresh(source)) {
           printYellow(`${source.name} 无需刷新（上次更新: ${source.lastUpdated || '从未'}, 间隔: ${source.refreshInterval || 60}分钟）`)
           skipped++

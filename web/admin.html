@@ -665,7 +665,8 @@
         }
 
         .external-field input[type="text"],
-        .external-field input[type="number"] {
+        .external-field input[type="number"],
+        .external-field select {
             width: 100%;
             padding: 8px 10px;
             border: 1px solid #d9d9d9;
@@ -674,7 +675,8 @@
             transition: all 0.3s;
         }
 
-        .external-field input:focus {
+        .external-field input:focus,
+        .external-field select:focus {
             border-color: #1890ff;
             outline: none;
             box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
@@ -1640,6 +1642,34 @@
             }
         }
 
+        // 获取咪咕源的所有分组
+        function getMiguGroups() {
+            const groups = new Set();
+            groups.add('未分组');
+            
+            if (allChannels && Array.isArray(allChannels)) {
+                allChannels.forEach(category => {
+                    if (category && category.name) {
+                        groups.add(category.name);
+                    }
+                });
+            }
+            
+            return Array.from(groups).sort((a, b) => {
+                if (a === '未分组') return 1;
+                if (b === '未分组') return -1;
+                return a.localeCompare(b, 'zh-CN');
+            });
+        }
+        
+        function renderGroupSelect(index, currentGroup) {
+            const groups = getMiguGroups();
+            const options = groups.map(group => 
+                `<option value="${group}" ${group === currentGroup ? 'selected' : ''}>${group}</option>`
+            ).join('');
+            return `<select onchange="updateExternalField(${index}, 'group', this.value)">${options}</select>`;
+        }
+
         function selectExternalSource(index) {
             selectedExternalIndex = index;
             
@@ -1679,8 +1709,11 @@
                 source.mode = mode;
             }
             
-            // 模式切换器
-            const modeSwitcher = `
+            // 判断是否为已保存的源（有lastUpdated或m3u8Url不为空）
+            const isSaved = source.lastUpdated || (source.m3u8Url && source.m3u8Url.trim());
+            
+            // 模式切换器（只在未保存时显示）
+            const modeSwitcher = isSaved ? '' : `
                 <div class="mode-switcher">
                     <button class="mode-switch-btn ${mode === 'direct' ? 'active' : ''}" onclick="switchSourceMode(${index}, 'direct')">
                         直连模式
@@ -1708,7 +1741,7 @@
                             </div>
                             <div class="external-field">
                                 <label>所属分组 *</label>
-                                <input type="text" value="${source.group || ''}" oninput="updateExternalField(${index}, 'group', this.value)" placeholder="例：体育">
+                                ${renderGroupSelect(index, source.group || '未分组')}
                             </div>
                         </div>
                         <div class="external-field">
@@ -1761,7 +1794,7 @@
                             </div>
                             <div class="external-field">
                                 <label>所属分组 *</label>
-                                <input type="text" value="${source.group || ''}" oninput="updateExternalField(${index}, 'group', this.value)" placeholder="例：体育">
+                                ${renderGroupSelect(index, source.group || '未分组')}
                             </div>
                         </div>
                         <div class="external-field">
@@ -1792,7 +1825,7 @@
             // 默认添加直连模式
             const newSource = {
                 name: '',
-                group: '其他',
+                group: '未分组',
                 enabled: true,
                 mode: 'direct', // 默认直连模式
                 m3u8Url: '',
@@ -1812,9 +1845,11 @@
             // 切换模式
             source.mode = newMode;
             
-            // 根据新模式设置默认值
+            // 根据新模式清空对应的URL字段
             if (newMode === 'fetch') {
-                // 切换到抓取模式，添加必要的配置
+                // 切换到抓取模式，清空m3u8Url
+                source.m3u8Url = '';
+                // 添加必要的配置
                 if (!source.autoRefresh) source.autoRefresh = true;
                 if (!source.refreshInterval) source.refreshInterval = 60;
                 if (!source.updateOnStartup) source.updateOnStartup = true;
@@ -1824,6 +1859,9 @@
                         headless: true
                     };
                 }
+            } else if (newMode === 'direct') {
+                // 切换到直连模式，清空webUrl
+                source.webUrl = '';
             }
             
             // 重新渲染详情面板
@@ -3141,15 +3179,44 @@
                 return;
             }
 
+            const channelName = currentChannelDetail.name;
+
             // 关闭详情弹窗
             closeChannelDetail();
 
             // 切换到源管理tab
             switchTab(1);
 
-            // 延迟一下确保tab切换完成，然后滚动到对应的源
+            // 延迟确保tab切换和数据加载完成，然后查找并选中对应的源
             setTimeout(() => {
-                showStatus('请在源管理中查找并编辑对应的源', 'info');
+                // 在外部源列表中查找匹配的源
+                if (!externalConfig.sources || externalConfig.sources.length === 0) {
+                    showStatus('未找到对应的外部源', 'error');
+                    return;
+                }
+
+                let foundIndex = -1;
+                for (let i = 0; i < externalConfig.sources.length; i++) {
+                    if (externalConfig.sources[i].name === channelName) {
+                        foundIndex = i;
+                        break;
+                    }
+                }
+
+                if (foundIndex !== -1) {
+                    // 选中该源
+                    selectExternalSource(foundIndex);
+                    
+                    // 滚动到该源在左侧列表的位置
+                    const navItems = document.querySelectorAll('.external-nav-item');
+                    if (navItems[foundIndex]) {
+                        navItems[foundIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    
+                    showStatus(`已定位到源: ${channelName}`, 'success');
+                } else {
+                    showStatus(`未找到名为"${channelName}"的外部源`, 'error');
+                }
             }, 300);
         }
 

@@ -908,6 +908,96 @@
             font-size: 13px;
         }
 
+        .bookmarklet-section {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .bookmarklet-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1890ff;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .bookmarklet-link {
+            display: inline-block;
+            background: #1890ff;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: move;
+            transition: all 0.3s;
+            border: 2px dashed transparent;
+        }
+
+        .bookmarklet-link:hover {
+            background: #40a9ff;
+            border-color: #fff;
+           transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(24, 144, 255, 0.3);
+        }
+        
+        .bookmarklet-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .bookmarklet-help-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: #fff;
+            border: 2px solid #1890ff;
+            border-radius: 50%;
+            color: #1890ff;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+        
+        .bookmarklet-help-btn:hover {
+            background: #1890ff;
+            color: white;
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
+        }
+
+        .bookmarklet-steps {
+            margin-top: 12px;
+            font-size: 12px;
+            color: #595959;
+            line-height: 1.8;
+        }
+
+        .bookmarklet-steps ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .bookmarklet-steps li {
+            margin-bottom: 6px;
+        }
+
+        .bookmarklet-steps strong {
+            color: #1890ff;
+        }
+
         .system-config-actions {
             display: flex;
             gap: 12px;
@@ -1333,6 +1423,44 @@
         </div>
     </div>
     
+    <!-- Bookmarklet 添加引导弹窗 -->
+    <div class="modal" id="bookmarkletGuideModal">
+        <div class="modal-content" style="width: 700px; max-width: 90%;">
+            <h3 style="margin-bottom: 20px;">📖 如何添加咪咕账号获取工具</h3>
+            
+            <div style="background: #e6f7ff; border: 1px solid #91d5ff; padding: 16px; border-radius: 6px; margin-bottom: 20px;">
+                <h4 style="color: #1890ff; margin-bottom: 12px;">方法一：拖拽添加（推荐）</h4>
+                <ol style="line-height: 1.8; padding-left: 20px;">
+                    <li>鼠标<strong>按住</strong>蓝色按钮不松开</li>
+                    <li><strong>拖拽</strong>到浏览器顶部的书签栏</li>
+                    <li>松开鼠标，书签添加完成</li>
+                </ol>
+            </div>
+            
+            <div style="background: #fff7e6; border: 1px solid #ffd591; padding: 16px; border-radius: 6px; margin-bottom: 20px;">
+                <h4 style="color: #fa8c16; margin-bottom: 12px;">方法二：手动创建书签</h4>
+                <ol style="line-height: 1.8; padding-left: 20px;">
+                    <li>在浏览器书签栏<strong>右键</strong> → 选择"添加网页"或"新建书签"</li>
+                    <li>名称填写：<code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">获取咪咕账号</code></li>
+                    <li>网址/URL 填写下方的代码（点击按钮自动复制）</li>
+                </ol>
+                <div style="margin-top: 12px;">
+                    <button class="btn btn-primary" onclick="copyBookmarkletCode()" style="width: 100%;">
+                        📋 复制 Bookmarklet 代码
+                    </button>
+                </div>
+            </div>
+            
+            <div style="background: #f6ffed; border: 1px solid #b7eb8f; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #52c41a;">
+                <strong>✓ 添加成功后：</strong>在咪咕视频网站点击书签，即可自动提取并复制账号信息
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeBookmarkletGuide()">关闭</button>
+            </div>
+        </div>
+    </div>
+    
     <div class="container">
         <div class="header">
             <div class="tabs">
@@ -1408,6 +1536,22 @@
                 <div class="system-config-warning">
                     ⚠️ 修改系统配置后需要<strong>重启服务</strong>才能生效
                 </div>
+                
+                <div class="bookmarklet-section">
+                    <div class="bookmarklet-title">
+                        <span>📖</span>
+                        <span>快速获取咪咕账号信息</span>
+                    </div>
+                    <div class="bookmarklet-actions">
+                        <a id="miguBookmarklet" class="bookmarklet-link" draggable="true">
+                            📖 获取咪咕账号
+                        </a>
+                        <button class="bookmarklet-help-btn" onclick="openBookmarkletGuide()" title="查看使用说明">
+                            ?
+                        </button>
+                    </div>
+                </div>
+                
                 <div class="system-config-grid">
                     <div class="system-config-item">
                         <label>咪咕用户ID</label>
@@ -1555,6 +1699,7 @@
                 await loadMyPlaylist(); // 加载我的频道数据（因为默认显示此tab）
                 renderExternalSources();
                 renderSystemConfig();
+                initMiguBookmarklet(); // 初始化咪咕账号获取工具
                 console.log('页面渲染完成');
                 
                 showStatus('数据加载成功', 'success');
@@ -2303,6 +2448,100 @@
             document.getElementById('sysProgramInterval').value = systemConfig.programInfoUpdateInterval || '8';
             document.getElementById('sysEnableHDR').checked = systemConfig.enableHDR !== false;
             document.getElementById('sysEnableH265').checked = systemConfig.enableH265 !== false;
+        }
+
+        // 初始化咪咕账号获取Bookmarklet
+        function initMiguBookmarklet() {
+            const bookmarkletCode = `javascript:(function(){
+try{
+const userInfo=document.cookie.split('; ').find(c=>c.startsWith('UserInfo='))?.split('=')[1];
+if(!userInfo){
+    alert('❌ 未找到咪咕账号信息\\n\\n请确保：\\n1. 已登录咪咕视频网站\\n2. 在咪咕视频页面点击此书签');
+    return;
+}
+const[userId,token]=userInfo.split('|');
+if(!userId||!token){
+    alert('❌ 账号信息格式错误');
+    return;
+}
+
+const copyText='用户ID: '+userId+'\\nToken: '+token;
+const textarea=document.createElement('textarea');
+textarea.value=copyText;
+textarea.style.position='fixed';
+textarea.style.opacity='0';
+document.body.appendChild(textarea);
+textarea.select();
+const success=document.execCommand('copy');
+document.body.removeChild(textarea);
+
+if(success){
+    alert('✅ 咪咕账号信息已复制成功！\\n\\n━━━━━━━━━━━━━━━━━━\\n用户ID: '+userId+'\\nToken: '+token+'\\n━━━━━━━━━━━━━━━━━━\\n\\n请粘贴到管理后台【系统设置】');
+}else{
+    prompt('⚠️ 自动复制失败，请手动复制用户ID：',userId);
+    prompt('请手动复制Token：',token);
+}
+}catch(e){
+    alert('❌ 获取失败：'+e.message);
+}
+})();`;
+            
+            const bookmarklet = document.getElementById('miguBookmarklet');
+            bookmarklet.href = bookmarkletCode;
+            
+            // 保存bookmarklet代码到全局变量，供复制功能使用
+            window.bookmarkletCode = bookmarkletCode;
+            
+            // 点击显示引导弹窗
+            bookmarklet.addEventListener('click', (e) => {
+                e.preventDefault();
+                openBookmarkletGuide();
+            });
+            
+            // 拖拽事件
+            bookmarklet.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'copy';
+                e.dataTransfer.setData('text/plain', bookmarkletCode);
+            });
+        }
+        
+        // 打开Bookmarklet引导弹窗
+        function openBookmarkletGuide() {
+            document.getElementById('bookmarkletGuideModal').style.display = 'block';
+        }
+        
+        // 关闭Bookmarklet引导弹窗
+        function closeBookmarkletGuide() {
+            document.getElementById('bookmarkletGuideModal').style.display = 'none';
+        }
+        
+        // 复制Bookmarklet代码
+        function copyBookmarkletCode() {
+            const code = window.bookmarkletCode;
+            if (!code) {
+                showStatus('代码未加载，请刷新页面重试', 'error');
+                return;
+            }
+            
+            const textarea = document.createElement('textarea');
+            textarea.value = code;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                const success = document.execCommand('copy');
+                if (success) {
+                    showStatus('✅ Bookmarklet 代码已复制！请在书签管理器中粘贴', 'success');
+                } else {
+                    showStatus('复制失败，请手动选择并复制', 'error');
+                }
+            } catch (e) {
+                showStatus('复制失败: ' + e.message, 'error');
+            } finally {
+                document.body.removeChild(textarea);
+            }
         }
 
         // 保存系统配置

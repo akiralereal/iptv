@@ -309,23 +309,6 @@ curl http://localhost:1905/test123/m3u
 
 本项目提供可视化的 Web 管理界面,方便您管理外部直播源。
 
-### 界面预览
-
-<div align="center">
-  <img src="Resources/111.png" alt="频道列表界面" width="800"/>
-  <p><i>频道列表 - 支持分组浏览和实时搜索</i></p>
-</div>
-
-<div align="center">
-  <img src="Resources/222.png" alt="外部源管理界面" width="800"/>
-  <p><i>外部源管理 - 支持自动抓取和手动添加</i></p>
-</div>
-
-<div align="center">
-  <img src="Resources/333.png" alt="系统配置界面" width="800"/>
-  <p><i>系统配置 - 灵活的画质和访问控制设置</i></p>
-</div>
-
 ### 访问地址
 
 - **无密码**: `http://ip:port/admin`
@@ -465,19 +448,19 @@ node app.js
 Mac/Linux:
 
 ```shell
-mport=3000 mhost="http://localhost:3000" node app.js
+mport=1905 mhost="http://localhost:1905" node app.js
 ```
 
 Windows下使用git-bash等终端:
 
 ```shell
-set mport=3000 && set mhost="http://localhost:3000" && node app.js
+set mport=1905 && set mhost="http://localhost:1905" && node app.js
 ```
 
 Windows下使用PowerShell等终端:
 
 ```shell
-$Env:mport=3000; $Env:mhost="http://localhost:3000"; node app.js
+$Env:mport=1905; $Env:mhost="http://localhost:1905"; node app.js
 ```
 
 ---

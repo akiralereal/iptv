@@ -1461,6 +1461,27 @@
         </div>
     </div>
     
+    <!-- 播放器下载提示弹窗 -->
+    <div class="modal" id="playerDownloadModal">
+        <div class="modal-content" style="width: 500px; max-width: 90%;">
+            <h3 style="margin-bottom: 20px;">⚠️ 播放器未安装</h3>
+            
+            <div style="background: #fff7e6; border: 1px solid #ffd591; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+                <p style="line-height: 1.8; margin: 0; font-size: 15px;">
+                    无法识别到默认可播放设备，您可以先下载播放软件。
+                </p>
+                <p style="line-height: 1.8; margin: 12px 0 0 0; font-size: 14px; color: #666;">
+                    推荐播放器：<span id="recommendedPlayer" style="font-weight: bold;"></span>
+                </p>
+            </div>
+            
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button class="btn" onclick="closePlayerDownloadModal()" style="background: #eee; color: #333;">关闭</button>
+                <button class="btn btn-primary" onclick="goToPlayerDownload()">🔽 去下载</button>
+            </div>
+        </div>
+    </div>
+    
     <div class="container">
         <div class="header">
             <div class="tabs">
@@ -3425,13 +3446,26 @@ if(success){
 
             // 显示URL
             if (channel.url) {
+                // 获取当前页面的base URL（去掉/admin后的部分）
+                const baseUrl = window.location.origin + window.location.pathname.replace(/\/admin$/, '');
+                // 替换URL中的${replace}占位符为实际的base URL
+                const actualUrl = channel.url.replace(/\$\{replace\}/g, baseUrl);
+                // 构建播放器URL
+                const playerUrl = baseUrl + '/player?url=' + encodeURIComponent(actualUrl) + '&name=' + encodeURIComponent(channel.name || '未知频道');
+                
                 detailHTML += `
                     <div style="margin-bottom: 15px;">
                         <strong style="color: #667eea;">播放地址：</strong>
                         <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin-top: 5px; word-break: break-all; font-family: monospace; font-size: 12px;">
-                            ${channel.url}
+                            ${actualUrl}
                         </div>
-                        <button class="btn btn-sm" onclick="copyToClipboard('${channel.url.replace(/'/g, "\\'")}', '播放地址')" style="margin-top: 8px;">📋 复制地址</button>
+                        <div style="margin-top: 8px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn btn-sm" onclick="copyToClipboard('${actualUrl.replace(/'/g, "\\'")}', '播放地址')">📋 复制地址</button>
+                            <button class="btn btn-sm btn-primary" onclick="openInPlayer('${actualUrl.replace(/'/g, "\\'")}')">🎬 拉起播放器</button>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 12px; color: #999;">
+                            💡 提示：点击"拉起播放器"会自动打开本地播放器（macOS:IINA / Windows:PotPlayer / Linux:VLC）
+                        </div>
                     </div>
                 `;
             }
@@ -3517,6 +3551,82 @@ if(success){
             });
         }
 
+        // 检测操作系统并拉起对应的播放器
+        function openInPlayer(url) {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const platform = navigator.platform.toLowerCase();
+            
+            let playerUrl = '';
+            let playerName = '';
+            let downloadUrl = '';
+            
+            // 检测操作系统
+            if (platform.includes('mac') || userAgent.includes('mac')) {
+                // macOS - 使用 IINA
+                playerUrl = 'iina://weblink?url=' + encodeURIComponent(url);
+                playerName = 'IINA';
+                downloadUrl = 'https://iina.io/';
+            } else if (platform.includes('win') || userAgent.includes('windows')) {
+                // Windows - 使用 PotPlayer
+                playerUrl = 'potplayer://' + url;
+                playerName = 'PotPlayer';
+                downloadUrl = 'https://potplayer.daum.net/';
+            } else {
+                // Linux 或其他系统 - 使用 VLC
+                playerUrl = 'vlc://' + url;
+                playerName = 'VLC';
+                downloadUrl = 'https://www.videolan.org/';
+            }
+            
+            // 保存当前播放器信息到全局变量供下载使用
+            window.currentPlayerInfo = { name: playerName, downloadUrl: downloadUrl };
+            
+            // 标记：播放器是否成功启动
+            let playerLaunched = false;
+            
+            // 监听窗口失去焦点事件（播放器启动时通常会导致窗口失焦）
+            const onBlur = () => {
+                playerLaunched = true;
+                window.removeEventListener('blur', onBlur);
+            };
+            window.addEventListener('blur', onBlur);
+            
+            // 尝试打开播放器
+            const link = document.createElement('a');
+            link.href = playerUrl;
+            link.click();
+            
+            // 提示用户
+            showStatus(`正在尝试打开 ${playerName}...`, 'info');
+            
+            // 延迟检测：如果播放器未启动，显示下载对话框
+            setTimeout(() => {
+                window.removeEventListener('blur', onBlur);
+                if (!playerLaunched) {
+                    showPlayerDownloadModal(playerName);
+                }
+            }, 2000);
+        }
+
+        // 显示播放器下载对话框
+        function showPlayerDownloadModal(playerName) {
+            document.getElementById('recommendedPlayer').textContent = playerName;
+            document.getElementById('playerDownloadModal').style.display = 'flex';
+        }
+
+        // 关闭播放器下载对话框
+        function closePlayerDownloadModal() {
+            document.getElementById('playerDownloadModal').style.display = 'none';
+        }
+
+        // 跳转到播放器下载页面
+        function goToPlayerDownload() {
+            if (window.currentPlayerInfo && window.currentPlayerInfo.downloadUrl) {
+                window.open(window.currentPlayerInfo.downloadUrl, '_blank');
+                closePlayerDownloadModal();
+            }
+        }
+
         function editChannelFromDetail() {
             if (!currentChannelDetail || !currentChannelDetail.isExternal) {
                 showStatus('此频道不可编辑', 'error');
@@ -3566,9 +3676,15 @@ if(success){
 
         // 点击弹窗外部关闭
         document.addEventListener('click', function(event) {
-            const modal = document.getElementById('channelDetailModal');
-            if (event.target === modal) {
+            const detailModal = document.getElementById('channelDetailModal');
+            const downloadModal = document.getElementById('playerDownloadModal');
+            
+            if (event.target === detailModal) {
                 closeChannelDetail();
+            }
+            
+            if (event.target === downloadModal) {
+                closePlayerDownloadModal();
             }
         });
 

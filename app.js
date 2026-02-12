@@ -67,6 +67,31 @@ const server = http.createServer(async (req, res) => {
     }
   }
   
+  // 播放器页面路由
+  if (urlPath === '/player' || urlPath.startsWith('/player/')) {
+    if (pass !== "" && !urlPath.includes(`/${pass}/player`)) {
+      // 需要密码但未提供，重定向到带密码的播放器
+      const redirectUrl = `/${pass}/player${url.includes('?') ? url.substring(url.indexOf('?')) : ''}`
+      res.writeHead(302, { 'Location': redirectUrl });
+      res.end();
+      loading = false
+      return
+    }
+    
+    try {
+      const html = readFileSync(`${process.cwd()}/web/player.html`, 'utf-8')
+      res.writeHead(200, { 'Content-Type': 'text/html;charset=UTF-8' });
+      res.end(html);
+      printGreen("播放器页面访问")
+    } catch (error) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Player page not found');
+      printRed("播放器页面文件不存在")
+    }
+    loading = false
+    return
+  }
+  
   // API 路由
   if (urlPath.startsWith('/api/')) {
     // 需要密码时检查

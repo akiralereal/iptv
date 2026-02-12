@@ -3,6 +3,9 @@
 **当前版本：v1.1.1**
 
 > 一个基于 Node.js 的 IPTV 直播源管理和分发系统，支持咪咕视频源抓取和外部直播源管理。
+<div align="center">
+  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/111.png" width="800"/>
+</div>
 
 ## 📖 项目简介
 
@@ -37,9 +40,9 @@ services:
       - muserId=                                # 可选：咪咕账号ID（留空为游客模式）
       - mtoken=                                 # 可选：咪咕登录令牌（用于高画质/VIP）
       - mport=1905                              # 必须：容器监听端口，与 ports 对应
-      - mhost=                                  # 可选：外部访问地址（如 http://test.com:1905）
       - mrateType=4                             # 画质：2=标清，3=高清，4=蓝光(需VIP)
-      - mpass=                                  # 可选：访问密码（设置后访问: http://ip:port/密码/...）
+      # - mhost=                                  # 可选：外部访问地址（如 http://test.com:1905）
+      # - mpass=                                  # 可选：访问密码（设置后访问: http://ip:port/密码/...）
     restart: always                             # 容器异常退出后自动重启
 ```
 
@@ -193,7 +196,7 @@ docker run -d -p 1905:1905 \
 > 6. 从请求头或响应中提取 `userId` 和 `token` 参数
 
 <div align="center">
-  <img src="Resources/000.png" alt="获取userId和token示例" width="800"/>
+  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/000.png" alt="获取userId和token示例" width="800"/>
   <p><i>浏览器开发者工具获取 userId 和 token 示例</i></p>
 </div>
 

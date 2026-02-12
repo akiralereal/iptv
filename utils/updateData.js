@@ -1,4 +1,4 @@
-import { getAllChannels, updateExternalSources, externalSourceManager } from "./channelMerger.js"
+import { getAllChannels, updateExternalSources, updateBuiltInSources, externalSourceManager } from "./channelMerger.js"
 import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile } from "./fileUtil.js"
 import { updatePlaybackData } from "./playback.js"
 import { /* refreshToken as mrefreshToken, */ host, pass, token, userId } from "../config.js"
@@ -41,12 +41,19 @@ async function updateTV(hours, options = {}) {
   // 更新外部源（在获取数据之前）
   // regenerateOnly 模式下跳过外部源更新（因为这个模式用于配置变更后重新生成）
   if (!regenerateOnly) {
+    // 更新内置源（需要抓取的）
+    if (startupMode) {
+      printBlue("启动模式：检查需要更新的内置源...")
+      await updateBuiltInSources({ startupMode: true })
+    }
+    
     if (startupMode) {
       // 启动模式：只更新设置了 updateOnStartup: true 的源
       printBlue("启动模式：检查需要更新的外部源...")
       await updateExternalSources({ startupMode: true })
     } else {
-      // 定时更新模式：更新所有设置了自动刷新的源
+      // 定时更新模式：更新所有设置了自动刷新的源（包括内置源和外部源）
+      await updateBuiltInSources({ autoOnly: true })
       await updateExternalSources({ autoOnly: true })
     }
   }
@@ -96,16 +103,28 @@ async function updateTV(hours, options = {}) {
     // 写入节目
     for (let j = 0; j < data.length; j++) {
       const channelItem = data[j]
+      
+      const isBuiltIn = channelItem.source === 'built-in'
       const isExternal = channelItem.source === 'external' || !!channelItem.url
       const logoUrl = channelItem.pics?.highResolutionH || channelItem.logo || ""
-      const playUrl = isExternal ? channelItem.url : `\${replace}/${channelItem.pID}`
+      
+      // 内置源使用playURL字段，外部源使用url字段，咪咕源构造URL
+      let playUrl
+      if (isBuiltIn) {
+        playUrl = channelItem.playURL  // 内置源使用playURL
+      } else if (isExternal) {
+        playUrl = channelItem.url      // 外部源使用url
+      } else {
+        playUrl = `\${replace}/${channelItem.pID}`  // 咪咕源使用pID
+      }
 
       if (isExternal && !includeExternalInPlaylists) {
         continue
       }
 
       // regenerateOnly模式下跳过playback更新（仅更新播放列表）
-      if (!isExternal && !regenerateOnly) {
+      // 内置源和外部源不需要playback数据
+      if (!isExternal && !isBuiltIn && !regenerateOnly) {
         await updatePlaybackData(channelItem, playbackFile)
       }
 
@@ -213,7 +232,7 @@ async function updatePE(hours) {
           appendFileSync(interfaceTXTPath, `${competitionDesc},\${replace}/${live.pID}\n`)
         }
       } catch (error) {
-        printYellow(`${data.mgdbId} ${pkInfoTitle} 更新失败 此警告不影响正常使用 可忽略`)
+        // printYellow(`${data.mgdbId} ${pkInfoTitle} 更新失败 此警告不影响正常使用 可忽略`)
         // printYellow(error)
       }
     }

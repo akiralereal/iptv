@@ -8,7 +8,7 @@ import { delay } from "./utils/fetchList.js";
 import { channel, interfaceStr } from "./utils/appUtils.js";
 import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI, 
          addExternalSourceAPI, removeExternalSourceAPI, updateExternalSourceAPI, 
-         setExternalSourceM3u8API } from "./utils/adminAPI.js";
+         setExternalSourceM3u8API, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, applyConfig } from "./utils/playlistConfig.js";
 
@@ -159,6 +159,16 @@ const server = http.createServer(async (req, res) => {
     if (urlPath === '/api/external-sources' && method === 'GET') {
       printBlue("API: 获取外部源配置")
       const result = getExternalSourcesAPI()
+      res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify(result));
+      loading = false
+      return
+    }
+    
+    // 内置源管理API
+    if (urlPath === '/api/built-in-sources' && method === 'GET') {
+      printBlue("API: 获取内置源配置")
+      const result = getBuiltInSourcesAPI()
       res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
       res.end(JSON.stringify(result));
       loading = false
@@ -374,7 +384,7 @@ server.listen(port, async () => {
   }
 
   printGreen(`本地地址: http://localhost:${port}${pass == "" ? "" : "/" + pass}`)
-  printGreen("开源地址: https://github.com/akiralereal/iptv 欢迎使用")
+  printGreen("开源地址: https://github.com/akiralereal/iptv ")
   if (host != "") {
     printGreen(`自定义地址: ${host}${pass == "" ? "" : "/" + pass}`)
   }

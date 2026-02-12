@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
-import { getAllChannels, externalSourceManager } from "./channelMerger.js"
+import { getAllChannels, externalSourceManager, builtInSourceManager } from "./channelMerger.js"
 import update from "./updateData.js"
 
 /**
@@ -179,4 +179,21 @@ export function setExternalSourceM3u8API(index, m3u8Url) {
   }
 }
 
-
+/**
+ * 获取内置源列表
+ */
+export function getBuiltInSourcesAPI() {
+  try {
+    const config = builtInSourceManager.getSourceList()
+    return {
+      success: true,
+      data: config
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message,
+      data: { enabled: true, sources: [] }
+    }
+  }
+}

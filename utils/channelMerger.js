@@ -1,5 +1,6 @@
 import { dataList as getMiguChannels } from "./fetchList.js"
 import externalSourceManager from "./externalSources.js"
+import builtInSourceManager from "./builtInSources.js"
 import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 
 // 缓存最近一次获取的咪咕频道数据
@@ -42,10 +43,37 @@ async function getAllChannels(options = {}) {
     printBlue("获取外部源频道数据...")
     const externalChannels = externalSourceManager.getValidChannels()
     
-    // 合并数据
+    // 获取内置源频道
+    printBlue("获取内置源频道数据...")
+    const builtInChannels = builtInSourceManager.getValidChannels()
+    
+    // 合并数据：咪咕源 + 内置源 + 外部源
     const allChannels = [...miguChannels]
     
-    // 将外部源按分组插入或合并
+    // 先合并内置源
+    builtInChannels.forEach(builtInGroup => {
+      const existingGroup = allChannels.find(group => group.name === builtInGroup.name)
+      
+      if (existingGroup) {
+        existingGroup.dataList.push(...builtInGroup.dataList.map(channel => ({
+          ...channel,
+          source: 'built-in'
+        })))
+        printGreen(`内置源 "${builtInGroup.name}" 合并到现有分组，添加 ${builtInGroup.dataList.length} 个频道`)
+      } else {
+        allChannels.push({
+          ...builtInGroup,
+          source: 'built-in',
+          dataList: builtInGroup.dataList.map(channel => ({
+            ...channel,
+            source: 'built-in'
+          }))
+        })
+        printGreen(`创建内置源分组 "${builtInGroup.name}"，包含 ${builtInGroup.dataList.length} 个频道`)
+      }
+    })
+    
+    // 再合并外部源
     externalChannels.forEach(externalGroup => {
       // 查找是否有同名分组
       const existingGroup = allChannels.find(group => group.name === externalGroup.name)
@@ -72,9 +100,10 @@ async function getAllChannels(options = {}) {
     })
     
     const externalCount = externalChannels.reduce((sum, group) => sum + group.dataList.length, 0)
+    const builtInCount = builtInChannels.reduce((sum, group) => sum + group.dataList.length, 0)
     const miguCount = miguChannels.reduce((sum, group) => sum + group.dataList.length, 0)
     
-    printGreen(`频道数据获取完成: 咪咕 ${miguCount} 个，外部源 ${externalCount} 个`)
+    printGreen(`频道数据获取完成: 咪咕 ${miguCount} 个，内置源 ${builtInCount} 个，外部源 ${externalCount} 个`)
     
     return allChannels
     
@@ -134,6 +163,16 @@ async function updateExternalSources(options = {}) {
 }
 
 /**
+ * 更新内置源（需要抓取的）
+ * @param {Object} options - 更新选项
+ * @param {boolean} options.startupMode - 启动模式，仅更新updateOnStartup=true的源
+ * @param {boolean} options.forceAll - 强制更新所有抓取源
+ */
+async function updateBuiltInSources(options = {}) {
+  return await builtInSourceManager.updateFetchSources(options)
+}
+
+/**
  * 获取外部源统计信息
  */
 function getExternalSourceStats() {
@@ -143,6 +182,8 @@ function getExternalSourceStats() {
 export { 
   getAllChannels,
   updateExternalSources,
+  updateBuiltInSources,
   getExternalSourceStats,
-  externalSourceManager
+  externalSourceManager,
+  builtInSourceManager
 }

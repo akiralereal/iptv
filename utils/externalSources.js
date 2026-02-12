@@ -96,7 +96,7 @@ class ExternalSourceManager {
       logo: sourceConfig.logo || "",
       enabled: sourceConfig.enabled !== false,
       autoRefresh: sourceConfig.autoRefresh !== false, // 是否自动刷新，默认开启
-      refreshInterval: sourceConfig.refreshInterval || 60, // 刷新间隔（分钟），默认60分钟
+      refreshInterval: sourceConfig.refreshInterval || 240, // 刷新间隔（分钟），默认240分钟（4小时）
       updateOnStartup: sourceConfig.updateOnStartup !== false, // 重启时是否更新，默认开启
       lastUpdated: null,
       extractOptions: {
@@ -200,7 +200,7 @@ class ExternalSourceManager {
     // 检查时间间隔
     const lastUpdateTime = new Date(source.lastUpdated).getTime()
     const now = Date.now()
-    const intervalMs = (source.refreshInterval || 60) * 60 * 1000 // 转换为毫秒
+    const intervalMs = (source.refreshInterval || 240) * 60 * 1000 // 转换为毫秒
     
     return (now - lastUpdateTime) >= intervalMs
   }
@@ -239,7 +239,7 @@ class ExternalSourceManager {
       // 注意：启动模式下不检查刷新间隔，强制更新所有启用的源
       if (autoOnly && !forceAll && !startupMode) {
         if (!this.needsRefresh(source)) {
-          printYellow(`${source.name} 无需刷新（上次更新: ${source.lastUpdated || '从未'}, 间隔: ${source.refreshInterval || 60}分钟）`)
+          printYellow(`${source.name} 无需刷新（上次更新: ${source.lastUpdated || '从未'}, 间隔: ${source.refreshInterval || 240}分钟）`)
           skipped++
           continue
         }

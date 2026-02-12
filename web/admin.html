@@ -1538,18 +1538,28 @@
                     <button class="btn btn-primary" onclick="addExternalSource()">➥ 添加源</button>
                 </div>
                 <div class="external-container">
-                    <div class="external-sidebar" id="externalSidebar"></div>
+                    <div class="external-sidebar">
+                        <div style="padding: 8px 12px; background: #f6ffed; border-left: 3px solid #52c41a; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-weight: 600; color: #52c41a;">👤 自定义源</span>
+                            <span id="externalSourceCount" style="font-size: 12px; color: #666;"></span>
+                        </div>
+                        <div id="externalSourceList"></div>
+                    </div>
                     <div class="external-detail" id="externalDetail">
                         <div class="external-empty">请在左侧选择或添加源</div>
                     </div>
                     <div class="external-usage-side">
                         <h4>📖 使用说明</h4>
-                        <ol>
-                            <li>点击"添加源"选择模式：<strong>抓取模式</strong>或<strong>直连模式</strong></li>
-                            <li><strong>抓取模式</strong>：填写频道名、分组和网页地址，点击"抓取并保存"自动提取m3u8并同步到列表</li>
-                            <li><strong>直连模式</strong>：填写频道名、分组和m3u8链接，点击"保存"即可同步到列表</li>
-                            <li>已有源可在左侧列表中选择查看和修改</li>
-                        </ol>
+                        <div style="background: #f6ffed; padding: 12px; border-radius: 4px; margin-bottom: 15px;">
+                            <strong style="color: #52c41a;">👤 自定义源配置</strong>
+                            <ol style="margin: 8px 0 0 0; padding-left: 20px; font-size: 13px; color: #666; line-height: 1.8;">
+                                <li>点击"添加源"选择模式：<strong>抓取模式</strong>或<strong>直连模式</strong></li>
+                                <li><strong>抓取模式</strong>：填写频道名、分组和网页地址，点击"抓取并保存"</li>
+                                <li><strong>直连模式</strong>：填写频道名、分组和m3u8链接，点击"保存"</li>
+                                <li>可编辑、删除、启用/禁用</li>
+                                <li>设置自动刷新间隔（默认4小时）</li>
+                            </ol>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1660,7 +1670,7 @@
                         <div style="margin-bottom: 25px;">
                             <div style="display: flex; align-items: center; margin-bottom: 12px;">
                                 <span style="color: #1890ff; font-size: 20px; margin-right: 10px;">🌐</span>
-                                <strong style="color: #333; font-size: 16px;">官方网站</strong>
+                                <strong style="color: #333; font-size: 16px;">了解更多</strong>
                             </div>
                             <div style="padding-left: 30px;">
                                 <a href="https://ifansclub.com/" target="_blank" 
@@ -1697,6 +1707,10 @@
         let externalConfig = {
             enabled: false,
             includeInPlaylists: true,
+            sources: []
+        };
+        let builtInConfig = {
+            enabled: true,
             sources: []
         };
         let systemConfig = {};
@@ -1755,6 +1769,16 @@
                 const externalPayload = await externalRes.json();
                 externalConfig = normalizeExternalConfig(externalPayload);
                 console.log('外部源配置加载成功:', externalConfig.sources?.length || 0, '个源');
+                
+                // 加载内置源配置
+                console.log('请求内置源配置...');
+                const builtInRes = await fetch('/api/built-in-sources');
+                if (!builtInRes.ok) {
+                    throw new Error(`内置源API请求失败: ${builtInRes.status}`);
+                }
+                const builtInPayload = await builtInRes.json();
+                builtInConfig = builtInPayload.data || { enabled: true, sources: [] };
+                console.log('内置源配置加载成功:', builtInConfig.sources?.length || 0, '个源');
                 
                 // 加载系统配置
                 console.log('请求系统配置...');
@@ -1921,18 +1945,23 @@
         }
 
         function renderExternalSources() {
-            const sidebar = document.getElementById('externalSidebar');
+            const externalSourceList = document.getElementById('externalSourceList');
+            const externalSourceCount = document.getElementById('externalSourceCount');
             const detail = document.getElementById('externalDetail');
 
-            // 渲染左侧列表
-            sidebar.innerHTML = '';
+            // 渲染用户源列表
             if (!externalConfig.sources || externalConfig.sources.length === 0) {
-                sidebar.innerHTML = '<div class="empty-group">暂无外部源<br><br>点击"添加源"<br>开始配置</div>';
+                externalSourceCount.textContent = '0';
+                externalSourceList.innerHTML = '<div class="empty-group" style="padding: 12px; color: #999; font-size: 13px;">暂无自定义源<br>点击"添加源"开始配置</div>';
                 detail.innerHTML = '<div class="external-empty">请在左侧选择或添加源</div>';
                 selectedExternalIndex = null;
                 return;
             }
 
+            const enabledCount = externalConfig.sources.filter(s => s.enabled !== false).length;
+            externalSourceCount.textContent = `${enabledCount}/${externalConfig.sources.length}`;
+            
+            externalSourceList.innerHTML = '';
             externalConfig.sources.forEach((source, index) => {
                 const navItem = document.createElement('div');
                 navItem.className = 'external-nav-item' + (selectedExternalIndex === index ? ' active' : '');
@@ -1953,7 +1982,7 @@
                     </div>
                 `;
                 navItem.onclick = () => selectExternalSource(index);
-                sidebar.appendChild(navItem);
+                externalSourceList.appendChild(navItem);
             });
 
             // 渲染右侧详情
@@ -1996,8 +2025,9 @@
         function selectExternalSource(index) {
             selectedExternalIndex = index;
             
-            // 更新左侧高亮
-            document.querySelectorAll('.external-nav-item').forEach((item, i) => {
+            // 更新左侧高亮（只更新用户源列表）
+            const externalSourceList = document.getElementById('externalSourceList');
+            externalSourceList.querySelectorAll('.external-nav-item').forEach((item, i) => {
                 if (i === index) {
                     item.classList.add('active');
                 } else {
@@ -2074,8 +2104,8 @@
                         </div>
                         <div class="external-field">
                             <label>自动刷新间隔（分钟）</label>
-                            <input type="number" min="1" value="${source.refreshInterval || 60}" oninput="updateExternalField(${index}, 'refreshInterval', parseInt(this.value) || 60)" placeholder="60">
-                            <div class="form-hint">每隔多少分钟自动重新抓取m3u8链接，默认60分钟</div>
+                            <input type="number" min="60" step="60" value="${source.refreshInterval || 240}" oninput="updateExternalField(${index}, 'refreshInterval', parseInt(this.value) || 240)" placeholder="240">
+                            <div class="form-hint">每隔多少分钟自动重新抓取m3u8链接，默认240分钟（4小时），步幅1小时</div>
                         </div>
                     </div>
                     <div class="external-detail-footer">

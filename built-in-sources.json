@@ -1,0 +1,48 @@
+{
+  "enabled": true,
+  "sources": [
+    {
+      "id": "rt-documentary",
+      "name": "RT Documentary",
+      "group": "国际",
+      "mode": "direct",
+      "m3u8Url": "https://rt-rtd.rttv.com/live/rtdoc/playlist_4500Kb.m3u8",
+      "enabled": true,
+      "description": "俄罗斯今日电视台纪录片频道"
+    },
+    {
+      "id": "cna",
+      "name": "新加坡亚洲新闻（CNA）",
+      "group": "国际",
+      "mode": "direct",
+      "m3u8Url": "https://d2e1asnsl7br7b.cloudfront.net/7782e205e72f43aeb4a48ec97f66ebbe/index_5.m3u8",
+      "enabled": true,
+      "description": "新加坡国际新闻频道"
+    },
+    {
+      "id": "wildearth",
+      "name": "WildEarth",
+      "group": "纪实",
+      "mode": "direct",
+      "m3u8Url": "https://wildearth-plex.amagi.tv/masterR1080p.m3u8",
+      "enabled": true,
+      "description": "非洲野生动物24小时直播"
+    },
+    {
+      "id": "vl-sports",
+      "name": "纬来体育",
+      "group": "体育",
+      "mode": "fetch",
+      "webUrl": "https://www.jrkan66.com/wlty.html",
+      "enabled": true,
+      "updateOnStartup": true,
+      "autoRefresh": true,
+      "refreshInterval": 240,
+      "extractOptions": {
+        "waitTime": 3000,
+        "headless": true
+      },
+      "description": "台湾纬来体育频道（需要网页抓取）"
+    }
+  ]
+}

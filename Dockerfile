@@ -2,6 +2,11 @@ FROM node:22-alpine
 
 WORKDIR /migu
 
+# 先复制 package 文件并安装依赖
+COPY package*.json ./
+RUN npm install --production
+
+# 再复制其他文件
 COPY . .
 
 # 设置时区

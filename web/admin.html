@@ -3731,9 +3731,6 @@ if(success){
             link.href = playerUrl;
             link.click();
             
-            // 提示用户
-            showStatus(`正在尝试打开 ${playerName}...`, 'info');
-            
             // 延迟检测：如果播放器未启动，显示下载对话框
             setTimeout(() => {
                 window.removeEventListener('blur', onBlur);

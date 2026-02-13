@@ -4,3 +4,5 @@ node_modules
 *.bak
 .github
 .gitignore
+README.md
+EXTERNAL_SOURCES.md

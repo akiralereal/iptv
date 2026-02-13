@@ -34,3 +34,5 @@ jobs:
             akiralereal/iptv:1.2.2
             akiralereal/iptv:1.2
             akiralereal/iptv:1
+          cache-from: type=registry,ref=akiralereal/iptv:buildcache
+          cache-to: type=registry,ref=akiralereal/iptv:buildcache,mode=max

@@ -1,5 +1,5 @@
 node_modules
-package-lock.json
+# package-lock.json  # 不应该忽略 lock 文件，它能锁定依赖版本加速构建
 
 # 备份文件
 *.bak

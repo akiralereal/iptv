@@ -20,15 +20,16 @@ RUN if [ -f package-lock.json ]; then \
 # 再复制其他文件
 COPY . .
 
-# 安装系统 Chromium 用于网页抓取功能
-# 注意：这会增加约 150MB 镜像大小，但有缓存后续构建不受影响
+# 安装系统 Chromium 用于网页抓取功能（可选）
+# 注意：某些架构（如 s390x）可能没有 chromium 包，失败时跳过
 RUN apk add --no-cache \
     chromium \
     nss \
     freetype \
     harfbuzz \
     ca-certificates \
-    ttf-freefont
+    ttf-freefont \
+    || echo "Chromium not available on this architecture, web scraping will be disabled"
 
 # 设置时区
 ENV TZ=Asia/Shanghai

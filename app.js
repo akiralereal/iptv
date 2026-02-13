@@ -304,6 +304,20 @@ const server = http.createServer(async (req, res) => {
   // printGreen("")
   printMagenta("请求地址：" + url)
 
+  // 允许HEAD、OPTIONS预检请求
+  if (method === "HEAD" || method === "OPTIONS") {
+    res.writeHead(200, { 
+      'Content-Type': 'application/json;charset=UTF-8',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': '*'
+    });
+    res.end();
+    loading = false
+    return
+  }
+
+  // 其他非GET/POST请求才报错
   if (method != "GET" && method != "POST") {
     res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
     res.end(JSON.stringify({
@@ -384,6 +398,7 @@ server.listen(port, async () => {
   }
 
   printGreen(`本地地址: http://localhost:${port}${pass == "" ? "" : "/" + pass}`)
+  printGreen(`管理平台地址: http://localhost:${port}${pass == "" ? "" : "/" + pass}/admin`)
   printGreen("开源地址: https://github.com/akiralereal/iptv ")
   if (host != "") {
     printGreen(`自定义地址: ${host}${pass == "" ? "" : "/" + pass}`)

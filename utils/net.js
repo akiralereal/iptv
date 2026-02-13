@@ -26,9 +26,10 @@ function getLocalIPv(ver = 4) {
 
 async function fetchUrl(url, opts = {}, timeout = 6000) {
   const controller = new AbortController();
+  let timedOut = false;
   const timeoutId = setTimeout(() => {
+    timedOut = true;
     controller.abort()
-    printRed("请求超时")
   }, timeout);
   // opts["signal"] = controller.signal
   const res = await fetch(url, {
@@ -40,8 +41,13 @@ async function fetchUrl(url, opts = {}, timeout = 6000) {
       return r.json()
     })
     .catch(err => {
-      console.log(err)
       clearTimeout(timeoutId);
+      if (timedOut) {
+        // 超时只打印警告，不打印错误详情
+        // printYellow(`请求超时: ${url.substring(0, 80)}...`)
+      } else {
+        console.log(err)
+      }
     })
 
   return res

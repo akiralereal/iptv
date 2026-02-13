@@ -3,6 +3,7 @@ import { getddCalcuURL, getddCalcuURL720p } from "./ddCalcuURL.js";
 import { printDebug, printGreen, printRed, printYellow } from "./colorOut.js";
 import { fetchUrl } from "./net.js";
 import { enableH265, enableHDR } from "../config.js";
+import fetch from 'node-fetch';
 
 /**
  * @typedef {object} SaltSign
@@ -216,9 +217,16 @@ async function get302URL(resObj) {
         printYellow(`获取失败,正在第${z - 1}次重试`)
       }
       const controller = new AbortController()
+      let timedOut = false;
       const timeoutId = setTimeout(() => {
+        timedOut = true;
         controller.abort()
-        printRed("请求超时")
+        // 只在最后一次才打印红字
+        if (z === 6) {
+          printRed("请求超时（最终失败）")
+        } else {
+          printYellow("请求超时，准备重试")
+        }
       }, 6000);
       const obj = await fetch(`${resObj.url}`, {
         method: "GET",
@@ -226,10 +234,12 @@ async function get302URL(resObj) {
         signal: controller.signal
       }).catch(err => {
         clearTimeout(timeoutId);
-        console.log(err)
+        if (!timedOut) {
+          console.log(err)
+        }
       })
       clearTimeout(timeoutId);
-      const location = obj.headers.get("Location")
+      const location = obj?.headers?.get("Location")
 
       if (location != "" && location != undefined && location != null) {
         if (!location.startsWith("http://bofang")) {

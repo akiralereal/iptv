@@ -2,15 +2,6 @@
   "enabled": true,
   "sources": [
     {
-      "id": "rt-documentary",
-      "name": "RT Documentary",
-      "group": "国际",
-      "mode": "direct",
-      "m3u8Url": "https://rt-rtd.rttv.com/live/rtdoc/playlist_4500Kb.m3u8",
-      "enabled": true,
-      "description": "俄罗斯今日电视台纪录片频道"
-    },
-    {
       "id": "cna",
       "name": "新加坡亚洲新闻（CNA）",
       "group": "国际",
@@ -43,6 +34,267 @@
         "headless": true
       },
       "description": "台湾纬来体育频道（需要网页抓取）"
+    },
+    {
+      "id": "anhui-tv",
+      "name": "安徽卫视",
+      "group": "卫视",
+      "mode": "direct",
+      "m3u8Url": "https://t.freetv.fun/live/an-hui-wei-shi-1.m3u8",
+      "enabled": true,
+      "description": "安徽卫视高清直播"
+    },
+    {
+      "id": "zhejiang-tv",
+      "name": "浙江卫视",
+      "group": "卫视",
+      "mode": "direct",
+      "m3u8Url": "http://ali-xwl.cztv.com/live/channel011080Plxw.m3u8",
+      "enabled": true,
+      "description": "浙江卫视高清直播"
+    },
+    {
+      "id": "shenzhen-tv",
+      "name": "深圳卫视",
+      "group": "卫视",
+      "mode": "direct",
+      "m3u8Url": "https://t.freetv.fun/live/shen-zhen-wei-shi-16.m3u8",
+      "enabled": true,
+      "description": "深圳卫视高清直播"
+    },
+    {
+      "id": "hunan-tv-4k",
+      "name": "湖南卫视4K",
+      "group": "卫视",
+      "mode": "direct",
+      "m3u8Url": "http://hlsal-ldvt.qing.mgtv.com/nn_live/nn_x64/Y2RuZXhfaWQ9YWxfaGxzX2xkdnQmZT02OTE0NjA0JnY9MSZpZD1ITldTWkdTVCZzPTcwN2RiYTc2YzJjNmJmMTQ4MmUyZGYzOWU2NWM3YWFi/HNWSZGST.m3u8",
+      "enabled": true,
+      "description": "湖南卫视4K超高清直播"
+    },
+    {
+      "id": "dongfang-tv-4k",
+      "name": "东方卫视4K",
+      "group": "卫视",
+      "mode": "direct",
+      "m3u8Url": "https://bp-resource-dfl.bestv.cn/148/3/video.m3u8",
+      "enabled": true,
+      "description": "东方卫视4K超高清直播"
+    },
+    {
+      "id": "suzhou-4k",
+      "name": "苏州4K",
+      "group": "卫视",
+      "mode": "direct",
+      "m3u8Url": "https://tylive.kan0512.com/norecord/csztv4k_4k.m3u8",
+      "enabled": true,
+      "description": "苏州广电4K超高清直播"
+    },
+    {
+      "id": "zhejiang-tv-4k",
+      "name": "浙江卫视4K",
+      "group": "卫视",
+      "mode": "direct",
+      "m3u8Url": "http://ali-xwl.cztv.com/live/channel4k2160p.m3u8",
+      "enabled": true,
+      "description": "浙江卫视4K超高清直播"
+    },
+    {
+      "id": "chunwan-1987",
+      "name": "1987年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://txmov2.a.kwimgs.com/bs3/video-hls/5195746663405928031_hlsb.m3u8",
+      "enabled": true,
+      "description": "1987年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-1988",
+      "name": "1988年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://txmov2.a.kwimgs.com/bs3/video-hls/5216575810935394655_hlsb.m3u8",
+      "enabled": true,
+      "description": "1988年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-1989",
+      "name": "1989年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://txmov2.a.kwimgs.com/bs3/video-hls/5194620763762726260_hlsb.m3u8",
+      "enabled": true,
+      "description": "1989年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-1993",
+      "name": "1993年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/22/BMjAyMzAxMTMyMjEwMDNfNDAzMDAxOTlfOTM1MTIzMzYwODJfMF8z_b_B647d10e431b4cc5e48e6c77347d69021.mp4",
+      "enabled": true,
+      "description": "1993年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-1994",
+      "name": "1994年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/22/BMjAyMzAxMTMyMjEwMDNfNDAzMDAxOTlfOTM1MTIzMzYxMjNfMF8z_b_B3dde97f36273f04403d4dc5eec611a35.mp4",
+      "enabled": true,
+      "description": "1994年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-1995",
+      "name": "1995年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/20/BMjAyMzAxMTMyMDA5MjJfNDAzMDAxOTlfOTM0OTkwNDQwNzVfMF8z_b_B811c0dec6b9a3d3074a18522c185010a.mp4",
+      "enabled": true,
+      "description": "1995年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-1996",
+      "name": "1996年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/22/BMjAyMzAxMTMyMjEwMDNfNDAzMDAxOTlfOTM1MTIzMzYxNTJfMF8z_b_Bd841eae10ab1c9955ef55fbedfae6c45.mp4",
+      "enabled": true,
+      "description": "1996年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2000",
+      "name": "2000年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/21/BMjAyMzAxMTMyMTE4MzRfNDAzMDAxOTlfOTM1MDY4ODIxMTNfMF8z_b_Bdddf4e7ef0ff6cfd477857bb40e78419.mp4",
+      "enabled": true,
+      "description": "2000年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2001",
+      "name": "2001年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/20/BMjAyMzAxMTMyMDA5MjJfNDAzMDAxOTlfOTM0OTkwNDQyMDFfMF8z_b_B70592cb7c4054e9cabb675e849bbf4bd.mp4",
+      "enabled": true,
+      "description": "2001年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2002",
+      "name": "2002年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/21/BMjAyMzAxMTMyMTE4MzRfNDAzMDAxOTlfOTM1MDY4ODIxNDdfMF8z_b_Ba6271d10b7e6cfae83759033a091f257.mp4",
+      "enabled": true,
+      "description": "2002年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2003",
+      "name": "2003年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/14/23/BMjAyMzAxMTQyMzQxNDdfNDAzMDAxOTlfOTM2MTU0MTk1NDFfMF8z_b_B182749d2cd2ea9323639254af385f24b.mp4",
+      "enabled": true,
+      "description": "2003年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2004",
+      "name": "2004年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/21/BMjAyMzAxMTMyMTE4MzRfNDAzMDAxOTlfOTM1MDY4ODIxOTVfMF8z_b_B86c4430b82ff5a7f4e8132f6ee558536.mp4",
+      "enabled": true,
+      "description": "2004年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2005",
+      "name": "2005年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/20/BMjAyMzAxMTMyMDA5MjJfNDAzMDAxOTlfOTM0OTkwNDQyMzhfMF8z_b_B35ad7cc86aec8fc9e5ddfb31fc7bed63.mp4",
+      "enabled": true,
+      "description": "2005年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2006",
+      "name": "2006年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/20/BMjAyMzAxMTMyMDA5MjJfNDAzMDAxOTlfOTM0OTkwNDQyNzlfMF8z_b_Bbc3703fc331dc994c50859c19aad28ff.mp4",
+      "enabled": true,
+      "description": "2006年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2007",
+      "name": "2007年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/20/BMjAyMzAxMTMyMDA5MjJfNDAzMDAxOTlfOTM0OTkwNDQzMjNfMF8z_b_B00b069c7899976459ceeaa99353dfefe.mp4",
+      "enabled": true,
+      "description": "2007年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2009",
+      "name": "2009年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/20/BMjAyMzAxMTMyMDA5MjJfNDAzMDAxOTlfOTM0OTkwNDQzOTBfMF8z_b_B29a36a85e0277f6c2a1f033ef7c10708.mp4",
+      "enabled": true,
+      "description": "2009年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2010",
+      "name": "2010年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/20/BMjAyMzAxMTMyMDA5MjJfNDAzMDAxOTlfOTM0OTkwNDQ0MjlfMF8z_b_B8818807a00eed329a69fb494f405bd43.mp4",
+      "enabled": true,
+      "description": "2010年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2013",
+      "name": "2013年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/13/20/BMjAyMzAxMTMyMDA5MjJfNDAzMDAxOTlfOTM0OTkwNDQ1NjNfMF8z_b_B4fea55408dca4471a68a963ae096be59.mp4",
+      "enabled": true,
+      "description": "2013年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2014",
+      "name": "2014年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/06/16/BMjAyMzAxMDYxNjMxMTNfNDAzMDAxOTlfOTI4OTY2ODAzNjlfMF8z_b_Bdee65c77f9e7b2120a185c919dad81d2.mp4",
+      "enabled": true,
+      "description": "2014年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2018",
+      "name": "2018年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://alimov2.a.kwimgs.com/upic/2023/01/06/16/BMjAyMzAxMDYxNjMxMTRfNDAzMDAxOTlfOTI4OTY2ODE2MTBfMF8z_b_B11a778e34390a21de42d407e94f45b91.mp4",
+      "enabled": true,
+      "description": "2018年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2024",
+      "name": "2024年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://p2.bdstatic.com/rtmp.liveshow.lss-user.baidubce.com/live/stream_bduid_6488563992_8982723413/merged_1707497046297_88536_25144_41936.m3u8",
+      "enabled": true,
+      "description": "2024年中央广播电视总台春节联欢晚会"
+    },
+    {
+      "id": "chunwan-2025",
+      "name": "2025年春晚",
+      "group": "春晚",
+      "mode": "direct",
+      "m3u8Url": "https://svip.high24-playback.com/20250129/17159_7bca93c4/2000k/hls/mixed.m3u8",
+      "enabled": true,
+      "description": "2025年中央广播电视总台春节联欢晚会"
     }
   ]
 }

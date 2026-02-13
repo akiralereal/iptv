@@ -1821,6 +1821,12 @@
             const channelContainer = document.getElementById('channelList');
             const categoryContainer = document.getElementById('categorySidebar');
             
+            // 添加DOM元素安全检查
+            if (!channelContainer || !categoryContainer) {
+                console.error('频道列表相关DOM元素未找到');
+                return;
+            }
+            
             if (!allChannels || allChannels.length === 0) {
                 channelContainer.innerHTML = '<div class="empty-group" style="grid-column: 1/-1;">暂无频道数据<br><br>可能原因：<br>1. 服务刚启动，数据正在加载中...<br>2. 未配置咪咕账号（请在"系统配置"中填写）<br>3. 网络连接问题</div>';
                 console.log('频道数据为空:', allChannels);
@@ -1875,6 +1881,13 @@
 
         function renderChannelList() {
             const container = document.getElementById('channelList');
+            
+            // 添加DOM元素安全检查
+            if (!container) {
+                console.error('channelList 元素未找到');
+                return;
+            }
+            
             container.innerHTML = '';
             
             if (currentCategory === 'all') {
@@ -1948,6 +1961,12 @@
             const externalSourceList = document.getElementById('externalSourceList');
             const externalSourceCount = document.getElementById('externalSourceCount');
             const detail = document.getElementById('externalDetail');
+
+            // 添加DOM元素安全检查
+            if (!externalSourceList || !externalSourceCount || !detail) {
+                console.error('自定义源相关DOM元素未找到');
+                return;
+            }
 
             // 渲染用户源列表
             if (!externalConfig.sources || externalConfig.sources.length === 0) {
@@ -2042,6 +2061,12 @@
         function renderExternalDetail(index) {
             const detail = document.getElementById('externalDetail');
             const source = externalConfig.sources[index];
+            
+            // 添加DOM元素安全检查
+            if (!detail) {
+                console.error('externalDetail 元素未找到');
+                return;
+            }
             
             if (!source) {
                 detail.innerHTML = '<div class="external-empty">请在左侧选择或添加源</div>';

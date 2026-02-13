@@ -5,7 +5,7 @@ WORKDIR /migu
 # 先复制 package 文件并安装依赖
 COPY package*.json ./
 
-# 跳过 Puppeteer 自动下载 Chromium（节省 ~170MB 和大量时间）
+# 跳过 Puppeteer 自动下载 Chromium，使用系统的（更快更稳定）
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
@@ -19,6 +19,16 @@ RUN if [ -f package-lock.json ]; then \
 
 # 再复制其他文件
 COPY . .
+
+# 安装系统 Chromium 用于网页抓取功能
+# 注意：这会增加约 150MB 镜像大小，但有缓存后续构建不受影响
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
 
 # 设置时区
 ENV TZ=Asia/Shanghai

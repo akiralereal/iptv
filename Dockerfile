@@ -5,6 +5,10 @@ WORKDIR /migu
 # 先复制 package 文件并安装依赖
 COPY package*.json ./
 
+# 跳过 Puppeteer 自动下载 Chromium（节省 ~170MB 和大量时间）
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # 使用 npm ci 替代 npm install，速度更快且更可靠
 # 如果有 package-lock.json 则使用 ci，否则降级使用 install
 RUN if [ -f package-lock.json ]; then \

@@ -3654,12 +3654,36 @@ if(success){
         }
 
         function copyToClipboard(text, label) {
-            navigator.clipboard.writeText(text).then(() => {
-                showStatus(`${label}已复制到剪贴板`, 'success');
-            }).catch(err => {
-                showStatus('复制失败', 'error');
-                console.error('复制失败:', err);
-            });
+            // 优先使用现代 Clipboard API
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showStatus(`${label}已复制到剪贴板`, 'success');
+                }).catch(err => {
+                    showStatus('复制失败', 'error');
+                    console.error('复制失败:', err);
+                });
+            } else {
+                // 兼容不支持 Clipboard API 的环境（HTTP 或老旧浏览器）
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                try {
+                    const success = document.execCommand('copy');
+                    if (success) {
+                        showStatus(`${label}已复制到剪贴板`, 'success');
+                    } else {
+                        showStatus('复制失败', 'error');
+                    }
+                } catch (err) {
+                    showStatus('复制失败', 'error');
+                    console.error('兼容复制失败:', err);
+                }
+                document.body.removeChild(textarea);
+            }
         }
 
         // 检测操作系统并拉起对应的播放器

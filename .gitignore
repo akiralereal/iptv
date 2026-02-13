@@ -1,6 +1,9 @@
 node_modules
 package-lock.json
 
+# 备份文件
+*.bak
+
 # 个人配置文件
 external-sources.json
 system-config.json

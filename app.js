@@ -11,6 +11,7 @@ import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
          setExternalSourceM3u8API, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, applyConfig } from "./utils/playlistConfig.js";
+import { updateBuiltInSources, updateExternalSources } from "./utils/channelMerger.js";
 
 // 运行时长
 var hours = 0
@@ -375,7 +376,8 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, async () => {
   const updateInterval = parseInt(programInfoUpdateInterval)
-  // 更新
+  
+  // 定时任务1: 完整更新（咪咕 + 外部源 + 节目单）
   setInterval(async () => {
     printBlue(`准备更新文件 ${getDateTimeStr(new Date())}`)
     hours += updateInterval
@@ -388,6 +390,18 @@ server.listen(port, async () => {
 
     printBlue(`当前已运行${hours}小时`)
   }, updateInterval * 60 * 60 * 1000);
+
+  // 定时任务2: 每小时检查外部源和内置源是否需要刷新
+  setInterval(async () => {
+    printBlue(`定时检查源更新 ${getDateTimeStr(new Date())}`)
+    try {
+      await updateBuiltInSources({ autoOnly: true })
+      await updateExternalSources({ autoOnly: true })
+    } catch (error) {
+      console.log(error)
+      printRed("源更新检查失败")
+    }
+  }, 60 * 60 * 1000); // 每小时检查一次
 
   try {
     // 初始化数据（启动模式）

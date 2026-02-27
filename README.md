@@ -97,7 +97,7 @@ docker-compose pull && docker-compose up -d
 ```bash
 docker pull akiralereal/iptv:latest
 # 或指定版本
-docker pull akiralereal/iptv:1.2.5
+docker pull akiralereal/iptv:1.2.6
 ```
 
 #### 快速运行（游客模式）

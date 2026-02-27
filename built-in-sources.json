@@ -11,6 +11,15 @@
       "description": "新加坡国际新闻频道"
     },
     {
+      "id": "bloomberg-tv",
+      "name": "Bloomberg TV",
+      "group": "国际",
+      "mode": "direct",
+      "m3u8Url": "https://1cd69008d08c486ca5abc0f1c4e2ef63.mediatailor.ap-northeast-1.amazonaws.com/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/Bloomberg-kr-prod/87e22cf4-e302-42f6-a781-1d726fc87835/0.m3u8",
+      "enabled": true,
+      "description": "彭博电视国际财经新闻频道"
+    },
+    {
       "id": "wildearth",
       "name": "WildEarth",
       "group": "纪实",
@@ -34,6 +43,24 @@
         "headless": true
       },
       "description": "台湾纬来体育频道（需要网页抓取）"
+    },
+    {
+      "id": "eurosport-4k",
+      "name": "Eurosport 4K",
+      "group": "体育",
+      "mode": "direct",
+      "m3u8Url": "http://nvsoo4tx.megogo.xyz/iptv/UWA8DBPMZFQ9PX9ZLSBM7FFX/31475/index.m3u8",
+      "enabled": true,
+      "description": "Eurosport 4K 欧洲体育频道"
+    },
+    {
+      "id": "redbull-tv",
+      "name": "Red Bull TV",
+      "group": "体育",
+      "mode": "direct",
+      "m3u8Url": "http://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master_3360.m3u8",
+      "enabled": true,
+      "description": "Red Bull 官方体育直播频道"
     },
     {
       "id": "anhui-tv",

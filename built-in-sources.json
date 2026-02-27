@@ -28,7 +28,7 @@
       "enabled": true,
       "updateOnStartup": true,
       "autoRefresh": true,
-      "refreshInterval": 240,
+      "refreshInterval": 60,
       "extractOptions": {
         "waitTime": 3000,
         "headless": true

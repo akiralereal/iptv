@@ -186,6 +186,12 @@ class BuiltInSourceManager {
           })
         } else {
           printRed(`✗ ${source.name} 更新失败: 未找到m3u8链接`)
+          // 清除旧缓存，避免继续使用已过期的链接
+          if (this.cache[source.id]) {
+            delete this.cache[source.id]
+            this.saveCache()
+            printYellow(`✗ ${source.name} 已清除过期缓存`)
+          }
           results.push({ 
             id: source.id, 
             name: source.name, 
@@ -195,6 +201,12 @@ class BuiltInSourceManager {
         }
       } catch (error) {
         printRed(`✗ ${source.name} 更新失败: ${error.message}`)
+        // 清除旧缓存，避免继续使用已过期的链接
+        if (this.cache[source.id]) {
+          delete this.cache[source.id]
+          this.saveCache()
+          printYellow(`✗ ${source.name} 已清除过期缓存`)
+        }
         results.push({ 
           id: source.id, 
           name: source.name, 

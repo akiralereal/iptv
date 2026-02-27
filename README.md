@@ -1,6 +1,6 @@
 # iPTV
 
-**当前版本：v1.2.4**
+**当前版本：v1.2.5**
 
 > 一个基于 Node.js 的 IPTV 直播源管理和分发系统，支持咪咕视频源抓取和外部直播源管理。
 <div align="center">
@@ -23,7 +23,19 @@
 
 ---
 
-## 🚀 快速开始 - Docker 部署（推荐）
+## � 更新日志
+
+### v1.2.5 (2026-02-27)
+- 🐛 修复内置抓取源（如纬来体育）因 m3u8 链接过期导致无法播放的问题，将自动刷新间隔从 240 分钟缩短为 60 分钟
+- 🐛 修复内置抓取源抓取失败时不清除旧缓存的问题，抓取失败时现在会自动清除过期缓存，避免继续使用无效链接
+
+### v1.2.4
+- 内置源管理功能
+- Web 管理后台优化
+
+---
+
+## �🚀 快速开始 - Docker 部署（推荐）
 
 ### 使用 Docker Compose（最简单）
 
@@ -75,7 +87,7 @@ docker-compose pull && docker-compose up -d
 ```bash
 docker pull akiralereal/iptv:latest
 # 或指定版本
-docker pull akiralereal/iptv:1.2.4
+docker pull akiralereal/iptv:1.2.5
 ```
 
 #### 快速运行（游客模式）

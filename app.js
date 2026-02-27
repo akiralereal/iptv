@@ -395,8 +395,21 @@ server.listen(port, async () => {
   setInterval(async () => {
     printBlue(`定时检查源更新 ${getDateTimeStr(new Date())}`)
     try {
-      await updateBuiltInSources({ autoOnly: true })
-      await updateExternalSources({ autoOnly: true })
+      const builtInResult = await updateBuiltInSources({ autoOnly: true })
+      const externalResult = await updateExternalSources({ autoOnly: true })
+      // 若有任何源成功刷新了新 URL，立即重新生成播放列表（regenerateOnly 模式不重抓咪咕/节目单，速度快）
+      const builtInUpdated = Array.isArray(builtInResult?.results) && builtInResult.results.some(r => r.success)
+      const externalUpdated = Array.isArray(externalResult?.results) && externalResult.results.some(r => r.success)
+      if (builtInUpdated || externalUpdated) {
+        printBlue("检测到源 URL 已更新，重新生成播放列表...")
+        try {
+          await update(hours, { regenerateOnly: true })
+          printGreen("播放列表已更新为最新源 URL")
+        } catch (regenError) {
+          console.log(regenError)
+          printRed("播放列表重新生成失败")
+        }
+      }
     } catch (error) {
       console.log(error)
       printRed("源更新检查失败")

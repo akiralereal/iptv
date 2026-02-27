@@ -1,8 +1,8 @@
 name: push_docker
 on:
-  # push:
-  #   branches:
-  #     - main
+  push:
+    branches:
+      - main
   workflow_dispatch:
 jobs:
   docker:
@@ -31,7 +31,7 @@ jobs:
           push: true
           tags: |
             akiralereal/iptv:latest
-            akiralereal/iptv:1.2.4
+            akiralereal/iptv:1.2.5
             akiralereal/iptv:1.2
             akiralereal/iptv:1
           cache-from: type=registry,ref=akiralereal/iptv:buildcache

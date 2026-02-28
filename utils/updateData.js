@@ -6,6 +6,9 @@ import refreshToken from "./refreshToken.js"
 import { printGreen, printRed, printYellow, printBlue } from "./colorOut.js"
 import { getDateString } from "./time.js"
 import { fetchUrl } from "./net.js"
+import { readFileSync, writeFileSync, existsSync } from "node:fs"
+
+const PE_CACHE_PATH = `${process.cwd()}/pe-cache.json`
 
 /**
  * @param {Number} hours -更新小时数
@@ -170,6 +173,10 @@ async function updatePE(hours) {
 
   printYellow("开始更新体育直播频道...")
 
+  // 缓存本次PE内容，供 regenerateOnly 模式使用
+  let peM3uCache = ""
+  let peTxtCache = ""
+
   for (let i = 1; i < 4; i++) {
     // 日期
     const date = datas.body?.days[i]
@@ -181,7 +188,10 @@ async function updatePE(hours) {
       relativeDate = "明天"
     }
 
-    appendFile(interfaceTXTPath, `体育-${relativeDate},#genre#\n`)
+    const txtGroupHeader = `体育-${relativeDate},#genre#\n`
+    appendFile(interfaceTXTPath, txtGroupHeader)
+    peTxtCache += txtGroupHeader
+
     for (const data of datas.body?.matchList[date]) {
 
       let pkInfoTitle = data.pkInfoTitle
@@ -213,9 +223,13 @@ async function updatePE(hours) {
                 timeStr = peResultStartTimeStr.substring(11, 16)
               }
               const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${replay.name} ${timeStr}`
+              const m3uLine = `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="体育-${relativeDate}",${competitionDesc}\n\${replace}/${replay.pID}\n`
+              const txtLine = `${competitionDesc},\${replace}/${replay.pID}\n`
               // 写入赛事
-              appendFileSync(interfacePath, `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="体育-${relativeDate}",${competitionDesc}\n\${replace}/${replay.pID}\n`)
-              appendFileSync(interfaceTXTPath, `${competitionDesc},\${replace}/${replay.pID}\n`)
+              appendFileSync(interfacePath, m3uLine)
+              appendFileSync(interfaceTXTPath, txtLine)
+              peM3uCache += m3uLine
+              peTxtCache += txtLine
             }
           }
           continue
@@ -227,9 +241,13 @@ async function updatePE(hours) {
             continue
           }
           const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${live.name} ${live.startTimeStr.substring(11, 16)}`
+          const m3uLine = `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="体育-${relativeDate}",${competitionDesc}\n\${replace}/${live.pID}\n`
+          const txtLine = `${competitionDesc},\${replace}/${live.pID}\n`
           // 写入赛事
-          appendFileSync(interfacePath, `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="体育-${relativeDate}",${competitionDesc}\n\${replace}/${live.pID}\n`)
-          appendFileSync(interfaceTXTPath, `${competitionDesc},\${replace}/${live.pID}\n`)
+          appendFileSync(interfacePath, m3uLine)
+          appendFileSync(interfaceTXTPath, txtLine)
+          peM3uCache += m3uLine
+          peTxtCache += txtLine
         }
       } catch (error) {
         // printYellow(`${data.mgdbId} ${pkInfoTitle} 更新失败 此警告不影响正常使用 可忽略`)
@@ -237,6 +255,13 @@ async function updatePE(hours) {
       }
     }
     printGreen(`日期 ${date} 更新完成！`)
+  }
+
+  // 保存PE缓存，供 regenerateOnly 模式直接复用
+  try {
+    writeFileSync(PE_CACHE_PATH, JSON.stringify({ m3u: peM3uCache, txt: peTxtCache, updatedAt: new Date().toISOString() }), 'utf-8')
+  } catch (e) {
+    printYellow(`PE缓存保存失败: ${e.message}`)
   }
 
   // 重命名
@@ -257,11 +282,27 @@ async function update(hours, options = {}) {
   const { regenerateOnly = false } = options
   await updateTV(hours, options)
   
-  // regenerateOnly模式下跳过体育赛事更新（仅更新自定义源相关数据）
   if (!regenerateOnly) {
     await updatePE(hours)
   } else {
-    printYellow("快速模式：跳过体育赛事更新")
+    // regenerateOnly 模式：updateTV 已重建 interface.txt，需将上次缓存的体育赛事内容追加回去
+    // 避免重复调用大量 PE API，保持快速模式
+    if (existsSync(PE_CACHE_PATH)) {
+      try {
+        const cache = JSON.parse(readFileSync(PE_CACHE_PATH, 'utf-8'))
+        if (cache.m3u) {
+          appendFileSync(`${process.cwd()}/interface.txt`, cache.m3u)
+        }
+        if (cache.txt) {
+          appendFileSync(`${process.cwd()}/interfaceTXT.txt`, cache.txt)
+        }
+        printGreen(`快速模式：已从缓存恢复体育赛事频道（${cache.updatedAt || '时间未知'}）`)
+      } catch (e) {
+        printYellow(`快速模式：PE缓存读取失败，体育赛事频道本次暂缺: ${e.message}`)
+      }
+    } else {
+      printYellow("快速模式：尚无PE缓存，体育赛事频道本次暂缺（等待下次完整更新）")
+    }
   }
 }
 

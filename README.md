@@ -1,6 +1,6 @@
 # iPTV
 
-**当前版本：v1.2.7**
+**当前版本：v1.2.8**
 
 > 一个基于 Node.js 的 IPTV 直播源管理和分发系统，支持咪咕视频源抓取和外部直播源管理。
 >
@@ -28,6 +28,11 @@
 ---
 
 ## 📋 更新日志
+
+### v1.2.8 (2026-03-05)
+- 🔖 版本号升级到 `1.2.8`，同步更新 `package.json`、`package-lock.json`、README 展示版本及 Docker workflow 镜像版本标签
+- ⚖️ 新增 GPL-3.0 开源许可（`LICENSE`），并在文档中补充 License 说明
+- 🧹 清理运行时缓存文件 `pe-cache.json` 出仓库，并加入 `.gitignore` 防止误提交
 
 ### v1.2.7 (2026-02-28)
 - 🐛 修复内置抓取源 URL 刷新后重建播放列表（regenerateOnly 模式）会丢失体育-昨天/今天/明天频道的问题；现在 `updatePE` 运行时同步保存赛事缓存，快速模式下直接从缓存恢复，无需重新调用 API
@@ -100,7 +105,7 @@ docker-compose pull && docker-compose up -d
 ```bash
 docker pull akiralereal/iptv:latest
 # 或指定版本
-docker pull akiralereal/iptv:1.2.7
+docker pull akiralereal/iptv:1.2.8
 ```
 
 #### 快速运行（游客模式）
@@ -473,7 +478,6 @@ $Env:mport=1905; $Env:mhost="http://localhost:1905"; node app.js
 
 # 免责声明
 
-> [!important]
 >
 > 本仓库仅供学习使用，请尊重版权，请勿利用此仓库从事商业行为及非法用途!
 

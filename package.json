@@ -1,6 +1,7 @@
 {
   "name": "iptv",
   "version": "1.2.7",
+  "license": "GPL-3.0-only",
   "type": "module",
   "dependencies": {
     "node-fetch": "^3.3.2",

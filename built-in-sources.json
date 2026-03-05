@@ -63,15 +63,6 @@
       "description": "Red Bull 官方体育直播频道"
     },
     {
-      "id": "anhui-tv",
-      "name": "安徽卫视",
-      "group": "卫视",
-      "mode": "direct",
-      "m3u8Url": "https://t.freetv.fun/live/an-hui-wei-shi-1.m3u8",
-      "enabled": true,
-      "description": "安徽卫视高清直播"
-    },
-    {
       "id": "zhejiang-tv",
       "name": "浙江卫视",
       "group": "卫视",
@@ -79,15 +70,6 @@
       "m3u8Url": "http://ali-xwl.cztv.com/live/channel011080Plxw.m3u8",
       "enabled": true,
       "description": "浙江卫视高清直播"
-    },
-    {
-      "id": "shenzhen-tv",
-      "name": "深圳卫视",
-      "group": "卫视",
-      "mode": "direct",
-      "m3u8Url": "https://t.freetv.fun/live/shen-zhen-wei-shi-16.m3u8",
-      "enabled": true,
-      "description": "深圳卫视高清直播"
     },
     {
       "id": "hunan-tv-4k",

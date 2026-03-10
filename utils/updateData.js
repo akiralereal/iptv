@@ -1,5 +1,5 @@
 import { getAllChannels, updateExternalSources, updateBuiltInSources, externalSourceManager } from "./channelMerger.js"
-import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile } from "./fileUtil.js"
+import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile, writeFileSync } from "./fileUtil.js"
 import { updatePlaybackData } from "./playback.js"
 import { /* refreshToken as mrefreshToken, */ host, pass, token, userId } from "../config.js"
 import refreshToken from "./refreshToken.js"
@@ -70,9 +70,9 @@ async function updateTV(hours, options = {}) {
   // txt
   interfaceTXTPath = `${process.cwd()}/interfaceTXT.txt.bak`
   // 创建写入空内容
-  writeFile(interfacePath, "")
+  writeFileSync(interfacePath, "")
   // txt
-  writeFile(interfaceTXTPath, "")
+  writeFileSync(interfaceTXTPath, "")
 
   if (!(hours % 720)) {
     // 每720小时(一个月)刷新token
@@ -84,14 +84,14 @@ async function updateTV(hours, options = {}) {
       // }
     }
   }
-  appendFile(interfacePath, `#EXTM3U x-tvg-url="\${replace}/playback.xml" catchup="append" catchup-source="?playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`)
+  appendFileSync(interfacePath, `#EXTM3U x-tvg-url="\${replace}/playback.xml" catchup="append" catchup-source="?playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`)
   printYellow("开始更新电视频道...")
   
   // 回放数据：regenerateOnly模式下跳过playback更新
   let playbackFile = ""
   if (!regenerateOnly) {
     playbackFile = `${process.cwd()}/playback.xml.bak`
-    writeFile(playbackFile,
+    writeFileSync(playbackFile,
       `<?xml version="1.0" encoding="UTF-8"?>\n` +
       `<tv generator-info-name="iFansClub" generator-info-url="https://github.com/akiralereal/iPTV">\n`)
   }
@@ -102,7 +102,7 @@ async function updateTV(hours, options = {}) {
 
     const data = datas[i].dataList
     // txt
-    appendFile(interfaceTXTPath, `${datas[i].name},#genre#\n`)
+    appendFileSync(interfaceTXTPath, `${datas[i].name},#genre#\n`)
     // 写入节目
     for (let j = 0; j < data.length; j++) {
       const channelItem = data[j]
@@ -132,9 +132,9 @@ async function updateTV(hours, options = {}) {
       }
 
       // 写入节目
-      appendFile(interfacePath, `#EXTINF:-1 tvg-id="${channelItem.name}" tvg-name="${channelItem.name}" tvg-logo="${logoUrl}" group-title="${datas[i].name}",${channelItem.name}\n${playUrl}\n`)
+      appendFileSync(interfacePath, `#EXTINF:-1 tvg-id="${channelItem.name}" tvg-name="${channelItem.name}" tvg-logo="${logoUrl}" group-title="${datas[i].name}",${channelItem.name}\n${playUrl}\n`)
       // txt
-      appendFile(interfaceTXTPath, `${channelItem.name},${playUrl}\n`)
+      appendFileSync(interfaceTXTPath, `${channelItem.name},${playUrl}\n`)
       // printGreen(`    节目链接更新成功`)
     }
     printGreen(`分组:${datas[i].name} 更新完成！`)

@@ -29,6 +29,10 @@ function appendFileSync(filePath, content) {
   })
 }
 
+function writeFileSync(filePath, content) {
+  fs.writeFileSync(filePath, content)
+}
+
 function readFileSync(filePath) {
   return fs.readFileSync(filePath)
 }
@@ -48,4 +52,4 @@ function copyFileSync(filePath, newFilePath, mode) {
   })
 }
 
-export { createFile, writeFile, appendFile, appendFileSync, readFileSync, renameFileSync, copyFileSync }
+export { createFile, writeFile, appendFile, appendFileSync, writeFileSync, readFileSync, renameFileSync, copyFileSync }

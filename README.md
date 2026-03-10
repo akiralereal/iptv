@@ -1,6 +1,6 @@
 # iPTV
 
-**当前版本：v1.3.0**
+**当前版本：v1.3.1**
 
 > 一个基于 Node.js 的 IPTV 直播源管理和分发系统，支持咪咕视频源抓取和外部直播源管理。
 >
@@ -11,6 +11,8 @@
 > - 🔗 支持**订阅模式**，可导入 m3u/m3u8 播放列表批量添加频道
 <div align="center">
   <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/111.png" width="800"/>
+  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/222.png" width="800"/>
+  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/333.png" width="800"/>
 </div>
 
 ## 📖 项目简介
@@ -30,6 +32,14 @@
 ---
 
 ## 📋 更新日志
+
+### v1.3.1 (2026-03-10)
+- 🔧 优化日志输出：精简定时检查源更新、频道请求等高频日志，大幅减少 Docker 容器日志量
+- 🐛 修复订阅源（如港澳台频道）首次获取失败后无重试机制，导致频道缺失的问题；现在启动 60 秒后自动重试
+- 🐛 修复订阅源获取失败时不保留已有缓存数据的问题；失败时保留旧频道数据，引入指数退避重试机制
+- 🐛 修复外部源每小时定时检查时无条件写入配置文件的问题；现在仅在有源被实际更新时才保存
+- 🆕 启动时新增游客模式提示：未配置咪咕账号时提示最高画质为 720p
+- 📸 README 新增管理后台截图展示
 
 ### v1.3.0 (2026-03-10)
 - 🆕 新增**订阅模式**（外部源第三种模式）：支持导入 m3u/m3u8 播放列表 URL，一次性批量添加多个频道，支持自动定时刷新
@@ -113,7 +123,7 @@ docker-compose pull && docker-compose up -d
 ```bash
 docker pull akiralereal/iptv:latest
 # 或指定版本
-docker pull akiralereal/iptv:1.3.0
+docker pull akiralereal/iptv:1.3.1
 ```
 
 #### 快速运行（游客模式）

@@ -40,11 +40,9 @@ async function getAllChannels(options = {}) {
     }
     
     // 获取外部源频道
-    printBlue("获取外部源频道数据...")
     const externalChannels = externalSourceManager.getValidChannels()
     
     // 获取内置源频道
-    printBlue("获取内置源频道数据...")
     const builtInChannels = builtInSourceManager.getValidChannels()
     
     // 合并数据：咪咕源 + 内置源 + 外部源
@@ -59,7 +57,6 @@ async function getAllChannels(options = {}) {
           ...channel,
           source: 'built-in'
         })))
-        printGreen(`内置源 "${builtInGroup.name}" 合并到现有分组，添加 ${builtInGroup.dataList.length} 个频道`)
       } else {
         allChannels.push({
           ...builtInGroup,
@@ -69,24 +66,19 @@ async function getAllChannels(options = {}) {
             source: 'built-in'
           }))
         })
-        printGreen(`创建内置源分组 "${builtInGroup.name}"，包含 ${builtInGroup.dataList.length} 个频道`)
       }
     })
     
     // 再合并外部源
     externalChannels.forEach(externalGroup => {
-      // 查找是否有同名分组
       const existingGroup = allChannels.find(group => group.name === externalGroup.name)
       
       if (existingGroup) {
-        // 合并到现有分组
         existingGroup.dataList.push(...externalGroup.dataList.map(channel => ({
           ...channel,
-          source: 'external' // 标记为外部源
+          source: 'external'
         })))
-        printGreen(`外部源 "${externalGroup.name}" 合并到现有分组，添加 ${externalGroup.dataList.length} 个频道`)
       } else {
-        // 创建新分组
         allChannels.push({
           ...externalGroup,
           source: 'external',
@@ -95,7 +87,6 @@ async function getAllChannels(options = {}) {
             source: 'external'
           }))
         })
-        printGreen(`创建外部源分组 "${externalGroup.name}"，包含 ${externalGroup.dataList.length} 个频道`)
       }
     })
     
@@ -130,34 +121,27 @@ async function updateExternalSources(options = {}) {
   const { autoOnly = true, forceAll = false, startupMode = false } = options
   
   if (!externalSourceManager.sources.enabled) {
-    printYellow("外部源功能已禁用，跳过更新")
     return { success: true, message: "外部源已禁用" }
   }
 
   if (!externalSourceManager.sources.sources || externalSourceManager.sources.sources.length === 0) {
-    printYellow("未配置外部源，跳过更新")
     return { success: true, message: "未配置外部源" }
   }
   
-  printBlue("开始更新外部源...")
   const results = await externalSourceManager.updateAllSources({ autoOnly, forceAll, startupMode })
   
   const successful = results.filter(r => r.success).length
   const total = results.length
   
   if (results.length === 0) {
-    printYellow("所有外部源均无需更新")
     return { success: true, message: "无需更新" }
   }
   
   if (successful === total) {
-    printGreen(`所有外部源更新成功 (${successful}/${total})`)
     return { success: true, results }
   } else if (successful > 0) {
-    printYellow(`部分外部源更新成功 (${successful}/${total})`)
     return { success: true, results, partial: true }
   } else {
-    printRed(`所有外部源更新失败 (0/${total})`)
     return { success: false, results }
   }
 }

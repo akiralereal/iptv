@@ -265,7 +265,7 @@ function printLoginInfo(resObj) {
       printRed(`认证失败 视频内容不完整 可能缺少相关VIP: ${resObj.content.body.auth.resultDesc}`)
     }
   } else {
-    printYellow("未登录")
+    // printYellow("未登录")
   }
 }
 

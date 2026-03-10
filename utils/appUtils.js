@@ -103,7 +103,7 @@ async function channel(url, urlUserId, urlToken) {
     pid = urlSplit1[0]
     params = urlSplit1[1]
   } else {
-    printGrey("无参数传入")
+    // printGrey("无参数传入")
   }
 
   if (isNaN(pid)) {
@@ -111,7 +111,7 @@ async function channel(url, urlUserId, urlToken) {
     return result
   }
 
-  printYellow("频道ID " + pid)
+  // printYellow("频道ID " + pid)
 
   // 是否存在缓存
   const cache = channelCache(pid, params)
@@ -145,7 +145,7 @@ async function channel(url, urlUserId, urlToken) {
   }
   printLoginInfo(resObj)
   // printRed(resObj.url)
-  printGreen(`添加节目缓存 ${pid}`)
+  // printGreen(`添加节目缓存 ${pid}`)
   // 缓存有效时长
   let addTime = 3 * 60 * 60 * 1000
   // 节目调整
@@ -175,7 +175,7 @@ async function channel(url, urlUserId, urlToken) {
     }
   }
 
-  printGreen("链接获取成功")
+  // printGreen("链接获取成功")
   result.code = 302
   result.playURL = playURL
   return result

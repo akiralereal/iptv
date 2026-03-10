@@ -44,40 +44,65 @@ function parseM3uContent(content) {
 }
 
 /**
- * 从远程 URL 获取并解析 m3u 播放列表
+ * GitHub raw 镜像列表（当直连 raw.githubusercontent.com 失败时回退）
+ */
+const GITHUB_RAW_MIRRORS = [
+  (url) => url, // 原始地址优先
+  (url) => url.replace('https://raw.githubusercontent.com/', 'https://ghfast.top/https://raw.githubusercontent.com/'),
+  (url) => url.replace('https://raw.githubusercontent.com/', 'https://gh-proxy.com/https://raw.githubusercontent.com/'),
+  (url) => url.replace('https://raw.githubusercontent.com/', 'https://gcore.jsdelivr.net/gh/').replace('/refs/heads/', '@'),
+]
+
+/**
+ * 从远程 URL 获取并解析 m3u 播放列表（支持 GitHub 镜像回退）
  */
 async function fetchAndParseM3u(subscriptionUrl) {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 30000)
+  const isGithubRaw = subscriptionUrl.includes('raw.githubusercontent.com')
+  const mirrors = isGithubRaw ? GITHUB_RAW_MIRRORS : [(url) => url]
   
-  try {
-    const response = await fetch(subscriptionUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+  let lastError = null
+  
+  for (const transformUrl of mirrors) {
+    const targetUrl = transformUrl(subscriptionUrl)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
+    
+    try {
+      const response = await fetch(targetUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      })
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
-    })
-    clearTimeout(timeoutId)
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      
+      const content = await response.text()
+      const channels = parseM3uContent(content)
+      
+      if (channels.length === 0) {
+        throw new Error('未能从播放列表中解析出任何频道')
+      }
+      
+      if (targetUrl !== subscriptionUrl) {
+        printGreen(`通过镜像获取成功: ${targetUrl.substring(0, 60)}...`)
+      }
+      
+      return channels
+    } catch (error) {
+      clearTimeout(timeoutId)
+      lastError = error
+      if (targetUrl !== subscriptionUrl) {
+        printYellow(`镜像获取失败 (${targetUrl.substring(0, 50)}...): ${error.message}`)
+      }
+      continue
     }
-    
-    const content = await response.text()
-    const channels = parseM3uContent(content)
-    
-    if (channels.length === 0) {
-      throw new Error('未能从播放列表中解析出任何频道')
-    }
-    
-    return channels
-  } catch (error) {
-    clearTimeout(timeoutId)
-    if (error.name === 'AbortError') {
-      throw new Error('请求超时（30秒）')
-    }
-    throw error
   }
+  
+  throw lastError || new Error('所有获取方式均失败')
 }
 
 const EXTERNAL_SOURCES_PATH = path.join(process.cwd(), 'external-sources.json')
@@ -295,12 +320,35 @@ class ExternalSourceManager {
       
       this.sources.sources[index].parsedChannels = channels
       this.sources.sources[index].lastUpdated = new Date().toISOString()
+      this.sources.sources[index]._failCount = 0
       this.saveSources()
       
       printGreen(`${source.name} 订阅更新成功，共 ${channels.length} 个频道`)
       return { success: true, channelCount: channels.length }
     } catch (error) {
       printRed(`${source.name} 订阅更新失败: ${error.message}`)
+      
+      // 如果已有缓存的频道数据，保留旧数据并设置短延迟避免每小时重试
+      const hasCache = Array.isArray(source.parsedChannels) && source.parsedChannels.length > 0
+      if (hasCache) {
+        printYellow(`${source.name} 保留上次缓存的 ${source.parsedChannels.length} 个频道`)
+        // 设置 lastUpdated 为当前时间减去 refreshInterval 的一半，避免立即重试
+        const halfInterval = ((source.refreshInterval || 1440) / 2) * 60 * 1000
+        this.sources.sources[index].lastUpdated = new Date(Date.now() - halfInterval).toISOString()
+        this.saveSources()
+      } else {
+        // 没有缓存：递增失败计数，用于退避重试
+        const failCount = (source._failCount || 0) + 1
+        this.sources.sources[index]._failCount = failCount
+        // 失败超过3次后，设置短 lastUpdated 避免每小时都发起请求
+        if (failCount > 3) {
+          const backoffMinutes = Math.min(failCount * 30, 360) // 最长6小时退避
+          this.sources.sources[index].lastUpdated = new Date(Date.now() - ((source.refreshInterval || 1440) - backoffMinutes) * 60 * 1000).toISOString()
+          this.saveSources()
+          printYellow(`${source.name} 已连续失败 ${failCount} 次，${backoffMinutes} 分钟后重试`)
+        }
+      }
+      
       return { success: false, message: error.message }
     }
   }
@@ -337,9 +385,9 @@ class ExternalSourceManager {
   async updateAllSources(options = {}) {
     const { autoOnly = false, forceAll = false, startupMode = false } = options
     
-    printBlue(`开始更新外部源${autoOnly ? '（仅自动刷新）' : ''}${startupMode ? '（启动模式）' : ''}...`)
     const results = []
     let skipped = 0
+    let hasWork = false
     
     for (let i = 0; i < this.sources.sources.length; i++) {
       const source = this.sources.sources[i]
@@ -352,7 +400,6 @@ class ExternalSourceManager {
       
       // 启动模式：只更新设置了updateOnStartup的源
       if (startupMode && source.updateOnStartup === false) {
-        printYellow(`${source.name} 跳过启动更新（未启用启动时更新）`)
         skipped++
         continue
       }
@@ -361,10 +408,15 @@ class ExternalSourceManager {
       // 注意：启动模式下不检查刷新间隔，强制更新所有启用的源
       if (autoOnly && !forceAll && !startupMode) {
         if (!this.needsRefresh(source)) {
-          printYellow(`${source.name} 无需刷新（上次更新: ${source.lastUpdated || '从未'}, 间隔: ${source.refreshInterval || 240}分钟）`)
           skipped++
           continue
         }
+      }
+      
+      // 首次有实际工作时才打印日志
+      if (!hasWork) {
+        printBlue(`开始更新外部源${startupMode ? '（启动模式）' : ''}...`)
+        hasWork = true
       }
       
       const result = await this.updateSource(i)
@@ -380,11 +432,16 @@ class ExternalSourceManager {
       }
     }
     
-    this.sources.lastGlobalUpdate = new Date().toISOString()
-    this.saveSources()
+    // 仅在有源被实际处理时才保存配置，避免每小时无效写入
+    if (results.length > 0) {
+      this.sources.lastGlobalUpdate = new Date().toISOString()
+      this.saveSources()
+    }
     
     const successful = results.filter(r => r.success).length
-    printGreen(`外部源更新完成: ${successful}/${results.length} 成功${skipped > 0 ? `, ${skipped} 个跳过` : ''}`)
+    if (results.length > 0) {
+      printGreen(`外部源更新完成: ${successful}/${results.length} 成功${skipped > 0 ? `, ${skipped} 个跳过` : ''}`)
+    }
     
     return results
   }

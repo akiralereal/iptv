@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { host, pass, port, programInfoUpdateInterval, token, userId } from "./config.js";
 import { getDateTimeStr } from "./utils/time.js";
 import update from "./utils/updateData.js";
-import { printBlue, printGreen, printMagenta, printRed } from "./utils/colorOut.js";
+import { printBlue, printGreen, printMagenta, printRed, printYellow } from "./utils/colorOut.js";
 import { delay } from "./utils/fetchList.js";
 import { channel, interfaceStr } from "./utils/appUtils.js";
 import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI, 
@@ -11,7 +11,7 @@ import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
          setExternalSourceM3u8API, importSubscriptionAPI, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, applyConfig } from "./utils/playlistConfig.js";
-import { updateBuiltInSources, updateExternalSources } from "./utils/channelMerger.js";
+import { updateBuiltInSources, updateExternalSources, externalSourceManager } from "./utils/channelMerger.js";
 
 // 运行时长
 var hours = 0
@@ -305,7 +305,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // printGreen("")
-  printMagenta("请求地址：" + url)
+  // printMagenta("请求地址：" + url)
 
   // 允许HEAD、OPTIONS预检请求
   if (method === "HEAD" || method === "OPTIONS") {
@@ -395,7 +395,6 @@ server.listen(port, async () => {
 
   // 定时任务2: 每小时检查外部源和内置源是否需要刷新
   setInterval(async () => {
-    printBlue(`定时检查源更新 ${getDateTimeStr(new Date())}`)
     try {
       const builtInResult = await updateBuiltInSources({ autoOnly: true })
       const externalResult = await updateExternalSources({ autoOnly: true })
@@ -426,10 +425,40 @@ server.listen(port, async () => {
     printRed("更新失败")
   }
 
+  // 启动后检查：如果有订阅源首次获取失败（parsedChannels 为空），60秒后自动重试
+  setTimeout(async () => {
+    try {
+      const sources = externalSourceManager.sources?.sources || []
+      const failedSubs = sources.filter((s, i) => 
+        s.enabled && s.mode === 'subscription' && s.subscriptionUrl && !Array.isArray(s.parsedChannels)
+      )
+      if (failedSubs.length > 0) {
+        printYellow(`检测到 ${failedSubs.length} 个订阅源未成功获取，正在重试...`)
+        for (let i = 0; i < sources.length; i++) {
+          const s = sources[i]
+          if (s.enabled && s.mode === 'subscription' && s.subscriptionUrl && !Array.isArray(s.parsedChannels)) {
+            await externalSourceManager.updateSubscriptionSource(i)
+          }
+        }
+        // 重试后若有成功的，立即重新生成播放列表
+        const hasNew = sources.some(s => s.mode === 'subscription' && Array.isArray(s.parsedChannels) && s.parsedChannels.length > 0)
+        if (hasNew) {
+          printBlue("订阅源重试成功，重新生成播放列表...")
+          await update(hours, { regenerateOnly: true })
+        }
+      }
+    } catch (error) {
+      printRed(`订阅源重试失败: ${error.message}`)
+    }
+  }, 60 * 1000) // 60秒后重试
+
   printGreen(`本地地址: http://localhost:${port}${pass == "" ? "" : "/" + pass}`)
   printGreen(`管理平台地址: http://localhost:${port}${pass == "" ? "" : "/" + pass}/admin`)
   printGreen("开源地址: https://github.com/akiralereal/iptv ")
   if (host != "") {
     printGreen(`自定义地址: ${host}${pass == "" ? "" : "/" + pass}`)
+  }
+  if (userId === "" || token === "") {
+    printYellow("当前为游客模式（未配置咪咕账号），咪咕频道最高画质为 720p")
   }
 })

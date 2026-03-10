@@ -139,29 +139,30 @@ class BuiltInSourceManager {
     })
 
     if (fetchSources.length === 0) {
-      printYellow("没有需要更新的内置源")
       return { success: true, message: "无需更新" }
     }
 
-    printBlue(`开始更新内置源 (${fetchSources.length} 个)${autoOnly ? '（仅自动刷新）' : ''}${startupMode ? '（启动模式）' : ''}...`)
     const results = []
     let skipped = 0
+    let hasWork = false
 
     for (const source of fetchSources) {
       // autoOnly 模式下检查是否需要刷新
       if (autoOnly && !forceAll && !startupMode) {
         if (!this.needsRefresh(source)) {
-          const cacheInfo = this.cache[source.id]
-          const lastUpdate = cacheInfo ? new Date(cacheInfo.updateTime).toLocaleString('zh-CN') : '从未'
-          printYellow(`${source.name} 无需刷新（上次更新: ${lastUpdate}, 间隔: ${source.refreshInterval || 240}分钟）`)
           skipped++
           continue
         }
       }
       
+      // 首次有实际工作时才打印日志
+      if (!hasWork) {
+        printBlue(`开始更新内置源${startupMode ? '（启动模式）' : ''}...`)
+        hasWork = true
+      }
+      
       try {
         printBlue(`更新内置源: ${source.name}`)
-        printBlue(`开始提取: ${source.webUrl}`)
         
         const m3u8Url = await extractM3u8FromWeb(
           source.webUrl,
@@ -218,7 +219,7 @@ class BuiltInSourceManager {
 
     const successful = results.filter(r => r.success).length
     if (results.length === 0 && skipped > 0) {
-      printYellow(`所有内置源均无需更新 (${skipped} 个跳过)`)
+      // 全部跳过，不打印日志
     } else if (successful === results.length) {
       printGreen(`内置源更新完成: 全部成功 (${successful}/${results.length})${skipped > 0 ? `, ${skipped} 个跳过` : ''}`)
     } else if (successful > 0) {

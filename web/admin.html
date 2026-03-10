@@ -505,6 +505,12 @@
             border: 1px solid #b7eb8f;
         }
 
+        .external-mode-badge.subscription {
+            background: #fff7e6;
+            color: #fa8c16;
+            border: 1px solid #ffd591;
+        }
+
         .external-detail {
             background: white;
             border: 1px solid #e8e8e8;
@@ -662,6 +668,12 @@
             background: #f6ffed;
             color: #52c41a;
             border: 1px solid #b7eb8f;
+        }
+
+        .mode-badge.mode-subscription {
+            background: #fff7e6;
+            color: #fa8c16;
+            border: 1px solid #ffd591;
         }
 
         .mode-switcher {
@@ -1464,20 +1476,20 @@
     <!-- 播放器下载提示弹窗 -->
     <div class="modal" id="playerDownloadModal">
         <div class="modal-content" style="width: 500px; max-width: 90%;">
-            <h3 style="margin-bottom: 20px;">⚠️ 播放器未安装</h3>
+            <h3 style="margin-bottom: 20px;">⚠️ 无可用播放器</h3>
             
             <div style="background: #fff7e6; border: 1px solid #ffd591; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
                 <p style="line-height: 1.8; margin: 0; font-size: 15px;">
-                    无法识别到默认可播放设备，您可以先下载播放软件。
+                    未检测到 VLC 播放器，请先安装 VLC 后再试。
                 </p>
                 <p style="line-height: 1.8; margin: 12px 0 0 0; font-size: 14px; color: #666;">
-                    推荐播放器：<span id="recommendedPlayer" style="font-weight: bold;"></span>
+                    VLC 是免费开源播放器，支持几乎所有视频格式和流媒体协议。
                 </p>
             </div>
             
             <div style="display: flex; gap: 12px; justify-content: flex-end;">
                 <button class="btn" onclick="closePlayerDownloadModal()" style="background: #eee; color: #333;">关闭</button>
-                <button class="btn btn-primary" onclick="goToPlayerDownload()">🔽 去下载</button>
+                <button class="btn btn-primary" onclick="window.open('https://www.videolan.org/', '_blank'); closePlayerDownloadModal();">🔽 下载 VLC</button>
             </div>
         </div>
     </div>
@@ -1989,13 +2001,18 @@
                 const statusColor = source.enabled !== false ? '#52c41a' : '#999';
                 
                 // 模式标识
-                const modeText = source.mode === 'fetch' ? '抓取' : '直连';
-                const modeClass = source.mode === 'fetch' ? 'fetch' : 'direct';
+                const modeText = source.mode === 'fetch' ? '抓取' : source.mode === 'subscription' ? '订阅' : '直连';
+                const modeClass = source.mode === 'fetch' ? 'fetch' : source.mode === 'subscription' ? 'subscription' : 'direct';
+                
+                // 订阅模式显示频道数量，其他模式显示分组
+                const metaInfo = source.mode === 'subscription' 
+                    ? `${(source.parsedChannels && source.parsedChannels.length) || 0}个频道`
+                    : (source.group || '未分组');
                 
                 navItem.innerHTML = `
                     <div class="external-nav-title">${source.name || '未命名源'}</div>
                     <div class="external-nav-meta">
-                        <span>${source.group || '未分组'}</span>
+                        <span>${metaInfo}</span>
                         <span class="external-mode-badge ${modeClass}">${modeText}</span>
                         <span style="color: ${statusColor};">${statusIcon}</span>
                     </div>
@@ -2087,8 +2104,8 @@
                 source.mode = mode;
             }
             
-            // 判断是否为已保存的源（有lastUpdated或m3u8Url不为空）
-            const isSaved = source.lastUpdated || (source.m3u8Url && source.m3u8Url.trim());
+            // 判断是否为已保存的源（有lastUpdated或m3u8Url不为空或订阅已解析）
+            const isSaved = source.lastUpdated || (source.m3u8Url && source.m3u8Url.trim()) || (source.mode === 'subscription' && source.parsedChannels && source.parsedChannels.length > 0);
             
             // 模式切换器（只在未保存时显示）
             const modeSwitcher = isSaved ? '' : `
@@ -2098,6 +2115,9 @@
                     </button>
                     <button class="mode-switch-btn ${mode === 'fetch' ? 'active' : ''}" onclick="switchSourceMode(${index}, 'fetch')">
                         抓取模式
+                    </button>
+                    <button class="mode-switch-btn ${mode === 'subscription' ? 'active' : ''}" onclick="switchSourceMode(${index}, 'subscription')">
+                        订阅模式
                     </button>
                 </div>
             `;
@@ -2151,6 +2171,56 @@
                         <div class="external-actions">
                             <button class="btn btn-small btn-primary" onclick="fetchAndSaveSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>
                                 ${updatingSourceIndex === index ? '🔄 抓取中...' : '🔍 抓取并保存'}
+                            </button>
+                            <button class="btn btn-small btn-danger" onclick="removeExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>🗑️ 删除</button>
+                        </div>
+                    </div>
+                `;
+            } else if (mode === 'subscription') {
+                // 订阅模式：填写m3u播放列表URL，自动解析多频道
+                const channelCount = (source.parsedChannels && source.parsedChannels.length) || 0;
+                const channelInfo = channelCount > 0 ? `<div class="form-hint" style="color: #52c41a;">\u2714 已解析 ${channelCount} 个频道（上次更新: ${source.lastUpdated ? new Date(source.lastUpdated).toLocaleString() : '从未'}\uff09</div>` : '';
+                detail.innerHTML = `
+                    <div class="external-detail-header">
+                        <div class="external-detail-title">${source.name || '未命名订阅'}</div>
+                        ${statusBadge}
+                    </div>
+                    ${modeSwitcher}
+                    <div class="external-detail-body">
+                        <div class="external-field">
+                            <label>订阅名称 *</label>
+                            <input type="text" value="${source.name || ''}" oninput="updateExternalField(${index}, 'name', this.value)" placeholder="例：广东电视台直播源">
+                        </div>
+                        <div class="external-field">
+                            <label>m3u 播放列表地址 *</label>
+                            <input type="text" value="${source.subscriptionUrl || ''}" oninput="updateExternalField(${index}, 'subscriptionUrl', this.value)" placeholder="例：https://example.com/playlist.m3u">
+                            <div class="form-hint">填写包含多个频道的 m3u/m3u8 播放列表地址，系统会自动解析其中的所有频道</div>
+                            ${channelInfo}
+                        </div>
+                        <div class="external-field">
+                            <label>自动刷新间隔（分钟）</label>
+                            <input type="number" min="60" step="60" value="${source.refreshInterval || 1440}" oninput="updateExternalField(${index}, 'refreshInterval', parseInt(this.value) || 1440)" placeholder="1440">
+                            <div class="form-hint">每隔多少分钟自动重新获取播放列表，默认1440分钟（24小时）</div>
+                        </div>
+                    </div>
+                    <div class="external-detail-footer">
+                        <div class="external-switches">
+                            <label>
+                                <input type="checkbox" ${source.enabled !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'enabled', this.checked)">
+                                启用此源
+                            </label>
+                            <label>
+                                <input type="checkbox" ${source.autoRefresh !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'autoRefresh', this.checked)">
+                                自动刷新
+                            </label>
+                            <label>
+                                <input type="checkbox" ${source.updateOnStartup !== false ? 'checked' : ''} onchange="updateExternalField(${index}, 'updateOnStartup', this.checked)">
+                                重启时更新
+                            </label>
+                        </div>
+                        <div class="external-actions">
+                            <button class="btn btn-small btn-primary" onclick="importSubscription(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>
+                                ${updatingSourceIndex === index ? '🔄 导入中...' : '📥 导入并保存'}
                             </button>
                             <button class="btn btn-small btn-danger" onclick="removeExternalSource(${index})" ${updatingSourceIndex === index ? 'disabled' : ''}>🗑️ 删除</button>
                         </div>
@@ -2227,6 +2297,8 @@
             if (newMode === 'fetch') {
                 // 切换到抓取模式，清空m3u8Url
                 source.m3u8Url = '';
+                source.subscriptionUrl = '';
+                source.parsedChannels = null;
                 // 添加必要的配置
                 if (!source.autoRefresh) source.autoRefresh = true;
                 if (!source.refreshInterval) source.refreshInterval = 60;
@@ -2240,6 +2312,17 @@
             } else if (newMode === 'direct') {
                 // 切换到直连模式，清空webUrl
                 source.webUrl = '';
+                source.subscriptionUrl = '';
+                source.parsedChannels = null;
+            } else if (newMode === 'subscription') {
+                // 切换到订阅模式，清空单频道字段
+                source.webUrl = '';
+                source.m3u8Url = '';
+                source.subscriptionUrl = '';
+                source.parsedChannels = null;
+                if (!source.autoRefresh) source.autoRefresh = true;
+                if (!source.refreshInterval) source.refreshInterval = 1440;
+                if (!source.updateOnStartup) source.updateOnStartup = true;
             }
             
             // 重新渲染详情面板
@@ -2549,6 +2632,79 @@
                 }
             } catch (error) {
                 showStatus('保存失败: ' + error.message, 'error');
+            }
+        }
+
+        // 订阅模式：导入m3u播放列表
+        async function importSubscription(index) {
+            if (updatingSourceIndex !== null) {
+                showStatus('请等待当前操作完成', 'error');
+                return;
+            }
+            
+            const source = externalConfig.sources[index];
+            
+            // 验证必填字段
+            if (!source.name || !source.name.trim()) {
+                showStatus('请填写订阅名称', 'error');
+                return;
+            }
+            if (!source.subscriptionUrl || !source.subscriptionUrl.trim()) {
+                showStatus('请填写m3u播放列表地址', 'error');
+                return;
+            }
+            
+            const sourceName = source.name;
+            updatingSourceIndex = index;
+            renderExternalSources();
+            
+            try {
+                // 先保存配置
+                showStatus('正在保存配置...', 'info');
+                const saveResponse = await fetch('/api/external-sources', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'save', sources: externalConfig })
+                });
+                
+                if (!saveResponse.ok) {
+                    showStatus('配置保存失败', 'error');
+                    return;
+                }
+                
+                // 执行导入
+                showStatus(`正在获取并解析 ${sourceName} 的播放列表...`, 'info');
+                
+                const response = await fetch('/api/external-sources', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'importSubscription', index })
+                });
+                
+                const result = await response.json();
+                
+                // 重新加载配置
+                const externalRes = await fetch('/api/external-sources');
+                const externalPayload = await externalRes.json();
+                externalConfig = normalizeExternalConfig(externalPayload);
+                
+                if (result.success !== false) {
+                    showStatus(`${sourceName} 导入成功！共 ${result.channelCount || 0} 个频道，已同步到频道列表`, 'success');
+                    
+                    // 刷新频道列表
+                    const channelsRes = await fetch('/api/channels');
+                    if (channelsRes.ok) {
+                        allChannels = await channelsRes.json();
+                        renderChannels();
+                    }
+                } else {
+                    showStatus(`${sourceName} 导入失败: ${result.message || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`${sourceName} 导入失败: ${error.message}`, 'error');
+            } finally {
+                updatingSourceIndex = null;
+                renderExternalSources();
             }
         }
 
@@ -3572,10 +3728,6 @@ if(success){
                         </div>
                         <div style="margin-top: 8px; display: flex; gap: 10px; flex-wrap: wrap;">
                             <button class="btn btn-sm" onclick="copyToClipboard('${actualUrl.replace(/'/g, "\\'")}', '播放地址')">📋 复制地址</button>
-                            <button class="btn btn-sm btn-primary" onclick="openInPlayer('${actualUrl.replace(/'/g, "\\'")}')">🎬 拉起播放器</button>
-                        </div>
-                        <div style="margin-top: 8px; font-size: 12px; color: #999;">
-                            💡 提示：点击"拉起播放器"会自动打开本地播放器（macOS:IINA / Windows:PotPlayer / Linux:VLC）。首次点击时浏览器会弹框确认，请勾选"记住我的选择"即可避免重复提示。
                         </div>
                     </div>
                 `;
@@ -3686,77 +3838,50 @@ if(success){
             }
         }
 
-        // 检测操作系统并拉起对应的播放器
+// 统一使用 VLC 播放
         function openInPlayer(url) {
+            // VLC 在 macOS 没有 vlc:// scheme，但注册了 http/https 协议处理
+            // 通过构造一个特殊的链接尝试拉起 VLC
             const userAgent = navigator.userAgent.toLowerCase();
             const platform = navigator.platform.toLowerCase();
+            const isWin = platform.includes('win') || userAgent.includes('windows');
             
-            let playerUrl = '';
-            let playerName = '';
-            let downloadUrl = '';
-            
-            // 检测操作系统
-            if (platform.includes('mac') || userAgent.includes('mac')) {
-                // macOS - 使用 IINA
-                playerUrl = 'iina://weblink?url=' + encodeURIComponent(url);
-                playerName = 'IINA';
-                downloadUrl = 'https://iina.io/';
-            } else if (platform.includes('win') || userAgent.includes('windows')) {
-                // Windows - 使用 PotPlayer
-                playerUrl = 'potplayer://' + url;
-                playerName = 'PotPlayer';
-                downloadUrl = 'https://potplayer.daum.net/';
-            } else {
-                // Linux 或其他系统 - 使用 VLC
+            let playerUrl;
+            if (isWin) {
+                // Windows VLC 支持 vlc:// scheme
                 playerUrl = 'vlc://' + url;
-                playerName = 'VLC';
-                downloadUrl = 'https://www.videolan.org/';
+            } else {
+                // macOS/Linux: VLC 没有专属 scheme，直接用 vlc:// 尝试
+                playerUrl = 'vlc://' + url;
             }
             
-            // 保存当前播放器信息到全局变量供下载使用
-            window.currentPlayerInfo = { name: playerName, downloadUrl: downloadUrl };
-            
-            // 标记：播放器是否成功启动
             let playerLaunched = false;
-            
-            // 监听窗口失去焦点事件（播放器启动时通常会导致窗口失焦）
             const onBlur = () => {
                 playerLaunched = true;
                 window.removeEventListener('blur', onBlur);
             };
             window.addEventListener('blur', onBlur);
             
-            // 尝试打开播放器
             const link = document.createElement('a');
             link.href = playerUrl;
             link.click();
             
-            // 延迟检测：如果播放器未启动，显示下载对话框
             setTimeout(() => {
                 window.removeEventListener('blur', onBlur);
                 if (!playerLaunched) {
-                    showPlayerDownloadModal(playerName);
+                    showPlayerDownloadModal();
                 }
             }, 2000);
         }
 
-        // 显示播放器下载对话框
-        function showPlayerDownloadModal(playerName) {
-            document.getElementById('recommendedPlayer').textContent = playerName;
+        // 显示 VLC 下载提示
+        function showPlayerDownloadModal() {
             document.getElementById('playerDownloadModal').style.display = 'flex';
         }
 
-        // 关闭播放器下载对话框
+        // 关闭播放器下载提示
         function closePlayerDownloadModal() {
             document.getElementById('playerDownloadModal').style.display = 'none';
-        }
-
-        // 跳转到播放器下载页面
-        function goToPlayerDownload() {
-            if (window.currentPlayerInfo && window.currentPlayerInfo.downloadUrl) {
-                window.open(window.currentPlayerInfo.downloadUrl, '_blank');
-                closePlayerDownloadModal();
-            }
         }
 
         function editChannelFromDetail() {

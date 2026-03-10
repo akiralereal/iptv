@@ -8,7 +8,7 @@ import { delay } from "./utils/fetchList.js";
 import { channel, interfaceStr } from "./utils/appUtils.js";
 import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI, 
          addExternalSourceAPI, removeExternalSourceAPI, updateExternalSourceAPI, 
-         setExternalSourceM3u8API, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
+         setExternalSourceM3u8API, importSubscriptionAPI, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, applyConfig } from "./utils/playlistConfig.js";
 import { updateBuiltInSources, updateExternalSources } from "./utils/channelMerger.js";
@@ -194,6 +194,8 @@ const server = http.createServer(async (req, res) => {
             result = await updateExternalSourceAPI(data.index || -1)
           } else if (data.action === 'setM3u8') {
             result = setExternalSourceM3u8API(data.index, data.m3u8Url)
+          } else if (data.action === 'importSubscription') {
+            result = await importSubscriptionAPI(data.index)
           } else {
             result = { success: false, message: '未知操作' }
           }

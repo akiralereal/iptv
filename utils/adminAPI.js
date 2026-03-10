@@ -180,6 +180,27 @@ export function setExternalSourceM3u8API(index, m3u8Url) {
 }
 
 /**
+ * 导入订阅源（获取并解析m3u播放列表）
+ */
+export async function importSubscriptionAPI(index) {
+  try {
+    const result = await externalSourceManager.updateSubscriptionSource(index)
+    if (result.success !== false) {
+      // 导入成功后重新生成播放列表
+      await update(0, { regenerateOnly: true }).catch(err => {
+        console.error('更新播放列表失败:', err)
+      })
+    }
+    return result
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message
+    }
+  }
+}
+
+/**
  * 获取内置源列表
  */
 export function getBuiltInSourcesAPI() {

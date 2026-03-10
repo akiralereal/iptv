@@ -2,6 +2,83 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs"
 import path from "node:path"
 import { printBlue, printGreen, printGrey, printRed, printYellow } from "./colorOut.js"
 import { extractM3u8FromWeb, validateM3u8 } from "./webSourceExtractor.js"
+import fetch from 'node-fetch'
+
+/**
+ * 解析 m3u/m3u8 播放列表内容，提取频道列表
+ */
+function parseM3uContent(content) {
+  const lines = content.split('\n').map(l => l.trim()).filter(l => l)
+  const channels = []
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (!line.startsWith('#EXTINF:')) continue
+    
+    // 解析 #EXTINF 行
+    const groupMatch = line.match(/group-title="([^"]*)"/) 
+    const logoMatch = line.match(/tvg-logo="([^"]*)"/)  
+    // 频道名在逗号后面
+    const nameMatch = line.match(/,(.+)$/)
+    
+    // 下一个非注释行是 URL
+    let url = ''
+    for (let j = i + 1; j < lines.length; j++) {
+      if (!lines[j].startsWith('#')) {
+        url = lines[j]
+        break
+      }
+    }
+    
+    if (url && nameMatch) {
+      channels.push({
+        name: nameMatch[1].trim(),
+        group: groupMatch ? groupMatch[1] : '未分组',
+        logo: logoMatch ? logoMatch[1] : '',
+        url: url
+      })
+    }
+  }
+  
+  return channels
+}
+
+/**
+ * 从远程 URL 获取并解析 m3u 播放列表
+ */
+async function fetchAndParseM3u(subscriptionUrl) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000)
+  
+  try {
+    const response = await fetch(subscriptionUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    })
+    clearTimeout(timeoutId)
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    
+    const content = await response.text()
+    const channels = parseM3uContent(content)
+    
+    if (channels.length === 0) {
+      throw new Error('未能从播放列表中解析出任何频道')
+    }
+    
+    return channels
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error.name === 'AbortError') {
+      throw new Error('请求超时（30秒）')
+    }
+    throw error
+  }
+}
 
 const EXTERNAL_SOURCES_PATH = path.join(process.cwd(), 'external-sources.json')
 
@@ -20,11 +97,26 @@ class ExternalSourceManager {
   loadSources() {
     if (!existsSync(EXTERNAL_SOURCES_PATH)) {
       const defaultConfig = {
-        enabled: false,
+        enabled: true,
         includeInPlaylists: true,
-        updateOnStartup: true, // 默认重启时更新咪咕源
-        sources: [],
-        updateInterval: 60, // 更新间隔（分钟）
+        updateOnStartup: true,
+        sources: [
+          {
+            name: '港澳地方频道',
+            group: '未分组',
+            enabled: true,
+            mode: 'subscription',
+            m3u8Url: '',
+            webUrl: '',
+            subscriptionUrl: 'https://raw.githubusercontent.com/YueChan/Live/refs/heads/main/GNTV.m3u',
+            parsedChannels: null,
+            autoRefresh: true,
+            refreshInterval: 1440,
+            updateOnStartup: true,
+            lastUpdated: null
+          }
+        ],
+        updateInterval: 60,
         lastGlobalUpdate: null
       }
       
@@ -133,6 +225,11 @@ class ExternalSourceManager {
       return { success: false, message: '源已禁用' }
     }
 
+    // 订阅模式：获取并解析 m3u 播放列表
+    if (source.mode === 'subscription') {
+      return await this.updateSubscriptionSource(index)
+    }
+
     // 新增：如果 webUrl 为空且 m3u8Url 已填写，直接视为抓取成功
     if (!source.webUrl && source.m3u8Url) {
       this.sources.sources[index].lastUpdated = new Date().toISOString()
@@ -179,6 +276,31 @@ class ExternalSourceManager {
       }
     } catch (error) {
       printRed(`${source.name} 更新失败: ${error.message}`)
+      return { success: false, message: error.message }
+    }
+  }
+
+  /**
+   * 更新订阅源：获取远程 m3u 播放列表并解析频道
+   */
+  async updateSubscriptionSource(index) {
+    const source = this.sources.sources[index]
+    if (!source.subscriptionUrl) {
+      return { success: false, message: '未填写订阅地址' }
+    }
+
+    try {
+      printBlue(`更新订阅源: ${source.name} (${source.subscriptionUrl})`)
+      const channels = await fetchAndParseM3u(source.subscriptionUrl)
+      
+      this.sources.sources[index].parsedChannels = channels
+      this.sources.sources[index].lastUpdated = new Date().toISOString()
+      this.saveSources()
+      
+      printGreen(`${source.name} 订阅更新成功，共 ${channels.length} 个频道`)
+      return { success: true, channelCount: channels.length }
+    } catch (error) {
+      printRed(`${source.name} 订阅更新失败: ${error.message}`)
       return { success: false, message: error.message }
     }
   }
@@ -279,7 +401,30 @@ class ExternalSourceManager {
     const groupMap = new Map()
     
     this.sources.sources.forEach(source => {
-      if (source.enabled && source.m3u8Url) {
+      if (!source.enabled) return
+      
+      // 订阅模式：展开 parsedChannels
+      if (source.mode === 'subscription' && Array.isArray(source.parsedChannels)) {
+        source.parsedChannels.forEach(ch => {
+          const group = ch.group || source.group || '未分组'
+          if (!groupMap.has(group)) {
+            groupMap.set(group, {
+              name: group,
+              dataList: []
+            })
+          }
+          groupMap.get(group).dataList.push({
+            name: ch.name,
+            url: ch.url,
+            logo: ch.logo || "",
+            groupTitle: group
+          })
+        })
+        return
+      }
+      
+      // 直连/抓取模式：单频道
+      if (source.m3u8Url) {
         if (!groupMap.has(source.group)) {
           groupMap.set(source.group, {
             name: source.group,
@@ -347,4 +492,4 @@ class ExternalSourceManager {
 const externalSourceManager = new ExternalSourceManager()
 
 export default externalSourceManager
-export { ExternalSourceManager }
+export { ExternalSourceManager, fetchAndParseM3u }

@@ -3705,7 +3705,10 @@ if(success){
             // 从原始数据中查找频道
             let channel = null;
             let groupName = null;
-            let isExternal = false;
+            let sourceType = 'migu'; // migu | built-in | external
+
+            // 内置源频道名集合
+            const builtInNames = new Set((builtInConfig.sources || []).map(s => s.name));
 
             // 在原始数据中查找
             for (const group of myPlaylistOriginalData) {
@@ -3713,8 +3716,10 @@ if(success){
                 if (found) {
                     channel = found;
                     groupName = group.name;
-                    // 判断是否为外部源频道（分组为"未分组"）
-                    isExternal = group.name === '未分组';
+                    if (found.url && !found.url.includes('${replace}')) {
+                        // 非咪咕源，判断是内置源还是外部源
+                        sourceType = builtInNames.has(found.name) ? 'built-in' : 'external';
+                    }
                     break;
                 }
             }
@@ -3724,6 +3729,7 @@ if(success){
                 return;
             }
 
+            const isExternal = sourceType === 'external';
             currentChannelDetail = { ...channel, groupName, isExternal, isDeleted };
 
             // 构建详情HTML
@@ -3797,23 +3803,14 @@ if(success){
             }
 
             // 显示来源信息
-            if (isExternal) {
-                detailHTML += `
-                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
-                        <span style="color: #999; font-size: 13px;">
-                            ℹ️ 此频道来自外部源
-                        </span>
-                    </div>
-                `;
-            } else {
-                detailHTML += `
-                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
-                        <span style="color: #999; font-size: 13px;">
-                            ℹ️ 此频道来自咪咕源
-                        </span>
-                    </div>
-                `;
-            }
+            const sourceLabels = { 'migu': '咪咕源', 'built-in': '内置源', 'external': '外部源' };
+            detailHTML += `
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+                    <span style="color: #999; font-size: 13px;">
+                        ℹ️ 此频道来自${sourceLabels[sourceType]}
+                    </span>
+                </div>
+            `;
 
             detailHTML += '</div>';
 
@@ -3821,13 +3818,9 @@ if(success){
             document.getElementById('channelDetailTitle').textContent = `频道详情 - ${channel.name}`;
             document.getElementById('channelDetailContent').innerHTML = detailHTML;
             
-            // 显示/隐藏编辑按钮
+            // 仅外部源显示编辑按钮
             const editBtn = document.getElementById('channelDetailEditBtn');
-            if (isExternal) {
-                editBtn.style.display = 'block';
-            } else {
-                editBtn.style.display = 'none';
-            }
+            editBtn.style.display = sourceType === 'external' ? 'block' : 'none';
 
             // 显示弹窗
             document.getElementById('channelDetailModal').style.display = 'block';
@@ -3923,6 +3916,7 @@ if(success){
                 return;
             }
 
+            const channelUrl = currentChannelDetail.url;
             const channelName = currentChannelDetail.name;
 
             // 关闭详情弹窗
@@ -3941,7 +3935,14 @@ if(success){
 
                 let foundIndex = -1;
                 for (let i = 0; i < externalConfig.sources.length; i++) {
-                    if (externalConfig.sources[i].name === channelName) {
+                    const source = externalConfig.sources[i];
+                    // 先按源名匹配（direct模式，源名就是频道名）
+                    if (source.name === channelName) {
+                        foundIndex = i;
+                        break;
+                    }
+                    // 再从 parsedChannels 中按 URL 匹配（subscription模式，一个源有多个频道）
+                    if (source.parsedChannels && source.parsedChannels.some(ch => ch.url === channelUrl)) {
                         foundIndex = i;
                         break;
                     }
@@ -3957,9 +3958,9 @@ if(success){
                         navItems[foundIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                     
-                    showStatus(`已定位到源: ${channelName}`, 'success');
+                    showStatus(`已定位到源: ${externalConfig.sources[foundIndex].name}`, 'success');
                 } else {
-                    showStatus(`未找到名为"${channelName}"的外部源`, 'error');
+                    showStatus(`未找到频道"${channelName}"所属的外部源`, 'error');
                 }
             }, 300);
         }

@@ -1,5 +1,7 @@
 import http from "node:http"
 import { readFileSync } from "node:fs"
+import { createRequire } from "node:module"
+import fetch from 'node-fetch'
 import { host, pass, port, programInfoUpdateInterval, token, userId } from "./config.js";
 import { getDateTimeStr } from "./utils/time.js";
 import update from "./utils/updateData.js";
@@ -249,6 +251,39 @@ const server = http.createServer(async (req, res) => {
       return
     }
     
+    if (urlPath === '/api/check-update' && method === 'GET') {
+      printBlue("API: 检查更新")
+      try {
+        const require = createRequire(import.meta.url)
+        const pkg = require('./package.json')
+        const currentVersion = pkg.version
+
+        const resp = await fetch('https://api.github.com/repos/akiralereal/iptv/tags?per_page=1', {
+          headers: { 'User-Agent': 'iptv-update-checker' },
+          timeout: 10000
+        })
+        if (!resp.ok) throw new Error(`GitHub API 请求失败: ${resp.status}`)
+        const tags = await resp.json()
+
+        if (tags.length === 0) {
+          res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' })
+          res.end(JSON.stringify({ success: true, currentVersion, latestVersion: currentVersion, hasUpdate: false }))
+        } else {
+          const latestVersion = tags[0].name.replace(/^v/, '')
+          const hasUpdate = latestVersion !== currentVersion
+          res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' })
+          res.end(JSON.stringify({ success: true, currentVersion, latestVersion, hasUpdate }))
+          printGreen(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}${hasUpdate ? ' (有更新)' : ' (已是最新)'}`)
+        }
+      } catch (error) {
+        res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' })
+        res.end(JSON.stringify({ success: false, message: error.message }))
+        printRed(`检查更新失败: ${error.message}`)
+      }
+      loading = false
+      return
+    }
+
     if (urlPath === '/api/my-playlist-config' && method === 'POST') {
       let body = ''
       req.on('data', chunk => { body += chunk })

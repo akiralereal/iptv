@@ -1586,7 +1586,7 @@
                     <button class="tab" onclick="switchTab(3)">ℹ️ 关于我们</button>
                 </div>
                 <div class="tabs-right">
-                    <span style="color: #999; font-size: 12px; align-self: center;">v1.3.3</span>
+                    <span id="versionText" style="color: #999; font-size: 12px; align-self: center; cursor: pointer;" onclick="checkUpdate()" title="点击检查更新">v1.3.3</span>
                     <button class="restart-btn" onclick="restartService()">🔄 重启服务</button>
                 </div>
             </div>
@@ -2954,6 +2954,42 @@ if(success){
                 }
             } catch (error) {
                 showStatus('保存失败: ' + error.message, 'error');
+            }
+        }
+
+        // 检查更新
+        async function checkUpdate() {
+            const versionEl = document.getElementById('versionText');
+            const originalText = versionEl.textContent;
+            versionEl.textContent = '检查中...';
+            versionEl.style.color = '#999';
+
+            try {
+                const response = await fetch('/api/check-update');
+                const result = await response.json();
+
+                if (!result.success) {
+                    versionEl.textContent = originalText;
+                    showStatus('检查更新失败: ' + result.message, 'error');
+                    return;
+                }
+
+                if (result.hasUpdate) {
+                    versionEl.textContent = `v${result.currentVersion} → v${result.latestVersion}`;
+                    versionEl.style.color = '#fa8c16';
+                    showStatus(`发现新版本 v${result.latestVersion}！请在宿主机执行 docker pull 更新`, 'info');
+                } else {
+                    versionEl.textContent = `v${result.currentVersion} ✓`;
+                    versionEl.style.color = '#52c41a';
+                    showStatus('当前已是最新版本', 'success');
+                    setTimeout(() => {
+                        versionEl.textContent = `v${result.currentVersion}`;
+                        versionEl.style.color = '#999';
+                    }, 5000);
+                }
+            } catch (error) {
+                versionEl.textContent = originalText;
+                showStatus('检查更新失败: ' + error.message, 'error');
             }
         }
 

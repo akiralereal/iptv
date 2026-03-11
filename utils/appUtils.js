@@ -24,7 +24,6 @@ function interfaceStr(url, headers, urlUserId, urlToken) {
       fileName = process.cwd() + "/interfaceTXT.txt"
       break;
 
-    case "/":
     case "/m3u":
       result.contentType = "audio/x-mpegurl; charset=utf-8"
       break;

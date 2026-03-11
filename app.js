@@ -258,23 +258,18 @@ const server = http.createServer(async (req, res) => {
         const pkg = require('./package.json')
         const currentVersion = pkg.version
 
-        const resp = await fetch('https://api.github.com/repos/akiralereal/iptv/tags?per_page=1', {
+        const resp = await fetch('https://raw.githubusercontent.com/akiralereal/iptv/main/package.json', {
           headers: { 'User-Agent': 'iptv-update-checker' },
           timeout: 10000
         })
-        if (!resp.ok) throw new Error(`GitHub API 请求失败: ${resp.status}`)
-        const tags = await resp.json()
+        if (!resp.ok) throw new Error(`请求失败: ${resp.status}`)
+        const remotePkg = await resp.json()
+        const latestVersion = remotePkg.version
+        const hasUpdate = latestVersion !== currentVersion
 
-        if (tags.length === 0) {
-          res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' })
-          res.end(JSON.stringify({ success: true, currentVersion, latestVersion: currentVersion, hasUpdate: false }))
-        } else {
-          const latestVersion = tags[0].name.replace(/^v/, '')
-          const hasUpdate = latestVersion !== currentVersion
-          res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' })
-          res.end(JSON.stringify({ success: true, currentVersion, latestVersion, hasUpdate }))
-          printGreen(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}${hasUpdate ? ' (有更新)' : ' (已是最新)'}`)
-        }
+        res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' })
+        res.end(JSON.stringify({ success: true, currentVersion, latestVersion, hasUpdate }))
+        printGreen(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}${hasUpdate ? ' (有更新)' : ' (已是最新)'}`)
       } catch (error) {
         res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' })
         res.end(JSON.stringify({ success: false, message: error.message }))

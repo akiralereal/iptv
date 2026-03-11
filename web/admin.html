@@ -1586,7 +1586,6 @@
                     <button class="tab" onclick="switchTab(3)">ℹ️ 关于我们</button>
                 </div>
                 <div class="tabs-right">
-                    <span id="versionText" style="color: #999; font-size: 12px; align-self: center; cursor: pointer;" onclick="checkUpdate()" title="点击检查更新">v1.3.3</span>
                     <button class="restart-btn" onclick="restartService()">🔄 重启服务</button>
                 </div>
             </div>
@@ -1750,6 +1749,18 @@
                     <div style="background: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
                         <div style="margin-bottom: 25px;">
                             <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                                <span style="color: #1890ff; font-size: 20px; margin-right: 10px;">📦</span>
+                                <strong style="color: #333; font-size: 16px;">当前版本</strong>
+                            </div>
+                            <div style="padding-left: 30px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <span id="versionText" style="font-size: 15px; color: #333; font-weight: 600;">v1.3.3</span>
+                                <button class="btn btn-sm" onclick="checkUpdate()" id="checkUpdateBtn">检查更新</button>
+                            </div>
+                            <div id="updateInfo" style="padding-left: 30px; margin-top: 8px; font-size: 13px; display: none;"></div>
+                        </div>
+
+                        <div style="margin-bottom: 25px;">
+                            <div style="display: flex; align-items: center; margin-bottom: 12px;">
                                 <span style="color: #1890ff; font-size: 20px; margin-right: 10px;">🔗</span>
                                 <strong style="color: #333; font-size: 16px;">项目地址</strong>
                             </div>
@@ -1757,6 +1768,19 @@
                                 <a href="https://github.com/akiralereal/iptv" target="_blank" 
                                    style="color: #1890ff; text-decoration: none; font-size: 15px; word-break: break-all;">
                                     https://github.com/akiralereal/iptv
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 25px;">
+                            <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                                <span style="color: #1890ff; font-size: 20px; margin-right: 10px;">🐳</span>
+                                <strong style="color: #333; font-size: 16px;">Docker 镜像</strong>
+                            </div>
+                            <div style="padding-left: 30px;">
+                                <a href="https://hub.docker.com/r/akiralereal/iptv" target="_blank" 
+                                   style="color: #1890ff; text-decoration: none; font-size: 15px; word-break: break-all;">
+                                    https://hub.docker.com/r/akiralereal/iptv
                                 </a>
                             </div>
                         </div>
@@ -2960,36 +2984,39 @@ if(success){
         // 检查更新
         async function checkUpdate() {
             const versionEl = document.getElementById('versionText');
-            const originalText = versionEl.textContent;
-            versionEl.textContent = '检查中...';
-            versionEl.style.color = '#999';
+            const updateBtn = document.getElementById('checkUpdateBtn');
+            const updateInfo = document.getElementById('updateInfo');
+            updateBtn.disabled = true;
+            updateBtn.textContent = '检查中...';
+            updateInfo.style.display = 'none';
 
             try {
                 const response = await fetch('/api/check-update');
                 const result = await response.json();
 
                 if (!result.success) {
-                    versionEl.textContent = originalText;
-                    showStatus('检查更新失败: ' + result.message, 'error');
+                    updateInfo.style.display = 'block';
+                    updateInfo.style.color = '#ff4d4f';
+                    updateInfo.textContent = '检查失败: ' + result.message;
                     return;
                 }
 
+                updateInfo.style.display = 'block';
                 if (result.hasUpdate) {
-                    versionEl.textContent = `v${result.currentVersion} → v${result.latestVersion}`;
-                    versionEl.style.color = '#fa8c16';
-                    showStatus(`发现新版本 v${result.latestVersion}！请在宿主机执行 docker pull 更新`, 'info');
+                    versionEl.textContent = `v${result.currentVersion}`;
+                    updateInfo.style.color = '#fa8c16';
+                    updateInfo.innerHTML = `发现新版本 <strong>v${result.latestVersion}</strong>！请在宿主机执行 <code style="background:#f5f5f5;padding:2px 6px;border-radius:3px;">docker compose pull && docker compose up -d</code> 更新`;
                 } else {
-                    versionEl.textContent = `v${result.currentVersion} ✓`;
-                    versionEl.style.color = '#52c41a';
-                    showStatus('当前已是最新版本', 'success');
-                    setTimeout(() => {
-                        versionEl.textContent = `v${result.currentVersion}`;
-                        versionEl.style.color = '#999';
-                    }, 5000);
+                    updateInfo.style.color = '#52c41a';
+                    updateInfo.textContent = '✔ 当前已是最新版本';
                 }
             } catch (error) {
-                versionEl.textContent = originalText;
-                showStatus('检查更新失败: ' + error.message, 'error');
+                updateInfo.style.display = 'block';
+                updateInfo.style.color = '#ff4d4f';
+                updateInfo.textContent = '检查失败: ' + error.message;
+            } finally {
+                updateBtn.disabled = false;
+                updateBtn.textContent = '检查更新';
             }
         }
 

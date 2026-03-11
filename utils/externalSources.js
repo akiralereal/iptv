@@ -50,7 +50,17 @@ const GITHUB_RAW_MIRRORS = [
   (url) => url, // 原始地址优先
   (url) => url.replace('https://raw.githubusercontent.com/', 'https://ghfast.top/https://raw.githubusercontent.com/'),
   (url) => url.replace('https://raw.githubusercontent.com/', 'https://gh-proxy.com/https://raw.githubusercontent.com/'),
-  (url) => url.replace('https://raw.githubusercontent.com/', 'https://gcore.jsdelivr.net/gh/').replace('/refs/heads/', '@'),
+  (url) => {
+    // jsdelivr 格式: /gh/owner/repo@branch/path
+    let u = url.replace('https://raw.githubusercontent.com/', 'https://gcore.jsdelivr.net/gh/')
+    if (u.includes('/refs/heads/')) {
+      u = u.replace('/refs/heads/', '@')
+    } else {
+      // owner/repo/branch/path → owner/repo@branch/path
+      u = u.replace(/(\/gh\/[^/]+\/[^/]+)\//, '$1@')
+    }
+    return u
+  },
 ]
 
 /**
@@ -549,4 +559,4 @@ class ExternalSourceManager {
 const externalSourceManager = new ExternalSourceManager()
 
 export default externalSourceManager
-export { ExternalSourceManager, fetchAndParseM3u }
+export { ExternalSourceManager, fetchAndParseM3u, GITHUB_RAW_MIRRORS }

@@ -1,6 +1,6 @@
 # iPTV
 
-**当前版本：v1.4.3**
+**当前版本：v1.5.0**
 
 > 一个支持GUI的 IPTV 直播源管理和分发系统，内置咪咕视频源抓取，支持外部直播源管理及自定义直播源订阅。
 >
@@ -32,6 +32,13 @@
 ---
 
 ## 📋 更新日志
+
+### v1.5.0 (2026-03-11)
+- 🔄 检查更新支持 **GitHub 镜像回退**：依次尝试原始地址、ghfast.top、gh-proxy.com、gcore.jsdelivr.net，解决国内 Docker 环境无法访问 GitHub 的问题
+- 🐛 修复 jsDelivr 镜像 URL 转换错误导致该镜像始终 404 的问题
+- 🔧 GitHub 镜像列表统一维护（`GITHUB_RAW_MIRRORS`），检查更新与订阅抓取共用，避免重复代码
+- 🐛 修复管理页面版本号显示与实际版本不一致的问题
+- 📦 新增 `bump-version.js` 版本号统一更新脚本，一条命令同步更新所有文件
 
 ### v1.4.3 (2026-03-11)
 - 🌐 新增**外网访问协议自动检测**：通过 NAS 转发（绿联、群晖、威联通等）或自定义域名访问时，自动使用 HTTPS 协议生成频道地址，解决外网无法播放的问题
@@ -546,5 +553,28 @@ $Env:mport=1905; $Env:mhost="http://localhost:1905"; node app.js
 
 本项目采用 GNU General Public License v3.0（GPL-3.0）开源许可。
 详情请查看仓库根目录下的 `LICENSE` 文件。
+
+<!--
+## 🔖 版本发布
+
+使用 `bump-version.js` 脚本统一管理版本号（自动更新 `package.json`、`web/admin.html`、`README.md`、`.github/workflows/push_docker.yaml`）。
+
+```bash
+# 1. 更新版本号（自动修改 4 个文件）
+node bump-version.js patch          # 1.4.3 → 1.4.4
+node bump-version.js minor          # 1.4.3 → 1.5.0
+node bump-version.js major          # 1.4.3 → 2.0.0
+node bump-version.js 2.0.0          # 直接指定版本
+
+# 2. 编辑 README.md 填写更新日志（脚本已自动插入占位条目）
+
+# 3. 提交并打 tag
+git add -A && git commit -m "release: vX.Y.Z"
+git tag vX.Y.Z
+
+# 4. 推送到 GitHub，手动触发 Actions 构建 Docker 镜像
+git push && git push --tags
+```
+-->
 
 

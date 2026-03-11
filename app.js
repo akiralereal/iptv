@@ -14,6 +14,7 @@ import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, applyConfig } from "./utils/playlistConfig.js";
 import { updateBuiltInSources, updateExternalSources, externalSourceManager } from "./utils/channelMerger.js";
+import { GITHUB_RAW_MIRRORS } from "./utils/externalSources.js";
 
 // 运行时长
 var hours = 0
@@ -258,15 +259,31 @@ const server = http.createServer(async (req, res) => {
         const pkg = require('./package.json')
         const currentVersion = pkg.version
 
-        const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), 8000)
-        const resp = await fetch('https://raw.githubusercontent.com/akiralereal/iptv/main/package.json', {
-          headers: { 'User-Agent': 'iptv-update-checker' },
-          signal: controller.signal
-        })
-        clearTimeout(timer)
-        if (!resp.ok) throw new Error(`请求失败: ${resp.status}`)
-        const remotePkg = await resp.json()
+        const rawUrl = 'https://raw.githubusercontent.com/akiralereal/iptv/main/package.json'
+
+        let remotePkg = null
+        let lastError = null
+        for (const transform of GITHUB_RAW_MIRRORS) {
+          const targetUrl = transform(rawUrl)
+          const controller = new AbortController()
+          const timer = setTimeout(() => controller.abort(), 5000)
+          try {
+            const resp = await fetch(targetUrl, {
+              headers: { 'User-Agent': 'iptv-update-checker' },
+              signal: controller.signal
+            })
+            clearTimeout(timer)
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+            remotePkg = await resp.json()
+            break
+          } catch (e) {
+            clearTimeout(timer)
+            lastError = e
+            printRed(`镜像 ${targetUrl} 失败: ${e.message}`)
+          }
+        }
+        if (!remotePkg) throw lastError || new Error('所有镜像均不可用')
+
         const latestVersion = remotePkg.version
         const hasUpdate = latestVersion !== currentVersion
 

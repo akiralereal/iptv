@@ -258,10 +258,13 @@ const server = http.createServer(async (req, res) => {
         const pkg = require('./package.json')
         const currentVersion = pkg.version
 
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 8000)
         const resp = await fetch('https://raw.githubusercontent.com/akiralereal/iptv/main/package.json', {
           headers: { 'User-Agent': 'iptv-update-checker' },
-          timeout: 10000
+          signal: controller.signal
         })
+        clearTimeout(timer)
         if (!resp.ok) throw new Error(`请求失败: ${resp.status}`)
         const remotePkg = await resp.json()
         const latestVersion = remotePkg.version

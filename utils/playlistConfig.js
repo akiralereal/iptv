@@ -11,7 +11,8 @@ const DEFAULT_CONFIG = {
   hiddenChannels: [],       // 隐藏的频道ID列表
   customGroups: [],         // 自定义分组 [{name, order}]
   groupOrder: [],           // 分组显示顺序
-  deletedGroups: []         // 删除的分组名列表
+  deletedGroups: [],        // 删除的分组名列表
+  groupRenameMap: {}        // 分组重命名映射 { 原始名: 新名 }
 }
 
 /**
@@ -173,8 +174,11 @@ export function applyConfig(groups, config) {
         return
       }
       
-      // 使用频道的原始分组
-      const targetGroup = channel.originalGroup
+      // 使用频道的原始分组（应用重命名映射）
+      let targetGroup = channel.originalGroup
+      if (config.groupRenameMap && config.groupRenameMap[targetGroup]) {
+        targetGroup = config.groupRenameMap[targetGroup]
+      }
       
       if (!resultGroups[targetGroup]) {
         resultGroups[targetGroup] = []

@@ -372,7 +372,7 @@ const server = http.createServer(async (req, res) => {
     }
     // 设置响应头
     res.setHeader('Content-Type', interfaceObj.contentType);
-    if (url == "/m3u") {
+    if (url == "/m3u" || url == "/") {
       res.setHeader('content-disposition', "inline; filename=\"interface.m3u\"");
     }
     res.statusCode = 200;

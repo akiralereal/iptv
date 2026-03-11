@@ -24,6 +24,7 @@ function interfaceStr(url, headers, urlUserId, urlToken) {
       fileName = process.cwd() + "/interfaceTXT.txt"
       break;
 
+    case "/":
     case "/m3u":
       result.contentType = "audio/x-mpegurl; charset=utf-8"
       break;
@@ -61,12 +62,26 @@ function interfaceStr(url, headers, urlUserId, urlToken) {
     }
   }
 
-  let replaceHost = `http://${headers.host}`
+  // 生成频道 URL 前缀（根据访问来源自动适配，内网/外网互不影响）
+  const hostName = (headers.host || "").split(":")[0]
+  const isLocal = hostName === "localhost" || hostName === "127.0.0.1" || hostName.startsWith("192.168.") || hostName.startsWith("10.") || hostName.startsWith("172.")
+  let replaceHost
 
-  // 检测到反向代理且配置了公网地址时，使用公网地址
-  // 否则使用访问时的地址（支持内网和公网直接访问）
-  if (host != "" && (headers["x-real-ip"] || headers["x-forwarded-for"])) {
+  if (isLocal) {
+    // 内网/本地访问：始终用本地地址，不走外网
+    replaceHost = `http://${headers.host}`
+  } else if (host != "") {
+    // 外网访问且配置了自定义域名：使用配置的地址
     replaceHost = host
+  } else {
+    // 外网访问但未配置自定义域名（如绿联转发）：从请求头自动检测
+    let proto = "http"
+    if (headers["x-forwarded-proto"]) {
+      proto = headers["x-forwarded-proto"].split(",")[0].trim()
+    } else {
+      proto = "https"
+    }
+    replaceHost = `${proto}://${headers.host}`
   }
 
   if (pass != "") {

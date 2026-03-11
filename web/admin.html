@@ -110,6 +110,11 @@
             transition: all 0.3s;
         }
 
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 12px;
+        }
+
         .btn-primary {
             background: #1890ff;
             color: white;
@@ -3009,18 +3014,33 @@ if(success){
             console.log('deletedGroups:', myPlaylistConfig.deletedGroups);
             console.log('hiddenChannels:', myPlaylistConfig.hiddenChannels);
 
-            // 从原始数据中找出被删除的分组
-            const deletedGroups = myPlaylistOriginalData.filter(group => 
-                myPlaylistConfig.deletedGroups.includes(group.name)
-            );
+            // 从原始数据中找出被删除的分组（支持通配符前缀匹配）
+            const deletedGroups = myPlaylistOriginalData.filter(group => {
+                return myPlaylistConfig.deletedGroups.some(pattern => {
+                    if (pattern.endsWith('*')) {
+                        return group.name.startsWith(pattern.slice(0, -1));
+                    }
+                    return pattern === group.name;
+                });
+            });
 
             console.log('找到被删除的分组:', deletedGroups.length);
+
+            // 检查分组是否被通配符或精确匹配删除（供后面使用）
+            function isGroupDeletedByConfig(groupName) {
+                return myPlaylistConfig.deletedGroups.some(pattern => {
+                    if (pattern.endsWith('*')) {
+                        return groupName.startsWith(pattern.slice(0, -1));
+                    }
+                    return pattern === groupName;
+                });
+            }
 
             // 从原始数据中找出被隐藏的频道（按原始分组显示）
             const groupsWithHiddenChannels = myPlaylistOriginalData.map(group => {
                 const hiddenChannels = group.channels.filter(ch => 
                     myPlaylistConfig.hiddenChannels.includes(ch.id) &&
-                    !myPlaylistConfig.deletedGroups.includes(group.name)
+                    !isGroupDeletedByConfig(group.name)
                 );
                 if (hiddenChannels.length > 0) {
                     console.log(`分组 "${group.name}" 有 ${hiddenChannels.length} 个隐藏频道:`, hiddenChannels.map(ch => ch.name));
@@ -3074,14 +3094,22 @@ if(success){
             let group, groupIndex;
 
             if (isViewingDeleted) {
-                // 显示被删除的分组
+                // 显示被删除的分组（支持通配符匹配）
+                const isGroupDeletedInDetail = (groupName) => {
+                    return myPlaylistConfig.deletedGroups.some(pattern => {
+                        if (pattern.endsWith('*')) {
+                            return groupName.startsWith(pattern.slice(0, -1));
+                        }
+                        return pattern === groupName;
+                    });
+                };
                 const deletedGroups = myPlaylistOriginalData.filter(g => 
-                    myPlaylistConfig.deletedGroups.includes(g.name)
+                    isGroupDeletedInDetail(g.name)
                 );
                 const groupsWithHiddenChannels = myPlaylistOriginalData.map(g => {
                     const hiddenChannels = g.channels.filter(ch => 
                         myPlaylistConfig.hiddenChannels.includes(ch.id) &&
-                        !myPlaylistConfig.deletedGroups.includes(g.name)
+                        !isGroupDeletedInDetail(g.name)
                     );
                     return hiddenChannels.length > 0 ? {
                         ...g,
@@ -3120,8 +3148,8 @@ if(success){
                 } else if (group.isPartialDelete) {
                     // 非批量模式，包含隐藏频道的分组
                     actions.innerHTML = `
-                        <button class="btn btn-sm" onclick="toggleBatchMode()">批量管理</button>
                         <button class="btn btn-primary btn-sm" onclick="restoreAllChannelsInGroup()">恢复所有频道</button>
+                        <button class="btn btn-primary btn-sm" onclick="toggleBatchMode()">批量管理</button>
                     `;
                 } else {
                     // 被隐藏的完整分组
@@ -3189,10 +3217,10 @@ if(success){
                     `;
                 } else {
                     actions.innerHTML = `
-                        <button class="btn btn-sm" onclick="toggleBatchMode()">批量管理</button>
                         <button class="btn btn-sm" onclick="moveGroupUp(${groupIndex})" ${groupIndex === 0 ? 'disabled' : ''}>↑ 上移</button>
                         <button class="btn btn-sm" onclick="moveGroupDown(${groupIndex})" ${groupIndex === myPlaylistData.length - 1 ? 'disabled' : ''}>↓ 下移</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})">隐藏分组</button>
+                        <button class="btn btn-primary btn-sm" onclick="toggleBatchMode()">批量管理</button>
                     `;
                 }
 
@@ -3273,9 +3301,7 @@ if(success){
         async function deleteGroup(index) {
             const group = myPlaylistData[index];
             const confirmed = await showConfirm(`确定隐藏分组 "${group.name}" 吗？\n该分组的 ${group.channels.length} 个频道将被移到"已隐藏"区域`);
-            if (!confirmed) {
-                return;
-            }
+            if (!confirmed) return;
             
             myPlaylistConfig.deletedGroups.push(group.name);
             myPlaylistData.splice(index, 1);
@@ -3335,15 +3361,21 @@ if(success){
         async function restoreGroup() {
             if (!isViewingDeleted) return;
 
-            const deletedGroups = myPlaylistOriginalData.filter(g => 
-                myPlaylistConfig.deletedGroups.includes(g.name)
-            );
+            // 重新计算 deletedGroups（与渲染逻辑一致，支持通配符）
+            const deletedGroups = myPlaylistOriginalData.filter(group => {
+                return myPlaylistConfig.deletedGroups.some(pattern => {
+                    if (pattern.endsWith('*')) {
+                        return group.name.startsWith(pattern.slice(0, -1));
+                    }
+                    return pattern === group.name;
+                });
+            });
             
             if (selectedGroupIndex >= deletedGroups.length) return;
 
             const group = deletedGroups[selectedGroupIndex];
             
-            // 从deletedGroups中移除
+            // 从deletedGroups中移除精确匹配
             myPlaylistConfig.deletedGroups = myPlaylistConfig.deletedGroups.filter(
                 name => name !== group.name
             );

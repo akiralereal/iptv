@@ -2,7 +2,7 @@ import { get302URL, getAndroidURL, getAndroidURL720p, printLoginInfo } from "./a
 import { readFileSync } from "./fileUtil.js";
 import { host, pass, rateType, token, userId } from "../config.js";
 import { printDebug, printGreen, printGrey, printRed, printYellow } from "./colorOut.js";
-import { readConfig, parseInterfaceTxt, applyConfig, generateM3u8 } from "./playlistConfig.js";
+import { readConfig, parseInterfaceTxt, applyConfig, generateM3u8, generateTxt } from "./playlistConfig.js";
 
 // url缓存 降低请求频率
 const urlCache = {}
@@ -43,7 +43,7 @@ function interfaceStr(url, headers, urlUserId, urlToken) {
   }
   
   // 对于播放列表，应用用户配置
-  if (url === "/" || url === "/m3u" || url === "/interface.txt") {
+  if (url === "/" || url === "/m3u" || url === "/interface.txt" || url === "/txt") {
     try {
       const config = readConfig()
       
@@ -53,7 +53,7 @@ function interfaceStr(url, headers, urlUserId, urlToken) {
         printGrey("应用播放列表自定义配置")
         const groups = parseInterfaceTxt()
         const configuredGroups = applyConfig(groups, config)
-        result.content = generateM3u8(configuredGroups)
+        result.content = url === "/txt" ? generateTxt(configuredGroups) : generateM3u8(configuredGroups)
       }
     } catch (error) {
       printYellow(`应用配置失败，使用原始播放列表: ${error.message}`)

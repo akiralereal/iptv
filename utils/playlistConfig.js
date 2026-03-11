@@ -130,6 +130,20 @@ export function parseInterfaceTxt() {
 }
 
 /**
+ * 检查分组是否被删除（支持通配符前缀匹配）
+ * deletedGroups 中以 * 结尾的条目会作为前缀匹配，例如 "体育-*" 匹配 "体育-昨天"、"体育-今天"、"体育-明天"
+ */
+function isGroupDeleted(groupName, deletedGroups) {
+  if (!deletedGroups || deletedGroups.length === 0) return false
+  return deletedGroups.some(pattern => {
+    if (pattern.endsWith('*')) {
+      return groupName.startsWith(pattern.slice(0, -1))
+    }
+    return pattern === groupName
+  })
+}
+
+/**
  * 应用配置到频道列表
  */
 export function applyConfig(groups, config) {
@@ -154,8 +168,8 @@ export function applyConfig(groups, config) {
         return
       }
       
-      // 跳过已删除分组的频道
-      if (config.deletedGroups?.includes(channel.originalGroup)) {
+      // 跳过已删除分组的频道（支持通配符前缀匹配）
+      if (isGroupDeleted(channel.originalGroup, config.deletedGroups)) {
         return
       }
       
@@ -223,10 +237,31 @@ export function generateM3u8(groups) {
   return content
 }
 
+/**
+ * 生成 TXT 格式内容
+ */
+export function generateTxt(groups) {
+  let content = ''
+  
+  groups.forEach(group => {
+    content += `${group.name},#genre#\n`
+    group.channels.forEach(channel => {
+      content += `${channel.name},${channel.url}\n`
+    })
+  })
+  
+  return content
+}
+
+// 导出 isGroupDeleted 供管理后台API使用
+export { isGroupDeleted }
+
 export default {
   readConfig,
   saveConfig,
   parseInterfaceTxt,
   applyConfig,
-  generateM3u8
+  generateM3u8,
+  generateTxt,
+  isGroupDeleted
 }

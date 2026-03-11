@@ -63,25 +63,28 @@ function interfaceStr(url, headers, urlUserId, urlToken) {
   }
 
   // 生成频道 URL 前缀（根据访问来源自动适配，内网/外网互不影响）
-  const hostName = (headers.host || "").split(":")[0]
-  const isLocal = hostName === "localhost" || hostName === "127.0.0.1" || hostName.startsWith("192.168.") || hostName.startsWith("10.") || hostName.startsWith("172.")
+  // 优先使用反向代理转发的原始 host（x-forwarded-host），否则用直接请求的 host
+  const forwardedHost = headers["x-forwarded-host"]?.split(",")[0]?.trim()
+  const actualHost = forwardedHost || headers.host || ""
+  const actualHostName = actualHost.split(":")[0]
+  const isLocal = !forwardedHost && (actualHostName === "localhost" || actualHostName === "127.0.0.1" || actualHostName.startsWith("192.168.") || actualHostName.startsWith("10.") || actualHostName.startsWith("172."))
   let replaceHost
 
   if (isLocal) {
-    // 内网/本地访问：始终用本地地址，不走外网
+    // 内网/本地直接访问（非代理）：用本地地址，不走外网
     replaceHost = `http://${headers.host}`
   } else if (host != "") {
-    // 外网访问且配置了自定义域名：使用配置的地址
+    // 配置了自定义域名：使用配置的地址
     replaceHost = host
   } else {
-    // 外网访问但未配置自定义域名（如绿联转发）：从请求头自动检测
+    // 外网访问（NAS转发等）：从请求头自动检测协议和域名
     let proto = "http"
     if (headers["x-forwarded-proto"]) {
       proto = headers["x-forwarded-proto"].split(",")[0].trim()
-    } else {
+    } else if (forwardedHost) {
       proto = "https"
     }
-    replaceHost = `${proto}://${headers.host}`
+    replaceHost = `${proto}://${actualHost}`
   }
 
   if (pass != "") {

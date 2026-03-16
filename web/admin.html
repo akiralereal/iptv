@@ -3178,7 +3178,7 @@ if(success){
             // 从原始数据中找出被隐藏的频道（按原始分组显示）
             const groupsWithHiddenChannels = myPlaylistOriginalData.map(group => {
                 const hiddenChannels = group.channels.filter(ch => 
-                    myPlaylistConfig.hiddenChannels.includes(ch.id) &&
+                    myPlaylistConfig.hiddenChannels.includes(`${group.name}::${ch.id}`) &&
                     !isGroupDeletedByConfig(group.name)
                 );
                 if (hiddenChannels.length > 0) {
@@ -3247,7 +3247,7 @@ if(success){
                 );
                 const groupsWithHiddenChannels = myPlaylistOriginalData.map(g => {
                     const hiddenChannels = g.channels.filter(ch => 
-                        myPlaylistConfig.hiddenChannels.includes(ch.id) &&
+                        myPlaylistConfig.hiddenChannels.includes(`${g.name}::${ch.id}`) &&
                         !isGroupDeletedInDetail(g.name)
                     );
                     return hiddenChannels.length > 0 ? {
@@ -3309,7 +3309,7 @@ if(success){
                                 <div class="my-playlist-channel-name" title="${channel.name}" onclick="showChannelDetail('${channel.id}', true)" style="cursor: pointer;">${channel.name}</div>
                                 ${group.isPartialDelete && !isBatchMode ? `
                                     <div class="my-playlist-channel-actions" style="opacity: 1 !important;">
-                                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); restoreChannel('${channel.id}')">恢复</button>
+                                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); restoreChannel('${channel.id}', '${group.name}')">恢复</button>
                                     </div>
                                 ` : ''}
                             </div>
@@ -3535,8 +3535,11 @@ if(success){
         }
 
         async function hideChannel(channelId) {
-            if (!myPlaylistConfig.hiddenChannels.includes(channelId)) {
-                myPlaylistConfig.hiddenChannels.push(channelId);
+            const group = myPlaylistData[selectedGroupIndex];
+            const originalGroupName = getOriginalGroupName(group.name);
+            const hiddenKey = `${originalGroupName}::${channelId}`;
+            if (!myPlaylistConfig.hiddenChannels.includes(hiddenKey)) {
+                myPlaylistConfig.hiddenChannels.push(hiddenKey);
             }
             
             // 自动保存配置并重新加载数据
@@ -3603,13 +3606,14 @@ if(success){
             }
         }
 
-        async function restoreChannel(channelId) {
-            console.log('恢复频道:', channelId);
+        async function restoreChannel(channelId, groupName) {
+            const hiddenKey = groupName ? `${groupName}::${channelId}` : channelId;
+            console.log('恢复频道:', hiddenKey);
             console.log('当前 hiddenChannels:', myPlaylistConfig.hiddenChannels);
             
             // 从hiddenChannels中移除
             myPlaylistConfig.hiddenChannels = myPlaylistConfig.hiddenChannels.filter(
-                id => id !== channelId
+                id => id !== hiddenKey
             );
             
             console.log('更新后 hiddenChannels:', myPlaylistConfig.hiddenChannels);
@@ -3646,7 +3650,7 @@ if(success){
             );
             const groupsWithHiddenChannels = myPlaylistOriginalData.map(g => {
                 const hiddenChannels = g.channels.filter(ch => 
-                    myPlaylistConfig.hiddenChannels.includes(ch.id) &&
+                    myPlaylistConfig.hiddenChannels.includes(`${g.name}::${ch.id}`) &&
                     !myPlaylistConfig.deletedGroups.includes(g.name)
                 );
                 return hiddenChannels.length > 0 ? {
@@ -3663,9 +3667,9 @@ if(success){
             const group = allDeletedGroups[selectedGroupIndex];
 
             // 恢复这个分组下的所有频道
-            const channelIds = group.channels.map(ch => ch.id);
+            const hiddenKeys = group.channels.map(ch => `${group.name}::${ch.id}`);
             myPlaylistConfig.hiddenChannels = myPlaylistConfig.hiddenChannels.filter(
-                id => !channelIds.includes(id)
+                id => !hiddenKeys.includes(id)
             );
 
             // 先保存配置到服务器
@@ -3816,10 +3820,13 @@ if(success){
             const confirmed = await showConfirm(`确定隐藏选中的 ${selectedChannels.size} 个频道吗？`);
             if (!confirmed) return;
 
-            // 将选中的频道添加到hiddenChannels
+            // 将选中的频道添加到hiddenChannels（使用 分组名::频道ID 格式）
+            const group = myPlaylistData[selectedGroupIndex];
+            const originalGroupName = getOriginalGroupName(group.name);
             selectedChannels.forEach(channelId => {
-                if (!myPlaylistConfig.hiddenChannels.includes(channelId)) {
-                    myPlaylistConfig.hiddenChannels.push(channelId);
+                const hiddenKey = `${originalGroupName}::${channelId}`;
+                if (!myPlaylistConfig.hiddenChannels.includes(hiddenKey)) {
+                    myPlaylistConfig.hiddenChannels.push(hiddenKey);
                 }
             });
 
@@ -3857,11 +3864,13 @@ if(success){
             );
             if (!confirmed) return;
 
-            // 隐藏未选中的频道
+            // 隐藏未选中的频道（使用 分组名::频道ID 格式）
+            const originalGroupName = getOriginalGroupName(group.name);
             group.channels.forEach(channel => {
                 if (!selectedChannels.has(channel.id)) {
-                    if (!myPlaylistConfig.hiddenChannels.includes(channel.id)) {
-                        myPlaylistConfig.hiddenChannels.push(channel.id);
+                    const hiddenKey = `${originalGroupName}::${channel.id}`;
+                    if (!myPlaylistConfig.hiddenChannels.includes(hiddenKey)) {
+                        myPlaylistConfig.hiddenChannels.push(hiddenKey);
                     }
                 }
             });
@@ -3894,9 +3903,30 @@ if(success){
             const confirmed = await showConfirm(`确定恢复选中的 ${selectedChannels.size} 个频道吗？`);
             if (!confirmed) return;
 
-            // 从hiddenChannels中移除选中的频道
+            // 从hiddenChannels中移除选中的频道（使用 分组名::频道ID 格式）
+            // 获取当前查看的已隐藏分组
+            const isGroupDeletedCheck = (groupName) => {
+                return myPlaylistConfig.deletedGroups.some(pattern => {
+                    if (pattern.endsWith('*')) {
+                        return groupName.startsWith(pattern.slice(0, -1));
+                    }
+                    return pattern === groupName;
+                });
+            };
+            const deletedGroupsList = myPlaylistOriginalData.filter(g => isGroupDeletedCheck(g.name));
+            const hiddenGroupsList = myPlaylistOriginalData.map(g => {
+                const hc = g.channels.filter(ch => 
+                    myPlaylistConfig.hiddenChannels.includes(`${g.name}::${ch.id}`) &&
+                    !isGroupDeletedCheck(g.name)
+                );
+                return hc.length > 0 ? { ...g, channels: hc, isPartialDelete: true } : null;
+            }).filter(g => g !== null);
+            const allDeletedGroupsList = [...deletedGroupsList, ...hiddenGroupsList];
+            const currentGroup = allDeletedGroupsList[selectedGroupIndex];
+
             selectedChannels.forEach(channelId => {
-                const index = myPlaylistConfig.hiddenChannels.indexOf(channelId);
+                const hiddenKey = `${currentGroup.name}::${channelId}`;
+                const index = myPlaylistConfig.hiddenChannels.indexOf(hiddenKey);
                 if (index !== -1) {
                     myPlaylistConfig.hiddenChannels.splice(index, 1);
                 }

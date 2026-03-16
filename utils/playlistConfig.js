@@ -165,8 +165,8 @@ export function applyConfig(groups, config) {
     
     // 遍历所有频道
     channelMap.forEach((channel, key) => {
-      // 跳过隐藏的频道
-      if (config.hiddenChannels?.includes(channel.id)) {
+      // 跳过隐藏的频道（使用 分组名::频道ID 进行匹配，支持按分组独立隐藏）
+      if (config.hiddenChannels?.includes(`${channel.originalGroup}::${channel.id}`)) {
         return
       }
       

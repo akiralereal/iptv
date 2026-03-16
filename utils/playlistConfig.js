@@ -151,11 +151,12 @@ export function applyConfig(groups, config) {
   try {
     printBlue("应用播放列表配置...")
     
-    // 1. 构建频道映射
+    // 1. 构建频道映射（使用 分组名+频道ID 作为key，允许同一频道出现在不同分组中）
     const channelMap = new Map()
     groups.forEach(group => {
       group.channels.forEach(channel => {
-        channelMap.set(channel.id, { ...channel, originalGroup: group.name })
+        const key = `${group.name}::${channel.id}`
+        channelMap.set(key, { ...channel, originalGroup: group.name })
       })
     })
     
@@ -163,9 +164,9 @@ export function applyConfig(groups, config) {
     const resultGroups = {}
     
     // 遍历所有频道
-    channelMap.forEach((channel, channelId) => {
+    channelMap.forEach((channel, key) => {
       // 跳过隐藏的频道
-      if (config.hiddenChannels?.includes(channelId)) {
+      if (config.hiddenChannels?.includes(channel.id)) {
         return
       }
       

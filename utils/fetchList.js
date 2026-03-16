@@ -45,54 +45,16 @@ async function dataList() {
   return cates
 }
 
-// 对data的dataList去重
+// 对data的dataList去重（分类内去重，不同分类允许同一频道同时存在）
 function uniqueData(liveList) {
-
-  const allItems = []
-  // 提取全部dataList
   liveList.forEach(category => {
-    category.dataList.forEach(program => {
-
-      allItems.push({
-        ...program,
-        categoryName: category.name
-      })
+    const seen = new Set()
+    category.dataList = category.dataList.filter(program => {
+      if (seen.has(program.name)) return false
+      seen.add(program.name)
+      return true
     })
-
   })
-
-  // 使用set确保唯一
-  const set = new Set()
-  // 保存唯一的数据
-  const uniqueItem = []
-
-  allItems.forEach(item => {
-    // set用来确定已经出现过
-    if (!set.has(item.name)) {
-      set.add(item.name)
-      uniqueItem.push(item)
-    }
-  })
-
-  const categoryMap = []
-
-  // 清空原dataList内容
-  liveList.forEach(live => {
-    live.dataList = []
-    categoryMap[live.name] = []
-  })
-
-  // 去除添加字段，根据分组填充内容
-  uniqueItem.forEach(item => {
-    const { categoryName, ...program } = item
-    categoryMap[categoryName].push(program)
-  })
-
-  // liveList赋值
-  liveList.forEach(live => {
-    live.dataList = categoryMap[live.name]
-  })
-
   return liveList
 }
 

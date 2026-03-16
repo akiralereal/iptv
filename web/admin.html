@@ -1555,23 +1555,21 @@
         </div>
     </div>
     
-    <!-- 播放器下载提示弹窗 -->
-    <div class="modal" id="playerDownloadModal">
-        <div class="modal-content" style="width: 500px; max-width: 90%;">
-            <h3 style="margin-bottom: 20px;">⚠️ 无可用播放器</h3>
-            
-            <div style="background: #fff7e6; border: 1px solid #ffd591; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
-                <p style="line-height: 1.8; margin: 0; font-size: 15px;">
-                    未检测到 VLC 播放器，请先安装 VLC 后再试。
-                </p>
-                <p style="line-height: 1.8; margin: 12px 0 0 0; font-size: 14px; color: #666;">
-                    VLC 是免费开源播放器，支持几乎所有视频格式和流媒体协议。
+    <!-- 非咪咕源播放选项弹窗 -->
+    <div class="modal" id="nonMiguPlayModal">
+        <div class="modal-content" style="width: 460px; max-width: 90%;">
+            <h3 id="nonMiguPlayTitle" style="margin-bottom: 20px;">📺 播放选项</h3>
+            <div style="background: #e6f7ff; border: 1px solid #91d5ff; padding: 16px; border-radius: 6px; margin-bottom: 20px;">
+                <p style="line-height: 1.8; margin: 0; font-size: 14px; color: #666;">
+                    该频道来自外部源，浏览器可能无法直接播放。<br>请选择以下方式使用本地播放器（如 VLC、IINA、PotPlayer）打开：
                 </p>
             </div>
-            
-            <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                <button class="btn" onclick="closePlayerDownloadModal()" style="background: #eee; color: #333;">关闭</button>
-                <button class="btn btn-primary" onclick="window.open('https://www.videolan.org/', '_blank'); closePlayerDownloadModal();">🔽 下载 VLC</button>
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+                <button class="btn btn-primary" id="nonMiguCopyBtn" style="width: 100%; padding: 12px; font-size: 15px;">📋 复制频道链接</button>
+                <button class="btn" id="nonMiguDownloadBtn" style="width: 100%; padding: 12px; font-size: 15px; background: #ff6600; color: white; border: none; border-radius: 4px; cursor: pointer;">⬇️ 下载为 .m3u 文件</button>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn" onclick="document.getElementById('nonMiguPlayModal').style.display='none'" style="background: #eee; color: #333;">取消</button>
             </div>
         </div>
     </div>
@@ -4086,6 +4084,42 @@ if(success){
             currentChannelDetail = null;
         }
 
+        function previewPlay(actualUrl, playerUrl, channelName, sourceType) {
+            if (sourceType === 'migu') {
+                // 咪咕源：直接浏览器打开播放
+                window.open(actualUrl, '_blank');
+            } else {
+                // 非咪咕源：弹窗提供复制链接或下载m3u
+                showNonMiguPlayModal(actualUrl, channelName);
+            }
+        }
+
+        function showNonMiguPlayModal(url, channelName) {
+            document.getElementById('nonMiguPlayTitle').textContent = '📺 播放 - ' + channelName;
+            const copyBtn = document.getElementById('nonMiguCopyBtn');
+            const downloadBtn = document.getElementById('nonMiguDownloadBtn');
+            copyBtn.onclick = function() {
+                copyToClipboard(url, '频道链接');
+            };
+            downloadBtn.onclick = function() {
+                downloadM3u(url, channelName);
+                document.getElementById('nonMiguPlayModal').style.display = 'none';
+            };
+            document.getElementById('nonMiguPlayModal').style.display = 'block';
+        }
+
+        function downloadM3u(url, channelName) {
+            const m3uContent = '#EXTM3U\n#EXTINF:-1,' + channelName + '\n' + url + '\n';
+            const blob = new Blob([m3uContent], { type: 'audio/x-mpegurl' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = channelName + '.m3u';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        }
+
         function copyToClipboard(text, label) {
             // 优先使用现代 Clipboard API
             if (navigator.clipboard && window.isSecureContext) {
@@ -4117,52 +4151,6 @@ if(success){
                 }
                 document.body.removeChild(textarea);
             }
-        }
-
-// 统一使用 VLC 播放
-        function openInPlayer(url) {
-            // VLC 在 macOS 没有 vlc:// scheme，但注册了 http/https 协议处理
-            // 通过构造一个特殊的链接尝试拉起 VLC
-            const userAgent = navigator.userAgent.toLowerCase();
-            const platform = navigator.platform.toLowerCase();
-            const isWin = platform.includes('win') || userAgent.includes('windows');
-            
-            let playerUrl;
-            if (isWin) {
-                // Windows VLC 支持 vlc:// scheme
-                playerUrl = 'vlc://' + url;
-            } else {
-                // macOS/Linux: VLC 没有专属 scheme，直接用 vlc:// 尝试
-                playerUrl = 'vlc://' + url;
-            }
-            
-            let playerLaunched = false;
-            const onBlur = () => {
-                playerLaunched = true;
-                window.removeEventListener('blur', onBlur);
-            };
-            window.addEventListener('blur', onBlur);
-            
-            const link = document.createElement('a');
-            link.href = playerUrl;
-            link.click();
-            
-            setTimeout(() => {
-                window.removeEventListener('blur', onBlur);
-                if (!playerLaunched) {
-                    showPlayerDownloadModal();
-                }
-            }, 2000);
-        }
-
-        // 显示 VLC 下载提示
-        function showPlayerDownloadModal() {
-            document.getElementById('playerDownloadModal').style.display = 'flex';
-        }
-
-        // 关闭播放器下载提示
-        function closePlayerDownloadModal() {
-            document.getElementById('playerDownloadModal').style.display = 'none';
         }
 
         function editChannelFromDetail() {
@@ -4223,14 +4211,14 @@ if(success){
         // 点击弹窗外部关闭
         document.addEventListener('click', function(event) {
             const detailModal = document.getElementById('channelDetailModal');
-            const downloadModal = document.getElementById('playerDownloadModal');
+            const nonMiguModal = document.getElementById('nonMiguPlayModal');
             
             if (event.target === detailModal) {
                 closeChannelDetail();
             }
             
-            if (event.target === downloadModal) {
-                closePlayerDownloadModal();
+            if (event.target === nonMiguModal) {
+                nonMiguModal.style.display = 'none';
             }
         });
 

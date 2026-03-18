@@ -12,7 +12,7 @@ import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
          addExternalSourceAPI, removeExternalSourceAPI, updateExternalSourceAPI, 
          setExternalSourceM3u8API, importSubscriptionAPI, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
-import { readConfig, saveConfig, parseInterfaceTxt, validateGroupRenameMap, applyConfig } from "./utils/playlistConfig.js";
+import { readConfig, saveConfig, parseInterfaceTxt, validateGroupConfig, applyConfig } from "./utils/playlistConfig.js";
 import { updateBuiltInSources, updateExternalSources, externalSourceManager } from "./utils/channelMerger.js";
 import { GITHUB_RAW_MIRRORS } from "./utils/externalSources.js";
 
@@ -308,11 +308,15 @@ const server = http.createServer(async (req, res) => {
           const currentConfig = readConfig()
           const currentRenameMap = currentConfig.groupRenameMap || {}
           const nextRenameMap = config.groupRenameMap || {}
-          const renameMapChanged = JSON.stringify(currentRenameMap) !== JSON.stringify(nextRenameMap)
+          const currentCustomGroups = currentConfig.customGroups || []
+          const nextCustomGroups = config.customGroups || []
+          const groupConfigChanged =
+            JSON.stringify(currentRenameMap) !== JSON.stringify(nextRenameMap) ||
+            JSON.stringify(currentCustomGroups) !== JSON.stringify(nextCustomGroups)
 
-          if (renameMapChanged) {
+          if (groupConfigChanged) {
             const groups = parseInterfaceTxt()
-            const validation = validateGroupRenameMap(groups, config)
+            const validation = validateGroupConfig(groups, config)
             if (!validation.valid) {
               res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
               res.end(JSON.stringify({ success: false, message: validation.message }));

@@ -1604,6 +1604,7 @@
                         <div class="my-playlist-section">
                             <div class="my-playlist-section-title">
                                 <span>✅ 我的频道</span>
+                                <button onclick="addGroup()">+ 添加分组</button>
                             </div>
                             <div class="my-playlist-group-list" id="activeGroupList"></div>
                         </div>
@@ -2138,6 +2139,10 @@
         function getMiguGroups() {
             const groups = new Set();
             groups.add('未分组');
+
+            getCustomGroupNames().forEach(group => {
+                groups.add(group);
+            });
             
             if (allChannels && Array.isArray(allChannels)) {
                 allChannels.forEach(category => {
@@ -3060,7 +3065,8 @@ if(success){
             hiddenChannels: [],
             customGroups: [],
             groupOrder: [],
-            deletedGroups: []
+            deletedGroups: [],
+            groupRenameMap: {}
         };
         let selectedGroupIndex = 0; // 当前选中的分组索引
         let isViewingDeleted = false; // 是否正在查看被删除区域
@@ -3125,22 +3131,13 @@ if(success){
             if (myPlaylistData.length === 0) {
                 activeList.innerHTML = '<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">暂无频道</div>';
             } else {
-                // 过滤出非空分组，并保留原始索引
-                const nonEmptyGroups = myPlaylistData
-                    .map((group, originalIndex) => ({ group, originalIndex }))
-                    .filter(item => item.group.channels.length > 0);
-
-                if (nonEmptyGroups.length === 0) {
-                    activeList.innerHTML = '<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">无频道</div>';
-                } else {
-                    activeList.innerHTML = nonEmptyGroups.map(item => `
-                        <div class="my-playlist-group-item ${!isViewingDeleted && selectedGroupIndex === item.originalIndex ? 'active' : ''}" 
-                             onclick="selectGroup(${item.originalIndex}, false)">
-                            <span>${item.group.name}</span>
-                            <span style="color: #999; font-size: 12px;">${item.group.channels.length}</span>
-                        </div>
-                    `).join('');
-                }
+                activeList.innerHTML = myPlaylistData.map((group, originalIndex) => `
+                    <div class="my-playlist-group-item ${!isViewingDeleted && selectedGroupIndex === originalIndex ? 'active' : ''}" 
+                         onclick="selectGroup(${originalIndex}, false)">
+                        <span>${group.name}</span>
+                        <span style="color: #999; font-size: 12px;">${group.channels.length}</span>
+                    </div>
+                `).join('');
             }
 
             // 渲染被删除分组列表
@@ -3323,24 +3320,11 @@ if(success){
                 }
 
                 group = myPlaylistData[selectedGroupIndex];
-                
-                // 如果当前选中的分组为空，切换到第一个非空分组
-                if (group.channels.length === 0) {
-                    const firstNonEmptyIndex = myPlaylistData.findIndex(g => g.channels.length > 0);
-                    if (firstNonEmptyIndex === -1) {
-                        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">无可显示的频道</div>';
-                        header.style.display = 'none';
-                        return;
-                    }
-                    selectedGroupIndex = firstNonEmptyIndex;
-                    group = myPlaylistData[selectedGroupIndex];
-                    // 重新渲染分组列表以更新选中状态
-                    renderGroupLists();
-                }
-                
                 groupIndex = selectedGroupIndex;
                 header.style.display = 'flex';
                 title.textContent = `${group.name} (${group.channels.length}个频道)`;
+                const isUngrouped = group.name === '未分组';
+                const isCustomGroup = isCustomGroupName(group.name);
                 
                 // 根据批量模式显示不同的操作按钮
                 if (isBatchMode) {
@@ -3354,37 +3338,46 @@ if(success){
                     `;
                 } else {
                     actions.innerHTML = `
-                        <button class="btn btn-sm" onclick="renameGroup(${groupIndex})">重命名</button>
-                        <button class="btn btn-sm" onclick="moveGroupUp(${groupIndex})" ${groupIndex === 0 ? 'disabled' : ''}>↑ 上移</button>
-                        <button class="btn btn-sm" onclick="moveGroupDown(${groupIndex})" ${groupIndex === myPlaylistData.length - 1 ? 'disabled' : ''}>↓ 下移</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})">隐藏分组</button>
+                        ${isCustomGroup ? `<button class="btn btn-danger btn-sm" onclick="removeGroup(${groupIndex})">删除分组</button>` : ''}
+                        <button class="btn btn-sm" onclick="renameGroup(${groupIndex})" ${isUngrouped ? 'disabled' : ''}>重命名</button>
+                        <button class="btn btn-sm" onclick="moveGroupUp(${groupIndex})" ${isUngrouped || groupIndex === 0 ? 'disabled' : ''}>↑ 上移</button>
+                        <button class="btn btn-sm" onclick="moveGroupDown(${groupIndex})" ${isUngrouped || groupIndex === myPlaylistData.length - 1 ? 'disabled' : ''}>↓ 下移</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})" ${isUngrouped || isCustomGroup ? 'disabled' : ''}>隐藏分组</button>
                         <button class="btn btn-primary btn-sm" onclick="toggleBatchMode()">批量管理</button>
                     `;
                 }
 
                 container.innerHTML = `
-                    <div class="my-playlist-channels">
-                        ${group.channels.map(channel => `
-                            <div class="my-playlist-channel ${isBatchMode ? 'batch-mode' : ''}" data-channel-id="${channel.id}">
-                                ${isBatchMode ? `
-                                    <input type="checkbox" class="my-playlist-channel-checkbox" 
-                                           onchange="toggleChannelSelection('${channel.id}')" 
-                                           ${selectedChannels.has(channel.id) ? 'checked' : ''}>
-                                ` : ''}
-                                <div class="my-playlist-channel-name" title="${channel.name}" onclick="showChannelDetail('${channel.id}', false)" style="cursor: pointer;">${channel.name}</div>
-                                ${!isBatchMode ? `
-                                    <div class="my-playlist-channel-actions">
-                                        <button onclick="event.stopPropagation(); hideChannel('${channel.id}')">隐藏</button>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        `).join('')}
-                    </div>
+                    ${group.channels.length === 0 ? `
+                        <div style="text-align: center; padding: 40px; color: #999;">当前分组暂无频道</div>
+                    ` : `
+                        <div class="my-playlist-channels">
+                            ${group.channels.map(channel => `
+                                <div class="my-playlist-channel ${isBatchMode ? 'batch-mode' : ''}" data-channel-id="${channel.id}">
+                                    ${isBatchMode ? `
+                                        <input type="checkbox" class="my-playlist-channel-checkbox" 
+                                               onchange="toggleChannelSelection('${channel.id}')" 
+                                               ${selectedChannels.has(channel.id) ? 'checked' : ''}>
+                                    ` : ''}
+                                    <div class="my-playlist-channel-name" title="${channel.name}" onclick="showChannelDetail('${channel.id}', false)" style="cursor: pointer;">${channel.name}</div>
+                                    ${!isBatchMode ? `
+                                        <div class="my-playlist-channel-actions">
+                                            <button onclick="event.stopPropagation(); hideChannel('${channel.id}')">隐藏</button>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
                 `;
             }
         }
 
         async function moveGroupUp(index) {
+            if (myPlaylistData[index]?.name === '未分组') {
+                showStatus('未分组不支持调整顺序', 'error');
+                return;
+            }
             if (index === 0) return;
             [myPlaylistData[index], myPlaylistData[index - 1]] = [myPlaylistData[index - 1], myPlaylistData[index]];
             updateGroupOrder();
@@ -3409,6 +3402,10 @@ if(success){
         }
 
         async function moveGroupDown(index) {
+            if (myPlaylistData[index]?.name === '未分组') {
+                showStatus('未分组不支持调整顺序', 'error');
+                return;
+            }
             if (index === myPlaylistData.length - 1) return;
             [myPlaylistData[index], myPlaylistData[index + 1]] = [myPlaylistData[index + 1], myPlaylistData[index]];
             updateGroupOrder();
@@ -3436,6 +3433,21 @@ if(success){
             myPlaylistConfig.groupOrder = myPlaylistData.map(g => g.name);
         }
 
+        function getCustomGroupNames() {
+            if (!Array.isArray(myPlaylistConfig.customGroups)) {
+                return [];
+            }
+
+            return myPlaylistConfig.customGroups
+                .map(group => typeof group === 'string' ? group : group?.name)
+                .map(name => typeof name === 'string' ? name.trim() : '')
+                .filter(Boolean);
+        }
+
+        function isCustomGroupName(groupName) {
+            return getCustomGroupNames().includes(groupName);
+        }
+
         // 根据当前（可能已重命名）的分组名，查找原始分组名
         function getOriginalGroupName(currentName) {
             if (myPlaylistConfig.groupRenameMap) {
@@ -3446,9 +3458,16 @@ if(success){
             return currentName;
         }
 
-        function groupNameExists(targetName, excludeOriginalName = null) {
+        function groupNameExists(targetName, options = {}) {
             const trimmedName = targetName.trim();
             if (!trimmedName) return false;
+            if (trimmedName === '未分组') return true;
+
+            const { excludeOriginalName = null, excludeCustomName = null } = options;
+
+            if (getCustomGroupNames().some(groupName => groupName !== excludeCustomName && groupName === trimmedName)) {
+                return true;
+            }
 
             return myPlaylistOriginalData.some(group => {
                 if (group.name === excludeOriginalName) {
@@ -3459,11 +3478,128 @@ if(success){
             });
         }
 
+        async function fetchExternalConfigSnapshot() {
+            const response = await fetch('/api/external-sources');
+            const payload = await response.json();
+            if (!response.ok || payload.success === false) {
+                throw new Error(payload.message || '获取自定义源配置失败');
+            }
+            return normalizeExternalConfig(payload);
+        }
+
+        async function saveExternalConfigSnapshot(config) {
+            const response = await fetch('/api/external-sources', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save', sources: config })
+            });
+            const result = await response.json();
+            if (!response.ok || result.success === false) {
+                throw new Error(result.message || '保存自定义源配置失败');
+            }
+            externalConfig = await fetchExternalConfigSnapshot();
+            const channelsResponse = await fetch('/api/channels');
+            if (channelsResponse.ok) {
+                allChannels = await channelsResponse.json();
+            }
+        }
+
+        async function remapManualGroupInExternalSources(fromGroup, toGroup) {
+            const latestExternalConfig = await fetchExternalConfigSnapshot();
+            let changed = false;
+
+            latestExternalConfig.sources = (latestExternalConfig.sources || []).map(source => {
+                if (source.mode === 'subscription') {
+                    return source;
+                }
+
+                const sourceGroup = source.group || '未分组';
+                if (sourceGroup !== fromGroup) {
+                    return source;
+                }
+
+                changed = true;
+                return {
+                    ...source,
+                    group: toGroup
+                };
+            });
+
+            if (!changed) {
+                externalConfig = latestExternalConfig;
+                return false;
+            }
+
+            await saveExternalConfigSnapshot(latestExternalConfig);
+            return true;
+        }
+
+        async function addGroup() {
+            const newName = prompt('新建分组', '');
+            if (!newName) return;
+
+            const trimmed = newName.trim();
+            if (!trimmed) return;
+
+            if (groupNameExists(trimmed)) {
+                showStatus(`分组 "${trimmed}" 已存在`, 'error');
+                return;
+            }
+
+            const originalCustomGroups = JSON.parse(JSON.stringify(myPlaylistConfig.customGroups || []));
+            const originalGroupOrder = [...(myPlaylistConfig.groupOrder || [])];
+
+            if (!Array.isArray(myPlaylistConfig.customGroups)) {
+                myPlaylistConfig.customGroups = [];
+            }
+
+            myPlaylistConfig.customGroups.push({ name: trimmed });
+            if (!Array.isArray(myPlaylistConfig.groupOrder)) {
+                myPlaylistConfig.groupOrder = [];
+            }
+            if (!myPlaylistConfig.groupOrder.includes(trimmed)) {
+                myPlaylistConfig.groupOrder.push(trimmed);
+            }
+
+            try {
+                const response = await fetch('/api/my-playlist-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    await loadMyPlaylist(false);
+                    const newGroupIndex = myPlaylistData.findIndex(group => group.name === trimmed);
+                    if (newGroupIndex !== -1) {
+                        selectedGroupIndex = newGroupIndex;
+                        isViewingDeleted = false;
+                        renderMyPlaylist();
+                    }
+                    showStatus(`已新增分组 "${trimmed}"`, 'success');
+                } else {
+                    myPlaylistConfig.customGroups = originalCustomGroups;
+                    myPlaylistConfig.groupOrder = originalGroupOrder;
+                    showStatus(result.message || '新增分组失败', 'error');
+                }
+            } catch (error) {
+                myPlaylistConfig.customGroups = originalCustomGroups;
+                myPlaylistConfig.groupOrder = originalGroupOrder;
+                showStatus('新增分组失败: ' + error.message, 'error');
+            }
+        }
+
         async function renameGroup(groupIndex) {
             const group = myPlaylistData[groupIndex];
             if (!group) return;
 
             const currentName = group.name;
+            if (currentName === '未分组') {
+                showStatus('未分组不支持重命名', 'error');
+                return;
+            }
+
+            const isCustomGroup = isCustomGroupName(currentName);
             const originalName = getOriginalGroupName(currentName);
 
             const newName = prompt('重命名分组', currentName);
@@ -3471,18 +3607,35 @@ if(success){
 
             const trimmed = newName.trim();
 
-            if (trimmed !== originalName && groupNameExists(trimmed, originalName)) {
+            if (groupNameExists(trimmed, {
+                excludeOriginalName: isCustomGroup ? null : originalName,
+                excludeCustomName: isCustomGroup ? currentName : null
+            })) {
                 showStatus(`分组 "${trimmed}" 已存在`, 'error');
                 return;
             }
 
-            // 更新 groupRenameMap
-            if (!myPlaylistConfig.groupRenameMap) myPlaylistConfig.groupRenameMap = {};
-            if (trimmed === originalName) {
-                // 改回原名，删除映射
-                delete myPlaylistConfig.groupRenameMap[originalName];
+            const originalCustomGroups = JSON.parse(JSON.stringify(myPlaylistConfig.customGroups || []));
+            const originalGroupOrder = [...(myPlaylistConfig.groupOrder || [])];
+            const originalGroupRenameMap = JSON.parse(JSON.stringify(myPlaylistConfig.groupRenameMap || {}));
+
+            if (isCustomGroup) {
+                myPlaylistConfig.customGroups = (myPlaylistConfig.customGroups || []).map(group => {
+                    const groupName = typeof group === 'string' ? group : group?.name;
+                    if (groupName !== currentName) {
+                        return group;
+                    }
+                    return typeof group === 'string' ? trimmed : { ...group, name: trimmed };
+                });
             } else {
-                myPlaylistConfig.groupRenameMap[originalName] = trimmed;
+                // 更新 groupRenameMap
+                if (!myPlaylistConfig.groupRenameMap) myPlaylistConfig.groupRenameMap = {};
+                if (trimmed === originalName) {
+                    // 改回原名，删除映射
+                    delete myPlaylistConfig.groupRenameMap[originalName];
+                } else {
+                    myPlaylistConfig.groupRenameMap[originalName] = trimmed;
+                }
             }
 
             // 同步 groupOrder 中的名称
@@ -3493,13 +3646,85 @@ if(success){
                 }
             }
 
-            await saveMyPlaylist();
-            await loadMyPlaylist(false);
-            showStatus(`分组已重命名为 "${trimmed}"`, 'success');
+            try {
+                if (isCustomGroup) {
+                    await remapManualGroupInExternalSources(currentName, trimmed);
+                }
+                const saveResult = await saveMyPlaylist();
+                if (!saveResult?.success) {
+                    throw new Error(saveResult?.message || '保存分组配置失败');
+                }
+                await loadMyPlaylist(false);
+                showStatus(`分组已重命名为 "${trimmed}"`, 'success');
+            } catch (error) {
+                myPlaylistConfig.customGroups = originalCustomGroups;
+                myPlaylistConfig.groupOrder = originalGroupOrder;
+                myPlaylistConfig.groupRenameMap = originalGroupRenameMap;
+                showStatus('分组重命名失败: ' + error.message, 'error');
+            }
+        }
+
+        async function removeGroup(index) {
+            const group = myPlaylistData[index];
+            if (!group) return;
+
+            if (group.name === '未分组') {
+                showStatus('未分组不支持删除', 'error');
+                return;
+            }
+
+            if (!isCustomGroupName(group.name)) {
+                showStatus('只有手动创建的分组支持删除', 'error');
+                return;
+            }
+
+            const confirmed = await showConfirm(
+                `确定删除分组 "${group.name}" 吗？\n该分组下的频道会移动到“未分组”`
+            );
+            if (!confirmed) return;
+
+            const currentName = group.name;
+            const originalCustomGroups = JSON.parse(JSON.stringify(myPlaylistConfig.customGroups || []));
+            const originalGroupOrder = [...(myPlaylistConfig.groupOrder || [])];
+
+            myPlaylistConfig.customGroups = (myPlaylistConfig.customGroups || []).filter(groupItem => {
+                const groupName = typeof groupItem === 'string' ? groupItem : groupItem?.name;
+                return groupName !== currentName;
+            });
+
+            myPlaylistConfig.groupOrder = (myPlaylistConfig.groupOrder || []).filter(name => name !== currentName);
+
+            try {
+                await remapManualGroupInExternalSources(currentName, '未分组');
+                const saveResult = await saveMyPlaylist();
+                if (!saveResult?.success) {
+                    throw new Error(saveResult?.message || '保存分组配置失败');
+                }
+                await loadMyPlaylist(false);
+                const ungroupedIndex = myPlaylistData.findIndex(item => item.name === '未分组');
+                if (ungroupedIndex !== -1) {
+                    selectedGroupIndex = ungroupedIndex;
+                    isViewingDeleted = false;
+                    renderMyPlaylist();
+                }
+                showStatus(`已删除分组 "${currentName}"，频道已移到未分组`, 'success');
+            } catch (error) {
+                myPlaylistConfig.customGroups = originalCustomGroups;
+                myPlaylistConfig.groupOrder = originalGroupOrder;
+                showStatus('删除分组失败: ' + error.message, 'error');
+            }
         }
 
         async function deleteGroup(index) {
             const group = myPlaylistData[index];
+            if (!group || group.name === '未分组') {
+                showStatus('未分组不支持隐藏', 'error');
+                return;
+            }
+            if (isCustomGroupName(group.name)) {
+                showStatus('自定义空分组不支持隐藏，请直接删除分组', 'error');
+                return;
+            }
             const confirmed = await showConfirm(`确定隐藏分组 "${group.name}" 吗？\n该分组的 ${group.channels.length} 个频道将被移到"已隐藏"区域`);
             if (!confirmed) return;
             
@@ -3725,8 +3950,13 @@ if(success){
                 } else {
                     showStatus(result.message || '保存失败', 'error');
                 }
+                return result;
             } catch (error) {
                 showStatus('保存失败: ' + error.message, 'error');
+                return {
+                    success: false,
+                    message: error.message
+                };
             }
         }
 

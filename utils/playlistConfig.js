@@ -166,17 +166,47 @@ function isGroupDeleted(groupName, deletedGroups) {
 }
 
 /**
- * 校验分组重命名是否会与现有分组重名
+ * 获取自定义分组名称
  */
-export function validateGroupRenameMap(groups, config) {
+function getCustomGroupNames(config) {
+  if (!Array.isArray(config?.customGroups)) {
+    return []
+  }
+
+  return config.customGroups
+    .map(group => typeof group === 'string' ? group : group?.name)
+    .map(name => typeof name === 'string' ? name.trim() : '')
+    .filter(Boolean)
+}
+
+/**
+ * 校验分组配置是否会与现有分组重名
+ */
+export function validateGroupConfig(groups, config) {
   const renameMap = config?.groupRenameMap || {}
-  const occupiedNames = new Map()
+  const occupiedNames = new Map([['未分组', '__reserved_ungrouped__']])
+
+  if (renameMap['未分组'] && renameMap['未分组'] !== '未分组') {
+    return {
+      valid: false,
+      message: '未分组不支持重命名'
+    }
+  }
 
   for (const group of groups) {
     const targetName = renameMap[group.name] || group.name
     const existingGroup = occupiedNames.get(targetName)
 
     if (existingGroup && existingGroup !== group.name) {
+      if (!(targetName === '未分组' && group.name === '未分组')) {
+        return {
+          valid: false,
+          message: `分组 "${targetName}" 已存在`
+        }
+      }
+    }
+
+    if (group.name !== '未分组' && targetName === '未分组') {
       return {
         valid: false,
         message: `分组 "${targetName}" 已存在`
@@ -184,6 +214,17 @@ export function validateGroupRenameMap(groups, config) {
     }
 
     occupiedNames.set(targetName, group.name)
+  }
+
+  for (const customGroupName of getCustomGroupNames(config)) {
+    if (occupiedNames.has(customGroupName)) {
+      return {
+        valid: false,
+        message: `分组 "${customGroupName}" 已存在`
+      }
+    }
+
+    occupiedNames.set(customGroupName, `custom:${customGroupName}`)
   }
 
   return { valid: true }
@@ -222,7 +263,7 @@ export function applyConfig(groups, config) {
       
       // 使用频道的原始分组（应用重命名映射）
       let targetGroup = channel.originalGroup
-      if (config.groupRenameMap && config.groupRenameMap[targetGroup]) {
+      if (targetGroup !== '未分组' && config.groupRenameMap && config.groupRenameMap[targetGroup]) {
         targetGroup = config.groupRenameMap[targetGroup]
       }
       
@@ -233,12 +274,18 @@ export function applyConfig(groups, config) {
       resultGroups[targetGroup].push(channel)
     })
     
-    // 3. 转换为数组并排序
+    // 3. 补齐自定义空分组
+    getCustomGroupNames(config).forEach(groupName => {
+      if (!resultGroups[groupName]) {
+        resultGroups[groupName] = []
+      }
+    })
+
+    // 4. 转换为数组并排序
     let result = Object.entries(resultGroups)
-      .filter(([_, channels]) => channels.length > 0) // 移除空分组
       .map(([name, channels]) => ({ name, channels }))
     
-    // 4. 应用分组排序
+    // 5. 应用分组排序
     if (config.groupOrder && config.groupOrder.length > 0) {
       result.sort((a, b) => {
         const indexA = config.groupOrder.indexOf(a.name)
@@ -310,7 +357,7 @@ export default {
   readConfig,
   saveConfig,
   parseInterfaceTxt,
-  validateGroupRenameMap,
+  validateGroupConfig,
   applyConfig,
   generateM3u8,
   generateTxt,

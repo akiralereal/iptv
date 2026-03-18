@@ -1,6 +1,6 @@
 # iPTV
 
-**当前版本：v1.6.0**
+**当前版本：v1.7.0**
 
 > 一个支持GUI的 IPTV 直播源管理和分发系统，内置咪咕视频源抓取，支持外部直播源管理及自定义直播源订阅。
 >
@@ -32,6 +32,12 @@
 ---
 
 ## 📋 更新日志
+
+### v1.7.0 (2026-03-18)
+- 🆕 新增**手动分组**功能：可在「我的频道」中创建空分组，并在自定义源中直接使用这些分组
+- 🗑️ 新增**手动分组删除**功能：删除后，该分组下的自定义直连/抓取频道会自动并入 `未分组`
+- 🔒 调整分组操作边界：内置咪咕分组、订阅源分组仅支持隐藏，`未分组` 不允许重命名、删除或隐藏
+- 🐛 修复自定义频道与分组管理问题：避免直连频道 ID 冲突导致“我的频道”丢失频道，并阻止重命名到已存在分组名
 
 ### v1.6.0 (2026-03-16)
 - 🐛 修复频道去重逻辑：将全局按频道名去重改为**分类内去重**，允许同一频道出现在不同分组中，与咪咕 App 行为一致
@@ -562,10 +568,10 @@ $Env:mport=1905; $Env:mhost="http://localhost:1905"; node app.js
 <!--
 ## 🔖 版本发布
 
-使用 `bump-version.js` 脚本统一管理版本号（自动更新 `package.json`、`web/admin.html`、`README.md`、`.github/workflows/push_docker.yaml`）。
+使用 `bump-version.js` 脚本统一管理版本号（自动更新 `package.json`、`package-lock.json`、`web/admin.html`、`README.md`、`.github/workflows/push_docker.yaml`）。
 
 ```bash
-# 1. 更新版本号（自动修改 4 个文件）
+# 1. 更新版本号（自动修改 5 个文件）
 node bump-version.js patch          # 1.4.3 → 1.4.4
 node bump-version.js minor          # 1.4.3 → 1.5.0
 node bump-version.js major          # 1.4.3 → 2.0.0

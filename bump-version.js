@@ -46,7 +46,8 @@ if (/^\d+\.\d+\.\d+$/.test(arg)) {
 }
 
 const [newMajor, newMinor] = newVersion.split('.')
-const today = new Date().toISOString().slice(0, 10)
+const now = new Date()
+const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
 console.log(`版本更新: ${current} → ${newVersion}\n`)
 
@@ -60,7 +61,21 @@ pkgContent = pkgContent.replace(
 writeFileSync(pkgPath, pkgContent)
 console.log(`✔ package.json`)
 
-// 2. web/admin.html
+// 2. package-lock.json
+const lockPath = r('package-lock.json')
+let lockContent = readFileSync(lockPath, 'utf-8')
+lockContent = lockContent.replace(
+  /"version":\s*"[^"]*"/,
+  `"version": "${newVersion}"`
+)
+lockContent = lockContent.replace(
+  /("":\s*\{\s*"name":\s*"iptv",\s*"version":\s*")[^"]*(")/s,
+  `$1${newVersion}$2`
+)
+writeFileSync(lockPath, lockContent)
+console.log(`✔ package-lock.json`)
+
+// 3. web/admin.html
 const htmlPath = r('web/admin.html')
 let htmlContent = readFileSync(htmlPath, 'utf-8')
 htmlContent = htmlContent.replace(
@@ -70,9 +85,10 @@ htmlContent = htmlContent.replace(
 writeFileSync(htmlPath, htmlContent)
 console.log(`✔ web/admin.html`)
 
-// 3. README.md - 标题版本 + 插入更新日志占位
+// 4. README.md - 标题版本 + 插入更新日志占位
 const readmePath = r('README.md')
 let readme = readFileSync(readmePath, 'utf-8')
+const readmeEol = readme.includes('\r\n') ? '\r\n' : '\n'
 readme = readme.replace(
   /\*\*当前版本：v[^*]*\*\*/,
   `**当前版本：v${newVersion}**`
@@ -81,14 +97,14 @@ readme = readme.replace(
 const changelogEntry = `### v${newVersion} (${today})`
 if (!readme.includes(changelogEntry)) {
   readme = readme.replace(
-    /(## 📋 更新日志\n\n)/,
-    `$1${changelogEntry}\n- \n\n`
+    /(## 📋 更新日志\r?\n\r?\n)/,
+    `$1${changelogEntry}${readmeEol}- ${readmeEol}${readmeEol}`
   )
 }
 writeFileSync(readmePath, readme)
 console.log(`✔ README.md`)
 
-// 4. .github/workflows/push_docker.yaml
+// 5. .github/workflows/push_docker.yaml
 const yamlPath = r('.github/workflows/push_docker.yaml')
 let yaml = readFileSync(yamlPath, 'utf-8')
 yaml = yaml.replace(

@@ -12,7 +12,7 @@ import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
          addExternalSourceAPI, removeExternalSourceAPI, updateExternalSourceAPI, 
          setExternalSourceM3u8API, importSubscriptionAPI, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
-import { readConfig, saveConfig, parseInterfaceTxt, applyConfig } from "./utils/playlistConfig.js";
+import { readConfig, saveConfig, parseInterfaceTxt, validateGroupRenameMap, applyConfig } from "./utils/playlistConfig.js";
 import { updateBuiltInSources, updateExternalSources, externalSourceManager } from "./utils/channelMerger.js";
 import { GITHUB_RAW_MIRRORS } from "./utils/externalSources.js";
 
@@ -305,6 +305,22 @@ const server = http.createServer(async (req, res) => {
       req.on('end', () => {
         try {
           const config = JSON.parse(body)
+          const currentConfig = readConfig()
+          const currentRenameMap = currentConfig.groupRenameMap || {}
+          const nextRenameMap = config.groupRenameMap || {}
+          const renameMapChanged = JSON.stringify(currentRenameMap) !== JSON.stringify(nextRenameMap)
+
+          if (renameMapChanged) {
+            const groups = parseInterfaceTxt()
+            const validation = validateGroupRenameMap(groups, config)
+            if (!validation.valid) {
+              res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+              res.end(JSON.stringify({ success: false, message: validation.message }));
+              loading = false
+              return
+            }
+          }
+
           const result = saveConfig(config)
           res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
           res.end(JSON.stringify(result));

@@ -166,6 +166,30 @@ function isGroupDeleted(groupName, deletedGroups) {
 }
 
 /**
+ * 校验分组重命名是否会与现有分组重名
+ */
+export function validateGroupRenameMap(groups, config) {
+  const renameMap = config?.groupRenameMap || {}
+  const occupiedNames = new Map()
+
+  for (const group of groups) {
+    const targetName = renameMap[group.name] || group.name
+    const existingGroup = occupiedNames.get(targetName)
+
+    if (existingGroup && existingGroup !== group.name) {
+      return {
+        valid: false,
+        message: `分组 "${targetName}" 已存在`
+      }
+    }
+
+    occupiedNames.set(targetName, group.name)
+  }
+
+  return { valid: true }
+}
+
+/**
  * 应用配置到频道列表
  */
 export function applyConfig(groups, config) {
@@ -286,6 +310,7 @@ export default {
   readConfig,
   saveConfig,
   parseInterfaceTxt,
+  validateGroupRenameMap,
   applyConfig,
   generateM3u8,
   generateTxt,

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
 import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 
@@ -13,6 +14,25 @@ const DEFAULT_CONFIG = {
   groupOrder: [],           // 分组显示顺序
   deletedGroups: [],        // 删除的分组名列表
   groupRenameMap: {}        // 分组重命名映射 { 原始名: 新名 }
+}
+
+function buildChannelId({ groupName, channelName, tvgName, url }) {
+  if (!url) {
+    return createHash('sha1')
+      .update(`${groupName}\n${channelName}\n${tvgName || ''}`)
+      .digest('hex')
+      .slice(0, 16)
+  }
+
+  const miguRelayMatch = url.match(/^\$\{replace\}\/([^/?#]+)(?:\?[^#]*)?$/)
+  if (miguRelayMatch) {
+    return miguRelayMatch[1]
+  }
+
+  return `ext-${createHash('sha1')
+    .update(`${groupName}\n${channelName}\n${tvgName || ''}\n${url}`)
+    .digest('hex')
+    .slice(0, 16)}`
 }
 
 /**
@@ -92,12 +112,13 @@ export function parseInterfaceTxt() {
           const channelName = nameMatch[1]
           const url = lines[i + 1].trim()
           
-          // 提取频道ID (从URL中提取pID或使用完整URL)
-          let channelId = url
-          const pidMatch = url.match(/\/([^\/\?]+)(\?|$)/)
-          if (pidMatch) {
-            channelId = pidMatch[1]
-          }
+          const tvgName = tvgNameMatch ? tvgNameMatch[1] : channelName
+          const channelId = buildChannelId({
+            groupName,
+            channelName,
+            tvgName,
+            url
+          })
           
           if (!groups[groupName]) {
             groups[groupName] = []
@@ -107,7 +128,7 @@ export function parseInterfaceTxt() {
             id: channelId,
             name: channelName,
             tvgId: tvgIdMatch ? tvgIdMatch[1] : '',
-            tvgName: tvgNameMatch ? tvgNameMatch[1] : channelName,
+            tvgName: tvgName,
             logo: tvgLogoMatch ? tvgLogoMatch[1] : '',
             url: url,
             originalGroup: groupName

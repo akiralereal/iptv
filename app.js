@@ -42,46 +42,42 @@ const server = http.createServer(async (req, res) => {
     return
   }
   
-  // 管理后台路由（需要密码访问）
-  if (urlPath === '/admin' || urlPath.startsWith('/admin/')) {
-    if (pass !== "" && !urlPath.includes(`/${pass}/admin`)) {
-      // 需要密码但未提供
-      const redirectUrl = `/${pass}/admin`
-      printRed(`管理后台访问需要密码，请访问: ${redirectUrl}`)
-      res.writeHead(200, { 'Content-Type': 'text/html;charset=UTF-8' });
-      res.end(`<html><body>请访问: <a href="${redirectUrl}">${redirectUrl}</a></body></html>`);
+  // 管理后台路由（支持 /admin 和 /密码/admin）
+  if (urlPath === '/admin' || (pass !== "" && urlPath === `/${pass}/admin`)) {
+    if (pass !== "" && urlPath !== `/${pass}/admin`) {
+      // 需要密码但未提供或密码错误
+      printRed(`管理后台访问需要密码，已拒绝未授权访问`)
+      res.writeHead(403, { 'Content-Type': 'text/html;charset=UTF-8' });
+      res.end(`<html><body><p>访问需要密码，请使用正确的密码路径访问管理后台。</p><p>格式: <code>/你的密码/admin</code></p></body></html>`);
       loading = false
       return
     }
-    
+
     // 返回管理页面
-    if (urlPath.endsWith('/admin') || urlPath === '/admin/') {
-      try {
-        const html = readFileSync(`${process.cwd()}/web/admin.html`, 'utf-8')
-        res.writeHead(200, { 'Content-Type': 'text/html;charset=UTF-8' });
-        res.end(html);
-        printGreen("管理后台访问")
-      } catch (error) {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Admin page not found');
-        printRed("管理页面文件不存在")
-      }
-      loading = false
-      return
+    try {
+      const html = readFileSync(`${process.cwd()}/web/admin.html`, 'utf-8')
+      res.writeHead(200, { 'Content-Type': 'text/html;charset=UTF-8' });
+      res.end(html);
+      printGreen("管理后台访问")
+    } catch (error) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Admin page not found');
+      printRed("管理页面文件不存在")
     }
+    loading = false
+    return
   }
   
-  // 播放器页面路由
-  if (urlPath === '/player' || urlPath.startsWith('/player/')) {
-    if (pass !== "" && !urlPath.includes(`/${pass}/player`)) {
-      // 需要密码但未提供，重定向到带密码的播放器
-      const redirectUrl = `/${pass}/player${url.includes('?') ? url.substring(url.indexOf('?')) : ''}`
-      res.writeHead(302, { 'Location': redirectUrl });
-      res.end();
+  // 播放器页面路由（支持 /player 和 /密码/player）
+  if (urlPath === '/player' || (pass !== "" && urlPath === `/${pass}/player`)) {
+    if (pass !== "" && urlPath !== `/${pass}/player`) {
+      // 需要密码但未提供或密码错误
+      res.writeHead(403, { 'Content-Type': 'text/html;charset=UTF-8' });
+      res.end(`<html><body><p>访问需要密码，请使用正确的密码路径访问。</p><p>格式: <code>/你的密码/player</code></p></body></html>`);
       loading = false
       return
     }
-    
+
     try {
       const html = readFileSync(`${process.cwd()}/web/player.html`, 'utf-8')
       res.writeHead(200, { 'Content-Type': 'text/html;charset=UTF-8' });

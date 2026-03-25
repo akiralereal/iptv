@@ -46,7 +46,11 @@ async function getAllChannels(options = {}) {
     const builtInChannels = builtInSourceManager.getValidChannels()
     
     // 合并数据：咪咕源 + 内置源 + 外部源
-    const allChannels = [...miguChannels]
+    // 深拷贝分组及 dataList，避免 merge 操作污染 cachedMiguChannels
+    const allChannels = miguChannels.map(group => ({
+      ...group,
+      dataList: [...group.dataList]
+    }))
     
     // 先合并内置源
     builtInChannels.forEach(builtInGroup => {

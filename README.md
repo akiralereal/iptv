@@ -14,11 +14,11 @@
   </tr>
   <tr>
     <td align="center">
-      <a href="https://ko-fi.com/akirale"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi"/></a>
+      <a href="https://ko-fi.com/akirale" target="_blank"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi"/></a>
     </td>
     <td align="center">
       <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=TArpwDgewYSFCYX6XoJ6drwpEU6UGBw5yq" width="200" alt="USDT TRC20 QR Code"/><br/>
-      <code>TArpwDgewYSFCYX6XoJ6drwpEU6UGBw5yq</code> <img src="https://img.shields.io/badge/📋_Copy-grey" alt="copy"/><br/><br/>
+      <code>TArpwDgewYSFCYX6XoJ6drwpEU6UGBw5yq</code><br/><br/>
       <sub>⚠️ 仅支持 <b>TRON (TRC20)</b> 网络，请勿使用其他网络<br/>Only via <b>TRON (TRC20)</b> network</sub>
     </td>
   </tr>

@@ -3,6 +3,27 @@
 [![GitHub](https://img.shields.io/badge/GitHub-akiralereal/iptv-181717?logo=github&logoColor=white&style=for-the-badge&logoSize=auto)](https://github.com/akiralereal/iptv)
 [![Docker Hub](https://img.shields.io/badge/Docker%20Hub-akiralereal/iptv-2496ED?logo=docker&logoColor=white&style=for-the-badge&logoSize=auto)](https://hub.docker.com/r/akiralereal/iptv)
 
+### ☕ 打赏支持 / Buy Me a Coffee
+
+> 如果这个项目对你有帮助，欢迎支持一下 :)
+
+<table>
+  <tr>
+    <td align="center"><b>☕ Ko-fi</b></td>
+    <td align="center"><b>💰 USDT (TRC20)</b></td>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="https://ko-fi.com/akirale"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi"/></a>
+    </td>
+    <td align="center">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=TArpwDgewYSFCYX6XoJ6drwpEU6UGBw5yq" width="200" alt="USDT TRC20 QR Code"/><br/>
+      <code>TArpwDgewYSFCYX6XoJ6drwpEU6UGBw5yq</code> <img src="https://img.shields.io/badge/📋_Copy-grey" alt="copy"/><br/><br/>
+      <sub>⚠️ 仅支持 <b>TRON (TRC20)</b> 网络，请勿使用其他网络<br/>Only via <b>TRON (TRC20)</b> network</sub>
+    </td>
+  </tr>
+</table>
+
 **当前版本：v1.7.2**
 
 > 一个基于 Docker 部署的 IPTV 直播源管理和分发系统，支持 GUI 管理，内置咪咕视频源抓取，支持外部直播源管理及自定义直播源订阅。

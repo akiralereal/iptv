@@ -1,5 +1,8 @@
 # iPTV-Docker
 
+[![GitHub](https://img.shields.io/badge/GitHub-akiralereal/iptv-blue?logo=github)](https://github.com/akiralereal/iptv)
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-akiralereal/iptv-blue?logo=docker)](https://hub.docker.com/r/akiralereal/iptv)
+
 **当前版本：v1.7.2**
 
 > 一个基于 Docker 部署的 IPTV 直播源管理和分发系统，支持 GUI 管理，内置咪咕视频源抓取，支持外部直播源管理及自定义直播源订阅。

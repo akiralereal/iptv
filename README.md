@@ -10,9 +10,9 @@
 > - 📡 内置**港澳台及地方频道**订阅源，开箱即用
 > - 🔗 支持**订阅模式**，可导入 m3u/m3u8 播放列表批量添加频道
 <div align="center">
-  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/111.png" width="800"/>
-  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/222.png" width="800"/>
-  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/333.png" width="800"/>
+  <img src="https://raw.githubusercontent.com/akiralereal/iPTV-Docker/main/Resources/111.png" width="800"/>
+  <img src="https://raw.githubusercontent.com/akiralereal/iPTV-Docker/main/Resources/222.png" width="800"/>
+  <img src="https://raw.githubusercontent.com/akiralereal/iPTV-Docker/main/Resources/333.png" width="800"/>
 </div>
 
 ## 📖 项目简介
@@ -289,7 +289,7 @@ docker run -d -p 1905:1905 \
 > 6. 从请求头或响应中提取 `userId` 和 `token` 参数
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/000.png" alt="获取userId和token示例" width="800"/>
+  <img src="https://raw.githubusercontent.com/akiralereal/iPTV-Docker/main/Resources/000.png" alt="获取userId和token示例" width="800"/>
   <p><i>浏览器开发者工具获取 userId 和 token 示例</i></p>
 </div>
 

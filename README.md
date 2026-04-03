@@ -1,7 +1,7 @@
 # iPTV-Docker
 
-[![GitHub](https://img.shields.io/badge/GitHub-akiralereal/iptv-blue?logo=github)](https://github.com/akiralereal/iptv)
-[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-akiralereal/iptv-blue?logo=docker)](https://hub.docker.com/r/akiralereal/iptv)
+[![GitHub](https://img.shields.io/badge/GitHub-akiralereal/iptv-blue?logo=github&style=for-the-badge)](https://github.com/akiralereal/iptv)
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-akiralereal/iptv-blue?logo=docker&style=for-the-badge)](https://hub.docker.com/r/akiralereal/iptv)
 
 **当前版本：v1.7.2**
 

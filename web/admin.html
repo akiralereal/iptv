@@ -4268,6 +4268,9 @@ if(success){
                         </div>
                         <div style="margin-top: 8px; display: flex; gap: 10px; flex-wrap: wrap;">
                             <button class="btn btn-sm" onclick="copyToClipboard('${actualUrl.replace(/'/g, "\\'")}', '播放地址')">📋 复制地址</button>
+                            <button class="btn btn-sm" onclick="openInExternalPlayer('iina', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">▶️ IINA</button>
+                            <button class="btn btn-sm" onclick="openInExternalPlayer('vlc', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">▶️ VLC</button>
+                            <button class="btn btn-sm" onclick="openInExternalPlayer('potplayer', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">▶️ PotPlayer</button>
                         </div>
                     </div>
                 `;
@@ -4398,6 +4401,50 @@ if(success){
                     console.error('兼容复制失败:', err);
                 }
                 document.body.removeChild(textarea);
+            }
+        }
+
+        // 使用外部播放器打开链接（IINA / VLC / PotPlayer）
+        // 通过自定义协议唤起桌面应用；浏览器会弹出"打开应用"确认框
+        function openInExternalPlayer(player, url, name) {
+            if (!url) {
+                showStatus('播放地址为空', 'error');
+                return;
+            }
+            let schemeUrl = '';
+            const encoded = encodeURIComponent(url);
+            switch (player) {
+                case 'iina':
+                    // IINA (macOS): iina://weblink?url=<encoded>
+                    schemeUrl = `iina://weblink?url=${encoded}`;
+                    break;
+                case 'vlc':
+                    // VLC (macOS): vlc-x-callback://x-callback-url/stream?url=<encoded>
+                    // Windows/Linux 常见方案同样支持该 scheme（需安装 VLC 并注册协议）
+                    schemeUrl = `vlc-x-callback://x-callback-url/stream?url=${encoded}`;
+                    break;
+                case 'potplayer':
+                    // PotPlayer (Windows): potplayer://<url>
+                    schemeUrl = `potplayer://${url}`;
+                    break;
+                default:
+                    showStatus('未知的播放器', 'error');
+                    return;
+            }
+            try {
+                // 使用隐藏 iframe 触发协议，避免页面跳转
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = schemeUrl;
+                document.body.appendChild(iframe);
+                setTimeout(() => {
+                    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                }, 2000);
+                const label = player === 'iina' ? 'IINA' : player === 'vlc' ? 'VLC' : 'PotPlayer';
+                showStatus(`正在用 ${label} 打开：${name || ''}`, 'success');
+            } catch (err) {
+                console.error('唤起外部播放器失败:', err);
+                showStatus('唤起外部播放器失败，请确认已安装对应应用', 'error');
             }
         }
 

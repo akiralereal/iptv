@@ -1630,7 +1630,7 @@
                 <div class="my-playlist-header">
                     <div class="my-playlist-info">
                         <h3>📺 我的频道</h3>
-                        <p class="my-playlist-hint">💡 点击频道名称可查看详情，并一键用 IINA / VLC / PotPlayer 打开播放</p>
+                        <p class="my-playlist-hint">💡 点击频道名称可查看详情，并一键用 VLC / IINA / PotPlayer 打开播放</p>
                     </div>
                     <div class="my-playlist-actions">
                         <button class="btn btn-warning" onclick="resetMyPlaylist()">🔄 重置</button>
@@ -4321,15 +4321,19 @@ if(success){
                         </div>
                         <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                             <button class="btn btn-sm" onclick="copyToClipboard('${actualUrl.replace(/'/g, "\\'")}', '播放地址')">📋 复制地址</button>
-                            <button class="btn btn-sm player-btn player-btn-iina" onclick="openInExternalPlayer('iina', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">
-                                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align: -1px; margin-right: 4px;"><path d="M3.5 2.5v11l10-5.5z"/></svg>IINA
-                            </button>
                             <button class="btn btn-sm player-btn player-btn-vlc" onclick="openInExternalPlayer('vlc', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">
                                 <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align: -1px; margin-right: 4px;"><path d="M3.5 2.5v11l10-5.5z"/></svg>VLC
+                            </button>
+                            <button class="btn btn-sm player-btn player-btn-iina" onclick="openInExternalPlayer('iina', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">
+                                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align: -1px; margin-right: 4px;"><path d="M3.5 2.5v11l10-5.5z"/></svg>IINA
                             </button>
                             <button class="btn btn-sm player-btn player-btn-potplayer" onclick="openInExternalPlayer('potplayer', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">
                                 <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align: -1px; margin-right: 4px;"><path d="M3.5 2.5v11l10-5.5z"/></svg>PotPlayer
                             </button>
+                        </div>
+                        <div style="margin-top: 6px; color: #999; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                            <span>ℹ️</span>
+                            <span>点击播放按钮前，请确保本机已安装对应的播放器</span>
                         </div>
                     </div>
                 `;

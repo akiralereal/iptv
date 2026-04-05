@@ -2,6 +2,7 @@ import http from "node:http"
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { spawn } from "node:child_process"
+import { existsSync } from "node:fs"
 import fetch from 'node-fetch'
 import { host, pass, port, programInfoUpdateInterval, token, userId } from "./config.js";
 import { getDateTimeStr } from "./utils/time.js";
@@ -179,36 +180,69 @@ const server = http.createServer(async (req, res) => {
           }
 
           const platform = process.platform
-          const appMap = {
-            iina: { darwin: 'IINA' },
-            vlc: { darwin: 'VLC', win32: 'vlc', linux: 'vlc' },
-            potplayer: { win32: 'PotPlayerMini64' }
+
+          // 平台 → 播放器 → 启动配置
+          //   darwin : 用 `open -a <AppName>` 统一调起
+          //   win32  : 按常见安装路径探测 exe；否则回退到 PATH
+          //   linux  : 直接调用可执行名
+          const launchers = {
+            darwin: {
+              iina:      { type: 'open', app: 'IINA' },
+              vlc:       { type: 'open', app: 'VLC' }
+            },
+            win32: {
+              vlc: {
+                type: 'exe',
+                candidates: [
+                  'C:\\Program Files\\VideoLAN\\VLC\\vlc.exe',
+                  'C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe'
+                ],
+                fallback: 'vlc.exe'
+              },
+              potplayer: {
+                type: 'exe',
+                candidates: [
+                  'C:\\Program Files\\DAUM\\PotPlayer\\PotPlayerMini64.exe',
+                  'C:\\Program Files (x86)\\DAUM\\PotPlayer\\PotPlayerMini.exe',
+                  'C:\\Program Files\\DAUM\\PotPlayer\\PotPlayerMini.exe'
+                ],
+                fallback: 'PotPlayerMini64.exe'
+              }
+            },
+            linux: {
+              vlc: { type: 'exe', candidates: [], fallback: 'vlc' }
+            }
           }
-          const appForPlatform = appMap[player]?.[platform]
-          if (!appForPlatform) {
+
+          const config = launchers[platform]?.[player]
+          if (!config) {
             res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' })
             res.end(JSON.stringify({ success: false, message: `当前平台(${platform})不支持播放器 ${player}` }))
             loading = false
             return
           }
 
-          let child
-          if (platform === 'darwin') {
-            // open -a "AppName" "<url>" ：通过 argv 传参，避免 shell 注入
-            child = spawn('open', ['-a', appForPlatform, mediaUrl], { detached: true, stdio: 'ignore' })
-          } else if (platform === 'win32') {
-            // Windows：使用可执行名通过 PATH 启动
-            child = spawn(appForPlatform, [mediaUrl], { detached: true, stdio: 'ignore', shell: false })
+          let cmd, args, usedPath
+          if (config.type === 'open') {
+            // macOS: open -a "<AppName>" "<url>"
+            cmd = 'open'
+            args = ['-a', config.app, mediaUrl]
+            usedPath = config.app
           } else {
-            // Linux：直接调用可执行名
-            child = spawn(appForPlatform, [mediaUrl], { detached: true, stdio: 'ignore' })
+            // exe 模式：先探测候选安装路径，没命中时回退到 PATH
+            const hit = (config.candidates || []).find(p => existsSync(p))
+            cmd = hit || config.fallback
+            args = [mediaUrl]
+            usedPath = cmd
           }
+
+          const child = spawn(cmd, args, { detached: true, stdio: 'ignore', shell: false })
           child.on('error', (err) => {
-            printRed(`唤起 ${player} 失败: ${err.message}`)
+            printRed(`唤起 ${player} 失败(${usedPath}): ${err.message}`)
           })
           child.unref()
 
-          printGreen(`已请求用 ${player} 播放: ${mediaUrl.substring(0, 80)}...`)
+          printGreen(`已请求用 ${player} 播放 (${usedPath}): ${mediaUrl.substring(0, 80)}...`)
           res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' })
           res.end(JSON.stringify({ success: true }))
         } catch (error) {

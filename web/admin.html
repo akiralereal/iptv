@@ -4321,19 +4321,31 @@ if(success){
                         </div>
                         <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                             <button class="btn btn-sm" onclick="copyToClipboard('${actualUrl.replace(/'/g, "\\'")}', '播放地址')">📋 复制地址</button>
-                            <button class="btn btn-sm player-btn player-btn-vlc" onclick="openInExternalPlayer('vlc', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">
-                                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align: -1px; margin-right: 4px;"><path d="M3.5 2.5v11l10-5.5z"/></svg>VLC
-                            </button>
-                            <button class="btn btn-sm player-btn player-btn-iina" onclick="openInExternalPlayer('iina', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">
-                                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align: -1px; margin-right: 4px;"><path d="M3.5 2.5v11l10-5.5z"/></svg>IINA
-                            </button>
-                            <button class="btn btn-sm player-btn player-btn-potplayer" onclick="openInExternalPlayer('potplayer', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">
-                                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align: -1px; margin-right: 4px;"><path d="M3.5 2.5v11l10-5.5z"/></svg>PotPlayer
-                            </button>
+                            ${(PLAYERS_BY_PLATFORM[getClientPlatform()] || []).map(p => {
+                                const escUrl = actualUrl.replace(/'/g, "\\'");
+                                const escName = (channel.name || '').replace(/'/g, "\\'");
+                                const label = p === 'iina' ? 'IINA' : p === 'vlc' ? 'VLC' : 'PotPlayer';
+                                const title = p === 'vlc'
+                                    ? '点击后将下载 .m3u 文件，需在浏览器下载栏点击打开才会启动 VLC'
+                                    : `用 ${label} 打开`;
+                                return `
+                                    <button class="btn btn-sm player-btn player-btn-${p}" title="${title}" onclick="openInExternalPlayer('${p}', '${escUrl}', '${escName}')">
+                                        <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align: -1px; margin-right: 4px;"><path d="M3.5 2.5v11l10-5.5z"/></svg>${label}
+                                    </button>
+                                `;
+                            }).join('')}
                         </div>
-                        <div style="margin-top: 6px; color: #999; font-size: 12px; display: flex; align-items: center; gap: 4px;">
-                            <span>ℹ️</span>
-                            <span>点击播放按钮前，请确保本机已安装对应的播放器</span>
+                        <div style="margin-top: 6px; color: #999; font-size: 12px; line-height: 1.6;">
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <span>ℹ️</span>
+                                <span>按钮已按当前浏览器所在平台筛选；播放将在你"打开本页的这台机器"上启动，请确保本机已安装对应播放器</span>
+                            </div>
+                            ${(PLAYERS_BY_PLATFORM[getClientPlatform()] || []).includes('vlc') ? `
+                            <div style="display: flex; align-items: center; gap: 4px; color: #d48806; margin-top: 2px;">
+                                <span>⚠️</span>
+                                <span><strong>VLC</strong> 没有注册 URL 协议，点击按钮后会先<strong>下载一个 .m3u 文件</strong>，需要你再<strong>手动点击浏览器下载栏里的该文件</strong>，VLC 才会启动并播放</span>
+                            </div>
+                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -4467,26 +4479,80 @@ if(success){
             }
         }
 
-        // 使用外部播放器打开链接（IINA / VLC / PotPlayer）
-        // 通过后端 /api/launch-player 调用 `open -a` 等命令，要求 admin 与 Node 运行在同一台机器
-        async function openInExternalPlayer(player, url, name) {
+        // 检测当前浏览器所在平台（决定显示哪些播放器按钮）
+        // 重点：播放器必须运行在"打开管理页面的这台机器"上，与服务端所在平台无关
+        function getClientPlatform() {
+            const ua = (navigator.userAgent || '').toLowerCase();
+            const p = (navigator.platform || '').toLowerCase();
+            if (/mac|iphone|ipad|ipod/.test(p) || /mac os x/.test(ua)) return 'mac';
+            if (/win/.test(p)) return 'win';
+            if (/linux/.test(p)) return 'linux';
+            return 'other';
+        }
+
+        // 各平台可用的播放器清单
+        const PLAYERS_BY_PLATFORM = {
+            mac:   ['vlc', 'iina'],
+            win:   ['vlc', 'potplayer'],
+            linux: ['vlc'],
+            other: ['vlc', 'iina', 'potplayer']
+        };
+
+        // 使用外部播放器打开链接 —— 纯客户端实现
+        // - IINA / PotPlayer：通过自定义 URL scheme 唤起，浏览器首次会弹出"打开应用"确认
+        // - VLC：macOS 没有注册可用的 URL scheme，改为下载一个 .m3u 文件，用户点击即可用 VLC 打开
+        function openInExternalPlayer(player, url, name) {
             if (!url) {
                 showStatus('播放地址为空', 'error');
                 return;
             }
             const label = player === 'iina' ? 'IINA' : player === 'vlc' ? 'VLC' : 'PotPlayer';
-            try {
-                const resp = await fetch('/api/launch-player', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ player, url })
-                });
-                const data = await resp.json();
-                if (data.success) {
-                    showStatus(`正在用 ${label} 打开：${name || ''}`, 'success');
-                } else {
-                    showStatus(`唤起 ${label} 失败：${data.message || '未知错误'}`, 'error');
+
+            if (player === 'vlc') {
+                // VLC：生成 .m3u 文件触发下载，点击下载项即自动用 VLC 打开（VLC 默认关联 .m3u）
+                try {
+                    const safeName = (name || 'stream').replace(/[\\/:*?"<>|]/g, '_');
+                    const content = `#EXTM3U\n#EXTINF:-1,${name || 'Stream'}\n${url}\n`;
+                    const blob = new Blob([content], { type: 'audio/x-mpegurl' });
+                    const a = document.createElement('a');
+                    const objectUrl = URL.createObjectURL(blob);
+                    a.href = objectUrl;
+                    a.download = `${safeName}.m3u`;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        if (a.parentNode) a.parentNode.removeChild(a);
+                        URL.revokeObjectURL(objectUrl);
+                    }, 100);
+                    showStatus(`已下载 ${safeName}.m3u，点击下载项即可用 VLC 播放`, 'success');
+                } catch (err) {
+                    console.error('生成 .m3u 下载失败:', err);
+                    showStatus('生成 .m3u 文件失败', 'error');
                 }
+                return;
+            }
+
+            // IINA / PotPlayer：自定义 URL scheme
+            let schemeUrl;
+            if (player === 'iina') {
+                schemeUrl = `iina://weblink?url=${encodeURIComponent(url)}`;
+            } else if (player === 'potplayer') {
+                schemeUrl = `potplayer://${url}`;
+            } else {
+                showStatus(`不支持的播放器: ${player}`, 'error');
+                return;
+            }
+
+            try {
+                // 用隐藏 iframe 触发协议，避免当前页面跳转
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = schemeUrl;
+                document.body.appendChild(iframe);
+                setTimeout(() => {
+                    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                }, 2000);
+                showStatus(`正在用 ${label} 打开：${name || ''}（首次使用请在浏览器弹窗中允许）`, 'success');
             } catch (err) {
                 console.error('唤起外部播放器失败:', err);
                 showStatus(`唤起 ${label} 失败，请确认本机已安装对应应用`, 'error');

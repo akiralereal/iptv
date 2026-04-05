@@ -1,8 +1,6 @@
 import http from "node:http"
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
-import { spawn } from "node:child_process"
-import { existsSync } from "node:fs"
 import fetch from 'node-fetch'
 import { host, pass, port, programInfoUpdateInterval, token, userId } from "./config.js";
 import { getDateTimeStr } from "./utils/time.js";
@@ -157,103 +155,6 @@ const server = http.createServer(async (req, res) => {
       return
     }
     
-    // 调起本机播放器（IINA / VLC / PotPlayer）
-    // 注意：仅在 admin 与 Node 进程运行在同一台机器上时有效
-    if (urlPath === '/api/launch-player' && method === 'POST') {
-      let body = ''
-      req.on('data', chunk => { body += chunk })
-      req.on('end', () => {
-        try {
-          const { player, url: mediaUrl } = JSON.parse(body || '{}')
-          if (!mediaUrl || typeof mediaUrl !== 'string') {
-            res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' })
-            res.end(JSON.stringify({ success: false, message: '缺少 url' }))
-            loading = false
-            return
-          }
-          // 仅允许 http(s) 链接，避免任意协议注入
-          if (!/^https?:\/\//i.test(mediaUrl)) {
-            res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' })
-            res.end(JSON.stringify({ success: false, message: '仅支持 http/https 链接' }))
-            loading = false
-            return
-          }
-
-          const platform = process.platform
-
-          // 平台 → 播放器 → 启动配置
-          //   darwin : 用 `open -a <AppName>` 统一调起
-          //   win32  : 按常见安装路径探测 exe；否则回退到 PATH
-          //   linux  : 直接调用可执行名
-          const launchers = {
-            darwin: {
-              iina:      { type: 'open', app: 'IINA' },
-              vlc:       { type: 'open', app: 'VLC' }
-            },
-            win32: {
-              vlc: {
-                type: 'exe',
-                candidates: [
-                  'C:\\Program Files\\VideoLAN\\VLC\\vlc.exe',
-                  'C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe'
-                ],
-                fallback: 'vlc.exe'
-              },
-              potplayer: {
-                type: 'exe',
-                candidates: [
-                  'C:\\Program Files\\DAUM\\PotPlayer\\PotPlayerMini64.exe',
-                  'C:\\Program Files (x86)\\DAUM\\PotPlayer\\PotPlayerMini.exe',
-                  'C:\\Program Files\\DAUM\\PotPlayer\\PotPlayerMini.exe'
-                ],
-                fallback: 'PotPlayerMini64.exe'
-              }
-            },
-            linux: {
-              vlc: { type: 'exe', candidates: [], fallback: 'vlc' }
-            }
-          }
-
-          const config = launchers[platform]?.[player]
-          if (!config) {
-            res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' })
-            res.end(JSON.stringify({ success: false, message: `当前平台(${platform})不支持播放器 ${player}` }))
-            loading = false
-            return
-          }
-
-          let cmd, args, usedPath
-          if (config.type === 'open') {
-            // macOS: open -a "<AppName>" "<url>"
-            cmd = 'open'
-            args = ['-a', config.app, mediaUrl]
-            usedPath = config.app
-          } else {
-            // exe 模式：先探测候选安装路径，没命中时回退到 PATH
-            const hit = (config.candidates || []).find(p => existsSync(p))
-            cmd = hit || config.fallback
-            args = [mediaUrl]
-            usedPath = cmd
-          }
-
-          const child = spawn(cmd, args, { detached: true, stdio: 'ignore', shell: false })
-          child.on('error', (err) => {
-            printRed(`唤起 ${player} 失败(${usedPath}): ${err.message}`)
-          })
-          child.unref()
-
-          printGreen(`已请求用 ${player} 播放 (${usedPath}): ${mediaUrl.substring(0, 80)}...`)
-          res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' })
-          res.end(JSON.stringify({ success: true }))
-        } catch (error) {
-          res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' })
-          res.end(JSON.stringify({ success: false, message: error.message }))
-        }
-        loading = false
-      })
-      return
-    }
-
     // 外部源管理API
     if (urlPath === '/api/external-sources' && method === 'GET') {
       printBlue("API: 获取外部源配置")

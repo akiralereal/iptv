@@ -603,4 +603,4 @@ class ExternalSourceManager {
 const externalSourceManager = new ExternalSourceManager()
 
 export default externalSourceManager
-export { ExternalSourceManager, fetchAndParseM3u, GITHUB_RAW_MIRRORS }
+export { ExternalSourceManager, fetchAndParseM3u, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS }

@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
 import { getAllChannels, externalSourceManager, builtInSourceManager } from "./channelMerger.js"
+import { BUILT_IN_SUBSCRIPTIONS } from "./externalSources.js"
 import update from "./updateData.js"
 
 /**
@@ -206,15 +207,20 @@ export async function importSubscriptionAPI(index) {
 export function getBuiltInSourcesAPI() {
   try {
     const config = builtInSourceManager.getSourceList()
+    // 追加内置订阅源的 subscriptionUrl 列表，供前端识别"由内置订阅源展开出来的频道"
+    const builtInSubscriptionUrls = BUILT_IN_SUBSCRIPTIONS.map(s => s.subscriptionUrl)
     return {
       success: true,
-      data: config
+      data: {
+        ...config,
+        builtInSubscriptionUrls
+      }
     }
   } catch (error) {
     return {
       success: false,
       message: error.message,
-      data: { enabled: true, sources: [] }
+      data: { enabled: true, sources: [], builtInSubscriptionUrls: [] }
     }
   }
 }

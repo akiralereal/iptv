@@ -1,6 +1,7 @@
 import http from "node:http"
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
+import { spawn } from "node:child_process"
 import fetch from 'node-fetch'
 import { host, pass, port, programInfoUpdateInterval, token, userId } from "./config.js";
 import { getDateTimeStr } from "./utils/time.js";
@@ -155,6 +156,70 @@ const server = http.createServer(async (req, res) => {
       return
     }
     
+    // 调起本机播放器（IINA / VLC / PotPlayer）
+    // 注意：仅在 admin 与 Node 进程运行在同一台机器上时有效
+    if (urlPath === '/api/launch-player' && method === 'POST') {
+      let body = ''
+      req.on('data', chunk => { body += chunk })
+      req.on('end', () => {
+        try {
+          const { player, url: mediaUrl } = JSON.parse(body || '{}')
+          if (!mediaUrl || typeof mediaUrl !== 'string') {
+            res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' })
+            res.end(JSON.stringify({ success: false, message: '缺少 url' }))
+            loading = false
+            return
+          }
+          // 仅允许 http(s) 链接，避免任意协议注入
+          if (!/^https?:\/\//i.test(mediaUrl)) {
+            res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' })
+            res.end(JSON.stringify({ success: false, message: '仅支持 http/https 链接' }))
+            loading = false
+            return
+          }
+
+          const platform = process.platform
+          const appMap = {
+            iina: { darwin: 'IINA' },
+            vlc: { darwin: 'VLC', win32: 'vlc', linux: 'vlc' },
+            potplayer: { win32: 'PotPlayerMini64' }
+          }
+          const appForPlatform = appMap[player]?.[platform]
+          if (!appForPlatform) {
+            res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' })
+            res.end(JSON.stringify({ success: false, message: `当前平台(${platform})不支持播放器 ${player}` }))
+            loading = false
+            return
+          }
+
+          let child
+          if (platform === 'darwin') {
+            // open -a "AppName" "<url>" ：通过 argv 传参，避免 shell 注入
+            child = spawn('open', ['-a', appForPlatform, mediaUrl], { detached: true, stdio: 'ignore' })
+          } else if (platform === 'win32') {
+            // Windows：使用可执行名通过 PATH 启动
+            child = spawn(appForPlatform, [mediaUrl], { detached: true, stdio: 'ignore', shell: false })
+          } else {
+            // Linux：直接调用可执行名
+            child = spawn(appForPlatform, [mediaUrl], { detached: true, stdio: 'ignore' })
+          }
+          child.on('error', (err) => {
+            printRed(`唤起 ${player} 失败: ${err.message}`)
+          })
+          child.unref()
+
+          printGreen(`已请求用 ${player} 播放: ${mediaUrl.substring(0, 80)}...`)
+          res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' })
+          res.end(JSON.stringify({ success: true }))
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' })
+          res.end(JSON.stringify({ success: false, message: error.message }))
+        }
+        loading = false
+      })
+      return
+    }
+
     // 外部源管理API
     if (urlPath === '/api/external-sources' && method === 'GET') {
       printBlue("API: 获取外部源配置")

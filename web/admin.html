@@ -4208,8 +4208,16 @@ if(success){
             let groupName = null;
             let sourceType = 'migu'; // migu | built-in | external
 
-            // 内置源频道名集合
+            // 内置单频道源的名称集合（built-in-sources.json）
             const builtInNames = new Set((builtInConfig.sources || []).map(s => s.name));
+            // 内置订阅源的 subscriptionUrl 集合，以及由它们展开出来的频道 URL 集合
+            const builtInSubUrls = new Set(builtInConfig.builtInSubscriptionUrls || []);
+            const builtInChannelUrls = new Set();
+            (externalConfig.sources || []).forEach(s => {
+                if (s && s.subscriptionUrl && builtInSubUrls.has(s.subscriptionUrl) && Array.isArray(s.parsedChannels)) {
+                    s.parsedChannels.forEach(ch => { if (ch && ch.url) builtInChannelUrls.add(ch.url); });
+                }
+            });
 
             // 在原始数据中查找
             for (const group of myPlaylistOriginalData) {
@@ -4218,8 +4226,12 @@ if(success){
                     channel = found;
                     groupName = group.name;
                     if (found.url && !found.url.includes('${replace}')) {
-                        // 非咪咕源，判断是内置源还是外部源
-                        sourceType = builtInNames.has(found.name) ? 'built-in' : 'external';
+                        // 非咪咕源：若名字命中内置单频道源，或 URL 命中内置订阅源展开的频道，均视为内置源
+                        if (builtInNames.has(found.name) || builtInChannelUrls.has(found.url)) {
+                            sourceType = 'built-in';
+                        } else {
+                            sourceType = 'external';
+                        }
                     }
                     break;
                 }
@@ -4405,46 +4417,28 @@ if(success){
         }
 
         // 使用外部播放器打开链接（IINA / VLC / PotPlayer）
-        // 通过自定义协议唤起桌面应用；浏览器会弹出"打开应用"确认框
-        function openInExternalPlayer(player, url, name) {
+        // 通过后端 /api/launch-player 调用 `open -a` 等命令，要求 admin 与 Node 运行在同一台机器
+        async function openInExternalPlayer(player, url, name) {
             if (!url) {
                 showStatus('播放地址为空', 'error');
                 return;
             }
-            let schemeUrl = '';
-            const encoded = encodeURIComponent(url);
-            switch (player) {
-                case 'iina':
-                    // IINA (macOS): iina://weblink?url=<encoded>
-                    schemeUrl = `iina://weblink?url=${encoded}`;
-                    break;
-                case 'vlc':
-                    // VLC (macOS): vlc-x-callback://x-callback-url/stream?url=<encoded>
-                    // Windows/Linux 常见方案同样支持该 scheme（需安装 VLC 并注册协议）
-                    schemeUrl = `vlc-x-callback://x-callback-url/stream?url=${encoded}`;
-                    break;
-                case 'potplayer':
-                    // PotPlayer (Windows): potplayer://<url>
-                    schemeUrl = `potplayer://${url}`;
-                    break;
-                default:
-                    showStatus('未知的播放器', 'error');
-                    return;
-            }
+            const label = player === 'iina' ? 'IINA' : player === 'vlc' ? 'VLC' : 'PotPlayer';
             try {
-                // 使用隐藏 iframe 触发协议，避免页面跳转
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = schemeUrl;
-                document.body.appendChild(iframe);
-                setTimeout(() => {
-                    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-                }, 2000);
-                const label = player === 'iina' ? 'IINA' : player === 'vlc' ? 'VLC' : 'PotPlayer';
-                showStatus(`正在用 ${label} 打开：${name || ''}`, 'success');
+                const resp = await fetch('/api/launch-player', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ player, url })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    showStatus(`正在用 ${label} 打开：${name || ''}`, 'success');
+                } else {
+                    showStatus(`唤起 ${label} 失败：${data.message || '未知错误'}`, 'error');
+                }
             } catch (err) {
                 console.error('唤起外部播放器失败:', err);
-                showStatus('唤起外部播放器失败，请确认已安装对应应用', 'error');
+                showStatus(`唤起 ${label} 失败，请确认本机已安装对应应用`, 'error');
             }
         }
 

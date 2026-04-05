@@ -115,6 +115,23 @@
             font-size: 12px;
         }
 
+        /* 外部播放器按钮 —— 带品牌色的填充风格 */
+        .player-btn {
+            display: inline-flex;
+            align-items: center;
+            color: #fff;
+            font-weight: 500;
+            border: none;
+        }
+        .player-btn:hover { filter: brightness(1.08); }
+        .player-btn:active { filter: brightness(0.94); }
+        .player-btn-iina       { background: #7B3FF2; }
+        .player-btn-iina:hover { background: #8F5BFF; }
+        .player-btn-vlc        { background: #FF7C00; }
+        .player-btn-vlc:hover  { background: #FF9124; }
+        .player-btn-potplayer       { background: #F5C518; color: #222; }
+        .player-btn-potplayer:hover { background: #FFD53A; }
+
         .btn-primary {
             background: #1890ff;
             color: white;
@@ -4278,11 +4295,17 @@ if(success){
                         <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin-top: 5px; word-break: break-all; font-family: monospace; font-size: 12px;">
                             ${actualUrl}
                         </div>
-                        <div style="margin-top: 8px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                             <button class="btn btn-sm" onclick="copyToClipboard('${actualUrl.replace(/'/g, "\\'")}', '播放地址')">📋 复制地址</button>
-                            <button class="btn btn-sm" onclick="openInExternalPlayer('iina', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">▶️ IINA</button>
-                            <button class="btn btn-sm" onclick="openInExternalPlayer('vlc', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">▶️ VLC</button>
-                            <button class="btn btn-sm" onclick="openInExternalPlayer('potplayer', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">▶️ PotPlayer</button>
+                            <button class="btn btn-sm player-btn player-btn-iina" onclick="openInExternalPlayer('iina', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">
+                                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align: -1px; margin-right: 4px;"><path d="M3.5 2.5v11l10-5.5z"/></svg>IINA
+                            </button>
+                            <button class="btn btn-sm player-btn player-btn-vlc" onclick="openInExternalPlayer('vlc', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">
+                                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align: -1px; margin-right: 4px;"><path d="M3.5 2.5v11l10-5.5z"/></svg>VLC
+                            </button>
+                            <button class="btn btn-sm player-btn player-btn-potplayer" onclick="openInExternalPlayer('potplayer', '${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">
+                                <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="vertical-align: -1px; margin-right: 4px;"><path d="M3.5 2.5v11l10-5.5z"/></svg>PotPlayer
+                            </button>
                         </div>
                     </div>
                 `;

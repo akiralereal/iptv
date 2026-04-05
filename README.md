@@ -24,7 +24,7 @@
   </tr>
 </table>
 
-**当前版本：v1.8.0**
+**当前版本：v1.8.1**
 
 > 一个基于 Docker 部署的 IPTV 直播源管理和分发系统，支持 GUI 管理，内置咪咕视频源抓取，支持外部直播源管理及自定义直播源订阅。
 >
@@ -159,8 +159,10 @@ docker run -d -p 1905:1905 \
 
 ## 📋 更新日志
 
-### v1.8.0 (2026-04-05)
-- 🆕 频道详情弹窗新增**一键调起本地播放器**按钮（VLC / IINA / PotPlayer）：通过新增后端接口 `POST /api/launch-player` 调用 `open -a`（macOS）或直接启动 exe（Windows，自动探测 VLC / PotPlayer 标准安装路径），跨平台稳定唤起，避免依赖不可靠的自定义 URL scheme
+### v1.8.1 (2026-04-05)
+- 🆕 频道详情弹窗新增**一键调起本地播放器**按钮（VLC / IINA / PotPlayer），并按**当前浏览器所在平台**自动筛选可用按钮（Mac 显示 VLC+IINA，Windows 显示 VLC+PotPlayer，Linux 显示 VLC）
+- 🔧 **播放器启动改为纯客户端实现**：v1.8.0 的后端 `open -a` 方案仅在 Node 与客户端同机时有效，Docker/NAS 等远程部署场景完全失效；改为浏览器直接调用 URL scheme（IINA / PotPlayer）或下载 `.m3u` 文件（VLC，通过系统文件关联启动），与服务端所在平台彻底解耦
+- ⚠️ 频道详情弹窗补充 VLC 行为说明：VLC 桌面版未注册 URL scheme，点击后会先下载一个 `.m3u` 文件，需在浏览器下载栏手动点击打开，VLC 才会启动并播放
 - 🎨 播放按钮改为品牌配色 + 内联 SVG 图标（VLC 橙 / IINA 紫 / PotPlayer 金），替换渲染不一致的 emoji
 - 📺 新增内置订阅源「**全球频道**」（`Global.m3u`），与已有的「港澳地方频道」采用同一套处理方式；`BUILT_IN_SUBSCRIPTIONS` 常量化，新装默认写入，已有安装启动时自动补齐缺失内置源
 - 🐛 修复内置订阅源展开出的频道在详情弹窗被错误标记为"外部源"：内置订阅的 `subscriptionUrl` 通过 `/api/built-in-sources` 暴露给前端，按 URL 命中判定归属，确保「全球频道」「港澳地方频道」下所有频道统一显示为"内置源"

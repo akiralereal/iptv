@@ -1198,6 +1198,13 @@
             font-size: 14px;
         }
 
+        .my-playlist-info .my-playlist-hint {
+            margin-top: 4px;
+            color: #8a8a8a;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
         .my-playlist-info code {
             background: #f0f0f0;
             padding: 2px 6px;
@@ -1427,6 +1434,18 @@
             font-weight: 500;
         }
 
+        /* 频道点击提示图标 —— 默认半透明，hover 时高亮，提示用户可点击查看详情 */
+        .channel-detail-hint {
+            display: inline-block;
+            margin-right: 6px;
+            color: #bfbfbf;
+            font-size: 13px;
+            transition: color 0.2s;
+        }
+        .my-playlist-channel:hover .channel-detail-hint {
+            color: #1890ff;
+        }
+
         .my-playlist-channel-actions {
             display: flex;
             gap: 4px;
@@ -1611,6 +1630,7 @@
                 <div class="my-playlist-header">
                     <div class="my-playlist-info">
                         <h3>📺 我的频道</h3>
+                        <p class="my-playlist-hint">💡 点击频道名称可查看详情，并一键用 IINA / VLC / PotPlayer 打开播放</p>
                     </div>
                     <div class="my-playlist-actions">
                         <button class="btn btn-warning" onclick="resetMyPlaylist()">🔄 重置</button>
@@ -3318,7 +3338,9 @@ if(success){
                                            onchange="toggleChannelSelection('${channel.id}')" 
                                            ${selectedChannels.has(channel.id) ? 'checked' : ''}>
                                 ` : ''}
-                                <div class="my-playlist-channel-name" title="${channel.name}" onclick="showChannelDetail('${channel.id}', true)" style="cursor: pointer;">${channel.name}</div>
+                                <div class="my-playlist-channel-name" title="点击查看详情：${channel.name}" onclick="showChannelDetail('${channel.id}', true)" style="cursor: pointer;">
+                                    <span class="channel-detail-hint" aria-hidden="true">ⓘ</span>${channel.name}
+                                </div>
                                 ${group.isPartialDelete && !isBatchMode ? `
                                     <div class="my-playlist-channel-actions" style="opacity: 1 !important;">
                                         <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); restoreChannel('${channel.id}', '${group.name}')">恢复</button>
@@ -3376,7 +3398,9 @@ if(success){
                                                onchange="toggleChannelSelection('${channel.id}')" 
                                                ${selectedChannels.has(channel.id) ? 'checked' : ''}>
                                     ` : ''}
-                                    <div class="my-playlist-channel-name" title="${channel.name}" onclick="showChannelDetail('${channel.id}', false)" style="cursor: pointer;">${channel.name}</div>
+                                    <div class="my-playlist-channel-name" title="点击查看详情：${channel.name}" onclick="showChannelDetail('${channel.id}', false)" style="cursor: pointer;">
+                                        <span class="channel-detail-hint" aria-hidden="true">ⓘ</span>${channel.name}
+                                    </div>
                                     ${!isBatchMode ? `
                                         <div class="my-playlist-channel-actions">
                                             <button onclick="event.stopPropagation(); hideChannel('${channel.id}')">隐藏</button>

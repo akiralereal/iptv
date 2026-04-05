@@ -118,6 +118,58 @@ async function fetchAndParseM3u(subscriptionUrl) {
 const EXTERNAL_SOURCES_PATH = path.join(process.cwd(), 'external-sources.json')
 
 /**
+ * 内置订阅源列表：新安装会自动写入，已有配置会在启动时补齐缺失项（按 subscriptionUrl 去重）
+ */
+const BUILT_IN_SUBSCRIPTIONS = [
+  {
+    name: '港澳地方频道',
+    group: '未分组',
+    enabled: true,
+    mode: 'subscription',
+    m3u8Url: '',
+    webUrl: '',
+    subscriptionUrl: 'https://raw.githubusercontent.com/YueChan/Live/refs/heads/main/GNTV.m3u',
+    parsedChannels: null,
+    autoRefresh: true,
+    refreshInterval: 1440,
+    updateOnStartup: true,
+    lastUpdated: null
+  },
+  {
+    name: '全球频道',
+    group: '未分组',
+    enabled: true,
+    mode: 'subscription',
+    m3u8Url: '',
+    webUrl: '',
+    subscriptionUrl: 'https://raw.githubusercontent.com/YueChan/Live/refs/heads/main/Global.m3u',
+    parsedChannels: null,
+    autoRefresh: true,
+    refreshInterval: 1440,
+    updateOnStartup: true,
+    lastUpdated: null
+  }
+]
+
+function cloneBuiltInSubscription(entry) {
+  return JSON.parse(JSON.stringify(entry))
+}
+
+function ensureBuiltInSubscriptions(sources) {
+  if (!Array.isArray(sources)) return false
+  let mutated = false
+  for (const builtIn of BUILT_IN_SUBSCRIPTIONS) {
+    const exists = sources.some(s => s && s.subscriptionUrl === builtIn.subscriptionUrl)
+    if (!exists) {
+      sources.push(cloneBuiltInSubscription(builtIn))
+      mutated = true
+      printBlue(`补齐内置订阅源: ${builtIn.name}`)
+    }
+  }
+  return mutated
+}
+
+/**
  * 外部频道源管理类
  */
 class ExternalSourceManager {
@@ -135,42 +187,31 @@ class ExternalSourceManager {
         enabled: true,
         includeInPlaylists: true,
         updateOnStartup: true,
-        sources: [
-          {
-            name: '港澳地方频道',
-            group: '未分组',
-            enabled: true,
-            mode: 'subscription',
-            m3u8Url: '',
-            webUrl: '',
-            subscriptionUrl: 'https://raw.githubusercontent.com/YueChan/Live/refs/heads/main/GNTV.m3u',
-            parsedChannels: null,
-            autoRefresh: true,
-            refreshInterval: 1440,
-            updateOnStartup: true,
-            lastUpdated: null
-          }
-        ],
+        sources: BUILT_IN_SUBSCRIPTIONS.map(cloneBuiltInSubscription),
         updateInterval: 60,
         lastGlobalUpdate: null
       }
-      
+
       this.saveSources(defaultConfig)
       return defaultConfig
     }
-    
+
     try {
       const content = readFileSync(EXTERNAL_SOURCES_PATH, 'utf-8')
       const parsed = JSON.parse(content)
       if (Array.isArray(parsed)) {
-        return {
+        const sources = parsed.map(s => ({ ...s, updateOnStartup: s.updateOnStartup !== false }))
+        const mutated = ensureBuiltInSubscriptions(sources)
+        const config = {
           enabled: true,
           includeInPlaylists: true,
           updateOnStartup: true,
-          sources: parsed.map(s => ({ ...s, updateOnStartup: s.updateOnStartup !== false })),
+          sources,
           updateInterval: 60,
           lastGlobalUpdate: null
         }
+        if (mutated) this.saveSources(config)
+        return config
       }
       if (typeof parsed === 'object' && parsed !== null) {
         if (!Array.isArray(parsed.sources)) {
@@ -187,6 +228,9 @@ class ExternalSourceManager {
           ...s,
           updateOnStartup: s.updateOnStartup !== false
         }))
+        // 补齐缺失的内置订阅源
+        const mutated = ensureBuiltInSubscriptions(parsed.sources)
+        if (mutated) this.saveSources(parsed)
         return parsed
       }
       return { enabled: false, includeInPlaylists: true, updateOnStartup: true, sources: [] }

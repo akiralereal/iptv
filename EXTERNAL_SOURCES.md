@@ -163,6 +163,11 @@ Content-Type: application/json
 - 检查频道配置是否正确
 - 查看控制台日志输出
 
+### 4. Docker 中出现僵尸(defunct)进程
+- 自动提取(`fetch` 模式)会启动 Chromium；容器内 Node 以 PID 1 运行时，Chromium 退出后重新挂到 Node 名下的子进程不会被回收，长期累积会出现 `<defunct>` 僵尸进程
+- 镜像已内置 `tini` 作为 init 进程来回收它们：请使用**重新构建后的镜像**（带 tini 的 `ENTRYPOINT`），或在 `docker-compose.yml` 设置 `init: true`（用 `docker run` 时加 `--init`）后执行 `docker compose up -d` **重建容器**使其生效
+- `browser.close()` 已带超时与强杀进程组兜底，单次抓取卡死不会阻塞后续更新
+
 ## 示例场景
 
 ### 添加体育频道

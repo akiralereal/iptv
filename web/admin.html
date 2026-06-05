@@ -2383,9 +2383,9 @@
                             <input type="text" value="${source.name || ''}" oninput="updateExternalField(${index}, 'name', this.value)" placeholder="例：广东电视台直播源">
                         </div>
                         <div class="external-field">
-                            <label>m3u 播放列表地址 *</label>
-                            <input type="text" value="${source.subscriptionUrl || ''}" oninput="updateExternalField(${index}, 'subscriptionUrl', this.value)" placeholder="例：https://example.com/playlist.m3u">
-                            <div class="form-hint">填写包含多个频道的 m3u/m3u8 播放列表地址，系统会自动解析其中的所有频道</div>
+                            <label>订阅地址 *</label>
+                            <input type="text" value="${source.subscriptionUrl || ''}" oninput="updateExternalField(${index}, 'subscriptionUrl', this.value)" placeholder="例：https://example.com/playlist.m3u 或 .txt">
+                            <div class="form-hint">填写包含多个频道的 m3u/m3u8 或 txt（频道名,地址）播放列表地址，系统会自动识别格式并解析其中的所有频道</div>
                             ${channelInfo}
                         </div>
                         <div class="external-field">
@@ -2841,7 +2841,7 @@
                 return;
             }
             if (!source.subscriptionUrl || !source.subscriptionUrl.trim()) {
-                showStatus('请填写m3u播放列表地址', 'error');
+                showStatus('请填写订阅地址', 'error');
                 return;
             }
             

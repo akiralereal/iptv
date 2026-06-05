@@ -45,6 +45,62 @@ function parseM3uContent(content) {
 }
 
 /**
+ * 解析 TXT（diyp / TVBox）格式播放列表，提取频道列表。
+ * 格式约定：
+ *   分组名,#genre#          → 分组头，后续频道归入该分组
+ *   频道名,播放地址          → 一个频道
+ *   频道名,地址1#地址2#地址3  → 同一频道的多个备用源，取第一个
+ * 分组为空的频道交由 getValidChannels 回退到 source.group。
+ */
+function parseTxtContent(content) {
+  const lines = content.split('\n').map(l => l.trim()).filter(l => l)
+  const channels = []
+  let currentGroup = ''
+
+  for (const line of lines) {
+    // 跳过注释行（m3u 残留指令、自定义注释等）
+    if (line.startsWith('#')) continue
+
+    const commaIndex = line.indexOf(',')
+    if (commaIndex === -1) continue
+
+    const name = line.slice(0, commaIndex).trim()
+    const rest = line.slice(commaIndex + 1).trim()
+    if (!name || !rest) continue
+
+    // 分组头：xxx,#genre#
+    if (rest.toLowerCase() === '#genre#') {
+      currentGroup = name
+      continue
+    }
+
+    // 频道行：部分 txt 用 # 连接多个备用源，取第一个
+    const url = rest.split('#')[0].trim()
+    if (!url || !url.includes('://')) continue
+
+    channels.push({
+      name,
+      group: currentGroup,
+      logo: '',
+      url
+    })
+  }
+
+  return channels
+}
+
+/**
+ * 解析订阅内容，自动识别 M3U/M3U8 或 TXT（diyp/TVBox）格式。
+ * 含 #EXTM3U 头或 #EXTINF 行视为 M3U，否则按 TXT 解析。
+ */
+function parsePlaylistContent(content) {
+  if (/^﻿?#EXTM3U/i.test(content) || /#EXTINF:/i.test(content)) {
+    return parseM3uContent(content)
+  }
+  return parseTxtContent(content)
+}
+
+/**
  * 用 GBK 解码字节，环境无 GBK 解码器时回退宽松 UTF-8
  */
 function decodeGbk(buffer) {
@@ -163,7 +219,7 @@ async function fetchAndParseM3u(subscriptionUrl) {
       // 读原始字节并按编码解码（兼容 GBK/GB2312 订阅，避免分组/频道名乱码）
       const buffer = Buffer.from(await response.arrayBuffer())
       const content = decodeSubscriptionBody(buffer, response.headers.get('content-type'))
-      const channels = parseM3uContent(content)
+      const channels = parsePlaylistContent(content)
 
       if (channels.length === 0) {
         throw new Error('未能从播放列表中解析出任何频道')
@@ -675,4 +731,4 @@ class ExternalSourceManager {
 const externalSourceManager = new ExternalSourceManager()
 
 export default externalSourceManager
-export { ExternalSourceManager, fetchAndParseM3u, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS }
+export { ExternalSourceManager, fetchAndParseM3u, parsePlaylistContent, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS }

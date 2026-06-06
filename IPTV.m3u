@@ -5,10 +5,6 @@
 http://ali-xwl.cztv.com/live/channel081080Plxw.m3u8
 #EXTINF:-1 group-title="少儿",南京少儿
 http://nklive.nbs.cn/hls/e0981f3f-1a20-4a59-b8d1-17feb83a4610/index.m3u8
-#EXTINF:-1 group-title="少儿",CN卡通
-http://23.237.104.106:8080/USA_CARTOON_NETWORK/tracks-v1a1/mono.m3u8
-#EXTINF:-1 tvg-id="Disney.XD.HD.us2" tvg-name="Disney XD" group-title="少儿",Disney XD
-http://23.237.104.106:8080/USA_DISNEY_XD/index.m3u8
 
 #EXTINF:-1 group-title="综艺",苏州娱乐
 https://live-auth.51kandianshi.com/szgd/csztv4.m3u8
@@ -18,18 +14,17 @@ http://hls.nntv.cn/nnlive/YSYL_244.m3u8
 https://hwapi.yntv.net/62hdvf/q9vs1b.m3u8
 #EXTINF:-1 group-title="综艺",澳门综艺
 http://cdn6.163189.xyz/163189/amzy
+#EXTINF:-1 group-title="综艺",梨园频道
+https://dxtx.hntv.tv/live/lypd.m3u8?txSecret=10c771842a0be59e8b575d765173ec96&txTime=7B923E0A&wsSecret=1966aa8a0405e1541cff782f56c75447&wsTime=1770400669
+#EXTINF:-1 group-title="综艺",河南曲艺
+https://dxtx.hntv.tv/live/jczy.m3u8?txSecret=e785008e49564e5e738439b4dd2ae68e&txTime=7C4C6207&wsSecret=3f9e1d6e5c78cea99a876ce40f13202b&wsTime=1770400669
 
-#EXTINF:-1 group-title="体育",武术频道
-https://dxtx.hntv.tv/live/wssj.m3u8?txSecret=c38b4d31ba4c45c6babb5c47132123e3&txTime=7ABB976A&wsSecret=dfcdc24ac8a49ebd886337dc5cdc1568&wsTime=1770400669
+
 #EXTINF:-1 group-title="体育",澳门体育
 http://cdn6.163189.xyz/163189/amty
-#EXTINF:-1 group-title="体育",RTM ASEAN
-https://d25tgymtnqzu8s.cloudfront.net/event/smil:event1/chunklist_b2596000_slENG.m3u8
+#EXTINF:-1 group-title="体育",Red Bull TV
+http://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master_3360.m3u8
 
-#EXTINF:-1 group-title="曲艺",梨园频道
-https://dxtx.hntv.tv/live/lypd.m3u8?txSecret=10c771842a0be59e8b575d765173ec96&txTime=7B923E0A&wsSecret=1966aa8a0405e1541cff782f56c75447&wsTime=1770400669
-#EXTINF:-1 group-title="曲艺",河南曲艺
-https://dxtx.hntv.tv/live/jczy.m3u8?txSecret=e785008e49564e5e738439b4dd2ae68e&txTime=7C4C6207&wsSecret=3f9e1d6e5c78cea99a876ce40f13202b&wsTime=1770400669
 
 #EXTINF:-1 group-title="亚太",凤凰中文
 http://cdn6.163189.xyz/163189/fhzw
@@ -87,7 +82,7 @@ http://cdn.163189.xyz/163189/hoy78
 http://cdn.163189.xyz/163189/rthk32
 #EXTINF:-1 group-title="亚太",ViuTV
 https://cdn.163189.xyz/163189/viu
-#EXTINF:-1 tvg-id="456560" tvg-name="非凡新聞HD" group-title="亚太",[HD]非凡新聞[geo-blocked]
+#EXTINF:-1 tvg-id="456560" tvg-name="非凡新聞HD" group-title="亚太",非凡新聞
 rtmp://f13h.mine.nu/sat/tv581
 #EXTINF:-1 group-title="亚太",耀才财经
 https://v3.mediacast.hk/webcast/bshdlive-pc/playlist.m3u8
@@ -129,368 +124,14 @@ http://feilong123.vip/409990236/tv.php?id=ssxj
 
 #EXTINF:-1 group-title="纪实",文物宝库
 https://dxtx.hntv.tv/live/wwbk.m3u8?txSecret=317b89626134fd6bea6e129455b5ff18&txTime=7C4C635C&wsSecret=87c5daf4f4c3a09fb4e4cce0843d4a1c&wsTime=1770400669
-#EXTINF:-1 tvg-id="National.Geographic.HD.us2" tvg-name="National Geographic" group-title="纪实",National Geographic
-http://23.237.104.106:8080/USA_NAT_GEO/index.m3u8
-#EXTINF:-1 tvg-id="Discovery.Channel.HD.us2" tvg-name="Discovery Channel" group-title="纪实",Discovery Channel
-http://23.237.104.106:8080/USA_DISCOVERY/index.m3u8
-#EXTINF:-1 tvg-id="USBA3400003IP" tvg-name="Love Nature 4K" group-title="纪实",Love Nature 4K
-https://pb-ehs1glsha1juy.akamaized.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/pb-ehs1glsha1juy/f2141f37-1f48-475b-ba54-b9efb62346db/0.m3u8
-#EXTINF:-1 tvg-id="Love.Nature.ca2" tvg-name="Love Nature 4K CA" group-title="纪实",Love Nature 4K CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/119322
-#EXTINF:-1 tvg-id="Stingray.Ambiance.4K.ca2" tvg-name="Stingray Ambiance 4K CA" group-title="纪实",Stingray Ambiance 4K CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/119330
-#EXTINF:-1 tvg-id="INULTRA.pl" tvg-name="INULTRA 4K PL" group-title="纪实",INULTRA 4K PL
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/119321
+#EXTINF:-1 group-title="纪实",WildEarth
+https://wildearth-plex.amagi.tv/masterR1080p.m3u8
 
-#EXTINF:-1 tvg-id="ACC.Network.us2" tvg-name="ACC Network" group-title="海外体育",ACC Network
-http://23.237.104.106:8080/USA_ACCN/index.m3u8
-#EXTINF:-1 tvg-id="Altitude.Sports.us2" tvg-name="Altitude Sports" group-title="海外体育",Altitude Sports
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/111008
-#EXTINF:-1 tvg-id="beIN.Sports.USA.HD.us2" tvg-name="beIN SPORTS" group-title="海外体育",beIN SPORTS
-http://23.237.104.106:8080/USA_BEIN/index.m3u8
-#EXTINF:-1 tvg-id="beIN.Sports.En.Español.HD.us2" tvg-name="beIN SPORTS en Español" group-title="海外体育",beIN SPORTS en Español
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/27685
-#EXTINF:-1 tvg-id="Big.Ten.Network.HD.us2" tvg-name="Big Ten Network" group-title="海外体育",Big Ten Network
-http://23.237.104.106:8080/USA_BTN/index.m3u8
-#EXTINF:-1 tvg-id="CBS.Sports.Network.HD.us2" tvg-name="CBS Sports Network" group-title="海外体育",CBS Sports Network
-http://cdn1host.online:2999/live/bongus/35zqYxrbg0/197.ts
-#EXTINF:-1 tvg-id="CHSN.Chicago.Sports.Network.us2" tvg-name="Chicago Sports Network" group-title="海外体育",Chicago Sports Network
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1731
-#EXTINF:-1 tvg-id="ESPN.HD.us2" tvg-name="ESPN" group-title="海外体育",ESPN
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/119665
-#EXTINF:-1 tvg-id="ESPN2.HD.us2" tvg-name="ESPN2" group-title="海外体育",ESPN2
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/119666
-#EXTINF:-1 tvg-id="ESPNEWS.HD.us2" tvg-name="ESPNEWS" group-title="海外体育",ESPNEWS
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1275
-#EXTINF:-1 tvg-id="ESPNU.HD.us2" tvg-name="ESPNU" group-title="海外体育",ESPNU
-http://23.237.104.106:8080/USA_ESPNU/index.m3u8
-#EXTINF:-1 tvg-id="ESPN.Deportes.HD.us2" tvg-name="ESPN Deportes" group-title="海外体育",ESPN Deportes
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/109910
-#EXTINF:-1 tvg-id="Fox.Deportes.HD.us2" tvg-name="FOX Deportes" group-title="海外体育",FOX Deportes
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/36267
-#EXTINF:-1 tvg-id="Fox.Soccer.Plus.HD.us2" tvg-name="FOX Soccer Plus" group-title="海外体育",FOX Soccer Plus
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/33472
-#EXTINF:-1 tvg-id="FS1.HD.us2" tvg-name="FS1" group-title="海外体育",FS1
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/120160
-#EXTINF:-1 tvg-id="FS2.HD.us2" tvg-name="FS2" group-title="海外体育",FS2
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/120161
-#EXTINF:-1 tvg-id="Golf.Channel.HD.us2" tvg-name="Golf Channel" group-title="海外体育",Golf Channel
-http://23.237.104.106:8080/USA_GOLF/index.m3u8
-#EXTINF:-1 tvg-id="Marquee.Sports.Network.HD.us2" tvg-name="Marquee Sports Network" group-title="海外体育",Marquee Sports Network
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/108170
-#EXTINF:-1 tvg-id="MLB.Network.HD.us2" tvg-name="MLB Network" group-title="海外体育",MLB Network
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1389
-#EXTINF:-1 tvg-id="MSG.National.us2" tvg-name="MSG" group-title="海外体育",MSG
-http://23.237.104.106:8080/USA_MSG/index.m3u8
-#EXTINF:-1 tvg-id="NBA.TV.HD.us2" tvg-name="NBA TV" group-title="海外体育",NBA TV
-http://23.237.104.106:8080/USA_NBA/index.m3u8
-#EXTINF:-1 tvg-id="NBC.Sports.Bay.Area.HD.us2" tvg-name="NBC Sports Bay Area" group-title="海外体育",NBC Sports Bay Area
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1730
-#EXTINF:-1 tvg-id="NBC.Sports.Boston.HD.us2" tvg-name="NBC Sports Boston" group-title="海外体育",NBC Sports Boston
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1732
-#EXTINF:-1 tvg-id="NBC.Sports.California.SAT.us2" tvg-name="NBC Sports California" group-title="海外体育",NBC Sports California
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/35437
-#EXTINF:-1 tvg-id="NBC.Sports.Philadelphia.HD.us2" tvg-name="NBC Sports Philadelphia" group-title="海外体育",NBC Sports Philadelphia
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1734
-#EXTINF:-1 tvg-id="New.England.Sports.Network.HD.us2" tvg-name="NESN" group-title="海外体育",NESN
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/35508
-#EXTINF:-1 tvg-id="NFL.Network.HD.us2" tvg-name="NFL Network" group-title="海外体育",NFL Network
-http://23.237.104.106:8080/USA_NFL_NETWORK/index.m3u8
-#EXTINF:-1 tvg-id="NFL.RedZone.HD.us2" tvg-name="NFL RedZone" group-title="海外体育",NFL RedZone
-http://wickediptv.xyz/Randall123/Randall321/55125
-#EXTINF:-1 tvg-id="NHL.Network.HD.us2" tvg-name="NHL Network" group-title="海外体育",NHL Network
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1612
-#EXTINF:-1 tvg-id="SEC.Network.HD.us2" tvg-name="SEC Network" group-title="海外体育",SEC Network
-http://23.237.104.106:8080/USA_SEC_NETWORK/index.m3u8
-#EXTINF:-1 tvg-id="Space.City.Home.Network.HD.us2" tvg-name="Space City Home Network" group-title="海外体育",Space City Home Network
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/96149
-#EXTINF:-1 tvg-id="Spectrum.SportsNet.Lakers.HD.us2" tvg-name="Spectrum SportsNet" group-title="海外体育",Spectrum SportsNet
-http://cdn1host.online:2999/live//bongus/35zqYxrbg0/873.ts
-#EXTINF:-1 tvg-id="Spectrum.SportsNet.LA.Dodgers.HD.us2" tvg-name="Spectrum SportsNet Los Angeles" group-title="海外体育",Spectrum SportsNet Los Angeles
-http://cdn1host.online:2999/live//bongus/35zqYxrbg0/1609.ts
-#EXTINF:-1 tvg-id="SNY.SportsNet.New.York.HD.us2" tvg-name="SportsNet New York" group-title="海外体育",SportsNet New York
-http://cdn1host.online:2999/live//bongus/35zqYxrbg0/330.ts
-#EXTINF:-1 tvg-id="SportsNet.Pittsburgh.HD.us2" tvg-name="SportsNet Pittsburgh" group-title="海外体育",SportsNet Pittsburgh
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/110727
-#EXTINF:-1 tvg-id="Tennis.Channel.HD.us2" tvg-name="Tennis Channel" group-title="海外体育",Tennis Channel
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/31209
-#EXTINF:-1 tvg-id="TUDN.us2" tvg-name="TUDN" group-title="海外体育",TUDN
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/110794
-#EXTINF:-1 tvg-id="Willow.Cricket.HD.us2" tvg-name="Willow" group-title="海外体育",Willow
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/100685
-#EXTINF:-1 tvg-id="Yes.Network.us2" tvg-name="YES Network" group-title="海外体育",YES Network
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/33762
-#EXTINF:-1 tvg-id="Sportsnet.(Pacific).ca2" tvg-name="SportsNet Pacific CA" group-title="海外体育",SportsNet Pacific CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/26002
-#EXTINF:-1 tvg-id="Sportsnet.West.HD.ca2" tvg-name="SportsNet West CA" group-title="海外体育",SportsNet West CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/110725
-#EXTINF:-1 tvg-id="Sportsnet.Ontario.HD.ca2" tvg-name="SportsNet Ontario CA" group-title="海外体育",SportsNet Ontario CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/25999
-#EXTINF:-1 tvg-id="Sportsnet.East.HD.ca2" tvg-name="SportsNet East CA" group-title="海外体育",SportsNet East CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/114703
-#EXTINF:-1 tvg-id="Sportsnet.One.ca2" tvg-name="SportsNet ONE CA" group-title="海外体育",SportsNet ONE CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/26001
-#EXTINF:-1 tvg-id="Sportsnet.360.HD.ca2" tvg-name="SportsNet 360 CA" group-title="海外体育",SportsNet 360 CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/26000
-#EXTINF:-1 tvg-id="Sportsnet.World.HD.ca2" tvg-name="SportsNet World CA" group-title="海外体育",SportsNet World CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1619
-#EXTINF:-1 tvg-id="TSN.1.ca2" tvg-name="TSN1 CA" group-title="海外体育",TSN1 CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1621
-#EXTINF:-1 tvg-id="TSN.2.HD.ca2" tvg-name="TSN2 CA" group-title="海外体育",TSN2 CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1622
-#EXTINF:-1 tvg-id="TSN.3.HD.ca2" tvg-name="TSN3 CA" group-title="海外体育",TSN3 CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1623
-#EXTINF:-1 tvg-id="TSN.4.HD.ca2" tvg-name="TSN4 CA" group-title="海外体育",TSN4 CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1624
-#EXTINF:-1 tvg-id="TSN.5.HD.ca2" tvg-name="TSN5 CA" group-title="海外体育",TSN5 CA
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/1625
-#EXTINF:-1 tvg-id="SkySpMainEvHD.uk" tvg-name="Sky Sports Main Event UK" group-title="海外体育",Sky Sports Main Event UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98777
-#EXTINF:-1 tvg-id="SkySp.PL.HD.uk" tvg-name="Sky Sports Premier League UK" group-title="海外体育",Sky Sports Premier League UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98775
-#EXTINF:-1 tvg-id="Sky.Sports.Football.HD.uk" tvg-name="Sky Sports Football UK" group-title="海外体育",Sky Sports Football UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98781
-#EXTINF:-1 tvg-id="SkySp+HD.uk" tvg-name="Sky Sports+ UK" group-title="海外体育",Sky Sports+ UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98787
-#EXTINF:-1 tvg-id="SkySpCricket.HD.uk" tvg-name="Sky Sports Cricket UK" group-title="海外体育",Sky Sports Cricket UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98785
-#EXTINF:-1 tvg-id="SkySp.Golf.HD.uk" tvg-name="Sky Sports Golf UK" group-title="海外体育",Sky Sports Golf UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98779
-#EXTINF:-1 tvg-id="SkySp.F1.HD.uk" tvg-name="Sky Sports F1 UK" group-title="海外体育",Sky Sports F1 UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98783
-#EXTINF:-1 tvg-id="SkySp.Tennis.HD.uk" tvg-name="Sky Sports Tennis UK" group-title="海外体育",Sky Sports Tennis UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/118612
-#EXTINF:-1 tvg-id="SkySp.News.HD.uk" tvg-name="Sky Sports News UK" group-title="海外体育",Sky Sports News UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98801
-#EXTINF:-1 tvg-id="Sky.Sports.NFL.uk" tvg-name="Sky Sports Action UK" group-title="海外体育",Sky Sports Action UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98789
-#EXTINF:-1 tvg-id="SkySp.Racing.HD.uk" tvg-name="Sky Sports Racing UK" group-title="海外体育",Sky Sports Racing UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98773
-#EXTINF:-1 tvg-id="SkySp.Mix.HD.uk" tvg-name="Sky Sports Mix UK" group-title="海外体育",Sky Sports Mix UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98857
-#EXTINF:-1 tvg-id="TNT.Sports.1.HD.uk" tvg-name="TNT Sports 1 UK" group-title="海外体育",TNT Sports 1 UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/110708
-#EXTINF:-1 tvg-id="TNT.Sports.2.HD.uk" tvg-name="TNT Sports 2 UK" group-title="海外体育",TNT Sports 2 UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/89213
-#EXTINF:-1 tvg-id="TNT.Sports.3.HD.uk" tvg-name="TNT Sports 3 UK" group-title="海外体育",TNT Sports 3 UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/89212
-#EXTINF:-1 tvg-id="TNT.Sports.4.HD.uk" tvg-name="TNT Sports 4 UK" group-title="海外体育",TNT Sports 4 UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/89211
-#EXTINF:-1 tvg-id="Premier.Sports.1.HD.uk" tvg-name="Premier Sports 1 UK" group-title="海外体育",Premier Sports 1 UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98771
-#EXTINF:-1 tvg-id="Premier.Sports.2.HD.uk" tvg-name="Premier Sports 2 UK" group-title="海外体育",Premier Sports 2 UK
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/98770
-#EXTINF:-1 tvg-id="beIN.SPORTS.1.fr" tvg-name="beIN Sports 1 FR" group-title="海外体育",beIN Sports 1 FR
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/35522
-#EXTINF:-1 tvg-id="beIN.SPORTS.3.fr" tvg-name="beIN Sports 3 FR" group-title="海外体育",beIN Sports 3 FR
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/50150
-#EXTINF:-1 tvg-id="Canal+.Sport.360.fr" tvg-name="CANAL+ Sport 360 FR" group-title="海外体育",CANAL+ Sport 360 FR
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/159774
-#EXTINF:-1 tvg-id="Eurosport.1.fr" tvg-name="Eurosport 1 FR" group-title="海外体育",Eurosport 1 FR
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/250665
-#EXTINF:-1 tvg-id="Eurosport.2.fr" tvg-name="Eurosport 2 FR" group-title="海外体育",Eurosport 2 FR
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/250664
-#EXTINF:-1 tvg-id="DAZN.1.de" tvg-name="DAZN 1 DE" group-title="海外体育",DAZN 1 DE
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/269356
-#EXTINF:-1 tvg-id="DAZN.2.de" tvg-name="DAZN 2 DE" group-title="海外体育",DAZN 2 DE
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/269351
-#EXTINF:-1 tvg-id="Sky.Sport.News.de" tvg-name="Sky Sport News DE" group-title="海外体育",Sky Sport News DE
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/8271
-#EXTINF:-1 tvg-id="Sky.Sport.Top.Event.de" tvg-name="Sky Sport Top Event DE" group-title="海外体育",Sky Sport Top Event DE
-http://tekno072.xyz:8080/Jorgkordt/tsswAjcsEj/93786
-#EXTINF:-1 tvg-id="Sky.Sport.F1.de" tvg-name="Sky Sport F1 DE" group-title="海外体育",Sky Sport F1 DE
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/185849
-#EXTINF:-1 tvg-id="Sky.Sport.Premier.League.de" tvg-name="Sky Sport Premier League DE" group-title="海外体育",Sky Sport Premier League DE
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/100351
-#EXTINF:-1 tvg-id="Sky.Sport.Mix.de" tvg-name="Sky Sport Mix DE" group-title="海外体育",Sky Sport Mix DE
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/100354
-#EXTINF:-1 tvg-id="Sky.Sport.Tennis.de" tvg-name="Sky Sport Tennis DE" group-title="海外体育",Sky Sport Tennis DE
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/100358
-#EXTINF:-1 tvg-id="Movistar.Deportes.es" tvg-name="Deportes por M+ ES" group-title="海外体育",Deportes por M+ ES
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/201490
-#EXTINF:-1 tvg-id="M+.Golf.es" tvg-name="Golf por M+ ES" group-title="海外体育",Golf por M+ ES
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/226142
-#EXTINF:-1 tvg-id="M+.LALIGA.TV.es" tvg-name="LaLiga por M+ ES" group-title="海外体育",LaLiga por M+ ES
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/1082225
-#EXTINF:-1 tvg-id="M+.Liga.de.Campeones.es" tvg-name="Liga de Campeones por M+ ES" group-title="海外体育",Liga de Campeones por M+ ES
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/970493
-#EXTINF:-1 tvg-id="M+.Vamos.es" tvg-name="Vamos por M+ ES" group-title="海外体育",Vamos por M+ ES
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/12479
-#EXTINF:-1 tvg-id="DAZN.1.it.it" tvg-name="DAZN 1 IT" group-title="海外体育",DAZN 1 IT
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/305048
-#EXTINF:-1 tvg-id="DAZN.2.it.it" tvg-name="DAZN 2 IT" group-title="海外体育",DAZN 2 IT
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/305044
-#EXTINF:-1 tvg-id="Sky.Sport.24.it" tvg-name="Sky Sport 24 IT" group-title="海外体育",Sky Sport 24 IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937772
-#EXTINF:-1 tvg-id="Sky.Sport.Uno.it" tvg-name="Sky Sport Uno IT" group-title="海外体育",Sky Sport Uno IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937775
-#EXTINF:-1 tvg-id="Sky.Sport.Calcio.it" tvg-name="Sky Sport Calcio IT" group-title="海外体育",Sky Sport Calcio IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937779
-#EXTINF:-1 tvg-id="Sky.Sport.Tennis.it" tvg-name="Sky Sport Tennis IT" group-title="海外体育",Sky Sport Tennis IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937780
-#EXTINF:-1 tvg-id="Sky.Sport.Arena.it" tvg-name="Sky Sport Arena IT" group-title="海外体育",Sky Sport Arena IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937787
-#EXTINF:-1 tvg-id="Sky.Sport.NBA.it" tvg-name="Sky Sport Basket IT" group-title="海外体育",Sky Sport Basket IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937789
-#EXTINF:-1 tvg-id="Sky.Sport.Max.it" tvg-name="Sky Sport Max IT" group-title="海外体育",Sky Sport Max IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937788
-#EXTINF:-1 tvg-id="Sky.Sport.F1.it" tvg-name="Sky Sport F1 IT" group-title="海外体育",Sky Sport F1 IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937778
-#EXTINF:-1 tvg-id="Sky.Sport.MotoGP.it" tvg-name="Sky Sport MotoGP IT" group-title="海外体育",Sky Sport MotoGP IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937781
-#EXTINF:-1 tvg-id="Sky.Sport.Golf.it" tvg-name="Sky Sport Golf IT" group-title="海外体育",Sky Sport Golf IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937813
-#EXTINF:-1 tvg-id="Sky.Sport.Legend.it" tvg-name="Sky Sport Legend IT" group-title="海外体育",Sky Sport Legend IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937790
-#EXTINF:-1 tvg-id="Sky.Sport.Mix.it" tvg-name="Sky Sport Mix IT" group-title="海外体育",Sky Sport Mix IT
-http://wx78.vpn-cloud.icu:8080/p3v23bcwj2/j9iyghyczo/1937791
-#EXTINF:-1 tvg-id="ESPN.nl" tvg-name="ESPN NL" group-title="海外体育",ESPN NL
-http://86.87.15.10:8003/play/a01w/index.m3u8
-#EXTINF:-1 tvg-id="ESPN.2.nl" tvg-name="ESPN 2 NL" group-title="海外体育",ESPN 2 NL
-http://86.87.15.10:8003/play/a022/index.m3u8
-#EXTINF:-1 tvg-id="ESPN.3.nl" tvg-name="ESPN 3 NL" group-title="海外体育",ESPN 3 NL
-http://86.87.15.10:8001/play/a01k/index.m3u8
-#EXTINF:-1 tvg-id="ESPN.4.nl" tvg-name="ESPN 4 NL" group-title="海外体育",ESPN 4 NL
-http://86.87.15.10:8003/play/a023/index.m3u8
-#EXTINF:-1 tvg-id="Ziggo.Sport.nl" tvg-name="Ziggo Sport NL" group-title="海外体育",Ziggo Sport NL
-http://86.87.15.10:8008/play/a01h/index.m3u8
-#EXTINF:-1 tvg-id="Ziggo.Sport.2.nl" tvg-name="Ziggo Sport 2 NL" group-title="海外体育",Ziggo Sport 2 NL
-http://86.87.15.10:8004/play/a02b/index.m3u8
-#EXTINF:-1 tvg-id="Ziggo.Sport.3.nl" tvg-name="Ziggo Sport 3 NL" group-title="海外体育",Ziggo Sport 3 NL
-http://86.87.15.10:8003/play/a02k/index.m3u8
-#EXTINF:-1 tvg-id="Ziggo.Sport.4.nl" tvg-name="Ziggo Sport 4 NL" group-title="海外体育",Ziggo Sport 4 NL
-http://86.87.15.10:8004/play/a02a/index.m3u8
-#EXTINF:-1 tvg-id="Ziggo.Sport.6.nl" tvg-name="Ziggo Sport 6 NL" group-title="海外体育",Ziggo Sport 6 NL
-http://86.87.15.10:8009/play/a00z/index.m3u8
-#EXTINF:-1 tvg-id="CANAL+.Sport.HD.pl" tvg-name="CANAL+ Sport PL" group-title="海外体育",CANAL+ Sport PL
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/226872
-#EXTINF:-1 tvg-id="CANAL+.Sport.2.HD.pl" tvg-name="CANAL+ Sport 2 PL" group-title="海外体育",CANAL+ Sport 2 PL
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/226870
-#EXTINF:-1 tvg-id="CANAL+.Sport.3.HD.pl" tvg-name="CANAL+ Sport 3 PL" group-title="海外体育",CANAL+ Sport 3 PL
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/226867
-#EXTINF:-1 tvg-id="CANAL+.Sport.4.HD.pl" tvg-name="CANAL+ Sport 4 PL" group-title="海外体育",CANAL+ Sport 4 PL
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/226866
-#EXTINF:-1 tvg-id="CANAL+.Sport.5.HD.pl" tvg-name="CANAL+ Sport 5 PL" group-title="海外体育",CANAL+ Sport 5 PL
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/226863
-#EXTINF:-1 tvg-id="CANAL+.EXTRA.1.HD.pl" tvg-name="CANAL+ Extra 1 PL" group-title="海外体育",CANAL+ Extra 1 PL
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/1108264
-#EXTINF:-1 tvg-id="CANAL+.EXTRA.2.HD.pl" tvg-name="CANAL+ Extra 2 PL" group-title="海外体育",CANAL+ Extra 2 PL
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/1108266
-#EXTINF:-1 tvg-id="Eleven.Sports.1.pl" tvg-name="ELEVEN SPORTS 1 PL" group-title="海外体育",ELEVEN SPORTS 1 PL
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/226854
-#EXTINF:-1 tvg-id="Eleven.Sports.2.pl" tvg-name="ELEVEN SPORTS 2 PL" group-title="海外体育",ELEVEN SPORTS 2 PL
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/226851
-#EXTINF:-1 tvg-id="Eleven.Sports.4.pl" tvg-name="ELEVEN SPORTS 4 PL" group-title="海外体育",ELEVEN SPORTS 4 PL
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/226846
-#EXTINF:-1 tvg-id="Polsat.Sport.Extra.HD.pl" tvg-name="Polsat Sport 2 PL" group-title="海外体育",Polsat Sport 2 PL
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/226898
-#EXTINF:-1 tvg-id="Polsat.Sport.News.HD.pl" tvg-name="Polsat Sport 3 PL" group-title="海外体育",Polsat Sport 3 PL
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/226900
-#EXTINF:-1 tvg-id="DAZN.1.pt" tvg-name="DAZN 1 PT" group-title="海外体育",DAZN 1 PT
-http://psk-sdk.ddno.us:8080/641cae119cf3/32jq23CGfQCARX3/179131
-#EXTINF:-1 tvg-id="DAZN.2.pt" tvg-name="DAZN 2 PT" group-title="海外体育",DAZN 2 PT
-http://psk-sdk.ddno.us:8080/641cae119cf3/32jq23CGfQCARX3/179133
-#EXTINF:-1 tvg-id="DAZN.3.pt" tvg-name="DAZN 3 PT" group-title="海外体育",DAZN 3 PT
-http://psk-sdk.ddno.us:8080/641cae119cf3/32jq23CGfQCARX3/179135
-#EXTINF:-1 tvg-id="DAZN.4.pt" tvg-name="DAZN 4 PT" group-title="海外体育",DAZN 4 PT
-http://psk-sdk.ddno.us:8080/641cae119cf3/32jq23CGfQCARX3/179137
-#EXTINF:-1 tvg-id="DAZN.5.pt" tvg-name="DAZN 5 PT" group-title="海外体育",DAZN 5 PT
-http://psk-sdk.ddno.us:8080/641cae119cf3/32jq23CGfQCARX3/179139
-#EXTINF:-1 tvg-id="SPORT.TV+.HD.pt" tvg-name="Sport TV+ PT" group-title="海外体育",Sport TV+ PT
-http://wickediptv.xyz/Randall123/Randall321/58591
-#EXTINF:-1 tvg-id="SPORT.TV1.HD.pt" tvg-name="Sport TV 1 PT" group-title="海外体育",Sport TV 1 PT
-http://wickediptv.xyz/Randall123/Randall321/58592
-#EXTINF:-1 tvg-id="SPORT.TV2.HD.pt" tvg-name="Sport TV 2 PT" group-title="海外体育",Sport TV 2 PT
-http://wickediptv.xyz/Randall123/Randall321/58593
-#EXTINF:-1 tvg-id="SPORT.TV3.HD.pt" tvg-name="Sport TV 3 PT" group-title="海外体育",Sport TV 3 PT
-http://wickediptv.xyz/Randall123/Randall321/58594
-#EXTINF:-1 tvg-id="SPORT.TV4.HD.pt" tvg-name="Sport TV 4 PT" group-title="海外体育",Sport TV 4 PT
-http://103trkm25.xyz:8080/oguz35gznlr/gznler35oguz/267407
-#EXTINF:-1 tvg-id="SuperSport.1.al" tvg-name="SuperSport 1 AL" group-title="海外体育",SuperSport 1 AL
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/62637
-#EXTINF:-1 tvg-id="SuperSport.2.al" tvg-name="SuperSport 2 AL" group-title="海外体育",SuperSport 2 AL
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/62638
-#EXTINF:-1 tvg-id="SuperSport.3.al" tvg-name="SuperSport 3 AL" group-title="海外体育",SuperSport 3 AL
-http://802017341873.plus-26.com/w4gzmeoiw6/kyul5gyvkp/62629
-#EXTINF:-1 tvg-id="FoxSportsNews.au" tvg-name="Fox Sports News AU" group-title="海外体育",Fox Sports News AU
-http://realsport.scalecdn.co:8080/mediahost247/JD97213hj0fjhgFfdhdgfhja3j12kHJDJgeh/144731
-#EXTINF:-1 tvg-id="FoxCricket.au" tvg-name="Fox Sports 501 AU" group-title="海外体育",Fox Sports 501 AU
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/110881
-#EXTINF:-1 tvg-id="FoxLeague.au" tvg-name="Fox Sports 502 AU" group-title="海外体育",Fox Sports 502 AU
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/110882
-#EXTINF:-1 tvg-id="FoxSports503.au" tvg-name="Fox Sports 503 AU" group-title="海外体育",Fox Sports 503 AU
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/110883
-#EXTINF:-1 tvg-id="FoxFooty.au" tvg-name="Fox Sports 504 AU" group-title="海外体育",Fox Sports 504 AU
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/110884
-#EXTINF:-1 tvg-id="FoxSports505.au" tvg-name="Fox Sports 505 AU" group-title="海外体育",Fox Sports 505 AU
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/110885
-#EXTINF:-1 tvg-id="FoxSports506.au" tvg-name="Fox Sports 506 AU" group-title="海外体育",Fox Sports 506 AU
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/110886
-#EXTINF:-1 tvg-id="FoxSportsMore.au" tvg-name="Fox Sports 507 AU" group-title="海外体育",Fox Sports 507 AU
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/110887
-#EXTINF:-1 tvg-id="Sky.Sport.Select.nz" tvg-name="SKY Sport Select NZ" group-title="海外体育",SKY Sport Select NZ
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/118594
-#EXTINF:-1 tvg-id="Sky.Sport.1.nz" tvg-name="SKY Sport 1 NZ" group-title="海外体育",SKY Sport 1 NZ
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/118585
-#EXTINF:-1 tvg-id="Sky.Sport.2.nz" tvg-name="SKY Sport 2 NZ" group-title="海外体育",SKY Sport 2 NZ
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/118586
-#EXTINF:-1 tvg-id="Sky.Sport.3.nz" tvg-name="SKY Sport 3 NZ" group-title="海外体育",SKY Sport 3 NZ
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/118587
-#EXTINF:-1 tvg-id="Sky.Sport.4.nz" tvg-name="SKY Sport 4 NZ" group-title="海外体育",SKY Sport 4 NZ
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/118588
-#EXTINF:-1 tvg-id="Sky.Sport.5.nz" tvg-name="SKY Sport 5 NZ" group-title="海外体育",SKY Sport 5 NZ
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/118589
-#EXTINF:-1 tvg-id="Sky.Sport.6.nz" tvg-name="SKY Sport 6 NZ" group-title="海外体育",SKY Sport 6 NZ
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/118590
-#EXTINF:-1 tvg-id="Sky.Sport.7.nz" tvg-name="SKY Sport 7 NZ" group-title="海外体育",SKY Sport 7 NZ
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/118591
-#EXTINF:-1 tvg-id="Sky.Sport.Premier.League.nz" tvg-name="SKY Sport Premier League NZ" group-title="海外体育",SKY Sport Premier League NZ
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/118592
-#EXTINF:-1 tvg-id="Sky.Sport.9.nz" tvg-name="SKY Sport 9 NZ" group-title="海外体育",SKY Sport 9 NZ
-http://89.187.179.148:826/anto.j/c9yJDcXyPe/118593
-#EXTINF:-1 tvg-id="USBD25000161U" tvg-name="ACC Digital Network" group-title="海外体育",ACC Digital Network
-https://d53csymoczzde.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-ab6y4gf4coqw6/2b8c539e-b067-4fda-9b71-e3754d57c2f8/3.m3u8
-#EXTINF:-1 tvg-id="USAJ4300001Q7" tvg-name="beIN Sports XTRA" group-title="海外体育",beIN Sports XTRA
-https://d9ssxzmclhfo4.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-t7en7ol3kq3sp/f881b29a-280a-4416-be20-40db0fcc0f07/3.m3u8
-#EXTINF:-1 tvg-id="99991627" tvg-name="Billiard TV" group-title="海外体育",Billiard TV
-https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/8076993c-bbf4-4dbc-a77a-9b70047f90e0/4.m3u8
-#EXTINF:-1 tvg-id="99951510" tvg-name="Bowling TV" group-title="海外体育",Bowling TV
-https://d38d8jwr5u7ckx.cloudfront.net/v1/manifest/2235ea0b65a152869ea53a8429808cfe476767a6/test-xumo-linear-main-hlsv3-ams/e4585438-345e-4df5-969b-267de476a01f/4.m3u8
-#EXTINF:-1 tvg-id="400000285" tvg-name="Cowboy+ Sports" group-title="海外体育",Cowboy+ Sports
-https://s11host2.localnow.api.cms.amdvids.com/v1/manifest/c189661feba961c19bc5fb60b57879ee9b84548a/config13/6734bc78-b4d5-4d7c-95d1-f1c29f5ae1a7/4.m3u8
-#EXTINF:-1 tvg-id="ESPN8.The.Ocho.us2" tvg-name="ESPN8: The Ocho" group-title="海外体育",ESPN8: The Ocho
-https://d3b6q2ou5kp8ke.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-vz67vw1bljinm/aab88f58-adb6-4466-aceb-3b71a6f23411/4.m3u8
-#EXTINF:-1 tvg-id="USBD12000255B" tvg-name="FIFA+" group-title="海外体育",FIFA+
-https://d2w9q46ikgrcwx.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-of5cbk3sav3w5/88fc28a8-62ec-492a-9f34-8b52fd57f5d1/2.m3u8
-#EXTINF:-1 tvg-id="USAJ2200023Z0" tvg-name="Fubo Sports Network" group-title="海外体育",Fubo Sports Network
-https://dnf08l6u6uxnz.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-nwrh2vjyudfjo/5999cb1e-489e-434e-b70a-755f69ec828e/5.m3u8
-#EXTINF:-1 tvg-id="US3500007C4" tvg-name="MotoGP Channel" group-title="海外体育",MotoGP Channel
-https://d1kqz1q7knpsue.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-c6imqvc1ng6dh/865532b0-a6fe-4943-9c23-193c5c3788ce/4.m3u8
-#EXTINF:-1 tvg-id="USBD300021B8" tvg-name="MSG SportsZone" group-title="海外体育",MSG SportsZone
-https://d2a31kzot4f8t3.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-8c6otsdsok8vf/cf4c5a15-ce59-4e83-9f4b-71c2f42aa8c9/2.m3u8
-#EXTINF:-1 tvg-id="US700021SM" tvg-name="NASCAR Channel" group-title="海外体育",NASCAR Channel
-https://dzz957bqk62e8.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-3ut44ohcvfmwl/76ea9852-d7d0-4c01-8f38-675f56b67c30/3.m3u8
-#EXTINF:-1 tvg-id="US300062TG" tvg-name="NESN Nation" group-title="海外体育",NESN Nation
-https://d1yhx4ygpfwmgm.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-e3fxcyrct0enb/d451c4ef-26a7-42c5-83e6-d8856a48086d/3.m3u8
-#EXTINF:-1 tvg-id="NBC.Sports.Now.us2" tvg-name="NBC Sports NOW" group-title="海外体育",NBC Sports NOW
-https://d4whmvwm0rdvi.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-nbcu-linear/9ed59304-2f35-4c88-9b99-34153edef42b/4.m3u8
-#EXTINF:-1 tvg-id="99991633" tvg-name="PokerGO" group-title="海外体育",PokerGO
-https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/16d91dca-8293-491b-861e-c4bc917ce7d8/0.m3u8
-#EXTINF:-1 tvg-id="Redbull.Dummy.us" tvg-name="Red Bull TV" group-title="海外体育",Red Bull TV
-https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master_6660.m3u8
-#EXTINF:-1 tvg-id="DE32000079E" tvg-name="Red Bull TV Motorsport" group-title="海外体育",Red Bull TV Motorsport
-https://d39yjeivnywvts.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-ww9fq2xfgtfog/edaaeec2-d7b8-4a80-aa03-601309764d5a/0.m3u8
-#EXTINF:-1 tvg-id="99951180" tvg-name="Strongman Champions League" group-title="海外体育",Strongman Champions League
-https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/ad15bc3b-8829-47e5-8a6d-258b501ca01c/5.m3u8
-#EXTINF:-1 tvg-id="US2900017P2" tvg-name="UFC" group-title="海外体育",UFC
-https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/194a140c-0cf5-443e-b747-08bf621d75a8/0.m3u8
-#EXTINF:-1 tvg-id="US20000131M" tvg-name="Willow Sports" group-title="海外体育",Willow Sports
-https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/a28cdca8-2eea-4f32-85c4-8d60756d3672/4.m3u8
-#EXTINF:-1 tvg-id="US4100001KP" tvg-name="Women's Sports Network" group-title="海外体育",Women's Sports Network
-https://d39accvx65hq9o.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-ngwzz9m41tnrd/ea1fdc6f-3d1d-481b-9a7d-b9944f86e3f1/3.m3u8
-#EXTINF:-1 tvg-id="World.Fishing.Network.HD.(US).us2" tvg-name="World Fishing Network" group-title="海外体育",World Fishing Network
-https://d3b3ldcvgsu291.cloudfront.net/v1/manifest/9d062541f2ff39b5c0f48b743c6411d25f62fc25/DistroTV-MuxIP-WFN/e58ff6a8-d844-479f-8aef-e4baf46bbff6/0.m3u8
-#EXTINF:-1 tvg-id="US700005ID" tvg-name="WWE Superstar Central" group-title="海外体育",WWE Superstar Central
-https://dpv6ceilvhyrw.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-7ufe851j0vqbg/cb057fb1-5af8-4aca-9641-86ed99826bac/3.m3u8
-#EXTINF:-1 tvg-id="CA1400003R3" tvg-name="TSN The Ocho CA" group-title="海外体育",TSN The Ocho CA
-https://d3pnbvng3bx2nj.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-rds8g35qfqrnv/77d9db0d-3fde-4e0c-a2fd-150fc780c9b7/3.m3u8
+#EXTINF:-1 group-title="卫视",湖南卫视4K
+http://hlsal-ldvt.qing.mgtv.com/nn_live/nn_x64/Y2RuZXhfaWQ9YWxfaGxzX2xkdnQmZT02OTE0NjA0JnY9MSZpZD1ITldTWkdTVCZzPTcwN2RiYTc2YzJjNmJmMTQ4MmUyZGYzOWU2NWM3YWFi/HNWSZGST.m3u8
+#EXTINF:-1 group-title="卫视",东方卫视4K
+https://bp-resource-dfl.bestv.cn/148/3/video.m3u8
+#EXTINF:-1 group-title="卫视",苏州4K
+https://tylive.kan0512.com/norecord/csztv4k_4k.m3u8
+#EXTINF:-1 group-title="卫视",浙江卫视4K
+http://ali-xwl.cztv.com/live/channel4k2160p.m3u8

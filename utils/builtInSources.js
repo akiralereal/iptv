@@ -4,6 +4,28 @@ import { dataPath } from "./paths.js"
 import { enableBuiltInSources } from "../config.js"
 import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 import { extractM3u8FromWeb } from "./webSourceExtractor.js"
+import fetch from "node-fetch"
+
+// 内置源配置的远程地址：运行时优先从此拉取（含 GitHub 镜像回退），让 webUrl 等配置「push 即更新」、无需重建镜像。
+// 设为空字符串(mbuiltInSourcesUrl=)可关闭远程拉取，只用镜像内置的本地 built-in-sources.json（便于本地开发调试）。
+const BUILT_IN_SOURCES_URL = process.env.mbuiltInSourcesUrl !== undefined
+  ? process.env.mbuiltInSourcesUrl
+  : 'https://raw.githubusercontent.com/akiralereal/iptv/refs/heads/main/built-in-sources.json'
+
+// GitHub raw 镜像（与 externalSources.js 保持一致；国内直连 raw 失败时回退，多为给国内访问 GitHub 用的代理/CDN）
+function toJsdelivr(url, base) {
+  let u = url.replace('https://raw.githubusercontent.com/', base)
+  if (u.includes('/refs/heads/')) u = u.replace('/refs/heads/', '@')
+  else u = u.replace(/(\/gh\/[^/]+\/[^/]+)\//, '$1@')
+  return u
+}
+const GITHUB_RAW_MIRRORS = [
+  (url) => url, // 原始地址优先
+  (url) => url.replace('https://raw.githubusercontent.com/', 'https://ghfast.top/https://raw.githubusercontent.com/'),
+  (url) => url.replace('https://raw.githubusercontent.com/', 'https://gh-proxy.com/https://raw.githubusercontent.com/'),
+  (url) => toJsdelivr(url, 'https://gcore.jsdelivr.net/gh/'),
+  (url) => toJsdelivr(url, 'https://cdn.jsdelivr.net/gh/'),
+]
 
 /**
  * 内置源管理器
@@ -15,8 +37,9 @@ import { extractM3u8FromWeb } from "./webSourceExtractor.js"
  */
 class BuiltInSourceManager {
   constructor() {
-    this.configPath = `${process.cwd()}/built-in-sources.json` // 随镜像分发的只读配置，留在代码目录
-    this.cachePath = dataPath('built-in-sources-cache.json')   // 运行时抓取缓存，持久化到数据目录
+    this.configPath = `${process.cwd()}/built-in-sources.json`       // 随镜像分发的只读配置（兜底），留在代码目录
+    this.remoteConfigPath = dataPath('built-in-sources-remote.json') // 上次成功拉取的远程配置缓存，持久化到数据目录
+    this.cachePath = dataPath('built-in-sources-cache.json')         // 运行时抓取缓存（m3u8），持久化到数据目录
     this.sources = { enabled: true, sources: [] }
     this.cache = {} // { sourceId: { m3u8Url, lastUpdate } }
     this.loadConfig()
@@ -25,28 +48,34 @@ class BuiltInSourceManager {
 
   /**
    * 加载内置源配置
+   * 远程开启时：优先用上次成功拉取的「远程缓存」(含最新 webUrl)，没有/损坏则回退镜像内置的本地配置。
+   * 远程关闭(mbuiltInSourcesUrl=)时：只用镜像内置的本地配置（便于本地开发调试）。
    */
   loadConfig() {
+    if (BUILT_IN_SOURCES_URL && this.applyConfigFromFile(this.remoteConfigPath, '远程缓存')) return
+    this.applyConfigFromFile(this.configPath, '本地内置')
+  }
+
+  /**
+   * 从指定文件读取并应用内置源配置，成功返回 true、失败返回 false（由调用方决定是否兜底）
+   */
+  applyConfigFromFile(path, label) {
     try {
-      if (!existsSync(this.configPath)) {
-        printYellow("内置源配置文件不存在，使用空配置")
-        return
+      if (!existsSync(path)) return false
+      const parsed = JSON.parse(readFileSync(path, 'utf-8'))
+      if (!parsed || !Array.isArray(parsed.sources)) return false
+      this.sources = parsed
+      if (this.sources.enabled) {
+        const enabledCount = this.sources.sources.filter(s => s.enabled).length
+        const fetchCount = this.sources.sources.filter(s => s.mode === 'fetch').length
+        printGreen(`加载内置源配置(${label}): ${enabledCount}/${this.sources.sources.length} 个启用 (${fetchCount} 个需要抓取)`)
+      } else {
+        printYellow(`内置源功能已禁用(${label})`)
       }
-
-      const content = readFileSync(this.configPath, 'utf-8')
-      this.sources = JSON.parse(content)
-      
-      if (!this.sources.enabled) {
-        printYellow("内置源功能已禁用")
-        return
-      }
-
-      const enabledCount = this.sources.sources.filter(s => s.enabled).length
-      const fetchCount = this.sources.sources.filter(s => s.mode === 'fetch').length
-      printGreen(`加载内置源配置: ${enabledCount}/${this.sources.sources.length} 个启用 (${fetchCount} 个需要抓取)`)
+      return true
     } catch (error) {
-      printRed(`加载内置源配置失败: ${error.message}`)
-      this.sources = { enabled: true, sources: [] }
+      printYellow(`读取内置源配置失败(${label}): ${error.message}`)
+      return false
     }
   }
 
@@ -74,6 +103,79 @@ class BuiltInSourceManager {
     } catch (error) {
       printRed(`保存内置源缓存失败: ${error.message}`)
     }
+  }
+
+  /**
+   * 从远程拉取内置源配置（raw → GitHub 镜像回退）。
+   * 成功且合法：更新内存配置 + 写入数据卷缓存（含 webUrl 变更则清抓取缓存重抓）。
+   * 失败/非法：保持当前配置（本地内置或上次远程缓存兜底），绝不让 app 出错。
+   * 这样 webUrl 等「push 即更新」、无需重建镜像；国内拉不到时退回本地配置，和纯本地一样稳。
+   */
+  async refreshRemoteConfig() {
+    if (!BUILT_IN_SOURCES_URL) return
+    const text = await this.fetchRemoteText(BUILT_IN_SOURCES_URL)
+    if (!text) {
+      printYellow("内置源远程配置拉取失败，沿用当前配置（本地/缓存兜底）")
+      return
+    }
+    let parsed
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      printYellow("内置源远程配置非法 JSON，忽略本次")
+      return
+    }
+    if (!parsed || !Array.isArray(parsed.sources)) {
+      printYellow("内置源远程配置结构异常（缺少 sources 数组），忽略本次")
+      return
+    }
+    this.invalidateChangedFetchCaches(parsed) // webUrl 变了就清旧抓取缓存、强制重抓
+    this.sources = parsed
+    try {
+      writeJsonFileSync(this.remoteConfigPath, parsed)
+    } catch (e) {
+      printYellow(`内置源远程配置缓存写入失败: ${e.message}`)
+    }
+    const fetchCount = parsed.sources.filter(s => s.mode === 'fetch').length
+    printGreen(`内置源远程配置已更新: ${parsed.sources.length} 个源（${fetchCount} 个需抓取）`)
+  }
+
+  /**
+   * 拉取远程文本：raw 地址走镜像回退（直连失败依次尝试镜像），任一通即返回；全失败返回 null
+   */
+  async fetchRemoteText(url) {
+    const isRaw = url.includes('raw.githubusercontent.com')
+    const candidates = isRaw ? GITHUB_RAW_MIRRORS.map(t => t(url)) : [url]
+    for (const target of candidates) {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 8000)
+      try {
+        const res = await fetch(target, { signal: ctrl.signal, headers: { 'User-Agent': 'iptv-builtin' } })
+        if (res.ok) return await res.text()
+      } catch {
+        // 当前线路失败，尝试下一个镜像
+      } finally {
+        clearTimeout(timer)
+      }
+    }
+    return null
+  }
+
+  /**
+   * 远程配置里 fetch 源的 webUrl 若相比当前发生变化，清掉其旧抓取缓存以便用新地址重抓
+   */
+  invalidateChangedFetchCaches(newConfig) {
+    const oldById = {}
+    for (const s of (this.sources.sources || [])) oldById[s.id] = s
+    let changed = false
+    for (const s of newConfig.sources) {
+      if (s.mode === 'fetch' && oldById[s.id] && oldById[s.id].webUrl !== s.webUrl && this.cache[s.id]) {
+        delete this.cache[s.id]
+        changed = true
+        printYellow(`内置源 ${s.name} 的 webUrl 已变更，清除旧抓取缓存以重新抓取`)
+      }
+    }
+    if (changed) this.saveCache()
   }
 
   /**
@@ -130,7 +232,15 @@ class BuiltInSourceManager {
   async updateFetchSources(options = {}) {
     const { startupMode = false, autoOnly = false, forceAll = false } = options
 
-    if (!this.sources.enabled || !enableBuiltInSources) {
+    // 全局关闭内置源时直接跳过（连远程配置也不拉）
+    if (!enableBuiltInSources) {
+      return { success: true, message: "内置源已禁用" }
+    }
+
+    // 先刷新远程内置源配置（webUrl / 源列表等可能已 push 更新），再据此抓取
+    await this.refreshRemoteConfig()
+
+    if (!this.sources.enabled) {
       return { success: true, message: "内置源已禁用" }
     }
 

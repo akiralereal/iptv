@@ -1931,11 +1931,12 @@
                             启用 HDR
                         </label>
                     </div>
-                    <div class="system-config-item" style="display: none;">
+                    <div class="system-config-item">
                         <label>
                             <input type="checkbox" id="sysEnableH265">
-                            启用 H.265（可能存在兼容性问题）
+                            启用 H.265 原画（可能存在兼容性问题）
                         </label>
+                        <div class="system-config-hint">💡 若部分频道<strong>只有声音、没有画面</strong>，多是播放器/设备不支持 H.265(HEVC) 编码——<strong>关闭本项</strong>即可回落到兼容性最好的 H.264。（个别频道关掉后仍只有声音，可能是 HDR/Vivid 导致，可用环境变量 <code>menableHDR=false</code> 关闭）</div>
                     </div>
                 </div>
                 <div class="content-switches">

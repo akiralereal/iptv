@@ -26,6 +26,7 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile) {
       break;
 
     case "/m3u":
+    case "/interface.m3u":
       result.contentType = "audio/x-mpegurl; charset=utf-8"
       break;
 
@@ -44,7 +45,7 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile) {
   }
   
   // 对于播放列表，应用用户配置
-  if (url === "/" || url === "/m3u" || url === "/interface.txt" || url === "/txt") {
+  if (url === "/" || url === "/m3u" || url === "/interface.m3u" || url === "/interface.txt" || url === "/txt") {
     try {
       const config = readConfig(profile)
 

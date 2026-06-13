@@ -448,7 +448,8 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
-  const interfaceList = "/,/interface.txt,/m3u,/txt,/playback.xml"
+  // /interface.m3u 是 /m3u 的别名：内容相同，只为带 .m3u 后缀——某些客户端（如飞牛影视）按后缀校验订阅地址，/m3u 会被拒
+  const interfaceList = "/,/interface.txt,/interface.m3u,/m3u,/txt,/playback.xml"
 
   // 去掉 query（含 ?profile=）后再做接口匹配/选盘；profile 走 profileParam 传入，回看/EPG 自动沿用同一 base
   const routeUrlPath = routeUrl.split('?')[0]
@@ -461,7 +462,7 @@ const server = http.createServer(async (req, res) => {
     }
     // 设置响应头
     res.setHeader('Content-Type', interfaceObj.contentType);
-    if (routeUrlPath == "/m3u") {
+    if (routeUrlPath == "/m3u" || routeUrlPath == "/interface.m3u") {
       res.setHeader('content-disposition', "inline; filename=\"interface.m3u\"");
     }
     res.statusCode = 200;

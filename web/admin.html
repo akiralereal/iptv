@@ -3883,7 +3883,7 @@ if(success){
                         <button class="btn btn-sm" onclick="renameGroup(${groupIndex})" ${isUngrouped ? 'disabled' : ''}>重命名</button>
                         <button class="btn btn-sm" onclick="moveGroupUp(${groupIndex})" ${isUngrouped || groupIndex === 0 ? 'disabled' : ''}>↑ 上移</button>
                         <button class="btn btn-sm" onclick="moveGroupDown(${groupIndex})" ${isUngrouped || groupIndex === myPlaylistData.length - 1 ? 'disabled' : ''}>↓ 下移</button>
-                        <button class="btn btn-sm" onclick="toggleGroupSort()" title="${isNameSorted ? '改回手动拖拽排序' : '组内频道按名称自动排序（含新增频道）'}">${isNameSorted ? '↕️ 改手动排序' : '🔤 按名称排序'}</button>
+                        <button class="btn btn-sm" onclick="toggleGroupSort()" title="点击切换：手动拖拽 ⇄ 按名称自动排序（中文按拼音、含数字按数值）">📑 排序：${isNameSorted ? '名称' : '手动'}</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})" ${isUngrouped || isCustomGroup ? 'disabled' : ''}>隐藏分组</button>
                         <button class="btn btn-primary btn-sm" onclick="toggleBatchMode()">批量管理</button>
                     `;
@@ -3901,7 +3901,7 @@ if(success){
                                         <input type="checkbox" class="my-playlist-channel-checkbox"
                                                onchange="toggleChannelSelection('${channel.id}')"
                                                ${selectedChannels.has(channel.id) ? 'checked' : ''}>
-                                    ` : (isNameSorted ? `<span class="channel-drag-handle" aria-hidden="true" title="按名称自动排序中">🔤</span>` : `<span class="channel-drag-handle" aria-hidden="true" title="拖拽排序">⠿</span>`)}
+                                    ` : (isNameSorted ? `<span class="channel-drag-handle" aria-hidden="true"></span>` : `<span class="channel-drag-handle" aria-hidden="true" title="拖拽排序">⠿</span>`)}
                                     <div class="my-playlist-channel-name" title="点击查看详情：${channel.name}" onclick="showChannelDetail('${channel.id}', false)" style="cursor: pointer;">
                                         <span class="channel-detail-hint" aria-hidden="true">ⓘ</span>${channel.name}
                                     </div>

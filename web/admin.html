@@ -1691,7 +1691,7 @@
             <input type="text" id="newProfileName" placeholder="卧室" autocomplete="off" maxlength="20"
                    onkeydown="if(event.key==='Enter'){document.getElementById('newProfileId').focus();}">
             <label style="display:block; font-size:13px; color:#333; margin-bottom:6px;">访问地址短名（选填，英文/数字）</label>
-            <input type="text" id="newProfileId" placeholder="woshi　→　/m3u?profile=woshi" autocomplete="off"
+            <input type="text" id="newProfileId" placeholder="woshi　→　/interface.m3u?profile=woshi" autocomplete="off"
                    onkeydown="if(event.key==='Enter'){confirmCreateProfile();}">
             <p style="color:#8a8a8a; font-size:12px; margin: -6px 0 4px;">💡 留空会自动生成短名（中文无法转拼音）。</p>
             <div class="modal-actions" style="margin-top: 20px;">
@@ -3451,7 +3451,9 @@ if(success){
             box.innerHTML = profileList.map(p => {
                 const isActive = p.id === activeProfile;
                 const isDefault = p.id === 'default';
-                const url = base + '/m3u' + (isDefault ? '' : '?profile=' + p.id);
+                // 默认展示带 .m3u 后缀的别名地址：内容与 /m3u 完全相同，但能被「按后缀校验订阅链接」的 App 接受；
+                // 普通播放器忽略后缀、行为不变。裸 /m3u 仍有效，老用户已配置的地址不受影响。
+                const url = base + '/interface.m3u' + (isDefault ? '' : '?profile=' + p.id);
                 const slugHtml = isDefault ? '' : ` <span style="color:#999;font-weight:normal;font-size:12px;">(${escapeHtml(p.id)})</span>`;
                 // 改名按钮紧跟档名右侧（默认档不可改名）
                 const renameBtn = isDefault ? '' :

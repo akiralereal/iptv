@@ -161,7 +161,7 @@ docker run -d -p 1905:1905 \
 部署成功后，可以通过以下地址访问：
 
 #### 📺 播放列表
-- **M3U 格式**: `http://your-ip:1905/m3u`
+- **M3U 格式**: `http://your-ip:1905/interface.m3u`（推荐：带 `.m3u` 后缀，部分 App 按后缀校验订阅地址才认；裸 `http://your-ip:1905/m3u` 内容相同、同样有效）
 - **TXT 格式**: `http://your-ip:1905/txt`
 - **节目单（EPG）**: `http://your-ip:1905/playback.xml`
 
@@ -482,13 +482,15 @@ docker run -d -p 1905:1905 \
 
 | 配置档 | M3U 地址 |
 | --- | --- |
-| 默认 | `http://你的IP:1905/m3u` |
-| 卧室(woshi) | `http://你的IP:1905/m3u?profile=woshi` |
-| 茶室(chashi) | `http://你的IP:1905/m3u?profile=chashi` |
+| 默认 | `http://你的IP:1905/interface.m3u` |
+| 卧室(woshi) | `http://你的IP:1905/interface.m3u?profile=woshi` |
+| 茶室(chashi) | `http://你的IP:1905/interface.m3u?profile=chashi` |
 
 > 💡 各档共享同一份底层频道与 EPG，只是「同一全集的不同视图」——隐藏 / 分组 / 排序 / 重命名各管各的，新增电视不增加抓取成本。
 >
-> 🔐 设了访问密码时地址带上 `/<密码>` 前缀即可：`http://你的IP:1905/<密码>/m3u?profile=woshi`。各档配置随 `mdataDir` 数据卷持久化，升级不丢。
+> 🔗 带 `.m3u` 后缀的 `/interface.m3u` 与裸 `/m3u` 内容完全相同、可互换；推荐用带后缀的（部分 App 按后缀校验才认），已用裸 `/m3u` 配好的地址无需更换。
+>
+> 🔐 设了访问密码时地址带上 `/<密码>` 前缀即可：`http://你的IP:1905/<密码>/interface.m3u?profile=woshi`。各档配置随 `mdataDir` 数据卷持久化，升级不丢。
 
 #### 🧹 空白部署 / 纯频道管理（内容开关）
 
@@ -572,7 +574,7 @@ mpass="yourpassword"
 
 | 服务 | 无密码访问 | 有密码访问 |
 |------|-----------|-----------|
-| 播放列表 (m3u) | `http://ip:port/m3u` | `http://ip:port/密码/m3u` |
+| 播放列表 (m3u) | `http://ip:port/interface.m3u` | `http://ip:port/密码/interface.m3u` |
 | 播放列表 (txt) | `http://ip:port/txt` | `http://ip:port/密码/txt` |
 | 回放文件 | `http://ip:port/playback.xml` | `http://ip:port/密码/playback.xml` |
 | 频道直播 | `http://ip:port/608807420` | `http://ip:port/密码/608807420` |

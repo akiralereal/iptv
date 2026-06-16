@@ -183,6 +183,26 @@ function hostOf(url) {
 }
 
 /**
+ * 拆出 URL 内嵌的 user:pass@ 凭据，转成 HTTP Basic 认证头。
+ * node-fetch 会直接拒绝带凭据的 URL（抛 "url with embedded credentials"），
+ * 故订阅地址形如 http://user:pass@host/x.m3u 时，需把凭据从 URL 取出、改用 Authorization 头。
+ * 返回去掉凭据后的 URL 与对应请求头（无凭据时 headers 为空，行为不变）。
+ * @param {string} rawUrl
+ * @returns {{ url: string, headers: Record<string,string> }}
+ */
+function splitCredentials(rawUrl) {
+  let u
+  try { u = new URL(rawUrl) } catch { return { url: rawUrl, headers: {} } }
+  if (u.username === '' && u.password === '') return { url: rawUrl, headers: {} }
+  // URL 里的 user/pass 是百分号编码，解码还原真实凭据再做 base64（解码失败则原样使用）
+  const dec = (s) => { try { return decodeURIComponent(s) } catch { return s } }
+  const token = Buffer.from(`${dec(u.username)}:${dec(u.password)}`).toString('base64')
+  u.username = ''
+  u.password = ''
+  return { url: u.toString(), headers: { Authorization: `Basic ${token}` } }
+}
+
+/**
  * 把 fetch 失败原因提炼成可读信息（node-fetch 的 reason 经常为空）
  */
 function describeFetchError(error) {
@@ -200,7 +220,9 @@ async function fetchAndParseM3u(subscriptionUrl) {
   const failures = []
 
   for (const transformUrl of mirrors) {
-    const targetUrl = transformUrl(subscriptionUrl)
+    const transformedUrl = transformUrl(subscriptionUrl)
+    // 拆出 URL 内嵌的 user:pass@ 凭据，转成 Basic 认证头（node-fetch 不接受带凭据的 URL）
+    const { url: targetUrl, headers: authHeaders } = splitCredentials(transformedUrl)
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 15000)
 
@@ -208,7 +230,8 @@ async function fetchAndParseM3u(subscriptionUrl) {
       const response = await fetch(targetUrl, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          ...authHeaders
         }
       })
       clearTimeout(timeoutId)
@@ -226,7 +249,7 @@ async function fetchAndParseM3u(subscriptionUrl) {
         throw new Error('未能从播放列表中解析出任何频道')
       }
 
-      if (targetUrl !== subscriptionUrl) {
+      if (transformedUrl !== subscriptionUrl) {
         printGreen(`通过镜像获取成功: ${hostOf(targetUrl)}`)
       }
 
@@ -781,4 +804,4 @@ class ExternalSourceManager {
 const externalSourceManager = new ExternalSourceManager()
 
 export default externalSourceManager
-export { ExternalSourceManager, fetchAndParseM3u, parsePlaylistContent, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS }
+export { ExternalSourceManager, fetchAndParseM3u, parsePlaylistContent, splitCredentials, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS }

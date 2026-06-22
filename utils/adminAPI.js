@@ -1,8 +1,8 @@
-import { readFileSync, writeFileSync, existsSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from "node:fs"
 import { getAllChannels, externalSourceManager, builtInSourceManager } from "./channelMerger.js"
 import { BUILT_IN_SUBSCRIPTIONS, parsePlaylistContent, decodeAndParseLocalContent } from "./externalSources.js"
 import { dataPath } from "./paths.js"
-import update from "./updateData.js"
+import update, { LOGO_EXTS } from "./updateData.js"
 
 /**
  * 从interface.txt解析体育赛事数据
@@ -186,6 +186,63 @@ export function setExternalSourceM3u8API(index, m3u8Url) {
       success: false,
       message: error.message
     }
+  }
+}
+
+/**
+ * 校验台标文件名（= 频道名）：不能含路径分隔符 / 控制字符，避免目录穿越
+ */
+function sanitizeLogoName(name) {
+  const n = String(name || '').trim()
+  if (!n || n.includes('/') || n.includes('\\') || n.includes('..')) return null
+  for (let i = 0; i < n.length; i++) { if (n.charCodeAt(i) < 32) return null } // 拒绝控制字符
+  return n
+}
+
+/**
+ * 上传频道台标（issue #40）：把图片存为 data/logos/<频道名>.<ext>，最高优先级、即时生效。
+ * 同一频道只保留一个台标（先删其它扩展名），保存后重新生成播放列表。
+ */
+export async function uploadLogoAPI(name, imageBase64, ext) {
+  try {
+    const safe = sanitizeLogoName(name)
+    if (!safe) return { success: false, message: '频道名含非法字符，无法作为台标文件名' }
+    let e = String(ext || 'png').toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (!LOGO_EXTS.includes(e)) e = 'png'
+    const buffer = Buffer.from(String(imageBase64 || ''), 'base64')
+    if (!buffer.length) return { success: false, message: '图片内容为空' }
+    if (buffer.length > 3 * 1024 * 1024) return { success: false, message: '图片过大（请小于 3MB）' }
+    const dir = dataPath('logos')
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+    // 一个频道只保留一个台标：先清掉同名其它扩展，避免 findLocalLogo 命中旧的
+    for (const x of LOGO_EXTS) {
+      const p = dataPath(`logos/${safe}.${x}`)
+      if (existsSync(p)) { try { unlinkSync(p) } catch { /* ignore */ } }
+    }
+    writeFileSync(dataPath(`logos/${safe}.${e}`), buffer)
+    await update(0, { regenerateOnly: true }).catch(err => console.error('上传台标后重新生成失败:', err))
+    return { success: true, url: `/logos/${encodeURIComponent(safe)}.${e}` }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+}
+
+/**
+ * 移除频道的本地上传台标（删 data/logos/<频道名>.* 后重新生成）
+ */
+export async function removeLogoAPI(name) {
+  try {
+    const safe = sanitizeLogoName(name)
+    if (!safe) return { success: false, message: '非法名称' }
+    let removed = 0
+    for (const x of LOGO_EXTS) {
+      const p = dataPath(`logos/${safe}.${x}`)
+      if (existsSync(p)) { try { unlinkSync(p); removed++ } catch { /* ignore */ } }
+    }
+    if (removed > 0) await update(0, { regenerateOnly: true }).catch(err => console.error('移除台标后重新生成失败:', err))
+    return { success: true, removed }
+  } catch (error) {
+    return { success: false, message: error.message }
   }
 }
 

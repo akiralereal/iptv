@@ -5031,6 +5031,22 @@ if(success){
                         <div style="margin-top: 6px; color: #999; font-size: 12px;">修改此频道的显示名（清空或改回原名即恢复；不影响 EPG 匹配）</div>
                     </div>
                 `;
+
+                // 台标：预览 + 上传 / 移除（issue #40）
+                const _logoBaseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]+$/, '');
+                const _logoSrc = channel.logo ? String(channel.logo).replace(/\$\{replace\}/g, _logoBaseUrl) : '';
+                detailHTML += `
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">台标：</strong>
+                        <div style="display:flex; align-items:center; gap:10px; margin-top:6px;">
+                            <img id="channelLogoPreview" src="${_logoSrc}" alt="" style="width:48px;height:48px;object-fit:contain;border:1px solid #eee;border-radius:6px;background:#fafafa;${_logoSrc ? '' : 'display:none;'}" onerror="this.style.display='none';var e=document.getElementById('channelLogoEmpty');if(e)e.style.display='';">
+                            <span id="channelLogoEmpty" style="color:#999;font-size:12px;${_logoSrc ? 'display:none;' : ''}">暂无台标</span>
+                            <input type="file" accept="image/png,image/jpeg,image/webp" onchange="uploadCurrentChannelLogo(this)">
+                            <button class="btn btn-sm btn-danger" onclick="removeCurrentChannelLogo()">移除</button>
+                        </div>
+                        <div style="margin-top:6px;color:#999;font-size:12px;">上传图片保存为 data/logos/「${String(channel.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}」，优先级最高、保存即生效（支持 png/jpg/webp，&lt;3MB）</div>
+                    </div>
+                `;
             }
 
             // 显示URL
@@ -5137,6 +5153,53 @@ if(success){
         function closeChannelDetail() {
             document.getElementById('channelDetailModal').style.display = 'none';
             currentChannelDetail = null;
+        }
+
+        // 上传当前频道台标（issue #40）：存 data/logos/<频道名>.<ext>，最高优先级、保存即生效
+        async function uploadCurrentChannelLogo(inputEl) {
+            const file = inputEl.files && inputEl.files[0];
+            if (!file || !currentChannelDetail) return;
+            if (file.size > 3 * 1024 * 1024) { showStatus('图片过大（请小于 3MB）', 'error'); inputEl.value = ''; return; }
+            const name = currentChannelDetail.name;
+            const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+            try {
+                showStatus('正在上传台标...', 'info');
+                const base64 = arrayBufferToBase64(await file.arrayBuffer());
+                const resp = await fetch(API_PREFIX + '/api/upload-logo', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, imageBase64: base64, ext })
+                });
+                const result = await resp.json();
+                if (result.success === false) { showStatus('上传失败: ' + (result.message || ''), 'error'); return; }
+                const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]+$/, '');
+                const img = document.getElementById('channelLogoPreview');
+                const empty = document.getElementById('channelLogoEmpty');
+                if (img) { img.src = baseUrl + result.url + '?t=' + Date.now(); img.style.display = ''; }
+                if (empty) empty.style.display = 'none';
+                showStatus('台标已上传并生效', 'success');
+                const channelsRes = await fetch(API_PREFIX + '/api/channels');
+                if (channelsRes.ok) { allChannels = await channelsRes.json(); }
+            } catch (e) { showStatus('上传失败: ' + e.message, 'error'); }
+        }
+
+        // 移除当前频道的本地上传台标
+        async function removeCurrentChannelLogo() {
+            if (!currentChannelDetail) return;
+            try {
+                const resp = await fetch(API_PREFIX + '/api/remove-logo', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: currentChannelDetail.name })
+                });
+                const result = await resp.json();
+                if (result.success === false) { showStatus('移除失败: ' + (result.message || ''), 'error'); return; }
+                const img = document.getElementById('channelLogoPreview');
+                const empty = document.getElementById('channelLogoEmpty');
+                if (img) { img.src = ''; img.style.display = 'none'; }
+                if (empty) empty.style.display = '';
+                showStatus(result.removed > 0 ? '已移除上传的台标' : '该频道没有本地上传的台标', result.removed > 0 ? 'success' : 'info');
+                const channelsRes = await fetch(API_PREFIX + '/api/channels');
+                if (channelsRes.ok) { allChannels = await channelsRes.json(); }
+            } catch (e) { showStatus('移除失败: ' + e.message, 'error'); }
         }
 
         // 将当前详情中的频道移动到所选分组（单频道归类）

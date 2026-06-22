@@ -10,7 +10,8 @@ import { channel, interfaceStr } from "./utils/appUtils.js";
 import { dataPath } from "./utils/paths.js";
 import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
          addExternalSourceAPI, removeExternalSourceAPI, updateExternalSourceAPI,
-         setExternalSourceM3u8API, importSubscriptionAPI, parseLocalContentAPI, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
+         setExternalSourceM3u8API, importSubscriptionAPI, parseLocalContentAPI,
+         uploadLogoAPI, removeLogoAPI, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, validateGroupConfig, applyConfig,
          listProfiles, createProfile, renameProfile, deleteProfile } from "./utils/playlistConfig.js";
@@ -212,6 +213,32 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
         res.end(JSON.stringify(result));
         printGreen(`外部源${data.action}操作完成`)
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: false, message: error.message }));
+      }
+      return
+    }
+
+    // 上传 / 移除频道台标（issue #40）
+    if (routePath === '/api/upload-logo' && method === 'POST') {
+      try {
+        const data = JSON.parse(await readBody(req))
+        const result = await uploadLogoAPI(data.name, data.imageBase64, data.ext)
+        res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify(result));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: false, message: error.message }));
+      }
+      return
+    }
+    if (routePath === '/api/remove-logo' && method === 'POST') {
+      try {
+        const data = JSON.parse(await readBody(req))
+        const result = await removeLogoAPI(data.name)
+        res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify(result));
       } catch (error) {
         res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
         res.end(JSON.stringify({ success: false, message: error.message }));

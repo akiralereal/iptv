@@ -11,6 +11,20 @@ import { readFileSync, existsSync } from "node:fs"
 
 const PE_CACHE_PATH = dataPath('pe-cache.json')
 
+// 本地台标支持的扩展名（按优先级查找）
+export const LOGO_EXTS = ['png', 'jpg', 'jpeg', 'webp']
+
+// 查找本地台标 data/logos/<频道名>.<ext>（用户在后台上传或手动放），命中返回可写入 m3u 的相对 URL，否则 ''
+export function findLocalLogo(name) {
+  if (!name) return ''
+  for (const ext of LOGO_EXTS) {
+    if (existsSync(dataPath(`logos/${name}.${ext}`))) {
+      return `\${replace}/logos/${encodeURIComponent(name)}.${ext}`
+    }
+  }
+  return ''
+}
+
 /**
  * @param {Number} hours -更新小时数
  * @param {Object} options - 更新选项
@@ -124,15 +138,14 @@ async function updateTV(hours, options = {}) {
       
       const isBuiltIn = channelItem.source === 'built-in'
       const isExternal = channelItem.source === 'external' || !!channelItem.url
-      let logoUrl = channelItem.pics?.highResolutionH || channelItem.logo || ""
-      // 外部/精选频道（IPTV.m3u 等）多数没台标。优先级：m3u 手写(channelItem.logo，上面已取) >
-      // 本地 logos/<中文名>.png（用户自放，持久化在数据目录，仅查本地文件不联网）> fanmingming 兜底 > 空。
-      if (!logoUrl && (isExternal || isBuiltIn)) {
-        if (existsSync(dataPath(`logos/${channelItem.name}.png`))) {
-          logoUrl = `\${replace}/logos/${encodeURIComponent(channelItem.name)}.png`
-        } else if (externalLogoBase) {
-          logoUrl = `${externalLogoBase}${encodeURIComponent(channelItem.name)}.png`
-        }
+      // 台标优先级：本地 logos/<频道名>.<ext>（用户后台上传或手动放，最高、仅查本地不联网）
+      //   > 源自带台标（咪咕 pics / m3u 手写）> fanmingming 兜底（仅外部/内置）> 空。
+      let logoUrl = findLocalLogo(channelItem.name)
+      if (!logoUrl) {
+        logoUrl = channelItem.pics?.highResolutionH || channelItem.logo || ""
+      }
+      if (!logoUrl && (isExternal || isBuiltIn) && externalLogoBase) {
+        logoUrl = `${externalLogoBase}${encodeURIComponent(channelItem.name)}.png`
       }
       
       // 内置源使用playURL字段，外部源使用url字段，咪咕源构造URL

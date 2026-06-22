@@ -4327,9 +4327,17 @@ if(success){
             }
         }
 
+        // 隐藏/归类统一用频道「真实原始分组」(channel.originalGroup) 算 key：移动过的频道其显示分组 ≠ 原始分组，
+        // 而服务端 applyConfig 按 `${originalGroup}::${id}` 判定隐藏；用显示分组会写错 key，导致隐藏对移动过的频道不生效
+        // （issue #42）。找不到频道对象时退回按显示分组推算（兼容旧行为）。
+        function channelOriginalGroupName(channel, displayGroupName) {
+            return channel?.originalGroup || getOriginalGroupName(displayGroupName);
+        }
+
         async function hideChannel(channelId) {
             const group = myPlaylistData[selectedGroupIndex];
-            const originalGroupName = getOriginalGroupName(group.name);
+            const channel = group?.channels.find(c => c.id === channelId);
+            const originalGroupName = channelOriginalGroupName(channel, group.name);
             const hiddenKey = `${originalGroupName}::${channelId}`;
             if (!myPlaylistConfig.hiddenChannels.includes(hiddenKey)) {
                 myPlaylistConfig.hiddenChannels.push(hiddenKey);
@@ -4642,8 +4650,9 @@ if(success){
 
             // 将选中的频道添加到hiddenChannels（使用 分组名::频道ID 格式）
             const group = myPlaylistData[selectedGroupIndex];
-            const originalGroupName = getOriginalGroupName(group.name);
             selectedChannels.forEach(channelId => {
+                const channel = group?.channels.find(c => c.id === channelId);
+                const originalGroupName = channelOriginalGroupName(channel, group.name);
                 const hiddenKey = `${originalGroupName}::${channelId}`;
                 if (!myPlaylistConfig.hiddenChannels.includes(hiddenKey)) {
                     myPlaylistConfig.hiddenChannels.push(hiddenKey);
@@ -4679,13 +4688,16 @@ if(success){
             if (!sel) return;
             const target = sel.value;
             const group = myPlaylistData[selectedGroupIndex];
-            const originalGroupName = getOriginalGroupName(group.name);
-            const renamedOriginal = (myPlaylistConfig.groupRenameMap && myPlaylistConfig.groupRenameMap[originalGroupName]) || originalGroupName;
 
             if (!myPlaylistConfig.channelGroupMap) myPlaylistConfig.channelGroupMap = {};
             selectedChannels.forEach(channelId => {
-                const moveKey = `${originalGroupName}::${channelId}`;
-                if (target === renamedOriginal || target === originalGroupName) {
+                // 用频道真实原始分组算 moveKey：再次移动一个「已移动过」的频道时，显示分组 ≠ 原始分组，
+                // 必须按原始分组改写同一条 channelGroupMap 记录，否则会留下孤儿键、移动/移回失效（issue #42）。
+                const channel = group?.channels.find(c => c.id === channelId);
+                const chOriginal = channel?.originalGroup || getOriginalGroupName(group.name);
+                const chRenamedOriginal = (myPlaylistConfig.groupRenameMap && myPlaylistConfig.groupRenameMap[chOriginal]) || chOriginal;
+                const moveKey = `${chOriginal}::${channelId}`;
+                if (target === chRenamedOriginal || target === chOriginal) {
                     // 移回原分组 = 取消归类
                     delete myPlaylistConfig.channelGroupMap[moveKey];
                 } else {
@@ -4727,10 +4739,10 @@ if(success){
             );
             if (!confirmed) return;
 
-            // 隐藏未选中的频道（使用 分组名::频道ID 格式）
-            const originalGroupName = getOriginalGroupName(group.name);
+            // 隐藏未选中的频道（按频道真实原始分组算 key，移动过的频道才能正确隐藏，见 issue #42）
             group.channels.forEach(channel => {
                 if (!selectedChannels.has(channel.id)) {
+                    const originalGroupName = channelOriginalGroupName(channel, group.name);
                     const hiddenKey = `${originalGroupName}::${channel.id}`;
                     if (!myPlaylistConfig.hiddenChannels.includes(hiddenKey)) {
                         myPlaylistConfig.hiddenChannels.push(hiddenKey);

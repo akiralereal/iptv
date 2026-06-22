@@ -247,6 +247,29 @@ export async function removeLogoAPI(name) {
 }
 
 /**
+ * 把一个频道（同名同地址）复制到一个或多个分组（issue #37）：每个目标分组建一条独立的「直连」副本。
+ * 副本是固定地址的独立频道（独立隐藏/排序/删除）；咪咕频道地址为服务端跳转，暂不支持。
+ */
+export async function copyChannelToGroupsAPI({ name, url, logo, groups } = {}) {
+  try {
+    if (!name || !url) return { success: false, message: '缺少频道名或地址' }
+    if (String(url).includes('${replace}')) return { success: false, message: '咪咕频道暂不支持复制（地址为服务端跳转）' }
+    const targets = Array.isArray(groups) ? [...new Set(groups.map(g => String(g || '').trim()).filter(Boolean))] : []
+    if (!targets.length) return { success: false, message: '未选择目标分组' }
+    const safeLogo = (typeof logo === 'string' && /^https?:\/\//.test(logo)) ? logo : ''
+    let added = 0
+    for (const group of targets) {
+      externalSourceManager.addSource({ name, group, m3u8Url: url, logo: safeLogo, enabled: true, autoRefresh: false })
+      added++
+    }
+    await update(0, { regenerateOnly: true }).catch(err => console.error('复制频道后重新生成失败:', err))
+    return { success: true, added }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+}
+
+/**
  * 解析本地导入的播放列表内容（base64 字节）：解码（GBK/UTF/BOM）+ 解析 m3u/txt，返回解码后文本与频道数（issue #43）
  */
 export function parseLocalContentAPI(contentBase64) {

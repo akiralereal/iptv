@@ -11,7 +11,7 @@ import { dataPath } from "./utils/paths.js";
 import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
          addExternalSourceAPI, removeExternalSourceAPI, updateExternalSourceAPI,
          setExternalSourceM3u8API, importSubscriptionAPI, parseLocalContentAPI,
-         uploadLogoAPI, removeLogoAPI, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
+         uploadLogoAPI, removeLogoAPI, copyChannelToGroupsAPI, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, validateGroupConfig, applyConfig,
          listProfiles, createProfile, renameProfile, deleteProfile } from "./utils/playlistConfig.js";
@@ -237,6 +237,20 @@ const server = http.createServer(async (req, res) => {
       try {
         const data = JSON.parse(await readBody(req))
         const result = await removeLogoAPI(data.name)
+        res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify(result));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: false, message: error.message }));
+      }
+      return
+    }
+
+    // 复制频道到一个/多个分组（issue #37）
+    if (routePath === '/api/copy-channel' && method === 'POST') {
+      try {
+        const data = JSON.parse(await readBody(req))
+        const result = await copyChannelToGroupsAPI(data)
         res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json;charset=UTF-8' });
         res.end(JSON.stringify(result));
       } catch (error) {

@@ -5032,6 +5032,22 @@ if(success){
                     </div>
                 `;
 
+                // 复制到分组（issue #37）：仅对地址固定的非咪咕频道提供
+                if (channel.url && !String(channel.url).includes('${replace}')) {
+                    const _copyGroups = myPlaylistData.map(g => g.name).filter(n => n !== groupName);
+                    if (_copyGroups.length) {
+                        const _copyOpts = _copyGroups.map(n => `<option value="${String(n).replace(/"/g, '&quot;')}">${n}</option>`).join('');
+                        detailHTML += `
+                            <div style="margin-bottom: 15px;">
+                                <strong style="color: #667eea;">复制到分组：</strong>
+                                <select id="channelCopySelect" multiple size="4" style="min-width:200px;padding:4px;border-radius:4px;border:1px solid #ddd;vertical-align:top;">${_copyOpts}</select>
+                                <button class="btn btn-sm btn-primary" style="margin-left:8px;vertical-align:top;" onclick="copyCurrentChannelToGroups()">复制</button>
+                                <div style="margin-top:6px;color:#999;font-size:12px;">把本频道（同名同地址）复制一份到所选分组（按住 Ctrl/Cmd 可多选）。复制出的是<b>固定地址的独立频道</b>，适合地址不变的频道；可在「外部源管理」里删除。</div>
+                            </div>
+                        `;
+                    }
+                }
+
                 // 台标：预览 + 上传 / 移除（issue #40）
                 const _logoBaseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]+$/, '');
                 const _logoSrc = channel.logo ? String(channel.logo).replace(/\$\{replace\}/g, _logoBaseUrl) : '';
@@ -5200,6 +5216,31 @@ if(success){
                 const channelsRes = await fetch(API_PREFIX + '/api/channels');
                 if (channelsRes.ok) { allChannels = await channelsRes.json(); }
             } catch (e) { showStatus('移除失败: ' + e.message, 'error'); }
+        }
+
+        // 复制当前频道到所选分组（issue #37）：后端为每个目标分组建一条独立的直连副本
+        async function copyCurrentChannelToGroups() {
+            if (!currentChannelDetail) return;
+            const sel = document.getElementById('channelCopySelect');
+            if (!sel) return;
+            const groups = Array.from(sel.selectedOptions).map(o => o.value);
+            if (!groups.length) { showStatus('请先选择目标分组', 'error'); return; }
+            try {
+                showStatus('正在复制...', 'info');
+                const resp = await fetch(API_PREFIX + '/api/copy-channel', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: currentChannelDetail.name, url: currentChannelDetail.url, logo: currentChannelDetail.logo || '', groups })
+                });
+                const result = await resp.json();
+                if (result.success === false) { showStatus('复制失败: ' + (result.message || ''), 'error'); return; }
+                showStatus(`已复制到 ${result.added} 个分组`, 'success');
+                closeChannelDetail();
+                const externalRes = await fetch(API_PREFIX + '/api/external-sources');
+                if (externalRes.ok) { externalConfig = normalizeExternalConfig(await externalRes.json()); }
+                await loadMyPlaylist(false);
+                const channelsRes = await fetch(API_PREFIX + '/api/channels');
+                if (channelsRes.ok) { allChannels = await channelsRes.json(); }
+            } catch (e) { showStatus('复制失败: ' + e.message, 'error'); }
         }
 
         // 将当前详情中的频道移动到所选分组（单频道归类）

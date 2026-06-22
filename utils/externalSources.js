@@ -151,6 +151,19 @@ function decodeSubscriptionBody(buffer, contentType) {
 }
 
 /**
+ * 解码并解析「本地导入」的播放列表字节（base64）。复用订阅的字节解码（BOM/charset/UTF-8 试解/GBK 回退）
+ * 与 m3u/txt 解析，使本地上传的文件与在线订阅得到一致的编码处理与频道结构（issue #43）。
+ * @param {string} base64 - 文件原始字节的 base64
+ * @returns {{ text: string, channels: Array }}
+ */
+function decodeAndParseLocalContent(base64) {
+  const buffer = Buffer.from(String(base64 || ''), 'base64')
+  const text = decodeSubscriptionBody(buffer, null)
+  const channels = parsePlaylistContent(text)
+  return { text, channels }
+}
+
+/**
  * 将 raw.githubusercontent.com 地址转换为 jsdelivr 格式 /gh/owner/repo@branch/path
  */
 function toJsdelivr(url, base) {
@@ -553,6 +566,16 @@ class ExternalSourceManager {
    */
   async updateSubscriptionSource(index) {
     const source = this.sources.sources[index]
+    // 本地导入源：内容已内联在 subscriptionContent，直接本地解析、不发网络请求（issue #43）
+    if (typeof source.subscriptionContent === 'string' && source.subscriptionContent.trim()) {
+      const channels = parsePlaylistContent(source.subscriptionContent)
+      this.sources.sources[index].parsedChannels = channels
+      this.sources.sources[index].lastUpdated = new Date().toISOString()
+      this.sources.sources[index]._failCount = 0
+      this.saveSources()
+      printGreen(`${source.name} 本地导入解析成功，共 ${channels.length} 个频道`)
+      return { success: true, channelCount: channels.length }
+    }
     if (!source.subscriptionUrl) {
       return { success: false, message: '未填写订阅地址' }
     }
@@ -804,4 +827,4 @@ class ExternalSourceManager {
 const externalSourceManager = new ExternalSourceManager()
 
 export default externalSourceManager
-export { ExternalSourceManager, fetchAndParseM3u, parsePlaylistContent, splitCredentials, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS }
+export { ExternalSourceManager, fetchAndParseM3u, parsePlaylistContent, decodeAndParseLocalContent, splitCredentials, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS }

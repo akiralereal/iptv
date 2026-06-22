@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
 import { getAllChannels, externalSourceManager, builtInSourceManager } from "./channelMerger.js"
-import { BUILT_IN_SUBSCRIPTIONS } from "./externalSources.js"
+import { BUILT_IN_SUBSCRIPTIONS, parsePlaylistContent, decodeAndParseLocalContent } from "./externalSources.js"
 import { dataPath } from "./paths.js"
 import update from "./updateData.js"
 
@@ -103,6 +103,14 @@ export function getExternalSourcesAPI() {
  */
 export async function saveExternalSourcesAPI(sources) {
   try {
+    // 本地导入源（内联 subscriptionContent）：保存前用内容重新解析出频道，保证 parsedChannels 与内容一致（issue #43）
+    if (sources && Array.isArray(sources.sources)) {
+      for (const s of sources.sources) {
+        if (s && s.mode === 'subscription' && typeof s.subscriptionContent === 'string' && s.subscriptionContent.trim()) {
+          s.parsedChannels = parsePlaylistContent(s.subscriptionContent)
+        }
+      }
+    }
     const result = externalSourceManager.saveSources(sources)
     if (result.success !== false) {
       // 保存成功后自动触发更新，仅重新生成播放列表（不重新抓取咪咕数据）
@@ -178,6 +186,18 @@ export function setExternalSourceM3u8API(index, m3u8Url) {
       success: false,
       message: error.message
     }
+  }
+}
+
+/**
+ * 解析本地导入的播放列表内容（base64 字节）：解码（GBK/UTF/BOM）+ 解析 m3u/txt，返回解码后文本与频道数（issue #43）
+ */
+export function parseLocalContentAPI(contentBase64) {
+  try {
+    const { text, channels } = decodeAndParseLocalContent(contentBase64)
+    return { success: true, text, channelCount: channels.length }
+  } catch (error) {
+    return { success: false, message: error.message }
   }
 }
 

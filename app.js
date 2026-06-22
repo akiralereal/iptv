@@ -10,7 +10,7 @@ import { channel, interfaceStr } from "./utils/appUtils.js";
 import { dataPath } from "./utils/paths.js";
 import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
          addExternalSourceAPI, removeExternalSourceAPI, updateExternalSourceAPI,
-         setExternalSourceM3u8API, importSubscriptionAPI, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
+         setExternalSourceM3u8API, importSubscriptionAPI, parseLocalContentAPI, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, validateGroupConfig, applyConfig,
          listProfiles, createProfile, renameProfile, deleteProfile } from "./utils/playlistConfig.js";
@@ -203,6 +203,8 @@ const server = http.createServer(async (req, res) => {
           result = setExternalSourceM3u8API(data.index, data.m3u8Url)
         } else if (data.action === 'importSubscription') {
           result = await importSubscriptionAPI(data.index)
+        } else if (data.action === 'parseLocalContent') {
+          result = parseLocalContentAPI(data.contentBase64)
         } else {
           result = { success: false, message: '未知操作' }
         }

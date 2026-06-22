@@ -2552,9 +2552,19 @@
                             <input type="text" value="${source.name || ''}" oninput="updateExternalField(${index}, 'name', this.value)" placeholder="例：广东电视台直播源">
                         </div>
                         <div class="external-field">
-                            <label>订阅地址 *</label>
+                            <label>来源 *</label>
+                            <div class="mode-switcher" style="margin-bottom: 8px;">
+                                <button class="mode-switch-btn ${!source.localImport ? 'active' : ''}" onclick="setSubImportType(${index}, false)">🌐 在线 URL</button>
+                                <button class="mode-switch-btn ${source.localImport ? 'active' : ''}" onclick="setSubImportType(${index}, true)">📁 本地文件 / 粘贴</button>
+                            </div>
+                            ${!source.localImport ? `
                             <input type="text" value="${source.subscriptionUrl || ''}" oninput="updateExternalField(${index}, 'subscriptionUrl', this.value)" placeholder="例：https://example.com/playlist.m3u 或 .txt">
                             <div class="form-hint">填写包含多个频道的 m3u/m3u8 或 txt（频道名,地址）播放列表地址，系统会自动识别格式并解析其中的所有频道</div>
+                            ` : `
+                            <input type="file" accept=".m3u,.m3u8,.txt,text/plain" onchange="onLocalFilePicked(${index}, this)" style="margin-bottom: 8px;">
+                            <textarea oninput="updateExternalField(${index}, 'subscriptionContent', this.value)" placeholder="选择本地 .m3u/.m3u8/.txt 文件，或直接把播放列表内容粘贴到这里（支持 m3u/m3u8 与 txt「频道名,地址」格式，自动识别 GBK/UTF-8 编码）" style="width: 100%; min-height: 120px; font-family: monospace; font-size: 12px; box-sizing: border-box;">${(source.subscriptionContent || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</textarea>
+                            <div class="form-hint">选择文件或粘贴内容后，点下方「📥 导入并保存」即可解析入库；本地导入不发起网络请求</div>
+                            `}
                             ${channelInfo}
                         </div>
                         <div class="external-field">
@@ -2652,7 +2662,10 @@
             
             // 切换模式
             source.mode = newMode;
-            
+            // 切换模式时清掉本地导入内容/标记（订阅模式内再单独选「URL / 本地」）
+            source.subscriptionContent = '';
+            source.localImport = false;
+
             // 根据新模式清空对应的URL字段
             if (newMode === 'fetch') {
                 // 切换到抓取模式，清空m3u8Url
@@ -2687,6 +2700,55 @@
             
             // 重新渲染详情面板
             renderExternalDetail(index);
+        }
+
+        // 订阅源「来源」切换：在线 URL / 本地文件·粘贴（issue #43）
+        function setSubImportType(index, isLocal) {
+            const source = externalConfig.sources[index];
+            if (!source) return;
+            source.localImport = !!isLocal;
+            renderExternalDetail(index);
+        }
+
+        // ArrayBuffer -> base64（分块，避免大文件 String.fromCharCode 爆栈）
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            const chunk = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunk) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+            }
+            return btoa(binary);
+        }
+
+        // 选择本地 m3u/txt 文件：读原始字节交后端解码(GBK/UTF/BOM)并预览频道数，结果填入内容框
+        async function onLocalFilePicked(index, inputEl) {
+            const file = inputEl.files && inputEl.files[0];
+            if (!file) return;
+            const source = externalConfig.sources[index];
+            if (!source) return;
+            try {
+                showStatus('正在读取文件...', 'info');
+                const base64 = arrayBufferToBase64(await file.arrayBuffer());
+                const resp = await fetch(API_PREFIX + '/api/external-sources', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'parseLocalContent', contentBase64: base64 })
+                });
+                const result = await resp.json();
+                if (result.success === false) {
+                    showStatus('文件解析失败: ' + (result.message || ''), 'error');
+                    return;
+                }
+                source.subscriptionContent = result.text || '';
+                if (!source.name || !source.name.trim()) {
+                    source.name = file.name.replace(/\.(m3u8?|txt)$/i, '');
+                }
+                renderExternalDetail(index);
+                showStatus(`已读取「${file.name}」，识别到 ${result.channelCount || 0} 个频道，点「📥 导入并保存」入库`, 'success');
+            } catch (e) {
+                showStatus('读取文件失败: ' + e.message, 'error');
+            }
         }
 
         // 自定义确认对话框
@@ -3009,8 +3071,10 @@
                 showStatus('请填写订阅名称', 'error');
                 return;
             }
-            if (!source.subscriptionUrl || !source.subscriptionUrl.trim()) {
-                showStatus('请填写订阅地址', 'error');
+            const hasUrl = source.subscriptionUrl && source.subscriptionUrl.trim();
+            const hasContent = source.subscriptionContent && source.subscriptionContent.trim();
+            if (!hasUrl && !hasContent) {
+                showStatus(source.localImport ? '请选择本地文件或粘贴播放列表内容' : '请填写订阅地址', 'error');
                 return;
             }
             

@@ -2,6 +2,32 @@ import puppeteer from "puppeteer"
 import { printBlue, printGreen, printRed } from "./colorOut.js"
 
 /**
+ * 启动 Chromium / Chrome，按以下顺序尽量找到可用浏览器，降低「Could not find Chrome」的踩坑概率：
+ *   1) 环境变量 PUPPETEER_EXECUTABLE_PATH / mchromePath 显式指定的可执行文件（最高优先）
+ *   2) puppeteer 自带、用 `npx puppeteer browsers install chrome` 下载的 Chrome
+ *   3) 找不到自带的时，回退系统已安装的 Google Chrome（channel: 'chrome'），
+ *      省去用户必须先下载特定版本 Chrome 的麻烦
+ * @param {boolean} headless
+ */
+async function launchBrowser(headless) {
+  const baseArgs = ['--no-sandbox', '--disable-setuid-sandbox']
+  const execPath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.mchromePath
+  if (execPath) {
+    return puppeteer.launch({ headless, args: baseArgs, executablePath: execPath })
+  }
+  try {
+    return await puppeteer.launch({ headless, args: baseArgs })
+  } catch (err) {
+    // 自带 Chrome 未下载/未找到时，尝试系统已安装的 Google Chrome
+    if (/Could not find Chrome|Browser was not found|Failed to launch|Could not find expected browser/i.test(err?.message || '')) {
+      printRed('未找到 puppeteer 自带 Chrome，尝试使用系统已安装的 Google Chrome（channel: chrome）…')
+      return puppeteer.launch({ headless, args: baseArgs, channel: 'chrome' })
+    }
+    throw err
+  }
+}
+
+/**
  * 从网页中提取 m3u8 直播链接
  * @param {string} url - 网页地址
  * @param {object} options - 配置选项
@@ -24,11 +50,8 @@ async function extractM3u8FromWeb(url, options = {}) {
   try {
     printBlue(`开始提取: ${url}`)
     
-    // 启动浏览器
-    browser = await puppeteer.launch({
-      headless,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    })
+    // 启动浏览器（自带 Chrome 找不到时回退系统 Google Chrome）
+    browser = await launchBrowser(headless)
     
     const page = await browser.newPage()
     

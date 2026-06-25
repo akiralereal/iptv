@@ -38,6 +38,17 @@
 > - 🎁 已内置多个稳定可靠的免费频道，如**纬来体育、Red Bull、4K 卫视、港澳台及 HBO / CNN / BBC 等海外频道**，无需额外配置即可使用
 > - 📡 内置**精选频道**订阅源（央视 / 港澳台 / 地方 / 国际），开箱即用
 > - 🔗 支持**订阅模式**，可导入 m3u/m3u8 播放列表批量添加频道
+<!-- CURRENT_RELEASE_NOTES:START -->
+#### 🆕 v3.7.0 更新内容
+
+- 🆕 **EPG 聚合：多个第三方节目单源自动合并成一份**：后台「系统配置 → 📅 EPG 节目单源（聚合）」可添加多个 XMLTV/EPG 源（支持 `.xml` 与 `.xml.gz`），程序定时拉取、把各源频道名归一到本项目规范名后合并进 `/playback.xml`——某频道只要任一源里有就能补上节目单，咪咕已覆盖的频道始终优先、不被外部覆盖。默认开启、内置默认源、开箱即用，无需手动配；每个源可看抓取时间 / 频道数 / 已匹配数，可调刷新间隔与优先级，并支持「立即刷新」。即使关闭咪咕（`enableMigu=false`），外部 EPG 也能独立产出节目单。可用 `enableEpgAggregation`（或环境变量 `menableEpgAggregation=false`）关闭（issue #38）
+- 🛠️ **网页抓取源启动浏览器更稳**：抓取类源（如纬来体育）现在会优先使用系统已安装的 Google Chrome / Chromium / Edge，裸跑（非 Docker）只要装了 Chrome 就开箱即用，不必再手动 `npx puppeteer browsers install chrome` 或下载特定版本（该版本可能被部分系统的安全软件删除导致启动失败）；也可用环境变量 `PUPPETEER_EXECUTABLE_PATH` 显式指定。Docker 部署不受影响（仍使用镜像内置 Chromium）
+- 🛠️ **频道详情布局优化**：把「播放地址」与拉起播放器（IINA / VLC / PotPlayer）的按钮移到靠上位置（紧跟频道 ID、在移动 / 重命名 / 复制 / 台标等管理操作之前），并放大详情弹窗，常用的复制地址 / 拉起播放器不再被挤到底部
+- 🐛 **修复纬来体育源抓取失败**：内置源「纬来体育」旧域名 `jrkan66.com` 已失效，切换到 `jrkan.com` 的同名页面（该配置为远程下发，部署端会自动更新、无需重建镜像）
+
+<sub>完整更新历史见下方 <a href="#-更新日志">更新日志</a></sub>
+<!-- CURRENT_RELEASE_NOTES:END -->
+
 <div align="center">
   <img src="https://raw.githubusercontent.com/akiralereal/iPTV-Docker/main/Resources/111.png" width="800"/>
   <img src="https://raw.githubusercontent.com/akiralereal/iPTV-Docker/main/Resources/222.png" width="800"/>
@@ -180,6 +191,20 @@ docker run -d -p 1905:1905 \
 - ✅ 添加/编辑/删除外部直播源
 - ✅ 配置系统参数（画质、公网地址、访问密码等）
 - ✅ 一键更新播放列表
+
+---
+
+## ❓ 常见问题（FAQ）
+
+**Q：飞牛影视 / 某些播放器点开频道「只有声音、没有画面」（提示「仅支持音频直播」）？**
+
+A：这是 **H.265（HEVC）编码兼容性**问题——咪咕视频流默认是 H.265，而部分播放器（如飞牛影视内置播放器）不支持 H.265 解码，只能解出音频、没有画面。解决办法：
+
+1. 进后台「**系统配置**」，取消勾选「**启用 H.265 原画**」，点保存；
+2. 点页面顶部「**重启服务**」让配置生效（旧的流地址有缓存，必须重启）；
+3. 在播放端（飞牛影视等）重新打开频道（必要时重新订阅一次）。
+
+环境变量部署等价于设 `menableH265=false` 后重启容器。关闭后回落到兼容性最好的 H.264，清晰度基本无感。若个别频道仍只有声音，再加 `menableHDR=false`（少数频道为 HDR/Vivid 导致）。
 
 ---
 
@@ -826,6 +851,8 @@ node bump-version.js major          # 2.2.1 → 3.0.0（不兼容变更）
 node bump-version.js 2.2.1          # 直接指定版本号
 
 # 2. 编辑 README.md 填写更新日志：把脚本插入的空 `- ` 占位补成面向用户的条目
+# 2.5 把更新日志最新条目同步到 README 顶部「当前版本更新内容」
+node bump-version.js sync-notes
 
 # 3. 提交并打 tag（tag 名须与版本号一致，带 v 前缀）
 git add -A && git commit -m "release: vX.Y.Z"

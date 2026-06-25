@@ -4124,7 +4124,7 @@ if(success){
                         <button class="btn btn-sm" onclick="moveGroupUp(${groupIndex})" ${isUngrouped || groupIndex === 0 ? 'disabled' : ''}>↑ 上移</button>
                         <button class="btn btn-sm" onclick="moveGroupDown(${groupIndex})" ${isUngrouped || groupIndex === myPlaylistData.length - 1 ? 'disabled' : ''}>↓ 下移</button>
                         <button class="btn btn-sm" onclick="toggleGroupSort()" title="点击切换：手动拖拽 ⇄ 按名称自动排序（中文按拼音、含数字按数值）">📑 排序：${isNameSorted ? '名称' : '手动'}</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})" ${isUngrouped || isCustomGroup ? 'disabled' : ''}>隐藏分组</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})" ${isUngrouped || isCustomGroup ? 'disabled' : ''} title="${isCustomGroup ? '自定义分组无需隐藏：「删除分组」即彻底移除；想隐藏其中的频道请用「批量管理 → 隐藏」' : isUngrouped ? '「未分组」不可隐藏' : '隐藏整个分组，可在右侧「已隐藏」里恢复'}">隐藏分组</button>
                         <button class="btn btn-primary btn-sm" onclick="toggleBatchMode()">批量管理</button>
                     `;
                 }

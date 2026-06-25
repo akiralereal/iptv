@@ -16,6 +16,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { appendFileSync, writeJsonFileSync } from './fileUtil.js'
 import { dataPath } from './paths.js'
 import { normalizeKey, normalizeTvgName } from './channelNormalize.js'
+import { parseProgrammes, rewriteChannel, escapeXml } from './epgParse.js'
 import { enableEpgAggregation, enableTvgNormalize } from '../config.js'
 import { printGreen, printRed, printYellow, printBlue } from './colorOut.js'
 
@@ -78,20 +79,6 @@ function saveEpgConfig(config) {
   }
 }
 
-// XML 实体反转义（配对前还原频道名里的 &amp; 等）
-function decodeXml(s) {
-  return s
-    .replaceAll('&amp;', '&').replaceAll('&lt;', '<').replaceAll('&gt;', '>')
-    .replaceAll('&quot;', '"').replaceAll('&apos;', "'")
-}
-
-// XML 实体转义（写出 channel id / display-name 时用）
-function escapeXml(s) {
-  return String(s)
-    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;').replaceAll("'", '&apos;')
-}
-
 function ensureCacheDir() {
   try { mkdirSync(EPG_CACHE_DIR, { recursive: true }) } catch { /* 已存在或不可创建，后续读写自然报错 */ }
 }
@@ -151,32 +138,6 @@ async function ensureRawXml(source, cachePath) {
     printRed(`EPG 源「${source.name}」下载失败且无缓存，跳过: ${e.message}`)
     return false
   }
-}
-
-const PROG_RE = /<programme\b([^>]*)>[\s\S]*?<\/programme>/g
-const CH_ATTR_RE = /channel="([^"]*)"/
-
-// 从 XMLTV 文本中，按归一 key 收集 <programme> 块；只保留 wantedKeys 命中的频道，控制内存与体积。
-// 返回 Map<归一key, [programme 原始 XML 块, ...]>
-function parseProgrammes(xml, wantedKeys) {
-  const byKey = new Map()
-  PROG_RE.lastIndex = 0
-  let m
-  while ((m = PROG_RE.exec(xml)) !== null) {
-    const cm = CH_ATTR_RE.exec(m[1])
-    if (!cm) continue
-    const k = normalizeKey(decodeXml(cm[1]))
-    if (!k || !wantedKeys.has(k)) continue
-    let arr = byKey.get(k)
-    if (!arr) { arr = []; byKey.set(k, arr) }
-    arr.push(m[0])
-  }
-  return byKey
-}
-
-// 把 programme 块里的 channel 属性改写为合并后输出用的频道 id
-function rewriteChannel(block, outputId) {
-  return block.replace(CH_ATTR_RE, `channel="${escapeXml(outputId)}"`)
 }
 
 /**

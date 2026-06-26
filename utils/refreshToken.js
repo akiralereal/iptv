@@ -40,7 +40,7 @@ async function refreshToken(userId, token) {
   const headers = {
     userId: userId,
     userToken: token,
-    "Content-Type": "appsication/json; charset=utf-8"
+    "Content-Type": "application/json; charset=utf-8"
   }
 
   const baseURL = "https://migu-app-umnb.miguvideo.com/login/token_refresh_migu_plus"

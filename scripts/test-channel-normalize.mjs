@@ -81,6 +81,10 @@ check('logoMatchName 清洗到公共库短名', () => {
   assert.equal(logoMatchName('CCTV4中文国际'), 'CCTV4')
   assert.equal(logoMatchName('CCTV4欧洲'), 'CCTV4欧洲')      // 不砍成 CCTV4欧（库里是全称）
   assert.equal(logoMatchName('CCTV4美洲HD'), 'CCTV4美洲')
+  // 中文「央视N套」写法也要收敛到 CCTVN（issue #38 截图里的真实频道：央视1套高清；库里只有 CCTV1.png）
+  assert.equal(logoMatchName('央视1套高清'), 'CCTV1')
+  assert.equal(logoMatchName('央视5套体育'), 'CCTV5')
+  assert.equal(logoMatchName('央视十三套'), 'CCTV13')
   // 非 CCTV：去清晰度/运营商标注，保留大小写与中文原样
   assert.equal(logoMatchName('湖南卫视（电信）'), '湖南卫视')
   assert.equal(logoMatchName('湖南卫视高清'), '湖南卫视')

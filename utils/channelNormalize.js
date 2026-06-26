@@ -30,17 +30,20 @@ function toHalfWidth(s) {
     .replace(/　/g, " ")
 }
 
+// 「央视N / 央视N套 / 央视N台」→ CCTVN（含中文数字一~十七），与 CCTV 各种写法归一。
+// normalizeKey 与 logoMatchName 共用，保证两边对央视写法的口径一致（issue #40）。
+const CN_NUM = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10, '十一': 11, '十二': 12, '十三': 13, '十四': 14, '十五': 15, '十六': 16, '十七': 17 }
+function yangshiToCctv(s) {
+  return s.replace(/央视\s*([0-9]{1,2}|[一二三四五六七八九十]{1,3})\s*(?:套|台|频道|综合|高清)?/, (whole, num) => {
+    const n = /^[0-9]+$/.test(num) ? num : CN_NUM[num]
+    return n ? 'CCTV' + n : whole
+  })
+}
+
 // 把频道名归一成可比较的 key：CCTV 用频道号(及 +/欧美)做 key，其余去清晰度后缀和分隔符
 export function normalizeKey(name) {
   if (!name) return ""
-  let s = toHalfWidth(String(name)).trim().toUpperCase()
-
-  // 「央视N / 央视N套 / 央视N台」视作 CCTVN（含中文数字一~十七），与 CCTV 各种写法归一到一起
-  s = s.replace(/央视\s*([0-9]{1,2}|[一二三四五六七八九十]{1,3})\s*(?:套|台|频道|综合|高清)?/, (whole, num) => {
-    const cn = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10, '十一': 11, '十二': 12, '十三': 13, '十四': 14, '十五': 15, '十六': 16, '十七': 17 }
-    const n = /^[0-9]+$/.test(num) ? num : cn[num]
-    return n ? 'CCTV' + n : whole
-  })
+  let s = yangshiToCctv(toHalfWidth(String(name)).trim().toUpperCase())
 
   // CCTV 专项：靠频道号识别，丢弃「综合/财经/高清」等描述词，避免同台不同写法对不上
   const m = s.match(/CCTV[-\s]*(\d{1,2})\s*(\+|PLUS|加)?/)
@@ -142,7 +145,8 @@ export function normalizeTvgName(name) {
 // 让「CCTV1高清（电信）」「湖南卫视（电信）」这类特殊命名的常见频道也能命中公共库；频道显示名保持不变。
 export function logoMatchName(name) {
   if (!name) return ''
-  const raw = toHalfWidth(String(name)).trim()
+  // 先把「央视N套」等中文写法转成 CCTVN，与 normalizeKey 同口径（fanmingming 只有 CCTV1.png，没有 央视1套.png）
+  const raw = yangshiToCctv(toHalfWidth(String(name)).trim())
   // CCTV：按频道号收敛到公共库短名（保留 + 与 CCTV4 的 欧洲/美洲 三路区分）
   const cc = raw.toUpperCase().match(/CCTV[-\s]*(\d{1,2})\s*(\+|PLUS|加)?/)
   if (cc) {

@@ -2,7 +2,7 @@ import { getAllChannels, updateExternalSources, updateBuiltInSources, externalSo
 import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile, writeFileSync } from "./fileUtil.js"
 import { updatePlaybackData } from "./playback.js"
 import { aggregateExternalEpg } from "./epgAggregator.js"
-import { normalizeKey } from "./channelNormalize.js"
+import { normalizeKey, logoMatchName } from "./channelNormalize.js"
 import { refreshToken as enableTokenRefresh, host, pass, token, userId, enableMigu, externalLogoBase } from "../config.js"
 import refreshToken from "./refreshToken.js"
 import { printGreen, printRed, printYellow, printBlue } from "./colorOut.js"
@@ -145,12 +145,18 @@ async function updateTV(hours, options = {}) {
       const isExternal = channelItem.source === 'external' || !!channelItem.url
       // 台标优先级：本地 logos/<频道名>.<ext>（用户后台上传或手动放，最高、仅查本地不联网）
       //   > 源自带台标（咪咕 pics / m3u 手写）> fanmingming 兜底（仅外部/内置）> 空。
+      // 取图用「台标匹配名」做 key（issue #40）：CCTV1高清（电信）→ CCTV1、湖南卫视（电信）→ 湖南卫视，
+      // 让特殊命名的常见频道也能命中本地/公共库；频道显示名不变。本地查找仍以显示名优先、规范名兜底。
+      const logoKey = logoMatchName(channelItem.name)
       let logoUrl = findLocalLogo(channelItem.name)
+      if (!logoUrl && logoKey && logoKey !== channelItem.name) {
+        logoUrl = findLocalLogo(logoKey)
+      }
       if (!logoUrl) {
         logoUrl = channelItem.pics?.highResolutionH || channelItem.logo || ""
       }
       if (!logoUrl && (isExternal || isBuiltIn) && externalLogoBase) {
-        logoUrl = `${externalLogoBase}${encodeURIComponent(channelItem.name)}.png`
+        logoUrl = `${externalLogoBase}${encodeURIComponent(logoKey || channelItem.name)}.png`
       }
       
       // 内置源使用playURL字段，外部源使用url字段，咪咕源构造URL

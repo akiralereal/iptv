@@ -19,6 +19,10 @@ import { cntvNames } from "./datas.js"
 // 质量/清晰度等修饰词：参与 key 比对时剔除（只影响匹配 key，不改频道显示名）
 const QUALITY = /超高清|超清|高清|标清|蓝光|HD|UHD|FHD|SD|4K|8K|HEVC|H\.?265|IPV6|IPV4|50FPS/gi
 
+// 运营商/信源/线路标注：不改变频道身份（CCTV1电信 与 CCTV1 是同一台），参与匹配时剔除。
+// 只影响 EPG / 台标 的匹配 key，不改频道显示名——用户想保留「（电信）」这类信源标识仍可见。issue #40
+const OPERATOR = /电信|联通|移动|广电|歌华|华数|鹏博士|IPTV|备用|备\d|线路\s*\d*|高码|低码|测试/gi
+
 // 全角转半角（含全角空格）
 function toHalfWidth(s) {
   return s
@@ -26,17 +30,20 @@ function toHalfWidth(s) {
     .replace(/　/g, " ")
 }
 
+// 「央视N / 央视N套 / 央视N台」→ CCTVN（含中文数字一~十七），与 CCTV 各种写法归一。
+// normalizeKey 与 logoMatchName 共用，保证两边对央视写法的口径一致（issue #40）。
+const CN_NUM = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10, '十一': 11, '十二': 12, '十三': 13, '十四': 14, '十五': 15, '十六': 16, '十七': 17 }
+function yangshiToCctv(s) {
+  return s.replace(/央视\s*([0-9]{1,2}|[一二三四五六七八九十]{1,3})\s*(?:套|台|频道|综合|高清)?/, (whole, num) => {
+    const n = /^[0-9]+$/.test(num) ? num : CN_NUM[num]
+    return n ? 'CCTV' + n : whole
+  })
+}
+
 // 把频道名归一成可比较的 key：CCTV 用频道号(及 +/欧美)做 key，其余去清晰度后缀和分隔符
 export function normalizeKey(name) {
   if (!name) return ""
-  let s = toHalfWidth(String(name)).trim().toUpperCase()
-
-  // 「央视N / 央视N套 / 央视N台」视作 CCTVN（含中文数字一~十七），与 CCTV 各种写法归一到一起
-  s = s.replace(/央视\s*([0-9]{1,2}|[一二三四五六七八九十]{1,3})\s*(?:套|台|频道|综合|高清)?/, (whole, num) => {
-    const cn = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10, '十一': 11, '十二': 12, '十三': 13, '十四': 14, '十五': 15, '十六': 16, '十七': 17 }
-    const n = /^[0-9]+$/.test(num) ? num : cn[num]
-    return n ? 'CCTV' + n : whole
-  })
+  let s = yangshiToCctv(toHalfWidth(String(name)).trim().toUpperCase())
 
   // CCTV 专项：靠频道号识别，丢弃「综合/财经/高清」等描述词，避免同台不同写法对不上
   const m = s.match(/CCTV[-\s]*(\d{1,2})\s*(\+|PLUS|加)?/)
@@ -49,6 +56,7 @@ export function normalizeKey(name) {
   }
 
   s = s.replace(QUALITY, "")
+  s = s.replace(OPERATOR, "")   // 去运营商/信源/线路标注（电信/联通/IPTV…），让「湖南卫视（电信）」也归一到「湖南卫视」。issue #40
   s = s.replace(/[\s\-_·.|"'’，,、（）()\[\]【】]/g, "")
   return s
 }
@@ -126,4 +134,31 @@ export function getCanonicalMap() {
 // 把一个频道名归一到规范名；无对应规范名时返回 null（保持原样、不误改）
 export function normalizeTvgName(name) {
   return getCanonicalMap().get(normalizeKey(name)) || null
+}
+
+// 为「按名取台标」清洗频道名（issue #40）。目标是 fanmingming 这类公共台标库的短文件名约定
+// （CCTV1.png / CCTV5+.png / CCTV4欧洲.png / 湖南卫视.png），实测库里没有 CCTV1综合.png、湖南卫视高清.png。
+// 与 normalizeKey 的差异（所以不复用）：
+//   - 保留大小写与中文原样（URL 区分大小写，英文台名不能被大写化）；
+//   - CCTV 收敛到库里的「短名」而非 EPG 的「长规范名」（CCTV1 而非 CCTV1综合；4 路保留 欧洲/美洲 全称）；
+//   - 只剔除清晰度/运营商/空括号等噪声，不做激进的分隔符压缩。
+// 让「CCTV1高清（电信）」「湖南卫视（电信）」这类特殊命名的常见频道也能命中公共库；频道显示名保持不变。
+export function logoMatchName(name) {
+  if (!name) return ''
+  // 先把「央视N套」等中文写法转成 CCTVN，与 normalizeKey 同口径（fanmingming 只有 CCTV1.png，没有 央视1套.png）
+  const raw = yangshiToCctv(toHalfWidth(String(name)).trim())
+  // CCTV：按频道号收敛到公共库短名（保留 + 与 CCTV4 的 欧洲/美洲 三路区分）
+  const cc = raw.toUpperCase().match(/CCTV[-\s]*(\d{1,2})\s*(\+|PLUS|加)?/)
+  if (cc) {
+    if (cc[1] === '4') {
+      if (/欧/.test(raw)) return 'CCTV4欧洲'
+      if (/美/.test(raw)) return 'CCTV4美洲'
+    }
+    return 'CCTV' + cc[1] + (cc[2] ? '+' : '')
+  }
+  // 非 CCTV：去清晰度/运营商标注 → 清掉被掏空的空括号 → 去首尾分隔符（大小写与其余字符原样保留）
+  let s = raw.replace(QUALITY, '').replace(OPERATOR, '')
+  s = s.replace(/[（(\[【]\s*[)）\]】]/g, '')
+  s = s.replace(/^[\s\-_·.|]+|[\s\-_·.|]+$/g, '').trim()
+  return s || raw
 }

@@ -1629,11 +1629,21 @@
             background: #f5f5f5;
         }
 
-        /* 频道台标缩略图（issue #38）。不加背景框，非方形图也自然显示；无台标则整块不显示（issue #62）。
-           节目单配对状态不放进列表（无文字说明不易懂），改在「频道详情」里以文字展示（issue #62）。 */
-        .ch-logo-wrap { flex: 0 0 auto; margin-right: 8px; display: inline-flex; }
-        .ch-logo { width: 26px; height: 26px; object-fit: contain; }
-        .ch-logo-ph { width: 26px; height: 26px; display: inline-block; }   /* 无台标：同尺寸透明空白占位，保持频道名对齐（issue #62） */
+        /* 频道列表「配对状态」双圆点（issue #62）：左=节目单 右=台标，绿=已匹配 红=未匹配。
+           常驻图例（下方 .ch-status-legend）说明含义，避免「光放图标看不懂」。 */
+        .ch-status { flex: 0 0 auto; margin-right: 9px; display: inline-flex; gap: 4px; align-items: center; }
+        .ch-status .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+        .dot.ok { background: #3cb95a; }
+        .dot.no { background: #f0676a; }
+        /* 配对状态图例：常驻在频道列表上方 */
+        .ch-status-legend {
+            display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+            font-size: 12px; color: #8a8a8a; background: #fafafa;
+            border: 1px solid #f0f0f0; border-radius: 6px; padding: 6px 12px; margin-bottom: 10px;
+        }
+        .ch-status-legend b { color: #666; font-weight: 500; }
+        .ch-status-legend .seg { display: inline-flex; align-items: center; gap: 5px; }
+        .ch-status-legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
         /* 顶部内联订阅地址栏（issue #38：免点编辑即可复制） */
         .subscribe-bar {
@@ -1860,6 +1870,12 @@
                         <div class="my-playlist-detail-header" id="detailHeader" style="display: none;">
                             <div class="my-playlist-detail-title" id="detailTitle"></div>
                             <div class="my-playlist-detail-actions" id="detailActions"></div>
+                        </div>
+                        <div class="ch-status-legend">
+                            <b>配对状态</b>
+                            <span class="seg"><span class="dot ok"></span><span class="dot ok"></span> 左=节目单　右=台标</span>
+                            <span class="seg"><span class="dot ok"></span> 绿 已匹配</span>
+                            <span class="seg"><span class="dot no"></span> 红 未匹配（点开频道详情可设别名修正）</span>
                         </div>
                         <div class="my-playlist-groups" id="myPlaylistGroups"></div>
                     </div>
@@ -4173,17 +4189,28 @@ if(success){
                 + `<button class="sb-copy sb-copy-muted" onclick="copyToClipboard('${epg.replace(/'/g, "\\'")}', 'EPG 地址')">📋 复制</button>`;
         }
 
-        // 频道台标缩略图（issue #38）：有台标才显示；无台标 / 加载失败则什么都不显示（issue #62）。仅展示，点击仍走频道名。
-        function channelLogoThumb(channel) {
+        // 频道列表「配对状态」双圆点（issue #62）：左=节目单(epgMatched) 右=台标。
+        // 台标点用真实图片加载结果判定（绿=能加载到 / 红=加载失败或无图），比单看 logoStatus 更准。
+        // 含义由上方常驻图例 + 每点 hover 文字说明；详情里仍有完整文字。
+        function channelStatusDots(channel) {
             const base = window.location.origin + API_PREFIX;
             const src = channel.logo ? String(channel.logo).replace(/\$\{replace\}/g, base) : '';
-            // 无台标 / 加载失败：保留同尺寸透明空白占位（无背景），让有/无台标的频道名对齐（issue #62）
-            if (!src) return `<span class="ch-logo-wrap" aria-hidden="true"><span class="ch-logo-ph"></span></span>`;
-            const tip = { local: '台标：本地上传', source: '台标：源自带', auto: '台标：公共库匹配' }[channel.logoStatus] || '台标';
-            return `<span class="ch-logo-wrap" aria-hidden="true">`
-                + `<img class="ch-logo" src="${escapeHtml(src)}" loading="lazy" alt="" title="${escapeHtml(tip)}" `
-                + `onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block'">`
-                + `<span class="ch-logo-ph" style="display:none"></span></span>`;
+            const epgOk = !!channel.epgMatched;
+            const epgTip = epgOk ? ('节目单：已匹配' + (channel.epgName ? ' · ' + channel.epgName : '')) : '节目单：未匹配';
+            const logoTip = '台标：' + ({ local: '本地上传', source: '源自带', auto: '公共库', none: '无' }[channel.logoStatus] || '未知');
+            let logoDot;
+            if (src) {
+                // 先按已匹配渲染绿点，再用隐藏 img 实测；加载失败则把点转红
+                logoDot = `<span class="dot ok" title="${escapeHtml(logoTip)}"></span>`
+                    + `<img src="${escapeHtml(src)}" alt="" loading="lazy" style="display:none" `
+                    + `onload="this.remove()" onerror="this.previousElementSibling.className='dot no';this.previousElementSibling.title='台标：未匹配';this.remove()">`;
+            } else {
+                logoDot = `<span class="dot no" title="台标：无"></span>`;
+            }
+            return `<span class="ch-status" aria-hidden="true">`
+                + `<span class="dot ${epgOk ? 'ok' : 'no'}" title="${escapeHtml(epgTip)}"></span>`
+                + logoDot
+                + `</span>`;
         }
 
         function renderMyPlaylist() {
@@ -4397,7 +4424,7 @@ if(success){
                                            onchange="toggleChannelSelection('${channel.id}')"
                                            ${selectedChannels.has(channel.id) ? 'checked' : ''}>
                                 ` : ''}
-                                ${channelLogoThumb(channel)}
+                                ${channelStatusDots(channel)}
                                 <div class="my-playlist-channel-name" title="点击查看详情：${channel.name}" onclick="showChannelDetail('${channel.id}', true)" style="cursor: pointer;">
                                     <span class="channel-detail-hint" aria-hidden="true">ⓘ</span>${channel.name}
                                 </div>
@@ -4468,7 +4495,7 @@ if(success){
                                                onchange="toggleChannelSelection('${channel.id}')"
                                                ${selectedChannels.has(channel.id) ? 'checked' : ''}>
                                     ` : (isNameSorted ? `<span class="channel-drag-handle" aria-hidden="true"></span>` : `<span class="channel-drag-handle" aria-hidden="true" title="拖拽排序">⠿</span>`)}
-                                    ${channelLogoThumb(channel)}
+                                    ${channelStatusDots(channel)}
                                     <div class="my-playlist-channel-name" title="点击查看详情：${channel.name}" onclick="showChannelDetail('${channel.id}', false)" style="cursor: pointer;">
                                         <span class="channel-detail-hint" aria-hidden="true">ⓘ</span>${channel.name}
                                     </div>

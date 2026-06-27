@@ -1634,9 +1634,9 @@
         .ch-logo-wrap { flex: 0 0 auto; margin-right: 8px; display: inline-flex; }
         .ch-logo { width: 26px; height: 26px; object-fit: contain; }
         .ch-logo-ph {
-            width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+            width: 26px; height: 26px; display: inline-block;
+            background: #f0f0f0; border-radius: 4px;   /* 无台标时的浅灰圆角占位块（issue #62） */
         }
-        .ch-logo-ph::after { content: ''; width: 12px; height: 1px; background: #dcdcdc; transform: rotate(-45deg); }
 
         /* 顶部内联订阅地址栏（issue #38：免点编辑即可复制） */
         .subscribe-bar {

@@ -45,10 +45,12 @@ export function normalizeKey(name) {
   if (!name) return ""
   let s = yangshiToCctv(toHalfWidth(String(name)).trim().toUpperCase())
 
-  // CCTV 专项：靠频道号识别，丢弃「综合/财经/高清」等描述词，避免同台不同写法对不上
-  const m = s.match(/CCTV[-\s]*(\d{1,2})\s*(\+|PLUS|加)?/)
+  // CCTV 专项：靠频道号识别，丢弃「综合/财经/高清」等描述词，避免同台不同写法对不上。
+  // 数字后紧跟的 K（CCTV4K / CCTV8K 超高清）是独立频道，必须纳入 key，否则会和 CCTV4 / CCTV8 撞成同一台（issue #56）。
+  const m = s.match(/CCTV[-\s]*(\d{1,2})(K)?\s*(\+|PLUS|加)?/)
   if (m) {
-    let key = "CCTV" + m[1] + (m[2] ? "+" : "")
+    if (m[2]) return "CCTV" + m[1] + "K"   // 4K / 8K 超高清，与普通 CCTVn 区分
+    let key = "CCTV" + m[1] + (m[3] ? "+" : "")
     // CCTV4 有 中文国际 / 欧洲 / 美洲 三路，需区分，否则会互相覆盖
     if (/欧洲|欧/.test(s)) key += "欧"
     else if (/美洲|美/.test(s)) key += "美"
@@ -170,14 +172,15 @@ export function logoMatchName(name) {
   if (!name) return ''
   // 先把「央视N套」等中文写法转成 CCTVN，与 normalizeKey 同口径（fanmingming 只有 CCTV1.png，没有 央视1套.png）
   const raw = yangshiToCctv(toHalfWidth(String(name)).trim())
-  // CCTV：按频道号收敛到公共库短名（保留 + 与 CCTV4 的 欧洲/美洲 三路区分）
-  const cc = raw.toUpperCase().match(/CCTV[-\s]*(\d{1,2})\s*(\+|PLUS|加)?/)
+  // CCTV：按频道号收敛到公共库短名（保留 + 与 CCTV4 的 欧洲/美洲 三路区分；4K/8K 超高清独立，不并入 CCTVn）（issue #56）
+  const cc = raw.toUpperCase().match(/CCTV[-\s]*(\d{1,2})(K)?\s*(\+|PLUS|加)?/)
   if (cc) {
+    if (cc[2]) return 'CCTV' + cc[1] + 'K'   // CCTV4K / CCTV8K 超高清
     if (cc[1] === '4') {
       if (/欧/.test(raw)) return 'CCTV4欧洲'
       if (/美/.test(raw)) return 'CCTV4美洲'
     }
-    return 'CCTV' + cc[1] + (cc[2] ? '+' : '')
+    return 'CCTV' + cc[1] + (cc[3] ? '+' : '')
   }
   // 非 CCTV：去清晰度/运营商标注 → 清掉被掏空的空括号 → 去首尾分隔符（大小写与其余字符原样保留）
   let s = raw.replace(QUALITY, '').replace(OPERATOR, '')

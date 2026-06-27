@@ -52,7 +52,6 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/111.png" width="800"/>
   <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/222.png" width="800"/>
-  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/333.png" width="800"/>
 </div>
 
 ## 📖 项目简介

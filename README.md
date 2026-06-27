@@ -50,9 +50,9 @@
 <!-- CURRENT_RELEASE_NOTES:END -->
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/akiralereal/iPTV-Docker/main/Resources/111.png" width="800"/>
-  <img src="https://raw.githubusercontent.com/akiralereal/iPTV-Docker/main/Resources/222.png" width="800"/>
-  <img src="https://raw.githubusercontent.com/akiralereal/iPTV-Docker/main/Resources/333.png" width="800"/>
+  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/111.png" width="800"/>
+  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/222.png" width="800"/>
+  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/333.png" width="800"/>
 </div>
 
 ## 📖 项目简介
@@ -285,7 +285,7 @@ A：这是 **H.265（HEVC）编码兼容性**问题——咪咕视频流默认�
 > 6. 从请求头或响应中提取 `userId` 和 `token` 参数
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/akiralereal/iPTV-Docker/main/Resources/000.png" alt="获取userId和token示例" width="800"/>
+  <img src="https://raw.githubusercontent.com/akiralereal/iptv/main/Resources/000.png" alt="获取userId和token示例" width="800"/>
   <p><i>浏览器开发者工具获取 userId 和 token 示例</i></p>
 </div>
 

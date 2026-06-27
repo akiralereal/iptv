@@ -93,4 +93,30 @@ check('logoMatchName 清洗到公共库短名', () => {
   assert.equal(logoMatchName(''), '')
 })
 
+// 6) issue #56：CCTV 4K / 8K 超高清是独立频道，归一时不能和 CCTV4 / CCTV8 撞成同一台
+check('CCTV 4K/8K 与普通频道区分（issue #56）', () => {
+  // normalizeKey：4K/8K 各自独立的 key
+  assert.equal(normalizeKey('CCTV4K'), 'CCTV4K')
+  assert.equal(normalizeKey('CCTV-4K'), 'CCTV4K')
+  assert.equal(normalizeKey('CCTV4K超高清'), 'CCTV4K')
+  assert.equal(normalizeKey('CCTV-4k高码'), 'CCTV4K')
+  assert.equal(normalizeKey('cctv4k_10m'), 'CCTV4K')
+  assert.equal(normalizeKey('CCTV8K'), 'CCTV8K')
+  assert.equal(normalizeKey('CCTV-8K超高清[3840*2160]'), 'CCTV8K')
+  // 关键断言：4K/8K 不再与普通 CCTV4/CCTV8 同 key
+  assert.notEqual(normalizeKey('CCTV4'), normalizeKey('CCTV4K'))
+  assert.notEqual(normalizeKey('CCTV8'), normalizeKey('CCTV8K'))
+  // 普通 CCTV4/CCTV8 不受影响
+  assert.equal(normalizeKey('CCTV4'), 'CCTV4')
+  assert.equal(normalizeKey('CCTV-4中文国际'), 'CCTV4')
+  assert.equal(normalizeKey('CCTV8电视剧'), 'CCTV8')
+  // CCTV5+ / CCTV4欧美 不被误判（K 捕获不影响 +、欧、美）
+  assert.equal(normalizeKey('CCTV5+体育赛事'), 'CCTV5+')
+  assert.equal(normalizeKey('CCTV4欧洲'), 'CCTV4欧')
+  // logoMatchName 同步区分
+  assert.equal(logoMatchName('CCTV4K超高清'), 'CCTV4K')
+  assert.equal(logoMatchName('CCTV-8K超高清'), 'CCTV8K')
+  assert.notEqual(logoMatchName('CCTV4'), logoMatchName('CCTV4K'))
+})
+
 console.log(`\n全部通过：${passed} 组 ✅`)

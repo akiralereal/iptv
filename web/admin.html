@@ -2581,6 +2581,33 @@
             else showStatus(r.message || '删除失败', 'error');
         }
 
+        // 在「频道详情」里直接给本频道设别名（issue #62）：把本频道名追加到指定规范名下（不覆盖已有别名），
+        // 保存后重新加载「我的频道」即时重算配对状态（别名即时进 getCanonicalMap）。
+        async function setAliasFromDetail() {
+            const el = document.getElementById('detailAliasCanonical');
+            const canonical = el ? el.value.trim() : '';
+            if (!canonical) { showStatus('请填写规范名', 'error'); return; }
+            if (!currentChannelDetail) return;
+            const alias = (currentChannelDetail.tvgName || currentChannelDetail.name || '').trim();
+            if (!alias) { showStatus('该频道无可用名称', 'error'); return; }
+            // 取该规范名现有别名，合并追加（不覆盖）
+            let existing = [];
+            try {
+                const res = await fetch(API_PREFIX + '/api/channel-aliases');
+                const p = await res.json();
+                if (p && p.success && p.data && Array.isArray(p.data[canonical])) existing = p.data[canonical];
+            } catch (e) { /* 取不到就按空处理 */ }
+            const merged = [...new Set([...existing, alias])];
+            const r = await aliasesPost({ action: 'setRule', canonical, aliases: merged });
+            if (r.success) {
+                aliasesData = r.data;
+                showStatus(`已设别名「${alias}」→「${canonical}」，正在刷新配对状态…`, 'success');
+                try { await loadMyPlaylist(false); } catch (e) { /* 刷新失败不影响别名已保存 */ }
+            } else {
+                showStatus(r.message || '保存别名失败', 'error');
+            }
+        }
+
         // 加载数据
         async function loadData() {
             try {
@@ -5553,6 +5580,17 @@ if(success){
                         ${(channel.epgName && channel.epgName !== channel.name)
                             ? `<div style="color:#999;font-size:12px;margin-top:6px;line-height:1.6;">显示名「${channel.name}」已自动归一到「${channel.epgName}」匹配节目单，显示名本身不变。</div>`
                             : ''}
+                        ${!channel.epgMatched
+                            ? `<div style="margin-top:8px;padding:8px 10px;background:#fffbe6;border:1px solid #ffe58f;border-radius:4px;">
+                                <div style="font-size:12px;color:#8a5a00;margin-bottom:6px;">节目单没匹配上？给它设个<strong>别名</strong>归一到正确的频道名（保存后刷新播放列表生效，不用去配置页）：</div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                                    <span style="font-size:12px;color:#888;flex:0 0 auto;">规范名</span>
+                                    <input id="detailAliasCanonical" type="text" placeholder="统一后的频道名，如 CCTV5体育" style="flex:1;min-width:150px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                                    <button class="btn btn-sm btn-primary" onclick="setAliasFromDetail()">保存别名</button>
+                                </div>
+                                <div style="font-size:11px;color:#aaa;margin-top:5px;">别名 = 本频道名「${channel.tvgName || channel.name}」，追加到该规范名下（不覆盖已有别名）</div>
+                            </div>`
+                            : ''}
                     </div>
             `;
 
@@ -5655,7 +5693,7 @@ if(success){
                     <div style="margin-bottom: 15px;">
                         <strong style="color: #667eea;">台标：</strong>
                         <div style="display:flex; align-items:center; gap:10px; margin-top:6px;">
-                            <img id="channelLogoPreview" src="${_logoSrc}" alt="" style="width:48px;height:48px;object-fit:contain;border:1px solid #eee;border-radius:6px;background:#fafafa;${_logoSrc ? '' : 'display:none;'}" onerror="this.style.display='none';var e=document.getElementById('channelLogoEmpty');if(e)e.style.display='';">
+                            <img id="channelLogoPreview" src="${_logoSrc}" alt="" style="width:120px;height:120px;object-fit:contain;border:1px solid #eee;border-radius:8px;background:#fafafa;padding:6px;${_logoSrc ? '' : 'display:none;'}" onerror="this.style.display='none';var e=document.getElementById('channelLogoEmpty');if(e)e.style.display='';">
                             <span id="channelLogoEmpty" style="color:#999;font-size:12px;${_logoSrc ? 'display:none;' : ''}">暂无台标</span>
                             <input type="file" accept="image/png,image/jpeg,image/webp" onchange="uploadCurrentChannelLogo(this)">
                             <button class="btn btn-sm btn-danger" onclick="removeCurrentChannelLogo()">移除</button>

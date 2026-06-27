@@ -2105,7 +2105,7 @@
                         <div style="font-size:16px; font-weight:600; color:#333;">🔤 频道别名（统一命名规则）</div>
                         <div class="system-config-hint">给上面的「统一频道显示名」加自定义规则：把若干<strong>别名</strong>都归到一个<strong>规范名</strong>下（如 规范名 <code>CCTV5体育</code>，别名 <code>央视5套, 体育频道</code>）。内置规则（CCTV 系列、清晰度后缀等）已覆盖大部分，这里只补兜不住的写法。保存后下次刷新播放列表即生效。</div>
                     </div>
-                    <div id="aliasList" style="margin-top:14px;"></div>
+                    <div id="aliasList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
                     <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
                         <div style="min-width:150px;">
                             <label style="display:block; font-size:12px; color:#888;">规范名（统一后的名字）</label>
@@ -2517,7 +2517,10 @@
                 const aliases = Array.isArray(aliasesData[k]) ? aliasesData[k] : [];
                 return `<div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
                     <div style="min-width:0;"><strong>${escapeHtml(k)}</strong> <span style="color:#888;font-size:12px;">←</span> <span style="font-size:13px;color:#555;word-break:break-all;">${escapeHtml(aliases.join('、'))}</span></div>
-                    <button class="btn btn-sm btn-danger" onclick="removeAliasRule('${k.replace(/'/g, "\\'")}')">删除</button>
+                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                        <button class="btn btn-sm" onclick="editAliasRule('${k.replace(/'/g, "\\'")}')">编辑</button>
+                        <button class="btn btn-sm btn-danger" onclick="removeAliasRule('${k.replace(/'/g, "\\'")}')">删除</button>
+                    </div>
                 </div>`;
             }).join('');
         }
@@ -2539,6 +2542,19 @@
                 document.getElementById('aliasNewList').value = '';
                 showStatus('已添加规则，下次刷新播放列表生效', 'success');
             } else showStatus(r.message || '添加失败', 'error');
+        }
+
+        // 编辑一条规则（issue #56）：把规则回填到下方输入框，改完点「添加规则」即按规范名覆盖更新（后端 setRule 为 upsert）
+        function editAliasRule(canonical) {
+            const aliases = Array.isArray(aliasesData[canonical]) ? aliasesData[canonical] : [];
+            const cEl = document.getElementById('aliasNewCanonical');
+            const aEl = document.getElementById('aliasNewList');
+            if (!cEl || !aEl) return;
+            cEl.value = canonical;
+            aEl.value = aliases.join(', ');
+            cEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            aEl.focus();
+            showStatus('已载入到下方，可修改后点「添加规则」保存（同名规范名会覆盖更新）', 'info');
         }
 
         async function removeAliasRule(canonical) {

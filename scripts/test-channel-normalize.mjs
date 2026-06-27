@@ -119,4 +119,16 @@ check('CCTV 4K/8K 与普通频道区分（issue #56）', () => {
   assert.notEqual(logoMatchName('CCTV4'), logoMatchName('CCTV4K'))
 })
 
+// 7) issue #62：繁体频道名归一时转简体，能对上简体规范名
+check('繁体 → 简体 归一（issue #62）', () => {
+  assert.equal(normalizeKey('鳳凰衛視'), normalizeKey('凤凰卫视'))
+  assert.equal(normalizeKey('東森綜合台'), normalizeKey('东森综合台'))
+  assert.equal(normalizeKey('緯來體育'), normalizeKey('纬来体育'))
+  assert.equal(normalizeKey('中天新聞'), normalizeKey('中天新闻'))
+  assert.equal(normalizeKey('電視劇場'), normalizeKey('电视剧场'))
+  assert.equal(normalizeTvgName('CCTV1綜合'), 'CCTV1综合')   // 繁体也能命中 CCTV 规范名
+  assert.equal(logoMatchName('鳳凰衛視'), logoMatchName('凤凰卫视'))
+  assert.equal(logoMatchName('體育'), '体育')                // 台标匹配名也转简体
+})
+
 console.log(`\n全部通过：${passed} 组 ✅`)

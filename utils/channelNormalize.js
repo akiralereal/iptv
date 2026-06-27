@@ -30,6 +30,27 @@ function toHalfWidth(s) {
     .replace(/　/g, " ")
 }
 
+// 繁体 → 简体（常用频道名字符表，轻量；让繁体 EPG / 源频道名也能对上简体规范名）。issue #62
+// 只取电视频道名里高频出现的字，不做全量 OpenCC（保持轻量）；只影响匹配 key，不改频道显示名。
+const T2S = {
+  '衛': '卫', '視': '视', '體': '体', '綜': '综', '電': '电', '劇': '剧', '場': '场', '鳳': '凤',
+  '際': '际', '國': '国', '頻': '频', '聞': '闻', '財': '财', '經': '经', '軍': '军', '農': '农',
+  '紀': '纪', '錄': '录', '藝': '艺', '臺': '台', '華': '华', '廣': '广', '東': '东', '語': '语',
+  '樂': '乐', '戲': '戏', '龍': '龙', '兒': '儿', '風': '风', '雲': '云', '緯': '纬', '來': '来',
+  '傳': '传', '統': '统', '醫': '医', '療': '疗', '釣': '钓', '魚': '鱼', '灣': '湾', '慶': '庆',
+  '寧': '宁', '號': '号', '線': '线', '聲': '声', '點': '点', '響': '响', '業': '业', '產': '产',
+  '護': '护', '後': '后', '將': '将', '馬': '马', '鳥': '鸟', '寶': '宝', '萬': '万', '與': '与',
+  '開': '开', '關': '关', '觀': '观', '區': '区', '縣': '县', '麗': '丽', '陸': '陆', '葉': '叶',
+  '雙': '双', '豐': '丰', '頭': '头', '陽': '阳', '義': '义', '術': '术', '畫': '画', '學': '学',
+  '時': '时', '間': '间', '實': '实', '現': '现', '當': '当', '發': '发', '愛': '爱', '歡': '欢',
+  '兩': '两', '個': '个', '靈': '灵', '嶺': '岭', '輪': '轮', '轉': '转', '遊': '游', '橋': '桥',
+}
+function toSimplified(s) {
+  let out = ''
+  for (const ch of s) out += (T2S[ch] || ch)
+  return out
+}
+
 // 「央视N / 央视N套 / 央视N台」→ CCTVN（含中文数字一~十七），与 CCTV 各种写法归一。
 // normalizeKey 与 logoMatchName 共用，保证两边对央视写法的口径一致（issue #40）。
 const CN_NUM = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10, '十一': 11, '十二': 12, '十三': 13, '十四': 14, '十五': 15, '十六': 16, '十七': 17 }
@@ -43,7 +64,7 @@ function yangshiToCctv(s) {
 // 把频道名归一成可比较的 key：CCTV 用频道号(及 +/欧美)做 key，其余去清晰度后缀和分隔符
 export function normalizeKey(name) {
   if (!name) return ""
-  let s = yangshiToCctv(toHalfWidth(String(name)).trim().toUpperCase())
+  let s = yangshiToCctv(toSimplified(toHalfWidth(String(name)).trim().toUpperCase()))
 
   // CCTV 专项：靠频道号识别，丢弃「综合/财经/高清」等描述词，避免同台不同写法对不上。
   // 数字后紧跟的 K（CCTV4K / CCTV8K 超高清）是独立频道，必须纳入 key，否则会和 CCTV4 / CCTV8 撞成同一台（issue #56）。
@@ -170,8 +191,8 @@ export function getPlaybackChannelIds() {
 // 让「CCTV1高清（电信）」「湖南卫视（电信）」这类特殊命名的常见频道也能命中公共库；频道显示名保持不变。
 export function logoMatchName(name) {
   if (!name) return ''
-  // 先把「央视N套」等中文写法转成 CCTVN，与 normalizeKey 同口径（fanmingming 只有 CCTV1.png，没有 央视1套.png）
-  const raw = yangshiToCctv(toHalfWidth(String(name)).trim())
+  // 先把「央视N套」等中文写法转成 CCTVN，与 normalizeKey 同口径（fanmingming 只有 CCTV1.png，没有 央视1套.png）；繁体转简体（issue #62）
+  const raw = yangshiToCctv(toSimplified(toHalfWidth(String(name)).trim()))
   // CCTV：按频道号收敛到公共库短名（保留 + 与 CCTV4 的 欧洲/美洲 三路区分；4K/8K 超高清独立，不并入 CCTVn）（issue #56）
   const cc = raw.toUpperCase().match(/CCTV[-\s]*(\d{1,2})(K)?\s*(\+|PLUS|加)?/)
   if (cc) {

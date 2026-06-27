@@ -276,6 +276,23 @@ async function fetchAndParseM3u(subscriptionUrl) {
     }
   }
 
+  // 远程（raw + 所有镜像）都失败：内置订阅源回退读镜像里自带的本地快照，保证精选频道仍能加载（无外网/镜像也挂时）
+  const localFile = BUILT_IN_SUBSCRIPTION_LOCAL_FALLBACK[subscriptionUrl]
+  if (localFile) {
+    try {
+      const localPath = `${process.cwd()}/${localFile}`
+      if (existsSync(localPath)) {
+        const channels = parsePlaylistContent(decodeSubscriptionBody(readFileSync(localPath), ''))
+        if (channels.length > 0) {
+          printYellow(`远程订阅均失败，回退镜像内置 ${localFile}（${channels.length} 个频道，可能非最新）`)
+          return channels
+        }
+      }
+    } catch (e) {
+      printYellow(`镜像内置 ${localFile} 兜底读取失败: ${e.message}`)
+    }
+  }
+
   // 所有线路都失败：给出可操作的提示，而不是单条被截断的 node-fetch 报错
   throw new Error(`所有线路均无法获取订阅，请检查服务器能否访问 GitHub/CDN（必要时配置代理或更换可访问的订阅地址）。已尝试: ${failures.join('，')}`)
 }
@@ -301,6 +318,13 @@ const BUILT_IN_SUBSCRIPTIONS = [
     lastUpdated: null
   }
 ]
+
+// 内置订阅源「镜像内置本地文件」兜底：远程（raw + 所有 GitHub 镜像）都拉不到时，回退读镜像里自带的这份快照，
+// 保证精选频道在「无外网、且第三方 GitHub 镜像也挂」的环境下仍能加载（issue：国内拉不到 raw.githubusercontent）。
+// { 订阅 URL: 镜像内置文件名（位于 process.cwd()，由 Dockerfile `COPY . .` 打包） }
+const BUILT_IN_SUBSCRIPTION_LOCAL_FALLBACK = {
+  [BUILT_IN_SUBSCRIPTIONS[0].subscriptionUrl]: 'IPTV.m3u',
+}
 
 // 已退役的内置订阅源 URL（曾经内置、现已移除）。启动时一次性从老用户配置中清除，
 // 避免「换掉常量 URL 后旧源仍残留、且因不在 BUILT_IN_SUBSCRIPTION_URLS 里而连开关都关不掉」的僵尸源问题。

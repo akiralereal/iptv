@@ -2650,6 +2650,7 @@
                 }
                 systemConfig = await systemRes.json();
                 console.log('系统配置加载成功');
+                renderSubscribeBar();  // 配置加载后重渲染订阅栏，让「公网地址」按钮按 mhost 出现（issue #62）
 
                 // 加载 EPG 聚合源配置（issue #38）；失败不影响其余加载
                 loadEpgSources();
@@ -4207,13 +4208,24 @@ if(success){
             const q = (activeProfile && activeProfile !== 'default') ? ('?profile=' + encodeURIComponent(activeProfile)) : '';
             const m3u = base + '/interface.m3u' + q;
             const epg = base + '/playback.xml';
-            bar.innerHTML =
+            let html =
                 `<span class="sb-label">📡 订阅地址</span>`
                 + `<code title="${escapeHtml(m3u)}">${escapeHtml(m3u)}</code>`
                 + `<button class="sb-copy" onclick="copyToClipboard('${m3u.replace(/'/g, "\\'")}', '订阅地址')">📋 复制</button>`
                 + `<span class="sb-sep">节目单 EPG</span>`
                 + `<code class="sb-epg" title="${escapeHtml(epg)}">${escapeHtml(epg)}</code>`
                 + `<button class="sb-copy sb-copy-muted" onclick="copyToClipboard('${epg.replace(/'/g, "\\'")}', 'EPG 地址')">📋 复制</button>`;
+            // 公网地址（系统配置里的「公网地址」mhost）：给别人用时复制公网版，免得复制出内网 IP 还要手动替换（issue #62）
+            const cfgHost = (systemConfig && (systemConfig.host || (systemConfig.data && systemConfig.data.host))) || '';
+            if (cfgHost) {
+                const pub = String(cfgHost).replace(/\/+$/, '') + API_PREFIX;
+                const pubM3u = pub + '/interface.m3u' + q;
+                const pubEpg = pub + '/playback.xml';
+                html += `<span class="sb-sep" title="来自「系统配置 → 公网地址」，分享给外网用户用这个">🌐 公网</span>`
+                    + `<button class="sb-copy" onclick="copyToClipboard('${pubM3u.replace(/'/g, "\\'")}', '公网订阅地址')" title="${escapeHtml(pubM3u)}">📋 复制公网订阅</button>`
+                    + `<button class="sb-copy sb-copy-muted" onclick="copyToClipboard('${pubEpg.replace(/'/g, "\\'")}', '公网 EPG 地址')" title="${escapeHtml(pubEpg)}">📋 公网 EPG</button>`;
+            }
+            bar.innerHTML = html;
         }
 
         // 频道列表「配对状态」双圆点（issue #62）：左=节目单(epgMatched) 右=台标。

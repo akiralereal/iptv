@@ -102,6 +102,17 @@ function parsePlaylistContent(content) {
 }
 
 /**
+ * 订阅源频道的最终分组：频道自带分组优先；为空、或仍是占位「未分组」时，
+ * 回退到该源配置的「默认分组」(source.group)。issue #69 跟进——让订阅里没写
+ * group-title 的频道整体归到用户指定的默认分组，而不是堆在「未分组」。
+ * （m3u 解析对无 group-title 的频道填的就是字符串「未分组」，故与空值一并视作未分组。）
+ */
+export function resolveSubscriptionGroup(ch, source) {
+  const own = ch && ch.group && ch.group !== '未分组' ? ch.group : ''
+  return own || (source && source.group) || '未分组'
+}
+
+/**
  * 用 GBK 解码字节，环境无 GBK 解码器时回退宽松 UTF-8
  */
 function decodeGbk(buffer) {
@@ -765,7 +776,7 @@ class ExternalSourceManager {
       // 订阅模式：展开 parsedChannels
       if (source.mode === 'subscription' && Array.isArray(source.parsedChannels)) {
         source.parsedChannels.forEach(ch => {
-          const group = ch.group || source.group || '未分组'
+          const group = resolveSubscriptionGroup(ch, source)
           if (!groupMap.has(group)) {
             groupMap.set(group, {
               name: group,

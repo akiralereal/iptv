@@ -2041,6 +2041,46 @@
                     💡 提示：保存配置后，需点击页面顶部的"重启服务"按钮使新配置生效
                 </div>
 
+                <!-- 频道别名（issue #56）：自定义批量统一规则 -->
+                <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
+                    <div>
+                        <div style="font-size:16px; font-weight:600; color:#333;">🔤 频道别名（统一命名规则）</div>
+                        <div class="system-config-hint">给上面的「统一频道显示名」加自定义规则：把若干<strong>别名</strong>都归到一个<strong>规范名</strong>下（如 规范名 <code>CCTV5体育</code>，别名 <code>央视5套, 体育频道</code>）。内置规则（CCTV 系列、清晰度后缀等）已覆盖大部分，这里只补兜不住的写法。保存后下次刷新播放列表即生效。</div>
+                    </div>
+                    <div id="aliasList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
+                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+                        <div style="min-width:150px;">
+                            <label style="display:block; font-size:12px; color:#888;">规范名（统一后的名字）</label>
+                            <input type="text" id="aliasNewCanonical" placeholder="例如 CCTV5体育" style="width:100%;">
+                        </div>
+                        <div style="flex:1; min-width:200px;">
+                            <label style="display:block; font-size:12px; color:#888;">别名（多个用逗号分隔）</label>
+                            <input type="text" id="aliasNewList" placeholder="例如 央视5套, 体育频道" style="width:100%;">
+                        </div>
+                        <button class="btn btn-sm btn-success" onclick="addAliasRule()">➕ 添加规则</button>
+                    </div>
+                </div>
+
+                <!-- 关键字自动分组（issue #69）：按频道名关键字把「未分组」频道自动归类 -->
+                <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
+                    <div>
+                        <div style="font-size:16px; font-weight:600; color:#333;">🗂️ 关键字自动分组</div>
+                        <div class="system-config-hint">自定义订阅源里没写分组的频道会落到「未分组」，每次刷新又回到未分组。这里按<strong>频道名关键字</strong>配规则，名字含关键字的<strong>未分组</strong>频道会自动归到对应分组（多条规则按从上到下、首条命中生效）——刷新也不丢，且<strong>不影响源已分好的分组、手动移动优先</strong>。如 分组 <code>央视</code> ← 关键字 <code>CCTV, 央视</code>。保存后下次刷新播放列表即生效。</div>
+                    </div>
+                    <div id="groupRuleList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
+                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+                        <div style="min-width:150px;">
+                            <label style="display:block; font-size:12px; color:#888;">分组名</label>
+                            <input type="text" id="groupRuleName" placeholder="例如 央视" style="width:100%;">
+                        </div>
+                        <div style="flex:1; min-width:200px;">
+                            <label style="display:block; font-size:12px; color:#888;">关键字（多个用逗号分隔，名字含其一即归此组）</label>
+                            <input type="text" id="groupRuleKeywords" placeholder="例如 CCTV, 央视" style="width:100%;">
+                        </div>
+                        <button class="btn btn-sm btn-success" onclick="addGroupRule()">➕ 添加规则</button>
+                    </div>
+                </div>
+
                 <!-- EPG 节目单聚合（issue #38）：独立保存，无需重启 -->
                 <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
@@ -2115,45 +2155,6 @@
                     </div>
                 </div>
 
-                <!-- 频道别名（issue #56）：自定义批量统一规则 -->
-                <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
-                    <div>
-                        <div style="font-size:16px; font-weight:600; color:#333;">🔤 频道别名（统一命名规则）</div>
-                        <div class="system-config-hint">给上面的「统一频道显示名」加自定义规则：把若干<strong>别名</strong>都归到一个<strong>规范名</strong>下（如 规范名 <code>CCTV5体育</code>，别名 <code>央视5套, 体育频道</code>）。内置规则（CCTV 系列、清晰度后缀等）已覆盖大部分，这里只补兜不住的写法。保存后下次刷新播放列表即生效。</div>
-                    </div>
-                    <div id="aliasList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
-                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-                        <div style="min-width:150px;">
-                            <label style="display:block; font-size:12px; color:#888;">规范名（统一后的名字）</label>
-                            <input type="text" id="aliasNewCanonical" placeholder="例如 CCTV5体育" style="width:100%;">
-                        </div>
-                        <div style="flex:1; min-width:200px;">
-                            <label style="display:block; font-size:12px; color:#888;">别名（多个用逗号分隔）</label>
-                            <input type="text" id="aliasNewList" placeholder="例如 央视5套, 体育频道" style="width:100%;">
-                        </div>
-                        <button class="btn btn-sm btn-success" onclick="addAliasRule()">➕ 添加规则</button>
-                    </div>
-                </div>
-
-                <!-- 关键字自动分组（issue #69）：按频道名关键字把「未分组」频道自动归类 -->
-                <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
-                    <div>
-                        <div style="font-size:16px; font-weight:600; color:#333;">🗂️ 关键字自动分组</div>
-                        <div class="system-config-hint">自定义订阅源里没写分组的频道会落到「未分组」，每次刷新又回到未分组。这里按<strong>频道名关键字</strong>配规则，名字含关键字的<strong>未分组</strong>频道会自动归到对应分组（多条规则按从上到下、首条命中生效）——刷新也不丢，且<strong>不影响源已分好的分组、手动移动优先</strong>。如 分组 <code>央视</code> ← 关键字 <code>CCTV, 央视</code>。保存后下次刷新播放列表即生效。</div>
-                    </div>
-                    <div id="groupRuleList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
-                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-                        <div style="min-width:150px;">
-                            <label style="display:block; font-size:12px; color:#888;">分组名</label>
-                            <input type="text" id="groupRuleName" placeholder="例如 央视" style="width:100%;">
-                        </div>
-                        <div style="flex:1; min-width:200px;">
-                            <label style="display:block; font-size:12px; color:#888;">关键字（多个用逗号分隔，名字含其一即归此组）</label>
-                            <input type="text" id="groupRuleKeywords" placeholder="例如 CCTV, 央视" style="width:100%;">
-                        </div>
-                        <button class="btn btn-sm btn-success" onclick="addGroupRule()">➕ 添加规则</button>
-                    </div>
-                </div>
             </div>
 
             <!-- 关于我们面板 -->
@@ -3163,6 +3164,11 @@
                             <div class="form-hint">选择文件或粘贴内容后，点下方「📥 导入并保存」即可解析入库；本地导入不发起网络请求</div>
                             `}
                             ${channelInfo}
+                        </div>
+                        <div class="external-field">
+                            <label>默认分组</label>
+                            ${renderGroupSelect(index, source.group || '未分组')}
+                            <div class="form-hint">订阅里<strong>没自带分组</strong>的频道统一归到这个分组（频道自带分组的保持不变）。保持「未分组」则不归类，可在「🗂️ 关键字自动分组」里按频道名细分。</div>
                         </div>
                         <div class="external-field">
                             <label>自动刷新间隔（分钟）</label>

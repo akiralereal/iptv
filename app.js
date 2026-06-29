@@ -17,6 +17,7 @@ import { getEpgSourcesAPI, setEpgEnabledAPI, addEpgSourceAPI, updateEpgSourceAPI
 import { userManager } from "./utils/userManager.js";
 import { getUsersAPI, addUserAPI, updateUserAPI, removeUserAPI, regenUserTokenAPI, setRequireTokenAPI } from "./utils/usersAPI.js";
 import { getAliasesAPI, setAliasRuleAPI, removeAliasRuleAPI } from "./utils/aliasesAPI.js";
+import { getGroupRulesAPI, setGroupRuleAPI, removeGroupRuleAPI } from "./utils/groupRulesAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, validateGroupConfig, applyConfig,
          listProfiles, createProfile, renameProfile, deleteProfile } from "./utils/playlistConfig.js";
@@ -335,6 +336,32 @@ const server = http.createServer(async (req, res) => {
         switch (data.action) {
           case 'setRule': result = setAliasRuleAPI(data.canonical, data.aliases); break
           case 'removeRule': result = removeAliasRuleAPI(data.canonical); break
+          default: result = { success: false, message: '未知操作' }
+        }
+        res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify(result));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: false, message: error.message }));
+      }
+      return
+    }
+
+    // 关键字自动分组规则（issue #69）
+    if (routePath === '/api/group-keyword-rules' && method === 'GET') {
+      const result = getGroupRulesAPI()
+      res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify(result));
+      return
+    }
+
+    if (routePath === '/api/group-keyword-rules' && method === 'POST') {
+      try {
+        const data = JSON.parse(await readBody(req))
+        let result
+        switch (data.action) {
+          case 'setRule': result = setGroupRuleAPI(data.group, data.keywords); break
+          case 'removeRule': result = removeGroupRuleAPI(data.group); break
           default: result = { success: false, message: '未知操作' }
         }
         res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });

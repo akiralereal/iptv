@@ -5,6 +5,7 @@ import { dataPath } from "./paths.js"
 import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 import { enableTvgNormalize, enableDisplayNameUnify, externalLogoBase } from "../config.js"
 import { getCanonicalMap, normalizeKey, normalizeTvgName, getPlaybackChannelIds } from "./channelNormalize.js"
+import { matchKeywordGroup } from "./groupRulesAPI.js"
 
 // 台标来源分类（供后台展示）：本地上传 / 源自带 / 公共库兜底 / 无。
 // 依据 interface 里写出的 tvg-logo 形态判定，不联网、零额外成本。issue #38 / #40
@@ -335,13 +336,18 @@ export function applyConfig(groups, config) {
         return
       }
 
-      // 目标分组优先级：单频道移动 > 分组重命名 > 原始分组
+      // 目标分组优先级：单频道移动 > 关键字自动分组(仅未分组) > 分组重命名 > 原始分组
       let targetGroup
       if (movedTo) {
         targetGroup = movedTo
       } else {
         targetGroup = channel.originalGroup
-        if (targetGroup !== '未分组' && config.groupRenameMap && config.groupRenameMap[targetGroup]) {
+        if (targetGroup === '未分组') {
+          // 关键字自动分组（issue #69）：只对「未分组」频道按名字子串匹配规则（首条命中胜），
+          // 让自定义源里没写分组、每次刷新又回到未分组的新频道自动归位；不动源已分好的组。
+          const kw = matchKeywordGroup(channel.name)
+          if (kw) targetGroup = kw
+        } else if (config.groupRenameMap && config.groupRenameMap[targetGroup]) {
           targetGroup = config.groupRenameMap[targetGroup]
         }
       }

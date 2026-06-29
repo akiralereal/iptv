@@ -2134,6 +2134,26 @@
                         <button class="btn btn-sm btn-success" onclick="addAliasRule()">➕ 添加规则</button>
                     </div>
                 </div>
+
+                <!-- 关键字自动分组（issue #69）：按频道名关键字把「未分组」频道自动归类 -->
+                <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
+                    <div>
+                        <div style="font-size:16px; font-weight:600; color:#333;">🗂️ 关键字自动分组</div>
+                        <div class="system-config-hint">自定义订阅源里没写分组的频道会落到「未分组」，每次刷新又回到未分组。这里按<strong>频道名关键字</strong>配规则，名字含关键字的<strong>未分组</strong>频道会自动归到对应分组（多条规则按从上到下、首条命中生效）——刷新也不丢，且<strong>不影响源已分好的分组、手动移动优先</strong>。如 分组 <code>央视</code> ← 关键字 <code>CCTV, 央视</code>。保存后下次刷新播放列表即生效。</div>
+                    </div>
+                    <div id="groupRuleList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
+                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+                        <div style="min-width:150px;">
+                            <label style="display:block; font-size:12px; color:#888;">分组名</label>
+                            <input type="text" id="groupRuleName" placeholder="例如 央视" style="width:100%;">
+                        </div>
+                        <div style="flex:1; min-width:200px;">
+                            <label style="display:block; font-size:12px; color:#888;">关键字（多个用逗号分隔，名字含其一即归此组）</label>
+                            <input type="text" id="groupRuleKeywords" placeholder="例如 CCTV, 央视" style="width:100%;">
+                        </div>
+                        <button class="btn btn-sm btn-success" onclick="addGroupRule()">➕ 添加规则</button>
+                    </div>
+                </div>
             </div>
 
             <!-- 关于我们面板 -->
@@ -2278,6 +2298,7 @@
                 loadEpgSources();
                 loadUsers();
                 loadAliases();
+                loadGroupRules();
             }
         }
 
@@ -2581,6 +2602,75 @@
             else showStatus(r.message || '删除失败', 'error');
         }
 
+        // ===== 关键字自动分组（issue #69）=====
+        let groupRulesData = [];
+
+        async function loadGroupRules() {
+            try {
+                const res = await fetch(API_PREFIX + '/api/group-keyword-rules');
+                const p = await res.json();
+                if (p && p.success && Array.isArray(p.data)) { groupRulesData = p.data; renderGroupRules(); }
+            } catch (e) { console.error('加载关键字分组规则失败', e); }
+        }
+
+        function renderGroupRules() {
+            const box = document.getElementById('groupRuleList');
+            if (!box) return;
+            if (!groupRulesData.length) {
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有规则。添加后，名字含关键字的「未分组」频道会自动归到对应分组（刷新也不丢）。</div>';
+                return;
+            }
+            box.innerHTML = groupRulesData.map(r => {
+                const kws = Array.isArray(r.keywords) ? r.keywords : [];
+                const g = String(r.group || '');
+                const gEsc = g.replace(/'/g, "\\'");
+                return `<div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                    <div style="min-width:0;"><strong>${escapeHtml(g)}</strong> <span style="color:#888;font-size:12px;">←</span> <span style="font-size:13px;color:#555;word-break:break-all;">${escapeHtml(kws.join('、'))}</span></div>
+                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                        <button class="btn btn-sm" onclick="editGroupRule('${gEsc}')">编辑</button>
+                        <button class="btn btn-sm btn-danger" onclick="removeGroupRule('${gEsc}')">删除</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function groupRulesPost(body) {
+            const res = await fetch(API_PREFIX + '/api/group-keyword-rules', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+            });
+            return res.json();
+        }
+
+        async function addGroupRule() {
+            const group = document.getElementById('groupRuleName').value;
+            const keywords = document.getElementById('groupRuleKeywords').value;
+            const r = await groupRulesPost({ action: 'setRule', group, keywords });
+            if (r.success) {
+                groupRulesData = r.data; renderGroupRules();
+                document.getElementById('groupRuleName').value = '';
+                document.getElementById('groupRuleKeywords').value = '';
+                showStatus('已添加规则，下次刷新播放列表生效', 'success');
+            } else showStatus(r.message || '添加失败', 'error');
+        }
+
+        function editGroupRule(group) {
+            const rule = groupRulesData.find(r => r.group === group);
+            if (!rule) return;
+            document.getElementById('groupRuleName').value = rule.group;
+            document.getElementById('groupRuleKeywords').value = (rule.keywords || []).join(', ');
+            document.getElementById('groupRuleName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.getElementById('groupRuleKeywords').focus();
+            showStatus('已载入到下方，可修改后点「添加规则」保存（同名分组会覆盖更新）', 'info');
+        }
+
+        async function removeGroupRule(group) {
+            const confirmed = await showConfirm('确定删除这条分组规则吗？');
+            if (!confirmed) return;
+            const r = await groupRulesPost({ action: 'removeRule', group });
+            if (r.success) { groupRulesData = r.data; renderGroupRules(); showStatus('已删除', 'success'); }
+            else showStatus(r.message || '删除失败', 'error');
+        }
+
         // 在「频道详情」里直接给本频道设别名（issue #62）：把本频道名追加到指定规范名下（不覆盖已有别名），
         // 保存后重新加载「我的频道」即时重算配对状态（别名即时进 getCanonicalMap）。
         async function setAliasFromDetail() {
@@ -2660,6 +2750,7 @@
 
                 // 加载频道别名规则（issue #56）；失败不影响其余加载
                 loadAliases();
+                loadGroupRules();
                 
                 // 加载配置档列表（多套 m3u），再加载当前档的我的频道配置
                 console.log('请求配置档列表...');

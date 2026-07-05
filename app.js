@@ -741,7 +741,7 @@ server.listen(port, async () => {
     printBlue(`当前已运行${hours}小时`)
   }, updateInterval * 60 * 60 * 1000);
 
-  // 定时任务2: 每小时检查外部源和内置源是否需要刷新
+  // 定时任务2: 每 5 分钟检查外部源和内置源是否到刷新间隔（needsRefresh 按各源 refreshInterval 判定，不到点不抓）
   setInterval(async () => {
     try {
       const builtInResult = await updateBuiltInSources({ autoOnly: true })
@@ -763,7 +763,7 @@ server.listen(port, async () => {
       console.log(error)
       printRed("源更新检查失败")
     }
-  }, 60 * 60 * 1000); // 每小时检查一次
+  }, 5 * 60 * 1000); // 每 5 分钟检查一次：让各源的 refreshInterval 被准时执行（此前每小时才 check，间隔不精确）—— issue #73
 
   try {
     // 初始化数据（启动模式）

@@ -89,6 +89,25 @@ export function setGroupRuleAPI(group, keywords) {
   }
 }
 
+// 上移 / 下移一条规则（issue #69 跟进）：顺序即优先级（首条命中胜），提供可视化调序。
+// 已在顶/底时原样返回成功（幂等，前端按钮置灰只是体验层，不依赖它保证正确性）。
+export function moveGroupRuleAPI(group, direction) {
+  try {
+    if (direction !== 'up' && direction !== 'down') return { success: false, message: '方向无效' }
+    const rules = load()
+    const idx = rules.findIndex(r => r && r.group === group)
+    if (idx < 0) return { success: false, message: '规则不存在' }
+    const to = direction === 'up' ? idx - 1 : idx + 1
+    if (to >= 0 && to < rules.length) {
+      ;[rules[idx], rules[to]] = [rules[to], rules[idx]]
+      writeJsonFileSync(RULES_PATH, rules)
+    }
+    return { success: true, data: rules }
+  } catch (e) {
+    return { success: false, message: e.message }
+  }
+}
+
 // 删除一条规则
 export function removeGroupRuleAPI(group) {
   try {

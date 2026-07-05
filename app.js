@@ -17,7 +17,7 @@ import { getEpgSourcesAPI, setEpgEnabledAPI, addEpgSourceAPI, updateEpgSourceAPI
 import { userManager } from "./utils/userManager.js";
 import { getUsersAPI, addUserAPI, updateUserAPI, removeUserAPI, regenUserTokenAPI, setRequireTokenAPI } from "./utils/usersAPI.js";
 import { getAliasesAPI, setAliasRuleAPI, removeAliasRuleAPI } from "./utils/aliasesAPI.js";
-import { getGroupRulesAPI, setGroupRuleAPI, removeGroupRuleAPI } from "./utils/groupRulesAPI.js";
+import { getGroupRulesAPI, setGroupRuleAPI, removeGroupRuleAPI, moveGroupRuleAPI } from "./utils/groupRulesAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, validateGroupConfig, applyConfig,
          listProfiles, createProfile, renameProfile, deleteProfile } from "./utils/playlistConfig.js";
@@ -362,6 +362,7 @@ const server = http.createServer(async (req, res) => {
         switch (data.action) {
           case 'setRule': result = setGroupRuleAPI(data.group, data.keywords); break
           case 'removeRule': result = removeGroupRuleAPI(data.group); break
+          case 'moveRule': result = moveGroupRuleAPI(data.group, data.direction); break
           default: result = { success: false, message: '未知操作' }
         }
         res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });

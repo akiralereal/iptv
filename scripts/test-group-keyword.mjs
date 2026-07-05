@@ -11,7 +11,7 @@
  */
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
-import { matchGroupByRules } from '../utils/groupRulesAPI.js'
+import { matchGroupByRules, moveGroupRuleAPI } from '../utils/groupRulesAPI.js'
 import { applyConfig } from '../utils/playlistConfig.js'
 import { dataPath } from '../utils/paths.js'
 
@@ -79,9 +79,47 @@ try {
   check('单频道手动移动优先级高于关键字（a1→我的最爱）', () => {
     assert.equal(grpOf({ channelGroupMap: { '未分组::a1': '我的最爱' } }, 'CCTV1高清'), '我的最爱')
   })
+
+  // 3) 规则上移/下移（issue #69 跟进）：顺序即优先级，可视化调序
+  check('moveGroupRuleAPI：上移/下移交换相邻规则', () => {
+    writeFileSync(RP, JSON.stringify(RULES))                       // [央视, 卫视, 影视]
+    let r = moveGroupRuleAPI('影视', 'up')
+    assert.equal(r.success, true)
+    assert.deepEqual(r.data.map(x => x.group), ['央视', '影视', '卫视'])
+    r = moveGroupRuleAPI('影视', 'up')
+    assert.deepEqual(r.data.map(x => x.group), ['影视', '央视', '卫视'])
+    r = moveGroupRuleAPI('央视', 'down')
+    assert.deepEqual(r.data.map(x => x.group), ['影视', '卫视', '央视'])
+  })
+  check('moveGroupRuleAPI：顶/底幂等成功、非法输入报错', () => {
+    writeFileSync(RP, JSON.stringify(RULES))
+    let r = moveGroupRuleAPI('央视', 'up')                          // 已在顶
+    assert.equal(r.success, true)
+    assert.deepEqual(r.data.map(x => x.group), ['央视', '卫视', '影视'])
+    r = moveGroupRuleAPI('影视', 'down')                            // 已在底
+    assert.equal(r.success, true)
+    assert.deepEqual(r.data.map(x => x.group), ['央视', '卫视', '影视'])
+    assert.equal(moveGroupRuleAPI('不存在的组', 'up').success, false)
+    assert.equal(moveGroupRuleAPI('央视', 'left').success, false)
+  })
+  check('调序后匹配按新顺序生效（首条命中胜）', () => {
+    // 用 move 返回的规则集直接断言匹配语义（不依赖 mtime 缓存失效，避免快写同毫秒的偶发）
+    writeFileSync(RP, JSON.stringify([
+      { group: '央视', keywords: ['CCTV'] },
+      { group: '体育', keywords: ['CCTV5'] },
+    ]))
+    assert.equal(matchGroupByRules('CCTV5体育赛事', [
+      { group: '央视', keywords: ['CCTV'] },
+      { group: '体育', keywords: ['CCTV5'] },
+    ]), '央视')                                                     // 原顺序：央视先命中
+    const r = moveGroupRuleAPI('体育', 'up')                        // 体育提到首位
+    assert.equal(r.success, true)
+    assert.equal(matchGroupByRules('CCTV5体育赛事', r.data), '体育') // 新顺序：体育先命中
+    assert.equal(matchGroupByRules('CCTV1高清', r.data), '央视')     // 不含 CCTV5 的仍归央视
+  })
 } finally {
   if (backup) writeFileSync(RP, backup)
   else if (existsSync(RP)) unlinkSync(RP)
 }
 
-console.log(`\n全部通过：${passed}/7 ✅`)
+console.log(`\n全部通过：${passed}/10 ✅`)

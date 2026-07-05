@@ -767,6 +767,22 @@
             font-weight: 500;
         }
 
+        /* 设置页二级标签（issue #72）：按钮复用 .mode-switch-btn，子面板显隐同 .panel */
+        .settings-subtabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        .settings-subpanel {
+            display: none;
+        }
+        .settings-subpanel.active {
+            display: block;
+        }
+
         .external-item-body {
             padding: 16px;
             flex: 1;
@@ -1834,7 +1850,7 @@
                 <div class="tabs-left">
                     <button class="tab active" onclick="switchTab(0)">📺 我的频道</button>
                     <button class="tab" onclick="switchTab(1)">🌐 源管理</button>
-                    <button class="tab" onclick="switchTab(2)">⚙️ 系统配置</button>
+                    <button class="tab" onclick="switchTab(2)">⚙️ 设置</button>
                     <button class="tab" onclick="switchTab(3)">ℹ️ 关于我们</button>
                 </div>
                 <div class="tabs-right">
@@ -1920,6 +1936,16 @@
             </div>
 
             <div class="panel">
+                <!-- 设置页二级标签（issue #72）：功能卡片分区，免长页滚动 -->
+                <div class="settings-subtabs">
+                    <button class="mode-switch-btn active" onclick="switchSettingsTab(0)">⚙️ 系统配置</button>
+                    <button class="mode-switch-btn" onclick="switchSettingsTab(1)">🔤 频道别名</button>
+                    <button class="mode-switch-btn" onclick="switchSettingsTab(2)">🗂️ 自动分组</button>
+                    <button class="mode-switch-btn" onclick="switchSettingsTab(3)">📅 EPG 聚合</button>
+                    <button class="mode-switch-btn" onclick="switchSettingsTab(4)">👤 用户管理</button>
+                </div>
+
+                <div class="settings-subpanel active" id="settingsSub0">
                 <div class="system-config-warning">
                     ⚠️ 修改系统配置后需要<strong>重启服务</strong>才能生效
                 </div>
@@ -2036,13 +2062,15 @@
                 </div>
                 <div class="system-config-actions">
                     <button class="btn btn-success" onclick="saveSystemConfig()">💾 保存系统配置</button>
+                    <button class="btn btn-primary" onclick="saveAndRestartService()" title="保存成功后自动重启服务，让需重启的配置一步生效">💾🔄 保存并重启</button>
                 </div>
                 <div style="margin-top: 12px; padding: 10px; background: #f0f0f0; border-radius: 4px; font-size: 13px; color: #666; text-align: center;">
                     💡 提示：保存配置后，需点击页面顶部的"重启服务"按钮使新配置生效
                 </div>
-
+                </div>
+                <div class="settings-subpanel" id="settingsSub1">
                 <!-- 频道别名（issue #56）：自定义批量统一规则 -->
-                <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
+                <div style="margin-top: 4px;">
                     <div>
                         <div style="font-size:16px; font-weight:600; color:#333;">🔤 频道别名（统一命名规则）</div>
                         <div class="system-config-hint">给上面的「统一频道显示名」加自定义规则：把若干<strong>别名</strong>都归到一个<strong>规范名</strong>下（如 规范名 <code>CCTV5体育</code>，别名 <code>央视5套, 体育频道</code>）。内置规则（CCTV 系列、清晰度后缀等）已覆盖大部分，这里只补兜不住的写法。保存后下次刷新播放列表即生效。</div>
@@ -2060,9 +2088,10 @@
                         <button class="btn btn-sm btn-success" onclick="addAliasRule()">➕ 添加规则</button>
                     </div>
                 </div>
-
+                </div>
+                <div class="settings-subpanel" id="settingsSub2">
                 <!-- 关键字自动分组（issue #69）：按频道名关键字把「未分组」频道自动归类 -->
-                <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
+                <div style="margin-top: 4px;">
                     <div>
                         <div style="font-size:16px; font-weight:600; color:#333;">🗂️ 关键字自动分组</div>
                         <div class="system-config-hint">自定义订阅源里没写分组的频道会落到「未分组」，每次刷新又回到未分组。这里按<strong>频道名关键字</strong>配规则，名字含关键字的<strong>未分组</strong>频道会自动归到对应分组（多条规则按从上到下、首条命中生效）——刷新也不丢，且<strong>不影响源已分好的分组、手动移动优先</strong>。如 分组 <code>央视</code> ← 关键字 <code>CCTV, 央视</code>。保存后下次刷新播放列表即生效。</div>
@@ -2080,9 +2109,10 @@
                         <button class="btn btn-sm btn-success" onclick="addGroupRule()">➕ 添加规则</button>
                     </div>
                 </div>
-
+                </div>
+                <div class="settings-subpanel" id="settingsSub3">
                 <!-- EPG 节目单聚合（issue #38）：独立保存，无需重启 -->
-                <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
+                <div style="margin-top: 4px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                         <div>
                             <div style="font-size:16px; font-weight:600; color:#333;">📅 EPG 节目单源（聚合）</div>
@@ -2121,9 +2151,10 @@
                         <span class="system-config-hint" style="margin:0;">优先级数字小者优先；多源命中同一频道取高优先级。咪咕已有的频道始终优先，外部不会覆盖。</span>
                     </div>
                 </div>
-
+                </div>
+                <div class="settings-subpanel" id="settingsSub4">
                 <!-- 用户访问令牌（一人一源）-->
-                <div style="margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;">
+                <div style="margin-top: 4px;">
                     <div>
                         <div style="font-size:16px; font-weight:600; color:#333;">👤 用户管理（一人一源） <span style="font-size:12px; font-weight:600; color:#fff; background:#fa8c16; padding:1px 8px; border-radius:10px; vertical-align:middle;">测试中 Beta</span></div>
                         <div class="system-config-hint">给每个家人 / 朋友生成独立的源地址 <code>/u/&lt;令牌&gt;/m3u</code>，可单独停用、泄露可追溯，且<strong>令牌进不了本后台</strong>。不新增用户则对现有链接零影响。<br>🧪 本功能仍在测试中，建议先小范围试用，遇到问题欢迎反馈。</div>
@@ -2154,7 +2185,7 @@
                         <button class="btn btn-sm btn-success" onclick="addUser()">➕ 新增用户</button>
                     </div>
                 </div>
-
+                </div>
             </div>
 
             <!-- 关于我们面板 -->
@@ -2301,6 +2332,12 @@
                 loadAliases();
                 loadGroupRules();
             }
+        }
+
+        // 设置页二级标签切换（issue #72）：只做显隐，各卡片数据在进入设置页(switchTab(2))时已统一刷新
+        function switchSettingsTab(index) {
+            document.querySelectorAll('.settings-subtabs .mode-switch-btn').forEach((b, i) => b.classList.toggle('active', i === index));
+            document.querySelectorAll('.settings-subpanel').forEach((p, i) => p.classList.toggle('active', i === index));
         }
 
         // ===== EPG 节目单聚合（issue #38）=====
@@ -2621,13 +2658,18 @@
                 box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有规则。添加后，名字含关键字的「未分组」频道会自动归到对应分组（刷新也不丢）。</div>';
                 return;
             }
-            box.innerHTML = groupRulesData.map(r => {
+            box.innerHTML = groupRulesData.map((r, i) => {
                 const kws = Array.isArray(r.keywords) ? r.keywords : [];
                 const g = String(r.group || '');
                 const gEsc = g.replace(/'/g, "\\'");
+                // 上移/下移调整优先级（issue #69）：顺序即优先级，首条命中胜；顶/底禁用对应按钮
+                const upDisabled = i === 0 ? 'disabled style="opacity:.4;cursor:not-allowed;"' : '';
+                const downDisabled = i === groupRulesData.length - 1 ? 'disabled style="opacity:.4;cursor:not-allowed;"' : '';
                 return `<div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                    <div style="min-width:0;"><strong>${escapeHtml(g)}</strong> <span style="color:#888;font-size:12px;">←</span> <span style="font-size:13px;color:#555;word-break:break-all;">${escapeHtml(kws.join('、'))}</span></div>
+                    <div style="min-width:0;"><span style="color:#bbb;font-size:12px;margin-right:6px;">${i + 1}.</span><strong>${escapeHtml(g)}</strong> <span style="color:#888;font-size:12px;">←</span> <span style="font-size:13px;color:#555;word-break:break-all;">${escapeHtml(kws.join('、'))}</span></div>
                     <div style="display:flex;gap:6px;flex-shrink:0;">
+                        <button class="btn btn-sm" title="上移（提高优先级）" onclick="moveGroupRule('${gEsc}', 'up')" ${upDisabled}>↑</button>
+                        <button class="btn btn-sm" title="下移（降低优先级）" onclick="moveGroupRule('${gEsc}', 'down')" ${downDisabled}>↓</button>
                         <button class="btn btn-sm" onclick="editGroupRule('${gEsc}')">编辑</button>
                         <button class="btn btn-sm btn-danger" onclick="removeGroupRule('${gEsc}')">删除</button>
                     </div>
@@ -2662,6 +2704,12 @@
             document.getElementById('groupRuleName').scrollIntoView({ behavior: 'smooth', block: 'center' });
             document.getElementById('groupRuleKeywords').focus();
             showStatus('已载入到下方，可修改后点「添加规则」保存（同名分组会覆盖更新）', 'info');
+        }
+
+        async function moveGroupRule(group, direction) {
+            const r = await groupRulesPost({ action: 'moveRule', group, direction });
+            if (r.success) { groupRulesData = r.data; renderGroupRules(); }
+            else showStatus(r.message || '调整失败', 'error');
         }
 
         async function removeGroupRule(group) {
@@ -3947,14 +3995,30 @@ if(success){
                         const newUrl = window.location.origin + API_PREFIX + '/' + newAdminPath;
                         showStatus(`管理页面路径已改为 /${newAdminPath}，3 秒后跳转到新地址…`, 'success');
                         setTimeout(() => { window.location.href = newUrl; }, 3000);
-                        return;
+                        return 'redirect'; // 页面即将跳转，「保存并重启」此时不能跟着重启
                     }
                     showStatus(result.message, 'success');
+                    return true;
                 } else {
                     showStatus(result.message || '保存失败', 'error');
+                    return false;
                 }
             } catch (error) {
                 showStatus('保存失败: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        // 保存并重启（issue #72）：一次确认 → 保存成功才重启；保存失败或触发管理路径跳转则不重启
+        async function saveAndRestartService() {
+            const confirmed = await showConfirm(
+                '保存系统配置并立即重启服务？\n\n重启期间服务将暂时不可用（约5-10秒）；Docker/PM2 会自动重启，直接运行 node 需要手动重启。',
+                '保存并重启'
+            );
+            if (!confirmed) return;
+            const saved = await saveSystemConfig();
+            if (saved === true) {
+                await restartService(true); // 已确认过，跳过二次确认
             }
         }
 
@@ -3998,13 +4062,15 @@ if(success){
         }
 
         // 重启服务
-        async function restartService() {
-            const confirmed = await showConfirm(
-                '确定要重启服务吗？\n\n注意：\n1. 重启期间服务将暂时不可用（约5-10秒）\n2. 请确保已保存所有配置\n3. Docker/PM2 会自动重启，直接运行 node 需要手动重启',
-                '重启服务'
-            );
-            if (!confirmed) {
-                return;
+        async function restartService(skipConfirm = false) {
+            if (!skipConfirm) {
+                const confirmed = await showConfirm(
+                    '确定要重启服务吗？\n\n注意：\n1. 重启期间服务将暂时不可用（约5-10秒）\n2. 请确保已保存所有配置\n3. Docker/PM2 会自动重启，直接运行 node 需要手动重启',
+                    '重启服务'
+                );
+                if (!confirmed) {
+                    return;
+                }
             }
 
             try {

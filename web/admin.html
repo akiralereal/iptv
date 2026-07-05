@@ -3158,6 +3158,10 @@
                             <input type="number" min="60" step="60" value="${source.refreshInterval || 240}" oninput="updateExternalField(${index}, 'refreshInterval', parseInt(this.value) || 240)" placeholder="240">
                             <div class="form-hint">每隔多少分钟自动重新抓取m3u8链接，默认240分钟（4小时），步幅1小时</div>
                         </div>
+                        <div class="external-field">
+                            <label>📡 在哪些配置档显示</label>
+                            <div id="srcProfRow_${index}" class="form-hint" style="margin-top:2px;">${source.id ? '加载中…' : '新源「保存」后即可设置（默认所有配置档可见）'}</div>
+                        </div>
                     </div>
                     <div class="external-detail-footer">
                         <div class="external-switches">
@@ -3223,6 +3227,10 @@
                             <input type="number" min="60" step="60" value="${source.refreshInterval || 1440}" oninput="updateExternalField(${index}, 'refreshInterval', parseInt(this.value) || 1440)" placeholder="1440">
                             <div class="form-hint">每隔多少分钟自动重新获取播放列表，默认1440分钟（24小时）</div>
                         </div>
+                        <div class="external-field">
+                            <label>📡 在哪些配置档显示</label>
+                            <div id="srcProfRow_${index}" class="form-hint" style="margin-top:2px;">${source.id ? '加载中…' : '新源「导入并保存」后即可设置（默认所有配置档可见）'}</div>
+                        </div>
                     </div>
                     <div class="external-detail-footer">
                         <div class="external-switches">
@@ -3271,6 +3279,10 @@
                             <input type="text" value="${source.m3u8Url || ''}" oninput="updateExternalField(${index}, 'm3u8Url', this.value)" placeholder="例：https://example.com/live.m3u8">
                             <div class="form-hint">直接填写m3u8直播流地址</div>
                         </div>
+                        <div class="external-field">
+                            <label>📡 在哪些配置档显示</label>
+                            <div id="srcProfRow_${index}" class="form-hint" style="margin-top:2px;">${source.id ? '加载中…' : '新源「保存」后即可设置（默认所有配置档可见）'}</div>
+                        </div>
                     </div>
                     <div class="external-detail-footer">
                         <div class="external-switches">
@@ -3288,6 +3300,35 @@
                     </div>
                 `;
             }
+
+            // 源 ↔ 配置档（issue #68）：已保存(有稳定 id)的源，异步填充「在哪些配置档显示」勾选行
+            fillSourceProfilesRow(index);
+        }
+
+        // v2 入口（issue #68）：外部源表单里按档勾选。数据惰性加载，与 v1 档弹窗共用 sourceProfileData
+        async function fillSourceProfilesRow(index) {
+            const source = externalConfig.sources[index];
+            if (!source || !source.id || !document.getElementById('srcProfRow_' + index)) return;
+            if (!sourceProfileData) {
+                try { await loadSourceProfiles(); } catch (e) {
+                    const box = document.getElementById('srcProfRow_' + index);
+                    if (box) box.textContent = '加载失败，请刷新重试';
+                    return;
+                }
+            }
+            renderSourceProfilesRow(index);
+        }
+
+        function renderSourceProfilesRow(index) {
+            const box = document.getElementById('srcProfRow_' + index);
+            const source = externalConfig.sources[index];
+            if (!box || !source || !source.id || !sourceProfileData) return;
+            const sid = 'ext:' + source.id;
+            box.innerHTML = sourceProfileData.profiles.map(p => {
+                const dis = (sourceProfileData.disabled[p.id] || []).includes(sid);
+                const pEsc = p.id.replace(/'/g, "\\'");
+                return `<label style="display:inline-flex; align-items:center; gap:4px; margin-right:12px; cursor:pointer; color:#333;"><input type="checkbox" ${dis ? '' : 'checked'} onchange="toggleProfileSource('${pEsc}', '${sid}', this.checked, ${index})">${escapeHtml(p.name)}</label>`;
+            }).join('') + '<div class="form-hint" style="margin-top:4px;">默认全部勾选（所有配置档可见）；取消勾选＝该档不出现本源频道。改动即时保存。</div>';
         }
 
         function addExternalSource() {
@@ -3692,8 +3733,16 @@
                 const result = await response.json();
                 if (response.ok && result.success !== false) {
                     showStatus(`${source.name} 保存成功并已同步到频道列表`, 'success');
+                    // 回读配置：拿到服务端为新源分配的稳定 id（否则下次整份保存会让 id 重新生成、
+                    // 「档 ↔ 源」绑定失效），也让「在哪些配置档显示」勾选行立即可用（issue #29/#68）
+                    try {
+                        const externalRes = await fetch(API_PREFIX + '/api/external-sources');
+                        externalConfig = normalizeExternalConfig(await externalRes.json());
+                        sourceProfileData = null;   // 源列表变了，绑定矩阵下次打开时重新拉
+                    } catch (e) { /* 回读失败不影响已保存 */ }
                     renderExternalSources(); // 保存成功后刷新UI
-                    
+                    renderExternalDetail(index);
+
                     // 重新加载所有频道数据以刷新显示
                     const channelsRes = await fetch(API_PREFIX + '/api/channels');
                     if (channelsRes.ok) {
@@ -4176,6 +4225,51 @@ if(success){
         function openProfileModal() {
             renderProfileList();
             document.getElementById('profileModal').style.display = 'block';
+            // 源 ↔ 档 绑定矩阵惰性加载（issue #29）：到手后重渲染补出「📡 源」按钮
+            loadSourceProfiles().then(() => renderProfileList()).catch(() => {});
+        }
+
+        // ===== 源 ↔ 配置档 绑定（issue #29/#68）=====
+        // 数据：{ sources:[{id,name,type}], profiles:[{id,name}], disabled:{profileId:[sourceId]} }
+        let sourceProfileData = null;
+        const expandedSourceRows = new Set();   // 档弹窗里展开了「源」面板的档 id
+
+        async function loadSourceProfiles() {
+            const res = await fetch(API_PREFIX + '/api/source-profiles');
+            const p = await res.json();
+            if (p && p.success && p.data) sourceProfileData = p.data;
+        }
+
+        function toggleProfileSourcesRow(pid) {
+            if (!expandedSourceRows.delete(pid)) expandedSourceRows.add(pid);
+            renderProfileList();
+        }
+
+        // 勾/取消某档的某个源（v1 档弹窗与 v2 源表单共用）。enabled=false → 加入该档 disabledSources
+        async function toggleProfileSource(profileId, sourceId, enabled, extIndex) {
+            try {
+                const res = await fetch(API_PREFIX + '/api/source-profiles', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profileId, sourceId, enabled })
+                });
+                const r = await res.json();
+                if (!r.success) { showStatus(r.message || '保存失败', 'error'); return; }
+                if (sourceProfileData) sourceProfileData.disabled[profileId] = r.data.disabledSources;
+                // 同步本地整份配置副本：避免「我的频道」后续整份保存把刚设置的禁源带回旧值
+                //（服务端已把 disabledSources 设为 source-profiles 单一写者，这里是双保险）
+                if (profileId === activeProfile && typeof myPlaylistConfig === 'object' && myPlaylistConfig) {
+                    myPlaylistConfig.disabledSources = r.data.disabledSources;
+                }
+                showStatus(enabled ? '已在该档启用此源' : '已在该档禁用此源（该源频道不再出现）', 'success');
+                // 同步刷新两个入口的视图
+                const modal = document.getElementById('profileModal');
+                if (modal && modal.style.display === 'block') renderProfileList();
+                if (typeof extIndex === 'number') renderSourceProfilesRow(extIndex);
+                // 动的是当前档 → 即时重载「我的频道」体现增减
+                if (profileId === activeProfile) { try { await loadMyPlaylist(false); } catch (e) {} }
+            } catch (e) {
+                showStatus('保存失败: ' + e.message, 'error');
+            }
         }
         function closeProfileModal() {
             document.getElementById('profileModal').style.display = 'none';
@@ -4196,6 +4290,21 @@ if(success){
                 // 改名按钮紧跟档名右侧（默认档不可改名）
                 const renameBtn = isDefault ? '' :
                     ` <button class="btn btn-sm" onclick="renameProfilePrompt('${p.id}')" title="重命名该档" style="padding:2px 8px; font-size:12px;">改名</button>`;
+                // 「源」按钮（issue #29）：选择本档启用哪些源；有禁用时按钮上带数量提示
+                const disCount = sourceProfileData ? (sourceProfileData.disabled[p.id] || []).length : 0;
+                const srcBtn = sourceProfileData ?
+                    ` <button class="btn btn-sm" onclick="toggleProfileSourcesRow('${p.id}')" title="选择本档启用哪些源" style="padding:2px 8px; font-size:12px;">📡 源${disCount ? `（禁${disCount}）` : ''}</button>` : '';
+                // 展开的源勾选面板：取消勾选＝该源频道不在本档出现
+                const srcPanel = (sourceProfileData && expandedSourceRows.has(p.id)) ?
+                    `<div style="margin-top:6px; padding:8px 10px; background:#fafafa; border:1px solid #eee; border-radius:6px; font-size:13px;">
+                        ${sourceProfileData.sources.map(s => {
+                            const dis = (sourceProfileData.disabled[p.id] || []).includes(s.id);
+                            const sEsc = s.id.replace(/'/g, "\\'");
+                            const pEsc2 = p.id.replace(/'/g, "\\'");
+                            return `<label style="display:inline-flex; align-items:center; gap:4px; margin-right:12px; margin-bottom:4px; cursor:pointer;"><input type="checkbox" ${dis ? '' : 'checked'} onchange="toggleProfileSource('${pEsc2}', '${sEsc}', this.checked)">${escapeHtml(s.name)}</label>`;
+                        }).join('')}
+                        <div class="form-hint" style="margin:4px 0 0;">取消勾选＝该源频道不在本档出现（多源提供的同一频道，只要还有一个来源勾选就保留）。改动即时保存。</div>
+                    </div>` : '';
                 // 右侧竖排：当前档=重置，其它档=切换；非默认档另有删除
                 const left = isActive
                     ? '<button class="btn btn-sm btn-warning" onclick="closeProfileModal(); resetMyPlaylist();" title="重置本档：重命名 / 隐藏 / 排序">🔄 重置</button>'
@@ -4204,8 +4313,9 @@ if(success){
                     `<button class="btn btn-sm btn-danger" onclick="deleteProfilePrompt('${p.id}')">删除</button>`;
                 return `<div class="profile-row${isActive ? ' active' : ''}">
                     <div style="flex:1; min-width:0;">
-                        <div style="font-weight:600; display:flex; align-items:center; flex-wrap:wrap; gap:6px;">${escapeHtml(p.name)}${slugHtml}${renameBtn}</div>
+                        <div style="font-weight:600; display:flex; align-items:center; flex-wrap:wrap; gap:6px;">${escapeHtml(p.name)}${slugHtml}${renameBtn}${srcBtn}</div>
                         <div class="profile-url"><code>${escapeHtml(url)}</code><button class="btn btn-sm" onclick="copyToClipboard('${url}', '播放地址')">复制</button></div>
+                        ${srcPanel}
                     </div>
                     <div class="profile-row-actions">${left}${del}</div>
                 </div>`;

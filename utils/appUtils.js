@@ -74,7 +74,8 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix) 
         config.hiddenChannels?.length > 0 ||
         config.deletedGroups?.length > 0 ||
         config.customGroups?.length > 0 ||
-        config.groupOrder?.length > 0)) {
+        config.groupOrder?.length > 0 ||
+        config.disabledSources?.length > 0)) {   // 按档禁用源（issue #29/#68）也需触发 applyConfig
         printGrey("应用播放列表自定义配置")
         const groups = parseInterfaceTxt()
         const configuredGroups = applyConfig(groups, config)
@@ -124,7 +125,9 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix) 
     replaceHost = `${replaceHost}/${urlUserId}/${urlToken}`
   }
 
-  result.content = `${result.content}`.replaceAll("${replace}", replaceHost);
+  // 剥离内部属性 source-ids（issue #29/#68 源归属标记）后再输出给播放器：
+  // 覆盖两条路径——原始 interface.txt 直出 与 applyConfig 重生成（generateM3u8 不写该属性，正则兜底无副作用）
+  result.content = `${result.content}`.replace(/ source-ids="[^"]*"/g, "").replaceAll("${replace}", replaceHost);
 
   return result
 }

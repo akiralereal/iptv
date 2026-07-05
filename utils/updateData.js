@@ -185,8 +185,15 @@ async function updateTV(hours, options = {}) {
         }
       }
 
+      // 源归属属性（issue #29/#68 按档过滤源）：主来源 + 去重并入的多源归属；
+      // 咪咕频道无 sourceId、以 pID 隐式识别为 'migu'。播放器输出前会剥离该内部属性。
+      const ownSourceId = channelItem.sourceId || (!isBuiltIn && !isExternal ? 'migu' : '')
+      const allSourceIds = [...new Set([ownSourceId, ...(channelItem.sourceIds || [])].filter(Boolean))]
+      // 多源用分号分隔——EXTINF 频道名按「第一个逗号」解析，属性值里出现逗号会破坏频道名提取
+      const sourceAttr = allSourceIds.length ? ` source-ids="${allSourceIds.join(';')}"` : ''
+
       // 写入节目
-      appendFileSync(interfacePath, `#EXTINF:-1 tvg-id="${channelItem.name}" tvg-name="${channelItem.name}" tvg-logo="${logoUrl}" group-title="${datas[i].name}",${channelItem.name}\n${playUrl}\n`)
+      appendFileSync(interfacePath, `#EXTINF:-1 tvg-id="${channelItem.name}" tvg-name="${channelItem.name}" tvg-logo="${logoUrl}"${sourceAttr} group-title="${datas[i].name}",${channelItem.name}\n${playUrl}\n`)
       // txt
       appendFileSync(interfaceTXTPath, `${channelItem.name},${playUrl}\n`)
       // printGreen(`    节目链接更新成功`)
@@ -283,7 +290,7 @@ async function updatePE(hours) {
                 timeStr = peResultStartTimeStr.substring(11, 16)
               }
               const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${replay.name} ${timeStr}`
-              const m3uLine = `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="体育-${relativeDate}",${competitionDesc}\n\${replace}/${replay.pID}\n`
+              const m3uLine = `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" source-ids="migu" group-title="体育-${relativeDate}",${competitionDesc}\n\${replace}/${replay.pID}\n`
               const txtLine = `${competitionDesc},\${replace}/${replay.pID}\n`
               // 写入赛事
               appendFileSync(interfacePath, m3uLine)
@@ -301,7 +308,7 @@ async function updatePE(hours) {
             continue
           }
           const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${live.name} ${live.startTimeStr.substring(11, 16)}`
-          const m3uLine = `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="体育-${relativeDate}",${competitionDesc}\n\${replace}/${live.pID}\n`
+          const m3uLine = `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" source-ids="migu" group-title="体育-${relativeDate}",${competitionDesc}\n\${replace}/${live.pID}\n`
           const txtLine = `${competitionDesc},\${replace}/${live.pID}\n`
           // 写入赛事
           appendFileSync(interfacePath, m3uLine)

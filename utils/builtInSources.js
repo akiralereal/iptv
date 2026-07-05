@@ -380,7 +380,10 @@ class BuiltInSourceManager {
           playURL: m3u8Url,
           builtIn: true,
           mode: source.mode || 'direct',
-          description: source.description || ''
+          description: source.description || '',
+          // 源归属（issue #29/#68）。id 来自远程下发的 built-in-sources.json → 白名单消毒，
+          // 防含引号等字符破坏 interface.txt 的 EXTINF 属性或后台 HTML
+          sourceId: source.id ? `bi:${String(source.id).replace(/[^\w.-]/g, '')}` : undefined
         })
       })
 

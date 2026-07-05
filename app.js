@@ -1,5 +1,5 @@
 import http from "node:http"
-import { readFileSync, mkdirSync } from "node:fs"
+import { readFileSync, mkdirSync, existsSync } from "node:fs"
 import { createRequire } from "node:module"
 import fetch from 'node-fetch'
 import { adminPath, host, pass, port, programInfoUpdateInterval, token, userId, enableMigu, enableBuiltInSubscriptions, enableUserTokens } from "./config.js";
@@ -21,7 +21,7 @@ import { getGroupRulesAPI, setGroupRuleAPI, removeGroupRuleAPI, moveGroupRuleAPI
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, validateGroupConfig, applyConfig,
          listProfiles, createProfile, renameProfile, deleteProfile } from "./utils/playlistConfig.js";
-import { updateBuiltInSources, updateExternalSources, externalSourceManager } from "./utils/channelMerger.js";
+import { updateBuiltInSources, updateExternalSources, externalSourceManager, builtInSourceManager } from "./utils/channelMerger.js";
 import { GITHUB_RAW_MIRRORS, isBuiltInSubscriptionSource } from "./utils/externalSources.js";
 
 // 运行时长
@@ -44,6 +44,9 @@ function readBody(req) {
     req.on('error', reject)
   })
 }
+
+// 升级过渡自愈只试一次（issue #29/#68）：见 /api/source-profiles POST
+let sourceIdsHealAttempted = false
 
 const server = http.createServer(async (req, res) => {
 
@@ -374,6 +377,81 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    // 源 ↔ 配置档 绑定（issue #29/#68）：GET=矩阵（源清单+档清单+每档禁用集），POST=切换某档某源的启用状态
+    if (routePath === '/api/source-profiles' && method === 'GET') {
+      try {
+        const sources = []
+        if (enableMigu) sources.push({ id: 'migu', name: '咪咕源（核心）', type: 'migu' })
+        for (const s of (builtInSourceManager.getSourceList().sources || [])) {
+          // 内置源 id 来自远程下发的 built-in-sources.json → 字符白名单消毒（防 HTML/EXTINF 属性注入）
+          const safeId = s && s.id ? String(s.id).replace(/[^\w.-]/g, '') : ''
+          if (safeId) sources.push({ id: `bi:${safeId}`, name: s.name || safeId, type: 'built-in', sourceEnabled: s.enabled !== false })
+        }
+        for (const s of (externalSourceManager.sources?.sources || [])) {
+          if (s && s.id) sources.push({ id: `ext:${s.id}`, name: s.name || '未命名源', type: 'external', sourceEnabled: s.enabled !== false })
+        }
+        const profiles = listProfiles()
+        const disabled = {}
+        for (const p of profiles) {
+          const cfg = readConfig(p.id)
+          disabled[p.id] = Array.isArray(cfg.disabledSources) ? cfg.disabledSources : []
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: true, data: { sources, profiles, disabled } }));
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: false, message: error.message }));
+      }
+      return
+    }
+
+    if (routePath === '/api/source-profiles' && method === 'POST') {
+      try {
+        const data = JSON.parse(await readBody(req))
+        const pid = (typeof data.profileId === 'string' && data.profileId) ? data.profileId : 'default'
+        const sid = typeof data.sourceId === 'string' ? data.sourceId.trim() : ''
+        // 格式校验：只接受已知形态的源 id（migu / bi:<白名单字符> / ext:<白名单字符>），防任意字符串入配置落盘
+        if (!/^(migu|bi:[\w.-]{1,64}|ext:[\w.-]{1,64})$/.test(sid)) {
+          res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+          res.end(JSON.stringify({ success: false, message: 'sourceId 无效' }));
+          return
+        }
+        if (pid !== 'default' && !listProfiles().some(p => p.id === pid)) {
+          res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+          res.end(JSON.stringify({ success: false, message: '配置档不存在' }));
+          return
+        }
+        const cfg = readConfig(pid)
+        let list = Array.isArray(cfg.disabledSources) ? cfg.disabledSources.slice() : []
+        if (data.enabled === false) {
+          if (!list.includes(sid)) list.push(sid)
+        } else {
+          list = list.filter(x => x !== sid)
+        }
+        if (list.length > 500) list = list.slice(-500)   // 上限兜底，防配置膨胀
+        cfg.disabledSources = list
+        const result = saveConfig(pid, cfg)
+        // 升级过渡自愈：老 interface.txt 还没有 source-ids 标记时（升级后未重新生成过），
+        // 触发一次「仅重生成播放列表」，让按档禁源立即可用，而不是等下一轮全量更新
+        if (result.success !== false && !sourceIdsHealAttempted) {
+          sourceIdsHealAttempted = true
+          try {
+            const ifPath = dataPath('interface.txt')
+            if (existsSync(ifPath) && !readFileSync(ifPath, 'utf-8').includes('source-ids="')) {
+              printBlue('interface.txt 尚无源归属标记，触发一次播放列表重生成（issue #29/#68 升级自愈）')
+              update(0, { regenerateOnly: true }).catch(() => {})
+            }
+          } catch (e) { /* 自愈失败不影响本次保存 */ }
+        }
+        res.writeHead(result.success !== false ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: result.success !== false, data: { profileId: pid, disabledSources: list } }));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: false, message: error.message }));
+      }
+      return
+    }
+
     // 上传 / 移除频道台标（issue #40）
     if (routePath === '/api/upload-logo' && method === 'POST') {
       try {
@@ -508,6 +586,9 @@ const server = http.createServer(async (req, res) => {
           return
         }
         const currentConfig = readConfig(profileParam)
+        // disabledSources 单一写者是 /api/source-profiles（issue #29/#68）：
+        // 本端点的整份保存一律沿用盘上现值，避免「我的频道」页加载的旧快照把刚设置的禁源冲掉
+        config.disabledSources = Array.isArray(currentConfig.disabledSources) ? currentConfig.disabledSources : []
         const currentRenameMap = currentConfig.groupRenameMap || {}
         const nextRenameMap = config.groupRenameMap || {}
         const currentCustomGroups = currentConfig.customGroups || []

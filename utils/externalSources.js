@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from "node:fs"
+import { randomBytes } from "node:crypto"
 import { writeJsonFileSync } from "./fileUtil.js"
 import { dataPath } from "./paths.js"
 import { enableBuiltInSubscriptions } from "../config.js"
@@ -383,6 +384,47 @@ function ensureBuiltInSubscriptions(config) {
   return mutated
 }
 
+// 外部源稳定 id（issue #29/#68 按档过滤源）：随源一次生成、永不改变，供「配置档 ↔ 源」绑定引用
+// （数组下标会因删源移位，不能当标识）。幂等：已有 id 原样保留；存量配置补齐后由调用方持久化。
+function ensureSourceIds(config) {
+  if (!config || !Array.isArray(config.sources)) return false
+  let mutated = false
+  const used = new Set(config.sources.map(s => (s && typeof s.id === 'string') ? s.id : '').filter(Boolean))
+  for (const s of config.sources) {
+    if (!s || (typeof s.id === 'string' && s.id)) continue
+    let id
+    do { id = randomBytes(4).toString('hex') } while (used.has(id))
+    used.add(id)
+    s.id = id
+    mutated = true
+  }
+  return mutated
+}
+
+// 无 id 的进货源若与现有源「身份」匹配（订阅地址 / 网页地址 / 名称+直连地址），继承其已有 id——
+// 前端整份保存可能带着「服务端已发过 id 但客户端未回读」的旧副本，若任由 ensureSourceIds 重新发号，
+// 「配置档 ↔ 源」绑定（disabledSources 引用的 ext:<id>）会悄悄变孤儿（issue #29/#68）。
+function inheritExistingSourceIds(incoming, current) {
+  if (!incoming || !Array.isArray(incoming.sources) || !current || !Array.isArray(current.sources)) return
+  const keyOf = s => s.subscriptionUrl ? `sub|${s.subscriptionUrl}`
+    : s.webUrl ? `web|${s.webUrl}`
+    : s.m3u8Url ? `m3u|${s.name || ''}|${s.m3u8Url}`
+    : `name|${s.name || ''}`
+  const byKey = new Map()
+  for (const s of current.sources) {
+    if (s && typeof s.id === 'string' && s.id) {
+      const k = keyOf(s)
+      if (!byKey.has(k)) byKey.set(k, s.id)
+    }
+  }
+  const used = new Set(incoming.sources.map(s => (s && typeof s.id === 'string') ? s.id : '').filter(Boolean))
+  for (const s of incoming.sources) {
+    if (!s || (typeof s.id === 'string' && s.id)) continue
+    const id = byKey.get(keyOf(s))
+    if (id && !used.has(id)) { s.id = id; used.add(id) }
+  }
+}
+
 // 一次性退役迁移：把已退役的内置订阅源从用户配置中移除（用 retiredBuiltInsV1 标记，只跑一次，
 // 之后尊重用户的手动增删，与 seededBuiltInUrls 的「只播种一次」哲学一致）。
 function retireBuiltInSubscriptions(config) {
@@ -446,7 +488,8 @@ class ExternalSourceManager {
         }
         const retired = retireBuiltInSubscriptions(config)
         const mutated = ensureBuiltInSubscriptions(config)
-        if (retired || mutated) this.saveSources(config)
+        const idsAdded = ensureSourceIds(config)   // 存量源补稳定 id（issue #29/#68）
+        if (retired || mutated || idsAdded) this.saveSources(config)
         return config
       }
       if (typeof parsed === 'object' && parsed !== null) {
@@ -467,7 +510,8 @@ class ExternalSourceManager {
         // 播种内置订阅源（只播种从未播种过的；尊重用户删除）
         const retired = retireBuiltInSubscriptions(parsed)
         const mutated = ensureBuiltInSubscriptions(parsed)
-        if (retired || mutated) this.saveSources(parsed)
+        const idsAdded = ensureSourceIds(parsed)   // 存量源补稳定 id（issue #29/#68）
+        if (retired || mutated || idsAdded) this.saveSources(parsed)
         return parsed
       }
       return { enabled: false, includeInPlaylists: true, updateOnStartup: true, sources: [] }
@@ -482,6 +526,10 @@ class ExternalSourceManager {
    */
   saveSources(sources = this.sources) {
     try {
+      // 兜底：任何写盘路径（含前端整份保存的新建源）都保证每个源有稳定 id（issue #29/#68）
+      // 先按「身份」继承现有 id（防前端未回读的旧副本让 id 漂移），再给真正的新源发号
+      if (sources !== this.sources) inheritExistingSourceIds(sources, this.sources)
+      ensureSourceIds(sources)
       writeJsonFileSync(EXTERNAL_SOURCES_PATH, sources)
       this.sources = sources
       return { success: true }
@@ -787,7 +835,8 @@ class ExternalSourceManager {
             name: ch.name,
             url: ch.url,
             logo: ch.logo || "",
-            groupTitle: group
+            groupTitle: group,
+            sourceId: source.id ? `ext:${source.id}` : undefined   // 源归属（issue #29/#68）
           })
         })
         return
@@ -806,7 +855,8 @@ class ExternalSourceManager {
           name: source.name,
           url: source.m3u8Url,
           logo: source.logo || "",
-          groupTitle: source.group
+          groupTitle: source.group,
+          sourceId: source.id ? `ext:${source.id}` : undefined   // 源归属（issue #29/#68）
         })
       }
     })
@@ -862,4 +912,4 @@ class ExternalSourceManager {
 const externalSourceManager = new ExternalSourceManager()
 
 export default externalSourceManager
-export { ExternalSourceManager, fetchAndParseM3u, parsePlaylistContent, decodeAndParseLocalContent, splitCredentials, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS }
+export { ExternalSourceManager, fetchAndParseM3u, parsePlaylistContent, decodeAndParseLocalContent, splitCredentials, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS, ensureSourceIds, inheritExistingSourceIds }

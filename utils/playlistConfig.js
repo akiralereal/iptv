@@ -48,7 +48,8 @@ const DEFAULT_CONFIG = {
   groupOrder: [],           // 分组显示顺序
   deletedGroups: [],        // 删除的分组名列表
   groupRenameMap: {},       // 分组重命名映射 { 原始名: 新名 }
-  groupSortMode: {}         // 组内排序模式 { 显示分组名: 'name' }；'name'=按名称自动排序，缺省=手动(channelOrder)
+  groupSortMode: {},        // 组内排序模式 { 显示分组名: 'name' }；'name'=按名称自动排序，缺省=手动(channelOrder)
+  disabledSources: []       // 本档禁用的源（issue #29/#68）：['migu' | 'bi:<id>' | 'ext:<id>']，黑名单——新源默认全档可见
 }
 
 function buildChannelId({ groupName, channelName, tvgName, url }) {
@@ -142,6 +143,7 @@ export function parseInterfaceTxt() {
         const tvgNameMatch = line.match(/tvg-name="([^"]*)"/)
         const tvgLogoMatch = line.match(/tvg-logo="([^"]*)"/)
         const groupMatch = line.match(/group-title="([^"]*)"/)
+        const sourceIdsMatch = line.match(/source-ids="([^"]*)"/)   // 源归属（issue #29/#68），内部属性
         const nameMatch = line.match(/,(.+)$/)
         
         if (groupMatch && nameMatch && i + 1 < lines.length) {
@@ -178,7 +180,10 @@ export function parseInterfaceTxt() {
             epgMatched,                            // 该频道是否有节目单
             epgName: epgMatched ? epgId : '',      // 命中的规范名（详情里展示，解释「显示名虽特殊但已归一匹配」）
             url: url,
-            originalGroup: groupName
+            originalGroup: groupName,
+            // 源归属（issue #29/#68 按档过滤）：来自哪些源（migu / bi:<id> / ext:<id>，去重并集）。
+            // 分号分隔（属性值不能含逗号——频道名按第一个逗号解析）；旧数据无该属性 → 空数组=不过滤。
+            sourceIds: sourceIdsMatch ? sourceIdsMatch[1].split(';').filter(Boolean) : []
           })
 
           i++ // 跳过URL行
@@ -249,6 +254,10 @@ export function validateGroupConfig(groups, config) {
       if (config?.hiddenChannels?.includes(channelKey)) return false      // 被隐藏
       if (config?.channelGroupMap?.[channelKey]) return false             // 被移动到别的分组
       if (isGroupDeleted(group.name, config?.deletedGroups)) return false // 整组被删除
+      // 全部来源被本档禁用（issue #29/#68）——与 applyConfig 的过滤语义一致
+      if (Array.isArray(config?.disabledSources) && config.disabledSources.length > 0
+          && Array.isArray(channel.sourceIds) && channel.sourceIds.length > 0
+          && channel.sourceIds.every(id => config.disabledSources.includes(id))) return false
       return true
     })
     if (!stillVisible) continue
@@ -325,6 +334,14 @@ export function applyConfig(groups, config) {
 
       // 跳过隐藏的频道（按分组独立隐藏）
       if (config.hiddenChannels?.includes(channelKey)) {
+        return
+      }
+
+      // 按档禁用源（issue #29/#68）：该频道的**所有**来源都被本档禁用才隐藏——
+      // 多源提供的同一频道只要有一个来源未禁用就保留；旧 interface.txt 无源标记（sourceIds 空）→ 不过滤。
+      if (Array.isArray(config.disabledSources) && config.disabledSources.length > 0
+          && Array.isArray(channel.sourceIds) && channel.sourceIds.length > 0
+          && channel.sourceIds.every(id => config.disabledSources.includes(id))) {
         return
       }
 

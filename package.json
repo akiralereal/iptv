@@ -4,7 +4,7 @@
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
-    "test": "node scripts/test-group-dedup.mjs && node scripts/test-channel-normalize.mjs && node scripts/test-move-hide.mjs && node scripts/test-epg-match.mjs && node scripts/test-group-keyword.mjs && node scripts/test-source-group.mjs"
+    "test": "node scripts/test-group-dedup.mjs && node scripts/test-channel-normalize.mjs && node scripts/test-move-hide.mjs && node scripts/test-epg-match.mjs && node scripts/test-group-keyword.mjs && node scripts/test-source-group.mjs && node scripts/test-source-filter.mjs"
   },
   "dependencies": {
     "node-fetch": "^3.3.2",

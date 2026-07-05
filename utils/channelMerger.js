@@ -7,6 +7,46 @@ import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 // 缓存最近一次获取的咪咕频道数据
 let cachedMiguChannels = []
 
+// 频道的「主来源」标识（issue #29/#68 按档过滤源）：
+// 外部/内置源频道在 getValidChannels 里带上 sourceId（ext:<id> / bi:<id>），咪咕频道以 pID 隐式识别。
+function primarySourceId(ch) {
+  return ch.sourceId || (ch.pID != null ? 'migu' : '')
+}
+
+// 分组内去重（纯函数，供测试）：name + 播放地址 完全相同只留第一个；
+// 命中重复时把归属并入保留者的 sourceIds 并集——同一频道多个源提供时，按档禁用其一不误删（issue #29/#68）。
+function dedupeAllChannels(allChannels) {
+  let removed = 0
+  for (const group of allChannels) {
+    const seen = new Map()
+    const kept = []
+    for (const ch of group.dataList) {
+      const urlKey = ch.url || ch.playURL || (ch.pID != null ? `migu:${ch.pID}` : '')
+      const key = `${(ch.name || '').trim().toLowerCase()} ${urlKey}`
+      const prev = seen.get(key)
+      if (prev) {
+        removed++
+        const sid = primarySourceId(ch)
+        if (sid) {
+          if (!Array.isArray(prev.sourceIds)) {
+            const own = primarySourceId(prev)
+            prev.sourceIds = own ? [own] : []
+          }
+          if (!prev.sourceIds.includes(sid)) prev.sourceIds.push(sid)
+          for (const extra of (ch.sourceIds || [])) {
+            if (!prev.sourceIds.includes(extra)) prev.sourceIds.push(extra)
+          }
+        }
+        continue
+      }
+      seen.set(key, ch)
+      kept.push(ch)
+    }
+    group.dataList = kept
+  }
+  return removed
+}
+
 /**
  * 获取所有频道数据（咪咕 + 外部源）
  * @param {Object} options - 选项
@@ -100,20 +140,7 @@ async function getAllChannels(options = {}) {
     // 频道级去重：同一分组内，name + 播放地址 完全相同的频道只保留第一个
     // （合并顺序为 咪咕 > 内置 > 外部，因此优先保留更高优先级的来源）
     // 只移除完全重复的条目，名称相同但地址不同的频道予以保留
-    let dedupRemoved = 0
-    for (const group of allChannels) {
-      const seen = new Set()
-      group.dataList = group.dataList.filter(ch => {
-        const urlKey = ch.url || ch.playURL || (ch.pID != null ? `migu:${ch.pID}` : '')
-        const key = `${(ch.name || '').trim().toLowerCase()} ${urlKey}`
-        if (seen.has(key)) {
-          dedupRemoved++
-          return false
-        }
-        seen.add(key)
-        return true
-      })
-    }
+    const dedupRemoved = dedupeAllChannels(allChannels)
     if (dedupRemoved > 0) {
       printYellow(`频道去重：移除 ${dedupRemoved} 个分组内完全重复的频道`)
     }
@@ -191,11 +218,13 @@ function getExternalSourceStats() {
   return externalSourceManager.getConfig()
 }
 
-export { 
+export {
   getAllChannels,
   updateExternalSources,
   updateBuiltInSources,
   getExternalSourceStats,
   externalSourceManager,
-  builtInSourceManager
+  builtInSourceManager,
+  dedupeAllChannels,
+  primarySourceId
 }

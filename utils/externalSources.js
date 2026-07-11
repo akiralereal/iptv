@@ -8,22 +8,41 @@ import { extractM3u8FromWeb, validateM3u8 } from "./webSourceExtractor.js"
 import fetch from 'node-fetch'
 
 /**
+ * 从一行 #EXTINF 提取频道显示名。
+ * 标准格式是「属性...,频道名」，但有些源把 group-title 等属性写在逗号之后
+ * （如 tvg-logo="x",group-title="y",频道名，见 issue #84），若直接取「第一个逗号
+ * 之后」会把 group-title="y" 一并吞进名字，脏名字再回填进 tvg-id="..." 会破坏
+ * 整行 EXTINF 语法、导致该频道播放异常。
+ * 因此改为取「最后一个属性引号之后的那个逗号」后的部分——属性都是 key="value"，
+ * 末个引号之后剩下的就是显示名；无带引号属性时回退到第一个逗号。
+ */
+function extractExtinfName(line) {
+  const lastQuote = line.lastIndexOf('"')
+  if (lastQuote !== -1) {
+    const after = line.slice(lastQuote + 1)
+    const comma = after.indexOf(',')
+    if (comma !== -1) return after.slice(comma + 1).trim()
+  }
+  const comma = line.indexOf(',')
+  return comma !== -1 ? line.slice(comma + 1).trim() : ''
+}
+
+/**
  * 解析 m3u/m3u8 播放列表内容，提取频道列表
  */
 function parseM3uContent(content) {
   const lines = content.split('\n').map(l => l.trim()).filter(l => l)
   const channels = []
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (!line.startsWith('#EXTINF:')) continue
-    
+
     // 解析 #EXTINF 行
-    const groupMatch = line.match(/group-title="([^"]*)"/) 
-    const logoMatch = line.match(/tvg-logo="([^"]*)"/)  
-    // 频道名在逗号后面
-    const nameMatch = line.match(/,(.+)$/)
-    
+    const groupMatch = line.match(/group-title="([^"]*)"/)
+    const logoMatch = line.match(/tvg-logo="([^"]*)"/)
+    const name = extractExtinfName(line)
+
     // 下一个非注释行是 URL
     let url = ''
     for (let j = i + 1; j < lines.length; j++) {
@@ -32,10 +51,10 @@ function parseM3uContent(content) {
         break
       }
     }
-    
-    if (url && nameMatch) {
+
+    if (url && name) {
       channels.push({
-        name: nameMatch[1].trim(),
+        name,
         group: groupMatch ? groupMatch[1] : '未分组',
         logo: logoMatch ? logoMatch[1] : '',
         url: url

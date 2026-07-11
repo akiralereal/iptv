@@ -71,6 +71,34 @@ async function launchBrowser(headless) {
   }
 }
 
+// U+00A0–U+00FF 每个字符对应的 HTML 遗留命名实体名（按码点顺序排列）。整段 Latin-1
+// 补充区恰好都是「不带分号也会被解码」的旧式实体：Chromium 解析网页文本时会把
+// "&timestamp=" 里的 "&times" 解成 ×、"&notin=" 里的 "&not" 解成 ¬ 等，导致从
+// innerText 提取的 m3u8 地址被写坏（issue #84 同源问题）。合法 URL 里不会出现这些
+// 未编码的原始字符，故提取结果中凡命中此区间的字符都可安全还原回 "&实体名"。
+const LEGACY_ENTITY_NAMES = [
+  'nbsp', 'iexcl', 'cent', 'pound', 'curren', 'yen', 'brvbar', 'sect',
+  'uml', 'copy', 'ordf', 'laquo', 'not', 'shy', 'reg', 'macr',
+  'deg', 'plusmn', 'sup2', 'sup3', 'acute', 'micro', 'para', 'middot',
+  'cedil', 'sup1', 'ordm', 'raquo', 'frac14', 'frac12', 'frac34', 'iquest',
+  'Agrave', 'Aacute', 'Acirc', 'Atilde', 'Auml', 'Aring', 'AElig', 'Ccedil',
+  'Egrave', 'Eacute', 'Ecirc', 'Euml', 'Igrave', 'Iacute', 'Icirc', 'Iuml',
+  'ETH', 'Ntilde', 'Ograve', 'Oacute', 'Ocirc', 'Otilde', 'Ouml', 'times',
+  'Oslash', 'Ugrave', 'Uacute', 'Ucirc', 'Uuml', 'Yacute', 'THORN', 'szlig',
+  'agrave', 'aacute', 'acirc', 'atilde', 'auml', 'aring', 'aelig', 'ccedil',
+  'egrave', 'eacute', 'ecirc', 'euml', 'igrave', 'iacute', 'icirc', 'iuml',
+  'eth', 'ntilde', 'ograve', 'oacute', 'ocirc', 'otilde', 'ouml', 'divide',
+  'oslash', 'ugrave', 'uacute', 'ucirc', 'uuml', 'yacute', 'thorn', 'yuml',
+]
+
+/**
+ * 还原从 innerText 提取的地址里被浏览器误解码的旧式命名实体（见上）。整段
+ * U+00A0–U+00FF 都按码点还原回 "&实体名"。纯字符串处理，放在 Node 侧便于单测。
+ */
+function restoreLegacyEntities(url) {
+  return url.replace(/[ -ÿ]/g, ch => '&' + LEGACY_ENTITY_NAMES[ch.charCodeAt(0) - 0xA0])
+}
+
 /**
  * 从网页中提取 m3u8 直播链接
  * @param {string} url - 网页地址
@@ -140,27 +168,20 @@ async function extractM3u8FromWeb(url, options = {}) {
     printBlue(`等待 m3u8 链接...`)  
     await new Promise(resolve => setTimeout(resolve, waitTime))
     
-    // 也可以尝试查找页面中的 m3u8 链接
-    const pageM3u8Links = await page.evaluate(() => {
-      const links = []
-      // 检查 video 标签的 src
-      const videos = document.querySelectorAll('video')
-      videos.forEach(video => {
-        if (video.src && video.src.includes('.m3u8')) {
-          links.push(video.src)
-        }
+    // 也可以尝试查找页面中的 m3u8 链接。URL 里不可能出现原始的 "<>\"'" 字符，用它们
+    // 作为边界，避免把地址后面的引号/标签一起吞进来。
+    const { videoSrcLinks, textLinks } = await page.evaluate(() => {
+      const videoSrcLinks = []
+      // video.src 是解析后的 URL 属性，不受 HTML 文本实体解码影响，直接采用
+      document.querySelectorAll('video').forEach(video => {
+        if (video.src && video.src.includes('.m3u8')) videoSrcLinks.push(video.src)
       })
-      
-      // 检查所有包含 m3u8 的文本
-      const allText = document.body.innerText
-      const m3u8Regex = /https?:\/\/[^\s]+\.m3u8[^\s]*/g
-      const matches = allText.match(m3u8Regex)
-      if (matches) {
-        links.push(...matches)
-      }
-      
-      return links
+      const m3u8Regex = /https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/g
+      const textLinks = document.body.innerText.match(m3u8Regex) || []
+      return { videoSrcLinks, textLinks }
     })
+    // innerText 是解析后文本，裸写的 "&timestamp=" 会被误解码成 "×tamp="，需在 Node 侧还原（issue #84）
+    const pageM3u8Links = [...videoSrcLinks, ...textLinks.map(restoreLegacyEntities)]
     
     // 合并所有找到的链接
     const allLinks = [...new Set([...m3u8Links, ...pageM3u8Links])]
@@ -284,8 +305,9 @@ async function validateM3u8(m3u8Url, options = {}) {
   }
 }
 
-export { 
-  extractM3u8FromWeb, 
+export {
+  extractM3u8FromWeb,
   batchExtractM3u8,
-  validateM3u8
+  validateM3u8,
+  restoreLegacyEntities
 }

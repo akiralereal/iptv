@@ -5889,7 +5889,7 @@ if(success){
                     <div style="margin-bottom: 15px;">
                         <strong style="color: #667eea;">播放地址：</strong>
                         <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin-top: 5px; word-break: break-all; font-family: monospace; font-size: 12px;">
-                            ${actualUrl}
+                            ${escapeHtml(actualUrl)}
                         </div>
                         <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                             <button class="btn btn-sm" onclick="copyToClipboard('${actualUrl.replace(/'/g, "\\'")}', '播放地址')">📋 复制地址</button>

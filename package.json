@@ -10,5 +10,8 @@
     "node-fetch": "^3.3.2",
     "puppeteer": "^24.37.1",
     "qrcode": "^1.5.4"
+  },
+  "overrides": {
+    "basic-ftp": "5.3.1"
   }
 }

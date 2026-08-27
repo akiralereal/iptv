@@ -6,7 +6,8 @@ WORKDIR /migu
 COPY package*.json ./
 
 # 跳过 Puppeteer 自动下载 Chromium，使用系统的（更快更稳定）
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+# 注意变量名是 PUPPETEER_SKIP_DOWNLOAD，不是 ..._SKIP_CHROMIUM_DOWNLOAD（后者 puppeteer 不认，是空操作）
+ENV PUPPETEER_SKIP_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # 使用 npm ci 替代 npm install，速度更快且更可靠

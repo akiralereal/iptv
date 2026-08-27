@@ -205,7 +205,7 @@ A：这类播放器**不跟随 302 跳转**。改用**兼容版订阅**：后台
 
 ### 🔧 本地运行（不用 Docker）
 
-需要 Node.js 18+；部分平台的频道需要中国大陆网络环境。
+需要 Node.js 20+（推荐 22 LTS）；部分平台的频道需要中国大陆网络环境。
 
 ```bash
 git clone https://github.com/akiralereal/iptv.git && cd iptv

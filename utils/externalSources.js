@@ -243,6 +243,18 @@ function splitCredentials(rawUrl) {
   return { url: u.toString(), headers: { Authorization: `Basic ${token}` } }
 }
 
+// 禁止访问的内网/本地/链路本地地址，防止 SSRF（订阅地址可被用户配置）
+const BLOCKED_HOSTNAME_PATTERN = /^(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.0\.0\.0|\[?::1\]?|\[?f[cd][0-9a-f]{2}:|\[?fe80:)/i
+
+function isSafeSubscriptionUrl(rawUrl) {
+  try {
+    const u = new URL(rawUrl)
+    return (u.protocol === 'http:' || u.protocol === 'https:') && !BLOCKED_HOSTNAME_PATTERN.test(u.hostname)
+  } catch {
+    return false
+  }
+}
+
 /**
  * 把 fetch 失败原因提炼成可读信息（node-fetch 的 reason 经常为空）
  */
@@ -264,6 +276,13 @@ async function fetchAndParseM3u(subscriptionUrl) {
     const transformedUrl = transformUrl(subscriptionUrl)
     // 拆出 URL 内嵌的 user:pass@ 凭据，转成 Basic 认证头（node-fetch 不接受带凭据的 URL）
     const { url: targetUrl, headers: authHeaders } = splitCredentials(transformedUrl)
+
+    if (!isSafeSubscriptionUrl(targetUrl)) {
+      failures.push(`${hostOf(targetUrl)}(禁止访问的内网/本地地址)`)
+      printYellow(`订阅获取失败 (${hostOf(targetUrl)}): 禁止访问的内网/本地地址`)
+      continue
+    }
+
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 15000)
 

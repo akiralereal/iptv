@@ -20,7 +20,8 @@ check('固定输出 63 个公开频道并统一进入央视频分组', () => {
   assert.equal(buildChannels().length, 63)
   assert.equal(yangshipin.name, '央视频')
   assert.equal(yangshipin.outputGroupName, '央视频')
-  assert.equal(yangshipin.channelHlsMode, 'proxy')
+  // 分片一旦改回经本机转发，平台会对本机去拉分片回 403（实测 relay/302 可播、proxy 不可播）
+  assert.equal(yangshipin.channelHlsMode, 'relay')
   assert.equal(getModule('yangshipin'), yangshipin)
 })
 

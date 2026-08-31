@@ -20,6 +20,33 @@ import { printRed, printYellow } from "./colorOut.js";
  * 避免直播长跑把内存吃满。
  */
 
+/**
+ * 清单取回失败后的短期熔断。
+ *
+ * 播放器取不到清单会立刻连环重试——实测 AptvPlayer 在 1 秒内重试 9 次。若每次重试都替它
+ * 去打上游，平台按 IP 的频率限制会被越推越深，形成「越失败越重试、越重试越失败」的循环，
+ * 连正在正常播放的其它频道也会被一起拖垮。
+ *
+ * 熔断期内直接走 302 回退（能跟随跳转的播放器照样能播），把恢复的机会留给上游。窗口取 2 秒：
+ * 大于播放器的重试间隔，又远小于一个分片的时长，不会让真正恢复了的频道多等一轮。
+ */
+const MANIFEST_FAIL_COOLDOWN_MS = 2000
+const manifestFailUntil = new Map()   // pid -> 熔断到期时间戳
+
+function manifestCooling(key, now = Date.now()) {
+  const until = manifestFailUntil.get(key)
+  if (!until) return false
+  if (now >= until) { manifestFailUntil.delete(key); return false }
+  return true
+}
+
+function markManifestResult(key, ok, now = Date.now()) {
+  if (ok) { manifestFailUntil.delete(key); return }
+  // 频道数有限，超量只可能是畸形路径打进来的，整表丢弃即可（熔断丢失只是多打一次上游）
+  if (manifestFailUntil.size > 500) manifestFailUntil.clear()
+  manifestFailUntil.set(key, now + MANIFEST_FAIL_COOLDOWN_MS)
+}
+
 const TTL_MS = 10 * 60 * 1000     // 分片地址带时效签名，10 分钟足够覆盖播放器的重试窗口
 const MAX_ENTRIES = 5000          // 一个直播频道 10 分钟约 100 条，这个上限够几十路同放，超出按最早登记淘汰
 
@@ -341,4 +368,4 @@ async function fetchNested(url, upstreamHeaders = {}) {
   }
 }
 
-export { toProxyManifest, register, lookup, registrySize, pipeUpstream, probeUpstream, fetchNested }
+export { toProxyManifest, register, lookup, registrySize, pipeUpstream, probeUpstream, fetchNested, manifestCooling, markManifestResult, MANIFEST_FAIL_COOLDOWN_MS }

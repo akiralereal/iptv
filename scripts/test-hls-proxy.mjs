@@ -21,7 +21,7 @@ import { join } from 'node:path'
 const DATA_DIR = mkdtempSync(join(tmpdir(), 'iptv-proxy-test-'))
 process.env.mdataDir = DATA_DIR
 
-const { toProxyManifest, lookup, register, pipeUpstream, probeUpstream } = await import('../utils/hlsProxy.js')
+const { toProxyManifest, lookup, register, pipeUpstream, probeUpstream, manifestCooling, markManifestResult, MANIFEST_FAIL_COOLDOWN_MS } = await import('../utils/hlsProxy.js')
 const { fetchManifestDirect, interfaceStr, rewriteManifest } = await import('../utils/appUtils.js')
 
 let passed = 0
@@ -145,7 +145,10 @@ check('模块可直接写入命名空间全代理地址，replace 后保持单�
 // ---------- 3. 端到端：假 CDN → 本机全代理 → 播放器 ----------
 const SEG_BODY = Buffer.from('FAKE-TS-PAYLOAD-0123456789', 'utf-8')
 
+let cdnHits = 0   // 上游被打了几次；探活回归测试据此断言「一次都没打」
+
 const cdn = http.createServer((req, res) => {
+  cdnHits++
   const path = req.url.split('?')[0]
   if (path === '/live/no-head.ts') {
     if (req.method === 'HEAD') { res.writeHead(405); res.end(); return }
@@ -210,6 +213,14 @@ const nas = http.createServer(async (req, res) => {
   }
   const man = req.url.match(/^\/proxy\/([a-z0-9][a-z0-9_-]{0,63})\.m3u8$/i)
   if (man) {
+    // 与 app.js 同构：HEAD/OPTIONS 本地收口，绝不触发上游解析链（见 app.js 的
+    // 「OPTIONS 与 HEAD 一律本地回答」）。播放器打开订阅会逐频道探活，走真实生成链
+    // 会瞬间打出上百个上游请求并撞上平台限速。
+    if (req.method === 'HEAD' || req.method === 'OPTIONS') {
+      res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl' })
+      res.end()
+      return
+    }
     const abs = await fetchManifestDirect(`http://127.0.0.1:${cdn.address().port}/live/index.m3u8?token=abc`)
     const body = Buffer.from(toProxyManifest(abs, man[1]), 'utf-8')
     res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl', 'Content-Length': body.length })
@@ -222,6 +233,47 @@ const nas = http.createServer(async (req, res) => {
 await new Promise(r => cdn.listen(0, '127.0.0.1', r))
 await new Promise(r => nas.listen(0, '127.0.0.1', r))
 const nasBase = `http://127.0.0.1:${nas.address().port}`
+
+check('清单取回失败进入熔断：播放器的连环重试不再逐次打上游', () => {
+  // 实测 AptvPlayer 取不到清单后 1 秒内重试 9 次；逐次转发会把平台限速越推越深。
+  const t0 = 1_000_000
+  assert.equal(manifestCooling('ysp-cctv1', t0), false, '未失败过时不得熔断')
+
+  markManifestResult('ysp-cctv1', false, t0)
+  let upstreamCalls = 0
+  for (let i = 0; i < 9; i++) {                       // 复刻 100ms 一次的重试风暴
+    if (!manifestCooling('ysp-cctv1', t0 + i * 110)) upstreamCalls++
+  }
+  assert.equal(upstreamCalls, 0, '熔断窗口内一次上游都不该打')
+
+  // 窗口过后放行一次，让真正恢复了的频道能立刻回到清单直出
+  assert.equal(manifestCooling('ysp-cctv1', t0 + MANIFEST_FAIL_COOLDOWN_MS), false)
+
+  // 熔断按频道隔离：一个频道挂了不能连累别的
+  markManifestResult('ysp-cctv1', false, t0)
+  assert.equal(manifestCooling('ysp-cctv13', t0), false)
+
+  // 成功一次立即解除，不必等窗口自然到期
+  markManifestResult('ysp-cctv1', true, t0)
+  assert.equal(manifestCooling('ysp-cctv1', t0 + 1), false)
+})
+
+await checkAsync('清单 HEAD/OPTIONS 探活本地收口：按 HLS 类型应答，且一次上游都不打', async () => {
+  // 播放器打开订阅时会逐频道探活（APTV 实测约 2 秒内 HEAD 了 29 个频道）。若每次探活都
+  // 取票 + 拉清单，几十个频道瞬间打出上百个上游请求，撞上平台按 IP 的频率限制后，连用户
+  // 正在看的那个频道的分片也会被一起打成 403。
+  const before = cdnHits
+  for (const method of ['HEAD', 'OPTIONS']) {
+    for (const pid of ['ysp-cctv1', 'ysp-cctv13', 'gxtv-gxws']) {
+      const resp = await fetch(`${nasBase}/proxy/${pid}.m3u8`, { method })
+      assert.equal(resp.status, 200)
+      // issue #98：回 application/json 会被播放器判定「不可播」，这条必须保住
+      assert.equal(resp.headers.get('content-type'), 'application/vnd.apple.mpegurl')
+      assert.equal(await resp.text(), '', 'HEAD/OPTIONS 不得发送正文')
+    }
+  }
+  assert.equal(cdnHits, before, '探活不得触发任何上游请求')
+})
 
 await checkAsync('端到端：清单直出后播放器按相对地址取分片，字节与 CDN 一致', async () => {
   const manifestUrl = `${nasBase}/proxy/gxtv-gxws.m3u8`

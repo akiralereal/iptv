@@ -103,6 +103,7 @@ import njtv from './njtv/index.js'
 import qtv from './qtv/index.js'
 import songjiang from './songjiang/index.js'
 import sztv from './sztv/index.js'
+import yangshipin from './yangshipin/index.js'
 
 // 模块 id 会进 sourceId 并写进 EXTINF 属性值，不消毒就是注入面。
 // 与 utils/configBackupAPI.js 的文件名白名单同款约束。
@@ -111,6 +112,7 @@ export const MODULE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/
 const MODULES = [
   // 顺序即后台展示顺序，也是 channelMerger 的合并顺序（先到的分组优先保留）
   migu,
+  yangshipin,
   bilibiliLive,
   huyaLive,
   douyuLive,

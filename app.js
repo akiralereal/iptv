@@ -7,7 +7,7 @@ import { getDateTimeStr } from "./utils/time.js";
 import update from "./utils/updateData.js";
 import { printBlue, printGreen, printGrey, printMagenta, printRed, printYellow } from "./utils/colorOut.js";
 import { channel, interfaceStr, fetchManifestDirect, rewriteManifest, inlineResolvedManifest } from "./utils/appUtils.js";
-import { toProxyManifest, lookup as lookupProxyTarget, pipeUpstream, probeUpstream, fetchNested } from "./utils/hlsProxy.js";
+import { toProxyManifest, lookup as lookupProxyTarget, pipeUpstream, probeUpstream, fetchNested, manifestCooling, markManifestResult } from "./utils/hlsProxy.js";
 import { dataPath } from "./utils/paths.js";
 import { getExtractorManager, getModuleConfig } from "./utils/extractorManager.js";
 import { getExtractorsAPI, startModuleLoginAPI, pollModuleLoginAPI, setExtractorEnabledAPI,
@@ -1031,14 +1031,25 @@ async function handleRequest(req, res) {
     urlToken = migu.token || ""
   }
 
-  // OPTIONS 一律本地回答。标准频道的 HEAD 维持原行为；relay/proxy 清单的 HEAD 则继续走
-  // 下方真实清单生成链，返回准确 Content-Length，避免严格播放器在入口探测阶段就停止。
-  if (method === "OPTIONS" || (method === "HEAD" && !relayMode && !proxyMode)) {
+  // OPTIONS 与 HEAD 一律本地回答，绝不触发上游解析链。
+  //
+  // 播放器打开订阅时会把里面每个频道逐一探活一遍（APTV 实测：约 2 秒内 HEAD 了 29 个频道）。
+  // 若清单 HEAD 走真实生成链，每个频道都要取一次票再拉一次清单，几十个频道瞬间打出上百个
+  // 上游请求，直接撞上平台按 IP 的频率限制——被限的不只是探活本身，连用户正在看的那个频道
+  // 的分片请求也一起回 403，表现为「有的能播、有的播一会儿卡、有的打不开」。
+  //
+  // 探活只需要知道「这是不是一条可播的 HLS」，答案在 Content-Type 里（issue #98：回
+  // application/json 会被判定不可播）。至于 Content-Length，直播清单每几秒滚动一次、
+  // 长度本就在变，HEAD 报的值与随后 GET 的必然对不上，为这个达不到的准确性付整条解析链
+  // 的代价并不划算。
+  if (method === "OPTIONS" || method === "HEAD") {
     if (relayMode || proxyMode) {
       const client = clientOf(req)
       const kind = proxyMode ? '全代理' : '兼容'
-      if (logOncePer(`options|manifest|${routeUrl}|${client.key}`, 60 * 1000)) {
-        printGrey(`${kind}：OPTIONS 清单探测 -> 200｜${client.tag}`)
+      // 频道标识与下方播放日志保持同一形态（不带前导斜杠），排查时两类行才对得上
+      const label = proxyMode ? proxyPid : routeUrl.split('?')[0].replace(/^\//, '')
+      if (logOncePer(`probe|manifest|${routeUrl}|${client.key}|${method}`, 60 * 1000)) {
+        printGrey(`${kind}：${label} ${method} 探活 -> 200（本地应答，未打上游）｜${client.tag}`)
       }
     }
     res.writeHead(200, {
@@ -1053,8 +1064,8 @@ async function handleRequest(req, res) {
     return
   }
 
-  // relay/proxy 的 HEAD 已获准走真实清单生成；其他非 GET/POST 请求才报错
-  if (method != "GET" && method != "POST" && !(method === "HEAD" && (relayMode || proxyMode))) {
+  // HEAD/OPTIONS 已在上面本地收口；其他非 GET/POST 请求才报错
+  if (method != "GET" && method != "POST") {
     res.writeHead(405, { 'Content-Type': 'application/json;charset=UTF-8' });
     res.end(JSON.stringify({
       data: '请使用GET或POST请求',
@@ -1112,8 +1123,15 @@ async function handleRequest(req, res) {
 
   if (relayMode || proxyMode || result.relayHls) {
     // 服务端取回清单、相对路径改写为绝对地址后直出，播放器无需跟随任何跳转
-    let manifest = inlineResolvedManifest(result)
-    if (manifest == null) manifest = await fetchManifestDirect(result.playURL, result.upstreamHeaders)
+    const failKey = proxyMode ? proxyPid : routeUrl.split('?')[0]
+    let manifest = null
+    if (manifestCooling(failKey)) {
+      // 熔断窗口内：直接走下方 302 回退，不再替播放器把重试打到上游
+    } else {
+      manifest = inlineResolvedManifest(result)
+      if (manifest == null) manifest = await fetchManifestDirect(result.playURL, result.upstreamHeaders)
+      markManifestResult(failKey, manifest != null)
+    }
     // 全代理：再把清单里的绝对地址换成本机同源相对地址，分片改由 /proxy/s<key>.ts 转发
     if (manifest != null && proxyMode) {
       manifest = toProxyManifest(
@@ -1135,13 +1153,15 @@ async function handleRequest(req, res) {
         'Content-Length': body.length,
       });
       if (proxyMode) logProxyManifest(proxyPid, req, body.length)
-      // HEAD 返回与 GET 完全一致的响应头但不发正文；避免为了探测把整份清单写到连接上。
-      res.end(method === "HEAD" ? undefined : body)
+      res.end(body)
       return
     }
     // 取清单失败（网络抖动/非 HLS 内容）：回退 302，能跟随跳转的播放器仍可播。
-    // 打一行日志：不跟随跳转的播放器此时会播不了，用户排查时能从日志看出走了回退
-    printYellow(`清单直出取回失败，回退 302（不跟随跳转的播放器将无法播放）: ${routeUrl.split('?')[0]}`)
+    // 打一行日志：不跟随跳转的播放器此时会播不了，用户排查时能从日志看出走了回退。
+    // 同频道每 5 秒一行——播放器失败后是 100ms 级别的连环重试，逐次打印只会淹没日志。
+    if (logOncePer(`manifestfail|${failKey}`, 5 * 1000)) {
+      printYellow(`清单直出取回失败，回退 302（不跟随跳转的播放器将无法播放）: ${routeUrl.split('?')[0]}`)
+    }
   }
 
   // 302 成功下发此前全程零日志（issue #98）：播放器拿着旧形态地址回退播放时服务端毫无痕迹。

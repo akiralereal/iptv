@@ -13,6 +13,7 @@ import { fetchUrl } from "./net.js"
 import { dataPath } from "./paths.js"
 import { readMiguTokenState, markMiguTokenRefreshed, MIGU_TOKEN_REFRESH_INTERVAL_MS } from "./miguTokenState.js"
 import { readFileSync, existsSync } from "node:fs"
+import { announcementM3uEntry, announcementTxtEntry } from "./announcement.js"
 
 const PE_CACHE_PATH = dataPath('pe-cache.json')
 
@@ -201,6 +202,10 @@ async function updateTV(hours, options = {}) {
     }
   }
   appendFileSync(interfacePath, `#EXTM3U x-tvg-url="\${replace}/playback.xml" catchup="append" catchup-source="?playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`)
+  // 项目自有公告频道固定写在原始播放列表首位。它仍会进入「我的频道」配置链，
+  // 因此用户可像普通频道一样隐藏、移动、重命名，不强塞给不需要的配置档。
+  appendFileSync(interfacePath, announcementM3uEntry())
+  appendFileSync(interfaceTXTPath, announcementTxtEntry())
   printYellow("开始更新电视频道...")
   
   // 回放数据：regenerateOnly模式下跳过playback更新

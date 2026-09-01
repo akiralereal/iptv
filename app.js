@@ -29,6 +29,7 @@ import { readConfig, saveConfig, parseInterfaceTxt, validateGroupConfig, applyCo
 import { updateBuiltInSources, updateExternalSources, updateExtractors, externalSourceManager, builtInSourceManager } from "./utils/channelMerger.js";
 import { GITHUB_RAW_MIRRORS, isBuiltInSubscriptionSource } from "./utils/externalSources.js";
 import { startProbe, getProbeStatus, cancelProbe } from "./utils/sourceProbe.js";
+import { ANNOUNCEMENT, readAnnouncementAsset } from "./utils/announcement.js";
 
 // 全代理/兼容模式（issue #98）的服务端可观测性。上一版的日志设计在实战里分不清三种情况
 // （首行不带分片数、每 pid 每分钟一行会让 curl 与播放器互吞对方的行、分片 404 与上游失败全静默），
@@ -859,6 +860,64 @@ async function handleRequest(req, res) {
     printRed(`身份认证失败`)
     res.writeHead(403, { 'Content-Type': 'application/json;charset=UTF-8' });
     res.end(`身份认证失败`);
+    return
+  }
+
+  // 项目自有公告短片与台标。视频支持 Range/HEAD，兼容 AVPlayer/APTV 等会先探测、
+  // 再按字节分段读取 MP4 的播放器；路由放在鉴权之后，密码和用户令牌不会被绕过。
+  // 兼容历史的 /<咪咕userId>/<token>/m3u 地址：该入口会把两段账号前缀带进
+  // 播放列表里的本机 URL，所以这里也接受以资源路径结尾的形式。
+  const announcementAssetPath = [ANNOUNCEMENT.videoPath, ANNOUNCEMENT.logoPath]
+    .find(assetPath => routePath === assetPath || routePath.endsWith(assetPath))
+  if (announcementAssetPath) {
+    if (method !== 'GET' && method !== 'HEAD') {
+      res.writeHead(405, { Allow: 'GET, HEAD' })
+      res.end()
+      return
+    }
+    const asset = readAnnouncementAsset(announcementAssetPath)
+    if (!asset) {
+      res.writeHead(404, { 'Content-Type': 'text/plain;charset=UTF-8' })
+      res.end('announcement asset not found')
+      return
+    }
+    const total = asset.content.length
+    const baseHeaders = {
+      'Content-Type': asset.contentType,
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': 'public, max-age=86400',
+    }
+    const range = String(headers.range || '').match(/^bytes=(\d*)-(\d*)$/)
+    if (headers.range && !range) {
+      res.writeHead(416, { ...baseHeaders, 'Content-Range': `bytes */${total}` })
+      res.end()
+      return
+    }
+    let start = 0
+    let end = total - 1
+    if (range) {
+      if (!range[1] && range[2]) {
+        const suffix = Number(range[2])
+        start = Math.max(0, total - suffix)
+      } else {
+        start = Number(range[1] || 0)
+        if (range[2]) end = Number(range[2])
+      }
+      end = Math.min(end, total - 1)
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start > end || start >= total) {
+        res.writeHead(416, { ...baseHeaders, 'Content-Range': `bytes */${total}` })
+        res.end()
+        return
+      }
+    }
+    const body = asset.content.subarray(start, end + 1)
+    const status = range ? 206 : 200
+    res.writeHead(status, {
+      ...baseHeaders,
+      'Content-Length': body.length,
+      ...(range ? { 'Content-Range': `bytes ${start}-${end}/${total}` } : {}),
+    })
+    if (method === 'HEAD') res.end(); else res.end(body)
     return
   }
 

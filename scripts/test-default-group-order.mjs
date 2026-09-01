@@ -23,7 +23,7 @@ console.log('默认分组顺序测试')
 
 check('内容类按固定顺序置顶，不受来源顺序影响', () => {
   const shuffled = [
-    '斗鱼', '卫视', '体育-明天', '国际', '体育', 'B站', '央视',
+    '斗鱼', '卫视', '体育-明天', '国际', '公告', '体育', 'B站', '央视',
     '少儿', '文旅', '体育-昨天', '亚太', '娱乐时尚', '虎牙', '影视', '教育', '体育-今天',
   ]
   assert.deepEqual(sortGroupsByDefault(makeGroups(shuffled)).map(group => group.name), DEFAULT_GROUP_ORDER)
@@ -53,6 +53,15 @@ check('用户手动 groupOrder 仍优先于默认顺序', () => {
     groupOrder: ['上海景观', '广东', '央视', '体育'],
   })
   assert.deepEqual(result.map(group => group.name), ['上海景观', '广东', '央视', '体育'])
+})
+
+check('无论旧配置还是显式排序，系统公告始终固定置顶', () => {
+  const groups = makeGroups(['体育', '公告', '央视'])
+  const legacy = applyConfig(groups, { ...baseConfig(), groupOrder: ['央视', '体育'] })
+  assert.deepEqual(legacy.map(group => group.name), ['公告', '央视', '体育'])
+
+  const explicit = applyConfig(groups, { ...baseConfig(), groupOrder: ['央视', '体育', '公告'] })
+  assert.deepEqual(explicit.map(group => group.name), ['公告', '央视', '体育'])
 })
 
 check('旧 groupOrder 里的纪实位置自动由文旅继承', () => {

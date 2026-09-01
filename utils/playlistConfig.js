@@ -7,6 +7,7 @@ import { enableTvgNormalize, enableDisplayNameUnify, externalLogoBase } from "..
 import { getCanonicalMap, normalizeKey, normalizeTvgName, getPlaybackChannelIds } from "./channelNormalize.js"
 import { matchKeywordGroup } from "./groupRulesAPI.js"
 import { collectOptsUntilUrl, renderOpts, needsOpts } from "./channelOpts.js"
+import { ANNOUNCEMENT, isAnnouncementChannel, protectAnnouncementConfig } from "./announcement.js"
 
 // 台标来源分类（供后台展示）：本地上传 / 源自带 / 公共库兜底 / 无。
 // 依据 interface 里写出的 tvg-logo 形态判定，不联网、零额外成本。issue #38 / #40
@@ -29,6 +30,7 @@ const DEFAULT_PROFILE = { id: 'default', name: '默认' }
 // 新建配置档的默认分组顺序。用户在后台手动拖拽后会写入
 // groupOrder，下方 applyConfig 仍以用户顺序为最终优先级。
 export const DEFAULT_GROUP_ORDER = [
+  '公告',
   '体育', '体育-昨天', '体育-今天', '体育-明天',
   '央视', '卫视', '亚太', '国际', '影视', '少儿', '教育', '娱乐时尚', '文旅',
   'B站', '虎牙', '斗鱼',
@@ -108,6 +110,7 @@ const DEFAULT_CONFIG = {
 }
 
 function buildChannelId({ groupName, channelName, tvgName, url }) {
+  if (url === `\${replace}${ANNOUNCEMENT.videoPath}`) return ANNOUNCEMENT.tvgId
   if (!url) {
     return createHash('sha1')
       .update(`${groupName}\n${channelName}\n${tvgName || ''}`)
@@ -135,20 +138,20 @@ export function readConfig(profile) {
     if (!existsSync(filePath)) {
       // 默认档缺失沿用旧提示；新建的空档（文件未生成）静默返回默认配置（空档=全集）
       if (normalizeProfile(profile) === 'default') printYellow("播放列表配置文件不存在，使用默认配置")
-      return { ...DEFAULT_CONFIG }
+      return protectAnnouncementConfig(DEFAULT_CONFIG)
     }
 
     const content = readFileSync(filePath, 'utf-8')
     const config = JSON.parse(content)
 
     // 合并默认配置（防止配置文件缺少字段）
-    return {
+    return protectAnnouncementConfig({
       ...DEFAULT_CONFIG,
       ...config
-    }
+    })
   } catch (error) {
     printRed(`读取播放列表配置失败: ${error.message}`)
-    return { ...DEFAULT_CONFIG }
+    return protectAnnouncementConfig(DEFAULT_CONFIG)
   }
 }
 
@@ -157,7 +160,7 @@ export function readConfig(profile) {
  */
 export function saveConfig(profile, config) {
   try {
-    writeJsonFileSync(configPath(profile), config)
+    writeJsonFileSync(configPath(profile), protectAnnouncementConfig(config))
     printGreen("播放列表配置已保存")
     return { success: true }
   } catch (error) {
@@ -296,6 +299,7 @@ function getCustomGroupNames(config) {
  * 校验分组配置是否会与现有分组重名
  */
 export function validateGroupConfig(groups, config) {
+  config = protectAnnouncementConfig(config)
   const renameMap = config?.groupRenameMap || {}
   const occupiedNames = new Map([['未分组', '__reserved_ungrouped__']])
 
@@ -365,6 +369,7 @@ export function validateGroupConfig(groups, config) {
 export function applyConfig(groups, config) {
   try {
     printBlue("应用播放列表配置...")
+    config = protectAnnouncementConfig(config)
     
     // 1. 构建频道映射（使用 分组名+频道ID 作为key，允许同一频道出现在不同分组中）
     const channelMap = new Map()
@@ -388,13 +393,14 @@ export function applyConfig(groups, config) {
       const channelKey = `${channel.originalGroup}::${channel.id}`
 
       // 单频道重命名：覆盖显示名（只改 name，不动 tvgName，保 EPG 匹配）；channel 已是副本，可安全修改
-      const renamedName = config.channelRenameMap?.[channelKey]
+      const protectedAnnouncement = isAnnouncementChannel(channel)
+      const renamedName = protectedAnnouncement ? '' : config.channelRenameMap?.[channelKey]
       if (renamedName) {
         channel.name = renamedName
       }
 
       // 跳过隐藏的频道（按分组独立隐藏）
-      if (config.hiddenChannels?.includes(channelKey)) {
+      if (!protectedAnnouncement && config.hiddenChannels?.includes(channelKey)) {
         return
       }
 
@@ -407,10 +413,10 @@ export function applyConfig(groups, config) {
       }
 
       // 单频道归类：被移动到其它分组的频道，目标分组优先级最高
-      const movedTo = channelGroupMap[channelKey]
+      const movedTo = protectedAnnouncement ? '' : channelGroupMap[channelKey]
 
       // 跳过已删除分组的频道（支持通配符前缀匹配）；已被移动到别处的频道予以保留
-      if (!movedTo && isGroupDeleted(channel.originalGroup, config.deletedGroups)) {
+      if (!protectedAnnouncement && !movedTo && isGroupDeleted(channel.originalGroup, config.deletedGroups)) {
         return
       }
 
@@ -425,7 +431,7 @@ export function applyConfig(groups, config) {
           // 让自定义源里没写分组、每次刷新又回到未分组的新频道自动归位；不动源已分好的组。
           const kw = matchKeywordGroup(channel.name)
           if (kw) targetGroup = kw
-        } else if (config.groupRenameMap && config.groupRenameMap[targetGroup]) {
+        } else if (!protectedAnnouncement && config.groupRenameMap && config.groupRenameMap[targetGroup]) {
           targetGroup = config.groupRenameMap[targetGroup]
         }
       }
@@ -495,6 +501,10 @@ export function applyConfig(groups, config) {
         return 0
       })
     }
+
+    // 系统公告永远固定在首位；无论旧配置、手工改 JSON 还是将来 UI 回归，都不能下移。
+    const announcementIndex = result.findIndex(group => group.name === ANNOUNCEMENT.group)
+    if (announcementIndex > 0) result.unshift(...result.splice(announcementIndex, 1))
 
     // 6. 应用组内频道排序：groupSortMode='name' 的组按名称自动排序（中文按拼音、含数字按数值，
     //    依赖 Node full-ICU），否则按手动拖拽顺序 channelOrder（显示分组名 → ["原始分组::频道ID"]）。

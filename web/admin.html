@@ -6176,6 +6176,15 @@ if(success){
         let draggedChannelId = null; // 拖拽排序中被拖动的频道ID
         let lastEditedChannelId = null; // 最近编辑过的频道ID（重命名/移动后），用于重渲染后临时高亮定位 (issue #50)
         let editHighlightTimer = null;  // 临时高亮自动消退的定时器句柄
+        const SYSTEM_ANNOUNCEMENT_ID = 'iptv-announcement';
+
+        function isSystemAnnouncementChannel(channel) {
+            return channel?.id === SYSTEM_ANNOUNCEMENT_ID || channel?.tvgId === SYSTEM_ANNOUNCEMENT_ID;
+        }
+
+        function isSystemAnnouncementGroup(group) {
+            return group?.name === '公告' && (group.channels || []).some(isSystemAnnouncementChannel);
+        }
 
         // ---- 多套 m3u 配置档 ----
         // 默认档不带 query（兼容旧地址）；其余档统一带 ?profile=，所有读写都按当前档走。
@@ -6581,6 +6590,7 @@ if(success){
 
             // 从原始数据中找出被删除的分组（支持通配符前缀匹配）
             const deletedGroups = myPlaylistOriginalData.filter(group => {
+                if (isSystemAnnouncementGroup(group)) return false;
                 return myPlaylistConfig.deletedGroups.some(pattern => {
                     if (pattern.endsWith('*')) {
                         return group.name.startsWith(pattern.slice(0, -1));
@@ -6593,6 +6603,7 @@ if(success){
 
             // 检查分组是否被通配符或精确匹配删除（供后面使用）
             function isGroupDeletedByConfig(groupName) {
+                if (groupName === '公告') return false;
                 return myPlaylistConfig.deletedGroups.some(pattern => {
                     if (pattern.endsWith('*')) {
                         return groupName.startsWith(pattern.slice(0, -1));
@@ -6661,6 +6672,7 @@ if(success){
             if (isViewingDeleted) {
                 // 显示被删除的分组（支持通配符匹配）
                 const isGroupDeletedInDetail = (groupName) => {
+                    if (groupName === '公告') return false;
                     return myPlaylistConfig.deletedGroups.some(pattern => {
                         if (pattern.endsWith('*')) {
                             return groupName.startsWith(pattern.slice(0, -1));
@@ -6668,8 +6680,8 @@ if(success){
                         return pattern === groupName;
                     });
                 };
-                const deletedGroups = myPlaylistOriginalData.filter(g => 
-                    isGroupDeletedInDetail(g.name)
+                const deletedGroups = myPlaylistOriginalData.filter(g =>
+                    !isSystemAnnouncementGroup(g) && isGroupDeletedInDetail(g.name)
                 );
                 const groupsWithHiddenChannels = myPlaylistOriginalData.map(g => {
                     const hiddenChannels = g.channels.filter(ch => 
@@ -6778,9 +6790,13 @@ if(success){
                 const isUngrouped = group.name === '未分组';
                 const isCustomGroup = isCustomGroupName(group.name);
                 const isNameSorted = !!(myPlaylistConfig.groupSortMode && myPlaylistConfig.groupSortMode[group.name] === 'name');
+                const isProtectedAnnouncement = isSystemAnnouncementGroup(group);
 
                 // 根据批量模式显示不同的操作按钮
-                if (isBatchMode) {
+                if (isProtectedAnnouncement) {
+                    selectedChannels.delete(SYSTEM_ANNOUNCEMENT_ID);
+                    actions.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;color:#5b6b80;font-size:13px;">🔒 系统公告固定置顶，不支持隐藏、删除或调整位置</span>`;
+                } else if (isBatchMode) {
                     const selectedCount = selectedChannels.size;
                     const batchMoveOpts = myPlaylistData.map(g => {
                         const v = String(g.name).replace(/"/g, '&quot;');
@@ -6816,10 +6832,12 @@ if(success){
                         <div style="text-align: center; padding: 40px; color: #999;">当前分组暂无频道</div>
                     ` : `
                         <div class="my-playlist-channels">
-                            ${group.channels.map(channel => `
+                            ${group.channels.map(channel => {
+                                const isProtected = isSystemAnnouncementChannel(channel);
+                                return `
                                 <div class="my-playlist-channel ${isBatchMode ? 'batch-mode' : ''} ${channel.id === lastEditedChannelId ? 'recently-edited' : ''}" data-channel-id="${channel.id}"
-                                     ${!isBatchMode && !isNameSorted ? `draggable="true" ondragstart="onChannelDragStart(event, '${channel.id}')" ondragend="onChannelDragEnd(event)" ondragover="onChannelDragOver(event)" ondrop="onChannelDrop(event, '${channel.id}')"` : ''}>
-                                    ${isBatchMode ? `
+                                     ${!isProtected && !isBatchMode && !isNameSorted ? `draggable="true" ondragstart="onChannelDragStart(event, '${channel.id}')" ondragend="onChannelDragEnd(event)" ondragover="onChannelDragOver(event)" ondrop="onChannelDrop(event, '${channel.id}')"` : ''}>
+                                    ${isProtected ? `<span class="channel-drag-handle" aria-hidden="true" title="系统公告固定置顶">🔒</span>` : isBatchMode ? `
                                         <input type="checkbox" class="my-playlist-channel-checkbox"
                                                onchange="toggleChannelSelection('${channel.id}')"
                                                ${selectedChannels.has(channel.id) ? 'checked' : ''}>
@@ -6828,13 +6846,13 @@ if(success){
                                     <div class="my-playlist-channel-name" title="点击查看详情：${channel.name}" onclick="showChannelDetail('${channel.id}', false)" style="cursor: pointer;">
                                         <span class="channel-detail-hint" aria-hidden="true">ⓘ</span>${channel.name}${channelSourceBadge(channel)}
                                     </div>
-                                    ${!isBatchMode ? `
+                                    ${!isProtected && !isBatchMode ? `
                                         <div class="my-playlist-channel-actions">
                                             <button onclick="event.stopPropagation(); hideChannel('${channel.id}')">隐藏</button>
                                         </div>
                                     ` : ''}
                                 </div>
-                            `).join('')}
+                            `}).join('')}
                         </div>
                     `}
                 `;
@@ -6860,6 +6878,10 @@ if(success){
         }
 
         async function moveGroupUp(index) {
+            if (isSystemAnnouncementGroup(myPlaylistData[index])) {
+                showStatus('系统公告固定在第一位', 'error');
+                return;
+            }
             if (myPlaylistData[index]?.name === '未分组') {
                 showStatus('未分组不支持调整顺序', 'error');
                 return;
@@ -6889,6 +6911,10 @@ if(success){
         }
 
         async function moveGroupDown(index) {
+            if (isSystemAnnouncementGroup(myPlaylistData[index])) {
+                showStatus('系统公告固定在第一位', 'error');
+                return;
+            }
             if (myPlaylistData[index]?.name === '未分组') {
                 showStatus('未分组不支持调整顺序', 'error');
                 return;
@@ -7075,6 +7101,11 @@ if(success){
             const group = myPlaylistData[groupIndex];
             if (!group) return;
 
+            if (isSystemAnnouncementGroup(group)) {
+                showStatus('系统公告分组不支持重命名', 'error');
+                return;
+            }
+
             const currentName = group.name;
             if (currentName === '未分组') {
                 showStatus('未分组不支持重命名', 'error');
@@ -7212,6 +7243,10 @@ if(success){
                 showStatus('未分组不支持隐藏', 'error');
                 return;
             }
+            if (isSystemAnnouncementGroup(group)) {
+                showStatus('系统公告分组不能隐藏', 'error');
+                return;
+            }
             if (isCustomGroupName(group.name)) {
                 showStatus('自定义空分组不支持隐藏，请直接删除分组', 'error');
                 return;
@@ -7274,6 +7309,10 @@ if(success){
         }
 
         async function hideChannel(channelId) {
+            if (channelId === SYSTEM_ANNOUNCEMENT_ID) {
+                showStatus('系统公告频道不能隐藏', 'error');
+                return;
+            }
             const group = myPlaylistData[selectedGroupIndex];
             const channel = group?.channels.find(c => c.id === channelId);
             const originalGroupName = channelOriginalGroupName(channel, group.name);
@@ -7463,6 +7502,10 @@ if(success){
         async function toggleGroupSort() {
             if (isViewingDeleted || myPlaylistData.length === 0 || selectedGroupIndex >= myPlaylistData.length) return;
             const group = myPlaylistData[selectedGroupIndex];
+            if (isSystemAnnouncementGroup(group)) {
+                showStatus('系统公告频道不支持调整位置', 'error');
+                return;
+            }
             if (!myPlaylistConfig.groupSortMode) myPlaylistConfig.groupSortMode = {};
             if (myPlaylistConfig.groupSortMode[group.name] === 'name') {
                 delete myPlaylistConfig.groupSortMode[group.name];   // 改回手动
@@ -7525,12 +7568,17 @@ if(success){
 
         // 批量管理相关函数
         function toggleBatchMode() {
+            if (!isBatchMode && isSystemAnnouncementGroup(myPlaylistData[selectedGroupIndex])) {
+                showStatus('系统公告频道不支持批量操作', 'error');
+                return;
+            }
             isBatchMode = !isBatchMode;
             selectedChannels.clear();
             renderMyPlaylist();
         }
 
         function toggleChannelSelection(channelId) {
+            if (channelId === SYSTEM_ANNOUNCEMENT_ID) return;
             if (selectedChannels.has(channelId)) {
                 selectedChannels.delete(channelId);
             } else {
@@ -7570,7 +7618,7 @@ if(success){
                 
                 const group = myPlaylistData[selectedGroupIndex];
                 group.channels.forEach(channel => {
-                    selectedChannels.add(channel.id);
+                    if (!isSystemAnnouncementChannel(channel)) selectedChannels.add(channel.id);
                 });
             }
             renderGroupDetail();
@@ -7897,6 +7945,8 @@ if(success){
                 return;
             }
 
+            const isProtectedAnnouncement = isSystemAnnouncementChannel(channel);
+            if (isProtectedAnnouncement) sourceType = 'system';
             const isExternal = sourceType === 'external';
             currentChannelDetail = { ...channel, groupName, isExternal, isDeleted };
 
@@ -7984,7 +8034,13 @@ if(success){
             }
 
             // 单频道归类：移动到其它分组（隐藏/已删除视图下不提供）
-            if (!isDeleted) {
+            if (!isDeleted && isProtectedAnnouncement) {
+                detailHTML += `
+                    <div style="margin-bottom:15px;padding:10px 12px;background:#f0f7ff;border:1px solid #cfe2ff;border-radius:6px;color:#456078;font-size:13px;">
+                        🔒 这是系统公告频道，固定在订阅第一位，不支持隐藏、删除、移动、排序或重命名。
+                    </div>
+                `;
+            } else if (!isDeleted) {
                 const moveKey = `${groupName}::${channelId}`;
                 const renamedOriginal = (myPlaylistConfig.groupRenameMap && myPlaylistConfig.groupRenameMap[groupName]) || groupName;
                 const currentTarget = (myPlaylistConfig.channelGroupMap && myPlaylistConfig.channelGroupMap[moveKey]) || renamedOriginal;
@@ -8081,7 +8137,7 @@ if(success){
             }
 
             // 显示来源信息：优先按 sourceIds 显示具体源名（issue #94），旧数据无 sourceIds 时退回粗粒度类型
-            const sourceLabels = { 'migu': '咪咕源', 'built-in': '内置源', 'external': '外部源' };
+            const sourceLabels = { 'migu': '咪咕源', 'built-in': '内置源', 'external': '外部源', 'system': '系统公告' };
             const sourceNames = sourceNamesFor(channel);
             const sourceText = sourceNames.length > 0 ? sourceNames.join('、') : sourceLabels[sourceType];
             detailHTML += `
@@ -8186,6 +8242,10 @@ if(success){
         // 将当前详情中的频道移动到所选分组（单频道归类）
         async function moveCurrentChannel() {
             if (!currentChannelDetail) return;
+            if (isSystemAnnouncementChannel(currentChannelDetail)) {
+                showStatus('系统公告频道固定在第一位', 'error');
+                return;
+            }
             const sel = document.getElementById('channelMoveSelect');
             if (!sel) return;
             const target = sel.value;
@@ -8228,6 +8288,10 @@ if(success){
         // 重命名当前详情中的频道（单频道重命名）
         async function renameCurrentChannel() {
             if (!currentChannelDetail) return;
+            if (isSystemAnnouncementChannel(currentChannelDetail)) {
+                showStatus('系统公告频道不支持重命名', 'error');
+                return;
+            }
             const inp = document.getElementById('channelRenameInput');
             if (!inp) return;
             const newName = inp.value.trim();
@@ -8266,6 +8330,10 @@ if(success){
 
         // ===== 频道拖拽排序 =====
         function onChannelDragStart(event, channelId) {
+            if (channelId === SYSTEM_ANNOUNCEMENT_ID) {
+                event.preventDefault();
+                return;
+            }
             draggedChannelId = channelId;
             event.dataTransfer.effectAllowed = 'move';
             try { event.dataTransfer.setData('text/plain', channelId); } catch (_) {}
@@ -8301,7 +8369,8 @@ if(success){
             event.preventDefault();
             event.stopPropagation();
             clearDropIndicators();
-            if (!draggedChannelId || draggedChannelId === targetId) return;
+            if (!draggedChannelId || draggedChannelId === targetId
+                || draggedChannelId === SYSTEM_ANNOUNCEMENT_ID || targetId === SYSTEM_ANNOUNCEMENT_ID) return;
 
             const group = myPlaylistData[selectedGroupIndex];
             if (!group || !Array.isArray(group.channels)) return;

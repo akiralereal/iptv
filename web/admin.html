@@ -4901,6 +4901,13 @@
                             <div class="form-hint">订阅里<strong>没自带分组</strong>的频道统一归到这个分组（频道自带分组的保持不变）。保持「未分组」则不归类，可在「🗂️ 关键字自动分组」里按频道名细分。</div>
                         </div>
                         <div class="external-field">
+                            <label>
+                                <input type="checkbox" ${source.ignoreGroups === true ? 'checked' : ''} onchange="updateExternalField(${index}, 'ignoreGroups', this.checked)">
+                                忽略源自带分组
+                            </label>
+                            <div class="form-hint">勾选后<strong>不采用</strong>订阅里自带的分组（group-title）：该源所有频道改按「🗂️ 关键字自动分组」规则按频道名归组，规则没命中的进上方「默认分组」。注意：切换本开关后，之前对该源频道做的隐藏/移动/重命名会失效，需重新设置。</div>
+                        </div>
+                        <div class="external-field">
                             <label>自动刷新间隔（分钟）</label>
                             <input type="number" min="60" step="60" value="${source.refreshInterval || 1440}" oninput="updateExternalField(${index}, 'refreshInterval', parseInt(this.value) || 1440)" placeholder="1440">
                             <div class="form-hint">每隔多少分钟自动重新获取播放列表，默认1440分钟（24小时）</div>

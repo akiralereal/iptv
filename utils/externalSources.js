@@ -123,8 +123,14 @@ function parsePlaylistContent(content) {
  * 回退到该源配置的「默认分组」(source.group)。issue #69 跟进——让订阅里没写
  * group-title 的频道整体归到用户指定的默认分组，而不是堆在「未分组」。
  * （m3u 解析对无 group-title 的频道填的就是字符串「未分组」，故与空值一并视作未分组。）
+ *
+ * 忽略源自带分组（issue #110）：勾选 ignoreGroups 的源，group-title 一律不采用，
+ * 频道以「未分组」进入生成管道，让关键字自动分组规则接管。默认分组不能在这里
+ * 回填——那会让频道绕开规则匹配——而是由 applyConfig 在规则未命中时兜底
+ * （见 sourceGroupFallback.js）。
  */
 export function resolveSubscriptionGroup(ch, source) {
+  if (source && source.ignoreGroups === true) return '未分组'
   const own = ch && ch.group && ch.group !== '未分组' ? ch.group : ''
   return own || (source && source.group) || '未分组'
 }

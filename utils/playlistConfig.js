@@ -6,6 +6,7 @@ import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 import { enableTvgNormalize, enableDisplayNameUnify, externalLogoBase } from "../config.js"
 import { getCanonicalMap, normalizeKey, normalizeTvgName, getPlaybackChannelIds } from "./channelNormalize.js"
 import { matchKeywordGroup } from "./groupRulesAPI.js"
+import { matchSourceFallbackGroup } from "./sourceGroupFallback.js"
 import { collectOptsUntilUrl, renderOpts, needsOpts } from "./channelOpts.js"
 import { ANNOUNCEMENT, isAnnouncementChannel, protectAnnouncementConfig } from "./announcement.js"
 
@@ -429,7 +430,8 @@ export function applyConfig(groups, config) {
         if (targetGroup === '未分组') {
           // 关键字自动分组（issue #69）：只对「未分组」频道按名字子串匹配规则（首条命中胜），
           // 让自定义源里没写分组、每次刷新又回到未分组的新频道自动归位；不动源已分好的组。
-          const kw = matchKeywordGroup(channel.name)
+          // 规则未命中时，勾选「忽略源自带分组」的源按其默认分组兜底（issue #110）。
+          const kw = matchKeywordGroup(channel.name) || matchSourceFallbackGroup(channel.sourceIds)
           if (kw) targetGroup = kw
         } else if (!protectedAnnouncement && config.groupRenameMap && config.groupRenameMap[targetGroup]) {
           targetGroup = config.groupRenameMap[targetGroup]

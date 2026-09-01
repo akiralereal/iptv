@@ -1,8 +1,10 @@
 import { readFileSync } from "./fileUtil.js";
 import { dataPath } from "./paths.js";
-import { host, pass, enableTvgNormalize } from "../config.js";
+import { host, pass, enableTvgNormalize, enableDisplayNameUnify } from "../config.js";
 import { printDebug, printGreen, printGrey, printRed, printYellow } from "./colorOut.js";
 import { readConfig, parseInterfaceTxt, applyConfig, generateM3u8, generateTxt } from "./playlistConfig.js";
+import { getKeywordGroupRules } from "./groupRulesAPI.js";
+import { hasSourceFallbackGroups } from "./sourceGroupFallback.js";
 import { resolverFor, listModules } from "../extractors/registry.js";
 import { getExtractorManager, getModuleConfig } from "./extractorManager.js";
 
@@ -170,9 +172,12 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix, 
       // 只有存在任意自定义配置时才应用（避免首次访问解析失败）
       // 注意：旧写法 `config.channelGroupMap` 恒真（{} 也为真），会导致始终套用配置；
       // 这里改为按内容判断，并补上 groupRenameMap / customGroups / groupSortMode
-      // 另外：EPG 名称规整（issue #39）默认对所有人生效，故开关开启时也要走 applyConfig（即使无任何自定义配置）
+      // 另外：EPG 名称规整（issue #39）/ 统一显示名（issue #56）默认对所有人生效，故开关开启时也要走 applyConfig（即使无任何自定义配置）
+      // 关键字自动分组（issue #69）与「忽略源自带分组」的默认分组兜底（issue #110）
+      // 同为全局配置、不落在任何配置档里，存在时零个性化配置的档也必须走 applyConfig
       if (config && (
         enableTvgNormalize ||
+        enableDisplayNameUnify ||
         Object.keys(config.channelGroupMap || {}).length > 0 ||
         Object.keys(config.channelRenameMap || {}).length > 0 ||
         Object.keys(config.channelOrder || {}).length > 0 ||
@@ -182,7 +187,9 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix, 
         config.deletedGroups?.length > 0 ||
         config.customGroups?.length > 0 ||
         config.groupOrder?.length > 0 ||
-        config.disabledSources?.length > 0)) {   // 按档禁用源（issue #29/#68）也需触发 applyConfig
+        config.disabledSources?.length > 0 ||    // 按档禁用源（issue #29/#68）也需触发 applyConfig
+        getKeywordGroupRules().length > 0 ||
+        hasSourceFallbackGroups())) {
         printGrey("应用播放列表自定义配置")
         const groups = parseInterfaceTxt()
         const configuredGroups = applyConfig(groups, config)

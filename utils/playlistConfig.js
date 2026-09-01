@@ -32,7 +32,7 @@ const DEFAULT_PROFILE = { id: 'default', name: '默认' }
 export const DEFAULT_GROUP_ORDER = [
   '公告',
   '体育', '体育-昨天', '体育-今天', '体育-明天',
-  '央视', '卫视', '亚太', '国际', '影视', '少儿', '教育', '娱乐时尚', '文旅',
+  '央视', '央视频', '卫视', '亚太', '国际', '影视', '少儿', '教育', '娱乐时尚', '文旅',
   'B站', '虎牙', '斗鱼',
 ]
 
@@ -480,6 +480,12 @@ export function applyConfig(groups, config) {
         const direct = config.groupOrder.indexOf(name)
         // 「纪实」已更名为「文旅」；旧配置档不需重新拖拽也能沿用原位置。
         if (direct === -1 && name === '文旅') return config.groupOrder.indexOf('纪实')
+        // 「央视频」是后来新增的系统来源。旧配置档尚未记录它时，自动插在央视后、
+        // 下一已排序分组前；一旦用户显式拖拽保存，direct 会优先尊重用户位置。
+        if (direct === -1 && name === '央视频') {
+          const cctv = config.groupOrder.indexOf('央视')
+          if (cctv !== -1) return cctv + 0.5
+        }
         return direct
       }
       result.sort((a, b) => {

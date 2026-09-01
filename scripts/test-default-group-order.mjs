@@ -23,10 +23,11 @@ console.log('默认分组顺序测试')
 
 check('内容类按固定顺序置顶，不受来源顺序影响', () => {
   const shuffled = [
-    '斗鱼', '卫视', '体育-明天', '国际', '公告', '体育', 'B站', '央视',
+    '斗鱼', '卫视', '体育-明天', '国际', '公告', '体育', 'B站', '央视频', '央视',
     '少儿', '文旅', '体育-昨天', '亚太', '娱乐时尚', '虎牙', '影视', '教育', '体育-今天',
   ]
   assert.deepEqual(sortGroupsByDefault(makeGroups(shuffled)).map(group => group.name), DEFAULT_GROUP_ORDER)
+  assert.equal(DEFAULT_GROUP_ORDER.indexOf('央视频'), DEFAULT_GROUP_ORDER.indexOf('央视') + 1)
   assert.equal(DEFAULT_GROUP_ORDER.indexOf('国际'), DEFAULT_GROUP_ORDER.indexOf('亚太') + 1)
   assert.equal(DEFAULT_GROUP_ORDER.includes('新闻'), false)
 })
@@ -70,6 +71,21 @@ check('旧 groupOrder 里的纪实位置自动由文旅继承', () => {
     groupOrder: ['广东', '纪实', '体育'],
   })
   assert.deepEqual(result.map(group => group.name), ['广东', '文旅', '体育'])
+})
+
+check('旧配置未记录央视频时自动紧跟央视，显式拖拽后尊重用户位置', () => {
+  const groups = makeGroups(['央视频', '卫视', '央视', '体育'])
+  const legacy = applyConfig(groups, {
+    ...baseConfig(),
+    groupOrder: ['体育', '央视', '卫视'],
+  })
+  assert.deepEqual(legacy.map(group => group.name), ['体育', '央视', '央视频', '卫视'])
+
+  const explicit = applyConfig(groups, {
+    ...baseConfig(),
+    groupOrder: ['央视频', '体育', '央视', '卫视'],
+  })
+  assert.deepEqual(explicit.map(group => group.name), ['央视频', '体育', '央视', '卫视'])
 })
 
 console.log(`\n全部通过：${passed}/${passed} ✅`)

@@ -11,7 +11,11 @@
 [![License](https://img.shields.io/github/license/akiralereal/iptv?style=for-the-badge&color=22C55E)](LICENSE)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?logo=githubsponsors&logoColor=white&style=for-the-badge)](https://github.com/sponsors/akiralereal)
 
-**当前版本：v4.4.0** · [频道覆盖](#-频道覆盖) · [内容来源](#-内容来源与抓取能力) · [产品预览](#-产品预览) · [快速部署](#-快速开始) · [功能说明](#-功能全景) · [更新日志](#更新日志)
+### [🐳 Docker 部署教程](#-快速开始) · [前往 Docker Hub →](https://hub.docker.com/r/akiralereal/iptv)
+
+推荐通过 Docker 在 NAS / 服务器上部署，镜像：`akiralereal/iptv:latest`
+
+**当前版本：v4.4.0** · [频道覆盖](#-频道覆盖) · [内容来源](#-内容来源与抓取能力) · [产品预览](#-产品预览) · [功能说明](#-功能全景) · [更新日志](#更新日志)
 
 </div>
 
@@ -119,6 +123,8 @@ iPTV 的重点不只是一份静态频道表，而是一套可独立开关、可
 ## 🚀 快速开始
 
 推荐使用 Docker Compose。只需要一个配置文件和一条启动命令，几分钟即可拥有自己的 IPTV 服务。
+
+**Docker 镜像：[`akiralereal/iptv`](https://hub.docker.com/r/akiralereal/iptv)** · [查看版本标签](https://hub.docker.com/r/akiralereal/iptv/tags)。下面使用 `latest` 标签；使用 NAS 图形化容器管理器时，也可直接搜索 `akiralereal/iptv`，按下方配置设置端口和数据目录。
 
 ### 1. 创建配置文件
 

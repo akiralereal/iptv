@@ -1300,6 +1300,9 @@ server.listen(port, async () => {
   // 定时任务2: 每 5 分钟检查外部源、内置源、抓取模块是否到刷新间隔（needsRefresh 按各自间隔判定，不到点不抓）
   // 这一轮本身可能超过 5 分钟（外部源串行且每源之间硬睡 2 秒），必须自己防重入，
   // 否则两轮会同时改同一批状态并写同一个文件，后写者覆盖前者。
+  // 周期默认 5 分钟。msourceTickSeconds 仅供本地测试压缩周期（如 =20），生产不要设
+  const sourceTickMs = (parseInt(process.env.msourceTickSeconds) > 0 ? parseInt(process.env.msourceTickSeconds) : 5 * 60) * 1000
+  if (sourceTickMs !== 5 * 60 * 1000) printYellow(`源刷新检查周期被 msourceTickSeconds 改为 ${sourceTickMs / 1000} 秒（仅供测试）`)
   let sourceTickRunning = false
   setInterval(async () => {
     if (sourceTickRunning) {
@@ -1331,7 +1334,7 @@ server.listen(port, async () => {
     } finally {
       sourceTickRunning = false
     }
-  }, 5 * 60 * 1000); // 每 5 分钟检查一次：让各源的 refreshInterval 被准时执行（此前每小时才 check，间隔不精确）—— issue #73
+  }, sourceTickMs); // 每 5 分钟检查一次：让各源的 refreshInterval 被准时执行（此前每小时才 check，间隔不精确）—— issue #73
 
   try {
     // 初始化数据（启动模式）

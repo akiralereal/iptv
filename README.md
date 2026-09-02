@@ -258,6 +258,8 @@ B站 / 虎牙 / 斗鱼 / 咪咕 ─┐
 
 现已改为：全进程共用一个启动器，同时存活的 Chromium 不超过 `mbrowserConcurrency`（默认 2，超出的排队，常驻会话空闲时会主动让位）；抓取失败按 10 → 20 → 40 分钟指数退避，不再每 5 分钟重试；取票结束后页面停到空白页，不再在后台持续播直播；抓取时不下载视频分片、图片、字体，并关闭 Chromium 磁盘缓存。若机器内存很小，建议在 compose 里设 `mbrowserConcurrency=1`；不需要网页抓取的可直接在「🌐 源管理」关闭对应的源或模块。
 
+想在本地几分钟内验证这套机制：`msourceTickSeconds=20 mbackoffBaseMinutes=0.5 node app.js` 可把 5 分钟检查周期与 10 分钟退避基数压缩（仅供测试，生产不要设）；`node scripts/verify-browser-launcher.mjs` 会用本机模拟直播页跑一遍并发上限 / 空闲让位 / 分片拦截 / 失败退避。
+
 </details>
 
 <details>

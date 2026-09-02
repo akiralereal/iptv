@@ -10,11 +10,13 @@
  * 刷新间隔（至少 10 分钟）。成功一次即清零。只存内存：重启后启动模式本来就会
  * 抓一次，无需持久化。
  */
-const DEFAULT_BASE_MINUTES = 10
+// 退避基数默认 10 分钟。mbackoffBaseMinutes 仅供本地测试压缩周期（如 =0.5），生产不要设
+const envBase = parseFloat(process.env.mbackoffBaseMinutes)
+const DEFAULT_BASE_MINUTES = envBase > 0 ? envBase : 10
 
 export function backoffMinutes(failCount, refreshMinutes, baseMinutes = DEFAULT_BASE_MINUTES) {
   const count = Math.max(1, Number(failCount) || 1)
-  const base = Math.max(1, Number(baseMinutes) || DEFAULT_BASE_MINUTES)
+  const base = Number(baseMinutes) > 0 ? Number(baseMinutes) : DEFAULT_BASE_MINUTES
   const cap = Math.max(base, Number(refreshMinutes) || 0)
   return Math.min(cap, base * 2 ** (count - 1))
 }

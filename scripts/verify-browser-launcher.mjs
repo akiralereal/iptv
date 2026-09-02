@@ -34,8 +34,13 @@ let passed = 0
 const ok = (name) => { passed++; console.log(`  ✅ ${name}`) }
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
-/** 统计 Chromium 主进程数（命令行里没有 --type= 的才是主进程；renderer/gpu 是它的子进程） */
+/**
+ * 统计 Chromium 主进程数（命令行里没有 --type= 的才是主进程；renderer/gpu 是它的子进程）。
+ * 只有 Linux 有 /proc；Mac / Windows 上返回 null，相关断言跳过。
+ */
+const canCountProcesses = process.platform === 'linux'
 function chromiumMainProcesses() {
+  if (!canCountProcesses) return null
   let count = 0
   for (const pid of readdirSync('/proc')) {
     if (!/^\d+$/.test(pid)) continue
@@ -85,6 +90,7 @@ console.log(`模拟直播页: ${base}/live.html（浏览器上限 ${MAX_BROWSERS
 
 const pool = getBrowserPool()
 const baselineProcs = chromiumMainProcesses()
+if (!canCountProcesses) console.log('（非 Linux：跳过 Chromium 进程数断言，其余照常）')
 
 // ---------- 2. 网页抓取：拿到 m3u8，但不下载分片 / 图片，抓完不残留进程 ----------
 {
@@ -97,8 +103,8 @@ const baselineProcs = chromiumMainProcesses()
   assert.equal(hits.image, 0, `图片应被拦截，实际到达服务端 ${hits.image} 次`)
   assert.equal(pool.size, 0, '抓完应归还浏览器位子')
   await sleep(500)
-  assert.equal(chromiumMainProcesses(), baselineProcs, '抓完不应残留 Chromium 进程')
-  ok(`网页抓取 ${seconds}s：拿到 m3u8（服务端收到 m3u8 ${hits.m3u8} 次），.ts 0 次、图片 0 次，进程无残留`)
+  if (canCountProcesses) assert.equal(chromiumMainProcesses(), baselineProcs, '抓完不应残留 Chromium 进程')
+  ok(`网页抓取 ${seconds}s：拿到 m3u8（服务端收到 m3u8 ${hits.m3u8} 次），.ts 0 次、图片 0 次${canCountProcesses ? '，进程无残留' : ''}`)
 }
 
 // ---------- 3. 并发上限：第 3 个排队，主进程数从不超过上限 ----------
@@ -108,7 +114,9 @@ const baselineProcs = chromiumMainProcesses()
   for (let i = 0; i < limit; i++) browsers.push(await launchBrowser({ label: `占位${i + 1}`, waitMs: 5000 }))
   assert.equal(pool.size, limit)
   let peak = 0
-  const sampler = setInterval(() => { peak = Math.max(peak, chromiumMainProcesses() - baselineProcs) }, 50)
+  const sampler = canCountProcesses
+    ? setInterval(() => { peak = Math.max(peak, chromiumMainProcesses() - baselineProcs) }, 50)
+    : null
   let granted = false
   const third = launchBrowser({ label: '排队者', waitMs: 10000 }).then(b => { granted = true; return b })
   await sleep(1500)
@@ -118,12 +126,12 @@ const baselineProcs = chromiumMainProcesses()
   const thirdBrowser = await third
   clearInterval(sampler)
   assert.equal(granted, true)
-  assert.ok(peak <= limit, `Chromium 主进程峰值 ${peak} 超过上限 ${limit}`)
+  if (canCountProcesses) assert.ok(peak <= limit, `Chromium 主进程峰值 ${peak} 超过上限 ${limit}`)
   await Promise.all([...browsers.slice(1), thirdBrowser].map(b => closeBrowser(b)))
   await sleep(500)
   assert.equal(pool.size, 0)
-  assert.equal(chromiumMainProcesses(), baselineProcs)
-  ok(`并发上限 ${limit}：第 ${limit + 1} 个请求排队，释放一个后立即放行；主进程峰值 ${peak} ≤ ${limit}`)
+  if (canCountProcesses) assert.equal(chromiumMainProcesses(), baselineProcs)
+  ok(`并发上限 ${limit}：第 ${limit + 1} 个请求排队，释放一个后立即放行${canCountProcesses ? `；主进程峰值 ${peak} ≤ ${limit}` : ''}`)
 }
 
 // ---------- 4. 空闲让位 ----------

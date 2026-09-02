@@ -68,6 +68,7 @@ export const BASE_ARGS = [
 const LAUNCH_TIMEOUT_MS = 30 * 1000
 const DEFAULT_WAIT_MS = 60 * 1000
 const DEFAULT_CLOSE_TIMEOUT_MS = 5 * 1000
+const EXIT_GRACE_MS = 5 * 1000
 const DEFAULT_MAX_BROWSERS = 2
 
 function parseLimit(raw, fallback = DEFAULT_MAX_BROWSERS) {
@@ -197,8 +198,17 @@ export class BrowserPool {
     const slot = {
       release: () => this.#release(holder),
       attach: browser => {
-        browser?.once?.('disconnected', slot.release)
         browserSlots.set(browser, slot)
+        // 归还时机以 Chromium 进程真正退出为准：CDP 连接断开（disconnected）比进程
+        // 退出早几百毫秒，若在那一刻就放行下一个启动，实测会出现「上限 2 却有 3 个
+        // 主进程同时存活」的窗口。exit 迟迟不来时（不该发生）5 秒后也兜底归还。
+        const proc = typeof browser?.process === 'function' ? browser.process() : null
+        if (proc && proc.exitCode === null && proc.signalCode === null) {
+          proc.once('exit', slot.release)
+          browser.once?.('disconnected', () => { setTimeout(slot.release, EXIT_GRACE_MS).unref?.() })
+        } else {
+          browser?.once?.('disconnected', slot.release)
+        }
       },
     }
     waiter.resolve(slot)

@@ -203,7 +203,15 @@ export class BrowserPool {
         // 退出早几百毫秒，若在那一刻就放行下一个启动，实测会出现「上限 2 却有 3 个
         // 主进程同时存活」的窗口。exit 迟迟不来时（不该发生）5 秒后也兜底归还。
         const proc = typeof browser?.process === 'function' ? browser.process() : null
-        if (proc && proc.exitCode === null && proc.signalCode === null) {
+        const alreadyGone = (proc && (proc.exitCode !== null || proc.signalCode !== null))
+          || browser?.connected === false
+        if (alreadyGone) {
+          // 启动到登记之间就已经退出（崩溃 / 被外部杀掉）：事件不会再来，立即归还，
+          // 否则这个位子永远占着，上限一路缩水到 0。
+          slot.release()
+          return
+        }
+        if (proc) {
           proc.once('exit', slot.release)
           browser.once?.('disconnected', () => { setTimeout(slot.release, EXIT_GRACE_MS).unref?.() })
         } else {

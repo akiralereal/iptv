@@ -762,7 +762,7 @@ node app.js
 <!--
 ## 🔖 版本发布（维护者流程）
 
-使用 `bump-version.js` 脚本统一管理版本号，一条命令同步更新 5 个文件：`package.json`、`package-lock.json`、`web/admin.html`（页脚版本号）、`README.md`（标题版本 + 在更新日志顶部插入占位条目）、`.github/workflows/push_docker.yaml`（三个 Docker 镜像标签）。
+使用 `bump-version.js` 脚本统一管理版本号，一条命令同步更新 5 个文件：`package.json`、`package-lock.json`、`web/admin.html`（页脚版本号）、`README.md`（标题版本 + 在更新日志顶部插入占位条目）、`.github/workflows/push_docker.yaml`（三个 Docker 镜像标签）。一次完整发版 = 改版本号 → 写更新日志 → 提交并打 tag → 推送 → 构建镜像 → **创建 GitHub Release**（自 v4.4.0 起每版必做，见 step 6）。
 
 ```bash
 # 0. 发布前自检：本地起服务、点一遍核心功能，确认无报错再发
@@ -788,6 +788,11 @@ git push && git push --tags
 # 5. 到 GitHub Actions 手动运行 push_docker 工作流（workflow_dispatch）：
 #    默认从 main 构建并推送多架构镜像；镜像标签（:latest / :X.Y.Z / :X.Y / :X）
 #    写死在 push_docker.yaml 内，已随 bump-version.js 更新
+
+# 6. 镜像推送成功后创建 GitHub Release（挂在 step 4 推上去的 tag 上）：
+#    发布说明由脚本从更新日志最新条目生成（正文 + 升级提示），不要手写第二份
+node bump-version.js release-notes > /tmp/release-notes.md
+gh release create vX.Y.Z --verify-tag --latest --title "vX.Y.Z · 一句话主题" --notes-file /tmp/release-notes.md
 ```
 
 **注意事项**
@@ -796,6 +801,7 @@ git push && git push --tags
 - **更新日志面向用户写**：写「改了什么、对用户有什么影响」，而非内部实现；保持纯文字列表，标题加粗，不添加类别图标。
 - **核对日期**：脚本用运行时系统日期生成 `### vX.Y.Z (YYYY-MM-DD)` 标题，跨天发布或时区异常时手动改正。
 - **Docker 三个标签**：每版镜像会打 `:X.Y.Z`（精确）、`:X.Y`（次版本滚动）、`:X`（主版本滚动）。主版本标签曾长期漏更新、错打成 `:1`，已在 v2.2.0 修复——升 major 后务必确认 `:X` 已正确更新。
+- **GitHub Release 与 tag 是两层东西**：tag 只是给提交起的名字；Release 才会出现在仓库首页的 Releases 面板、给选了「Releases only」的关注者发通知、提供 `releases/latest` 接口（后台若做「有新版本」提示就靠它）。自 v4.4.0 起每版都建 Release（step 6）：**等镜像推送成功后再建**，避免用户收到通知时镜像还拉不到；标题格式 `vX.Y.Z · 主题`（主题即更新日志首段「本次为「**xx**」版本」里的那几个字）；正文一律用 `node bump-version.js release-notes` 生成，与 README 更新日志保持同源。历史版本（≤ v4.3.0）只有 tag、没有 Release，不必回填——批量回填会给关注者连发一串通知。
 - **镜像构建是手动的**：`push_docker` 工作流为 `workflow_dispatch`，推代码 / tag 都**不会**自动触发；需到 GitHub Actions 页面手动 Run workflow（默认从 `main` 构建，镜像标签写死在 yaml 里、已随 `bump-version.js` 更新）。`git tag` 仅作发布标记。也可以不进网页、用命令行一键触发，见本节末尾「命令行触发镜像构建」。
 - **重启生效项**：监听端口、节目单更新间隔等改动需用户重启容器后才生效；本次若涉及，请在更新日志里提醒用户。
 - **随仓库分发的文件要先 push**：若发版包含被「自家 raw GitHub 链接」引用的随仓库文件（如内置源 `IPTV.m3u`），必须先 `git push` 到 `main`，否则链接 404、源拉不到内容；本地自测同理（未 push 时该源显示 0 频道）。
@@ -814,6 +820,10 @@ gh run list --workflow=push_docker --limit 1
 
 # 可选：盯着它跑到结束（多架构构建，正常约 3~4 分钟）
 gh run watch
+
+# 构建成功后接 step 6 创建 GitHub Release
+node bump-version.js release-notes > /tmp/release-notes.md
+gh release create vX.Y.Z --verify-tag --latest --title "vX.Y.Z · 一句话主题" --notes-file /tmp/release-notes.md
 ```
 
 > - 工作流是 `workflow_dispatch`、无输入参数，固定从默认分支 `main` 构建；务必确认 `main` 已包含本次 release 提交（即 step 4 已 `git push`）。

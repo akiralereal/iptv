@@ -8,6 +8,8 @@
  *   node bump-version.js minor          # 1.4.3 → 1.5.0
  *   node bump-version.js major          # 1.4.3 → 2.0.0
  *   node bump-version.js 1.5.0          # 直接指定版本号
+ *   node bump-version.js sync-notes     # 把更新日志最新条目同步到 README 顶部「当前版本更新内容」
+ *   node bump-version.js release-notes  # 把更新日志最新条目打印成 GitHub Release 正文（stdout，不改文件）
  */
 
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -36,6 +38,30 @@ if (arg === 'sync-notes' || arg === 'sync') {
   const eol = readme.includes('\r\n') ? '\r\n' : '\n'
   writeFileSync(readmePath, syncTopReleaseNotes(readme, eol))
   console.log('✔ 已同步 README 顶部「当前版本更新内容」')
+  process.exit(0)
+}
+
+// release-notes：把更新日志最新条目正文 + 升级提示打印到 stdout，供
+// `gh release create vX.Y.Z --notes-file <(…)` 使用；不改任何文件。与 README 更新日志同源，避免手写第二份说明
+if (arg === 'release-notes' || arg === 'notes') {
+  const latest = latestChangelogEntry(readFileSync(r('README.md'), 'utf-8'))
+  if (!latest) {
+    console.error('未找到更新日志条目（### vX.Y.Z (YYYY-MM-DD)）')
+    process.exit(1)
+  }
+  if (latest.isEmpty) {
+    console.error(`${latest.version} 的更新日志还是空占位，先把 README 更新日志写好再生成发布说明`)
+    process.exit(1)
+  }
+  const tag = latest.version.replace(/^v/, '')
+  process.stdout.write([
+    ...latest.body,
+    '',
+    '---',
+    '',
+    `**升级**：拉取 \`akiralereal/iptv:${tag}\`（或 \`latest\`），重建容器即可；数据卷与现有订阅不受影响。完整更新历史见 [README 更新日志](https://github.com/akiralereal/iptv#更新日志)。`,
+    '',
+  ].join('\n'))
   process.exit(0)
 }
 
@@ -152,21 +178,12 @@ function syncTopReleaseNotes(readme, eol) {
     console.warn('⚠ 未找到 CURRENT_RELEASE_NOTES 标记，跳过顶部同步')
     return readme
   }
-  const lines = readme.split(/\r?\n/)
-  const i = lines.findIndex(l => /^### v\d+\.\d+\.\d+ \(/.test(l))
-  if (i === -1) {
+  const latest = latestChangelogEntry(readme)
+  if (!latest) {
     console.warn('⚠ 未找到更新日志条目，跳过顶部同步')
     return readme
   }
-  const version = (lines[i].match(/^### (v\d+\.\d+\.\d+)/) || [])[1] || ''
-  const body = []
-  for (let j = i + 1; j < lines.length; j++) {
-    if (/^#{2,3}\s/.test(lines[j])) break // 下一个 ## / ### 标题为界
-    body.push(lines[j])
-  }
-  while (body.length && body[0].trim() === '') body.shift()
-  while (body.length && body[body.length - 1].trim() === '') body.pop()
-  const isEmpty = body.length === 0 || body.every(l => /^[-*]\s*$/.test(l.trim()))
+  const { version, body, isEmpty } = latest
 
   const cleanBody = body.map(line => line
     .replace(/\p{Extended_Pictographic}\uFE0F?/gu, '')
@@ -184,4 +201,22 @@ function syncTopReleaseNotes(readme, eol) {
   }
   const inner = eol + out.join(eol) + eol
   return readme.slice(0, sIdx + START.length) + inner + readme.slice(eIdx)
+}
+
+// 取「更新日志」里最新的 ### vX.Y.Z 条目：返回 { version, body（去首尾空行的正文行）, isEmpty（仍是空占位）}，找不到返回 null。
+// sync-notes 与 release-notes 共用，保证顶部块与 GitHub Release 正文同源
+function latestChangelogEntry(readme) {
+  const lines = readme.split(/\r?\n/)
+  const i = lines.findIndex(l => /^### v\d+\.\d+\.\d+ \(/.test(l))
+  if (i === -1) return null
+  const version = (lines[i].match(/^### (v\d+\.\d+\.\d+)/) || [])[1] || ''
+  const body = []
+  for (let j = i + 1; j < lines.length; j++) {
+    if (/^#{2,3}\s/.test(lines[j])) break // 下一个 ## / ### 标题为界
+    body.push(lines[j])
+  }
+  while (body.length && body[0].trim() === '') body.shift()
+  while (body.length && body[body.length - 1].trim() === '') body.pop()
+  const isEmpty = body.length === 0 || body.every(l => /^[-*]\s*$/.test(l.trim()))
+  return { version, body, isEmpty }
 }

@@ -1,98 +1,20 @@
-import puppeteer from "puppeteer"
-import { existsSync } from "node:fs"
+import { launchBrowser, closeBrowser } from "./browserLauncher.js"
 import { printBlue, printGreen, printRed } from "./colorOut.js"
 
-// 各平台系统已安装的 Chrome / Chromium / Edge 常见可执行路径（按优先级）
-const SYSTEM_CHROME_PATHS = {
-  darwin: [
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-  ],
-  linux: [
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-  ],
-  win32: [
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ],
-}
+// 只嗅探地址、不看画面：视频分片 / 图片 / 字体一律不下载。此前页面会真的把直播
+// 播上几十秒，分片不停落盘缓存，是「硬盘不停读写」的来源之一；开启请求拦截后
+// Chromium 也会关掉页面缓存。分片按扩展名识别（.m3u8 本身永远放行）。
+const SEGMENT_EXT_RE = /\.(?:ts|m4s|mp4|aac|m4a|flv|webm|mp3|mpd)$/i
+const BLOCKED_RESOURCE_TYPES = new Set(['image', 'font', 'media'])
 
-// 探测系统已安装的浏览器可执行文件，找到第一个存在的返回，否则 null
-function findSystemChrome() {
-  for (const p of (SYSTEM_CHROME_PATHS[process.platform] || [])) {
-    if (existsSync(p)) return p
-  }
-  return null
-}
-
-/**
- * 启动 Chromium / Chrome，按以下顺序尽量找到可用浏览器，降低「Could not find Chrome」的踩坑概率：
- *   1) 环境变量 PUPPETEER_EXECUTABLE_PATH / mchromePath 显式指定（最高优先；Docker 镜像即指向 /usr/bin/chromium）
- *   2) 系统已安装的 Google Chrome / Chromium / Edge（裸跑首选，避开 puppeteer 自带 Chrome
- *      在部分机器上下载失败 / 被安全软件删库的坑，无需任何环境变量即可开箱即用）
- *   3) puppeteer 自带、用 `npx puppeteer browsers install chrome` 下载的 Chrome
- *   4) 最后兜底 channel: 'chrome'（再让 puppeteer 自己找系统 Chrome）
- * @param {boolean} headless
- */
-async function launchBrowser(headless) {
-  // --disable-blink-features=AutomationControlled：部分站点（如 vtvgo.vn，邮件反馈）检测到
-  // 自动化特征后直接不渲染页面（白屏），关掉该特征让无头抓取与真实浏览器行为一致；
-  // --autoplay-policy：允许播放器免手势自动起播（多数直播页要起播才发起 m3u8 请求）
-  const baseArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled', '--autoplay-policy=no-user-gesture-required']
-
-  // 1) 显式指定
-  //
-  // 必须包 try：这里若直接 return，显式路径不可用时后面三级回退一级都不会走。
-  // 真实会踩到的两种情况：
-  //   - arm/v6 镜像里 Alpine 没有 chromium 包（apk 那行有 `|| echo` 静默跳过），
-  //     而 Dockerfile 仍设了 PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-  //   - 用户自己把 mchromePath 填错
-  // 两种都会让抓取型的源彻底不可用，而报的是 puppeteer 的 ENOENT，看不懂。
-  const explicit = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.mchromePath
-  if (explicit) {
-    try {
-      return await puppeteer.launch({ headless, args: baseArgs, executablePath: explicit })
-    } catch (err) {
-      printRed(`指定的浏览器不可用(${explicit})，改用系统/自带浏览器: ${(err?.message || err).split('\n')[0]}`)
-    }
-  }
-
-  // 2) 系统已安装的浏览器
-  const systemChrome = findSystemChrome()
-  if (systemChrome) {
-    try {
-      const browser = await puppeteer.launch({ headless, args: baseArgs, executablePath: systemChrome })
-      printBlue(`使用系统浏览器: ${systemChrome}`)
-      return browser
-    } catch (err) {
-      printRed(`系统浏览器启动失败(${systemChrome})，改用 puppeteer 自带: ${(err?.message || err).split('\n')[0]}`)
-    }
-  }
-
-  // 3) puppeteer 自带；4) 失败再兜底 channel: 'chrome'
+function shouldBlockRequest(request) {
+  const url = request.url()
+  if (url.includes('.m3u8')) return false
+  if (BLOCKED_RESOURCE_TYPES.has(request.resourceType())) return true
   try {
-    return await puppeteer.launch({ headless, args: baseArgs })
-  } catch (err) {
-    if (/Could not find Chrome|Browser was not found|Failed to launch|Could not find expected browser/i.test(err?.message || '')) {
-      printRed('puppeteer 自带 Chrome 不可用，尝试 channel: chrome…')
-      try {
-        return await puppeteer.launch({ headless, args: baseArgs, channel: 'chrome' })
-      } catch (lastErr) {
-        // 四级都试过了。报一句人能看懂的话——原始错误是 puppeteer 的 ENOENT，
-        // 用户从中看不出「这台机器/这个架构根本没有浏览器」。
-        throw new Error(
-          '找不到可用的 Chrome/Chromium，网页抓取型的源无法工作。'
-          + '容器部署请确认镜像内 /usr/bin/chromium 存在（部分架构如 arm/v6 的 Alpine 没有该包）；'
-          + '裸跑请安装 Chrome，或用 mchromePath 指定路径。'
-          + `原始错误: ${(lastErr?.message || lastErr).split('\n')[0]}`
-        )
-      }
-    }
-    throw err
+    return SEGMENT_EXT_RE.test(new URL(url).pathname)
+  } catch {
+    return false
   }
 }
 
@@ -147,10 +69,17 @@ async function extractM3u8FromWeb(url, options = {}) {
   try {
     printBlue(`开始提取: ${url}`)
     
-    // 启动浏览器（自带 Chrome 找不到时回退系统 Google Chrome）
-    browser = await launchBrowser(headless)
+    // 启动浏览器：全进程共用的启动器，受实例数上限约束（见 browserLauncher.js）
+    browser = await launchBrowser({ headless, label: '网页抓取', waitMs: 2 * 60 * 1000 })
     
     const page = await browser.newPage()
+
+    // 拦掉分片 / 图片 / 字体：见 shouldBlockRequest
+    await page.setRequestInterception(true)
+    page.on('request', request => {
+      if (shouldBlockRequest(request)) request.abort().catch(() => {})
+      else request.continue().catch(() => {})
+    })
 
     // 隐藏 webdriver 指纹 + 使用完整版 Chrome UA：navigator.webdriver=true 和
     // 裸 UA（没有 Chrome/xx 版本号）是站点识别无头爬虫的两大特征，命中后有的站直接白屏（vtvgo.vn 实测）
@@ -252,41 +181,7 @@ async function extractM3u8FromWeb(url, options = {}) {
     printRed(`提取失败: ${error.message}`)
     return null
   } finally {
-    await closeBrowser(browser)
-  }
-}
-
-/**
- * 健壮地关闭 Puppeteer 浏览器，避免 Chromium 进程泄漏 / 僵尸进程。
- * - 给 browser.close() 设超时：无响应的 Chromium 不会卡死整个更新流程
- *   （update() 已串行化，一次卡死会阻塞后续所有更新）
- * - 超时或关闭异常时强杀 Chromium 进程组（POSIX 下 puppeteer 以 detached 方式
- *   启动 chromium，其 pid 即进程组组长），连同 renderer/zygote 子进程一并清理
- * @param {import('puppeteer').Browser|null} browser
- */
-async function closeBrowser(browser) {
-  if (!browser) return
-  const proc = browser.process()
-  let timer
-  try {
-    await Promise.race([
-      browser.close(),
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error('browser.close() 超时')), 10000)
-      })
-    ])
-  } catch (error) {
-    printRed(`关闭浏览器异常，强制结束 Chromium 进程: ${error.message}`)
-    if (proc && proc.pid) {
-      try {
-        // 优先杀整个进程组，回收 renderer/zygote 等子进程
-        process.kill(-proc.pid, 'SIGKILL')
-      } catch (groupErr) {
-        try { proc.kill('SIGKILL') } catch (_) { /* 进程可能已退出 */ }
-      }
-    }
-  } finally {
-    clearTimeout(timer)
+    await closeBrowser(browser, { label: '网页抓取浏览器', timeoutMs: 10000 })
   }
 }
 
@@ -360,5 +255,6 @@ export {
   extractM3u8FromWeb,
   batchExtractM3u8,
   validateM3u8,
-  restoreLegacyEntities
+  restoreLegacyEntities,
+  shouldBlockRequest
 }

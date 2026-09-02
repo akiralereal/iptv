@@ -6,6 +6,7 @@ import { enableBuiltInSubscriptions } from "../config.js"
 import { printBlue, printGreen, printGrey, printRed, printYellow } from "./colorOut.js"
 import { extractM3u8FromWeb, validateM3u8 } from "./webSourceExtractor.js"
 import { collectOptsUntilUrl } from "./channelOpts.js"
+import { FailureBackoff } from "./refreshBackoff.js"
 import fetch from 'node-fetch'
 
 /**
@@ -515,6 +516,9 @@ class ExternalSourceManager {
   
   constructor() {
     this.sources = this.loadSources()
+    // 网页抓取失败的退避（内存态）。抓取失败不会更新 lastUpdated，否则到期的源
+    // 会在每个 5 分钟 tick 都起一次 Chromium 重抓（见 refreshBackoff.js）
+    this.fetchBackoff = new FailureBackoff()
   }
 
   /**
@@ -714,6 +718,7 @@ class ExternalSourceManager {
             if (!cur) return { success: false, message: '源已被删除，放弃写入抓取结果' }
             cur.m3u8Url = candidate
             cur.lastUpdated = new Date().toISOString()
+            this.fetchBackoff.clear(this.backoffKey(cur))
             this.saveSources()
             printGreen(`${source.name} 更新成功: ${candidate}`)
             return { success: true, m3u8Url: candidate }
@@ -725,18 +730,34 @@ class ExternalSourceManager {
         if (!cur) return { success: false, message: '源已被删除，放弃写入抓取结果' }
         cur.m3u8Url = fallback
         cur.lastUpdated = new Date().toISOString()
+        this.fetchBackoff.clear(this.backoffKey(cur))
         this.saveSources()
         printYellow(`${source.name} m3u8校验失败，已保存最长链接（共${candidates.length}个候选）`)
         printGrey(`  选中: ${fallback.substring(0, 100)}...`)
         return { success: true, m3u8Url: fallback, warning: `m3u8校验失败，已保存最长链接（共${candidates.length}个候选）` }
       } else {
         printRed(`${source.name} 未能提取到m3u8链接`)
+        this.noteFetchFailure(source, '未能提取到m3u8链接')
         return { success: false, message: '未能提取到m3u8链接' }
       }
     } catch (error) {
       printRed(`${source.name} 更新失败: ${error.message}`)
+      this.noteFetchFailure(source, error.message)
       return { success: false, message: error.message }
     }
+  }
+
+  /** 退避表的键：优先稳定 id，老数据没有 id 时退回网页地址 */
+  backoffKey(source) {
+    return source?.id || source?.webUrl || source?.name || ''
+  }
+
+  /** 记一次网页抓取失败并打印下次重试时间 */
+  noteFetchFailure(source, error) {
+    const key = this.backoffKey(source)
+    if (!key) return
+    const entry = this.fetchBackoff.record(key, source.refreshInterval || 240, { error })
+    printYellow(`${source.name} 已连续失败 ${entry.count} 次，${entry.waitMinutes} 分钟后再试`)
   }
 
   /**
@@ -811,6 +832,11 @@ class ExternalSourceManager {
   needsRefresh(source) {
     // 未设置自动刷新
     if (source.autoRefresh === false) {
+      return false
+    }
+
+    // 网页抓取连续失败：在退避窗口内不重抓（订阅源有自己的失败退避）
+    if (source.mode !== 'subscription' && this.fetchBackoff.isCooling(this.backoffKey(source))) {
       return false
     }
     

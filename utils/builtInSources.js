@@ -4,6 +4,7 @@ import { dataPath } from "./paths.js"
 import { enableBuiltInSources } from "../config.js"
 import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 import { extractM3u8FromWeb } from "./webSourceExtractor.js"
+import { FailureBackoff } from "./refreshBackoff.js"
 import fetch from "node-fetch"
 
 // 内置源配置的远程地址：运行时优先从此拉取（含 GitHub 镜像回退），让 webUrl 等配置「push 即更新」、无需重建镜像。
@@ -42,6 +43,9 @@ class BuiltInSourceManager {
     this.cachePath = dataPath('built-in-sources-cache.json')         // 运行时抓取缓存（m3u8），持久化到数据目录
     this.sources = { enabled: true, sources: [] }
     this.cache = {} // { sourceId: { m3u8Url, lastUpdate } }
+    // 抓取失败的退避（内存态）。失败会清缓存，而「没缓存 = 需要刷新」会让一个当前
+    // 抓不到的源在每个 5 分钟 tick 都起一次 Chromium 重抓（用户日志里纬来体育即如此）
+    this.backoff = new FailureBackoff()
     this.loadConfig()
     this.loadCache()
   }
@@ -208,6 +212,11 @@ class BuiltInSourceManager {
     if (source.mode === 'direct') {
       return false
     }
+
+    // 连续失败：退避窗口内不重抓
+    if (this.backoff.isCooling(source.id)) {
+      return false
+    }
     
     // 没有缓存，需要刷新
     if (!this.cache[source.id]) {
@@ -289,6 +298,7 @@ class BuiltInSourceManager {
             updateTime: new Date().toISOString()
           }
           this.saveCache()
+          this.backoff.clear(source.id)
           
           printGreen(`✓ ${source.name} 更新成功`)
           
@@ -306,6 +316,7 @@ class BuiltInSourceManager {
             this.saveCache()
             printYellow(`✗ ${source.name} 已清除过期缓存`)
           }
+          this.noteFailure(source, '未找到m3u8链接')
           results.push({ 
             id: source.id, 
             name: source.name, 
@@ -321,6 +332,7 @@ class BuiltInSourceManager {
           this.saveCache()
           printYellow(`✗ ${source.name} 已清除过期缓存`)
         }
+        this.noteFailure(source, error.message)
         results.push({ 
           id: source.id, 
           name: source.name, 
@@ -342,6 +354,12 @@ class BuiltInSourceManager {
     }
 
     return { success: true, results }
+  }
+
+  /** 记一次抓取失败并打印下次重试时间（退避规则见 refreshBackoff.js） */
+  noteFailure(source, error) {
+    const entry = this.backoff.record(source.id, source.refreshInterval || 240, { error })
+    printYellow(`${source.name} 已连续失败 ${entry.count} 次，${entry.waitMinutes} 分钟后再试`)
   }
 
   /**

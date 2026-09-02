@@ -20,6 +20,7 @@ services:
       # - menableMigu=true                      # 咪咕源（核心：CCTV/卫视抓取 + 体育赛事 + EPG），关闭后仅用内置/外部源
       # - menableBuiltInSources=true            # 内置单频道源（纬来体育/Red Bull/4K卫视 等）
       # - menableBuiltInSubscriptions=true      # 内置订阅源（精选频道），关闭后不加入且已删除的不再复活
+      # - mbrowserConcurrency=2                 # 可选：同时允许存活的无头 Chromium 数（默认 2）。内存 ≤2G 的 NAS/小主机建议设 1；每个 Chromium 约占 200~400MB，开多了会把机器拖进交换、表现为卡死 + 硬盘狂读写
       - mdataDir=/iptv/data                      # 配置/数据持久化目录（对应下方挂载的卷）
     volumes:
       - ./data:/iptv/data                        # 持久化配置与生成文件，容器重建/升级镜像后不丢失（老部署写的 /migu/data 继续有效，无需改）

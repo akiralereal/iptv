@@ -1,85 +1,12 @@
 /** 长江云 CDN 浏览器会话：匿名换防盗链票并读取 Chromium 专属 HLS 清单。 */
-import { existsSync } from 'node:fs'
-import puppeteer from 'puppeteer'
-
-import { printBlue, printRed } from '../../utils/colorOut.js'
+import { launchBrowser, closeBrowser } from '../../utils/browserLauncher.js'
+import { printBlue } from '../../utils/colorOut.js'
 import { CHANNEL_PAGE_URL } from './api.js'
 
 const IDLE_CLOSE_MS = 5 * 60 * 1000
+// 排队等浏览器位子的上限：略长于单次取票超时，等不到就让本次解析失败、播放器稍后重试
+const SLOT_WAIT_MS = 30 * 1000
 const DEFAULT_TIMEOUT_MS = 15 * 1000
-
-const SYSTEM_CHROME_PATHS = {
-  darwin: [
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-  ],
-  linux: [
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-  ],
-  win32: [
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ],
-}
-
-function systemChromePath() {
-  return (SYSTEM_CHROME_PATHS[process.platform] || []).find(path => existsSync(path)) || ''
-}
-
-async function launchBrowser() {
-  const args = [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-blink-features=AutomationControlled',
-    '--autoplay-policy=no-user-gesture-required',
-  ]
-  const explicit = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.mchromePath
-  const candidates = [
-    explicit ? { executablePath: explicit } : null,
-    systemChromePath() ? { executablePath: systemChromePath() } : null,
-    {},
-    { channel: 'chrome' },
-  ].filter(Boolean)
-
-  let lastError
-  for (const candidate of candidates) {
-    try {
-      return await puppeteer.launch({ headless: true, args, ...candidate })
-    } catch (error) {
-      lastError = error
-    }
-  }
-  throw new Error(
-    '找不到可用的 Chrome/Chromium，湖北台防盗链清单无法读取。'
-    + '请安装 Chrome，或用 mchromePath / PUPPETEER_EXECUTABLE_PATH 指定浏览器。'
-    + `原始错误: ${(lastError?.message || lastError || '未知错误').split('\n')[0]}`,
-  )
-}
-
-async function closeBrowser(browser) {
-  if (!browser) return
-  const proc = browser.process()
-  let timer
-  try {
-    await Promise.race([
-      browser.close(),
-      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('browser.close() 超时')), 5000) }),
-    ])
-  } catch (error) {
-    printRed(`湖北台浏览器会话关闭异常，强制结束 Chromium: ${error?.message || error}`)
-    if (proc?.pid) {
-      try { process.kill(-proc.pid, 'SIGKILL') } catch {
-        try { proc.kill('SIGKILL') } catch { /* 进程可能已经退出 */ }
-      }
-    }
-  } finally {
-    clearTimeout(timer)
-  }
-}
 
 export function isOfficialResolvedUrl(raw) {
   try {
@@ -104,13 +31,18 @@ export class HbtvBrowserSession {
     this.opening = null
     this.queue = Promise.resolve()
     this.idleTimer = null
+    this.active = 0 // 排队中 + 进行中的取票数，为 0 才算空闲、可让出浏览器位子
   }
 
   async #ensurePage() {
     if (this.page && !this.page.isClosed() && this.browser?.connected) return this.page
     if (!this.opening) {
       this.opening = (async () => {
-        const browser = await launchBrowser()
+        const browser = await launchBrowser({
+          label: '湖北台防盗链',
+          waitMs: SLOT_WAIT_MS,
+          onIdleRequest: () => this.#yieldIfIdle(),
+        })
         // 启动后立刻登记，后续 page.goto / Cookie 校验任一步失败都能由 catch 关闭，
         // 避免初始化半途失败留下无人管理的 Chromium 进程。
         this.browser = browser
@@ -139,11 +71,18 @@ export class HbtvBrowserSession {
         const browser = this.browser
         this.browser = null
         this.page = null
-        await closeBrowser(browser)
+        await closeBrowser(browser, { label: '湖北台浏览器会话' })
         throw error
       }).finally(() => { this.opening = null })
     }
     return this.opening
+  }
+
+  /** 浏览器位子被别的任务排队时由启动器回调：当前没活就关掉自己让位。 */
+  async #yieldIfIdle() {
+    if (this.active > 0 || this.opening) return false
+    await this.close()
+    return true
   }
 
   #armIdleClose() {
@@ -195,7 +134,8 @@ export class HbtvBrowserSession {
   capture(rawUrl, options = {}) {
     const timeoutMs = Math.max(5000, Number(options.timeoutMs || DEFAULT_TIMEOUT_MS))
     const task = () => this.#capture(rawUrl, timeoutMs)
-    const pending = this.queue.then(task, task)
+    this.active++
+    const pending = this.queue.then(task, task).finally(() => { this.active-- })
     this.queue = pending.catch(() => {})
     return pending
   }
@@ -207,7 +147,7 @@ export class HbtvBrowserSession {
     const browser = this.browser
     this.browser = null
     this.page = null
-    if (browser) await closeBrowser(browser)
+    if (browser) await closeBrowser(browser, { label: '湖北台浏览器会话' })
   }
 }
 

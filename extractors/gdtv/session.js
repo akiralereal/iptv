@@ -83,15 +83,9 @@ export class GdtvBrowserSession {
     return true
   }
 
-  /**
-   * 取票结束后把页面停到 about:blank：官网播放器否则会在后台持续播直播
-   * （解码 + 不停拉分片），空闲 5 分钟等于白烧 5 分钟 CPU / 带宽 / 磁盘。
-   */
-  async #park(page) {
-    if (!page || page.isClosed()) return
-    await page.goto('about:blank', { timeout: 5000 }).catch(() => {})
-  }
-
+  // 注意：取票后不要把页面导航走（about:blank 等）。官网在页面卸载时会调用停止播放的
+  // 接口，刚拿到的短效票会被立刻作废，服务端随后取清单只能拿到 403。空闲浪费由
+  // idleCloseMs 兜底：5 分钟无人取票就整个关掉浏览器。
   #armIdleClose() {
     clearTimeout(this.idleTimer)
     this.idleTimer = setTimeout(() => { void this.close() }, this.idleCloseMs)
@@ -144,7 +138,6 @@ export class GdtvBrowserSession {
     } finally {
       clearTimeout(timer)
       if (onResponse) page.off('response', onResponse)
-      await this.#park(page)
       this.#armIdleClose()
     }
   }

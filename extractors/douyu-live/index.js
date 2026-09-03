@@ -42,14 +42,13 @@ export function mergeRooms(manual, automatic) {
   return merged
 }
 
-function toChannel(room, cachingMs) {
+function toChannel(room) {
   return {
     name: room.name || `斗鱼 ${room.roomId}`,
     deferredRef: `douyu-${room.roomId}`,
     relayHls: true,
     logo: room.logo || '',
     groupTitle: DOUYU_GROUP,
-    opts: [`network-caching=${Number(cachingMs) || 3000}`],
   }
 }
 
@@ -119,15 +118,6 @@ export default {
       default: 3,
       hint: '官网会按直播间实际档位自动回落。匿名实测可取原画；默认 2M 更适合电视端长时间播放。',
     },
-    {
-      key: 'cachingMs',
-      section: '播放偏好',
-      label: '播放器缓存（毫秒）',
-      type: 'int',
-      min: 500,
-      max: 30000,
-      default: 3000,
-    },
   ],
 
   async fetch(config, ctx = {}) {
@@ -163,7 +153,7 @@ export default {
     const rooms = mergeRooms(manual, automatic)
     if (!rooms.length && hardErrors > 0) throw new Error(warnings[0] || '斗鱼直播抓取失败')
     return {
-      groups: rooms.length ? [{ name: DOUYU_GROUP, dataList: rooms.map(room => toChannel(room, config.cachingMs)) }] : [],
+      groups: rooms.length ? [{ name: DOUYU_GROUP, dataList: rooms.map(toChannel) }] : [],
       meta: { skipped: warnings, warnings },
     }
   },

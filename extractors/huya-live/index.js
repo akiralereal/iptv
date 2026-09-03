@@ -42,15 +42,14 @@ export function mergeRooms(manual, automatic) {
   return merged
 }
 
-function toChannel(room, cachingMs) {
+function toChannel(room) {
   return {
     name: room.name || `虎牙 ${room.roomId}`,
     deferredRef: `huya-${room.roomId}`,
+    // 防盗链请求头由本机清单中继发送；不下发给播放器，TXT/TVBox 订阅也能保留。
     relayHls: true,
     logo: room.logo || '',
     groupTitle: HUYA_GROUP,
-    // 防盗链请求头由本机清单中继发送；不下发给播放器，TXT/TVBox 订阅也能保留。
-    opts: [`network-caching=${Number(cachingMs) || 3000}`],
   }
 }
 
@@ -121,15 +120,6 @@ export default {
       default: 2000,
       hint: '房间没有目标档时自动选择不高于目标的最接近档位。电视端默认 2M，在清晰度和稳定性之间更均衡。',
     },
-    {
-      key: 'cachingMs',
-      section: '播放偏好',
-      label: '播放器缓存（毫秒）',
-      type: 'int',
-      min: 500,
-      max: 30000,
-      default: 3000,
-    },
   ],
 
   async fetch(config, ctx = {}) {
@@ -165,7 +155,7 @@ export default {
     const rooms = mergeRooms(manual, automatic)
     if (!rooms.length && hardErrors > 0) throw new Error(warnings[0] || '虎牙直播抓取失败')
     return {
-      groups: rooms.length ? [{ name: HUYA_GROUP, dataList: rooms.map(room => toChannel(room, config.cachingMs)) }] : [],
+      groups: rooms.length ? [{ name: HUYA_GROUP, dataList: rooms.map(toChannel) }] : [],
       meta: { skipped: warnings, warnings },
     }
   },

@@ -219,6 +219,17 @@ B站 / 虎牙 / 斗鱼 / 咪咕 ─┐
 ## ❓ 常见问题
 
 <details>
+<summary><b>后台有央视频、虎牙、斗鱼，LunaTV 却导入不到？</b></summary>
+
+<br>
+
+部分 LunaTV / MoonTV 版本只把 `#EXTINF` 紧接的下一行当播放地址，遇到中间的 `#EXTVLCOPT:network-caching` 缓冲提示会漏掉整个频道（issue #114）。本项目的 M3U 输出已省略仅含缓冲提示的选项块，也兼容升级前的频道缓存。运行包含此修复的版本后，在 LunaTV 管理后台刷新直播源即可，订阅地址无需更换；缓冲时长由播放器自行设置。
+
+B站等直连源的 `Referer` / `User-Agent` 属于播放所需的请求头，仍会保留。若使用的 LunaTV 版本不能解析并传递这些选项，这类频道需要在客户端侧适配，不能靠删除请求头或切换 `relay=1/2` 修复。
+
+</details>
+
+<details>
 <summary><b>某些播放器点开频道后只有声音、没有画面？</b></summary>
 
 <br>

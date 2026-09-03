@@ -7,6 +7,7 @@ import { getKeywordGroupRules } from "./groupRulesAPI.js";
 import { hasSourceFallbackGroups } from "./sourceGroupFallback.js";
 import { resolverFor, listModules } from "../extractors/registry.js";
 import { getExtractorManager, getModuleConfig } from "./extractorManager.js";
+import { omitPlayerOnlyOpts } from "./channelOpts.js";
 
 /**
  * 清空各模块的解析缓存。
@@ -258,6 +259,9 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix, 
   // 剥离内部属性 source-ids（issue #29/#68 源归属标记）后再输出给播放器：
   // 覆盖两条路径——原始 interface.txt 直出 与 applyConfig 重生成（generateM3u8 不写该属性，正则兜底无副作用）
   result.content = `${result.content}`.replace(/ source-ids="[^"]*"/g, "").replaceAll("${replace}", replaceHost);
+
+  // 原始缓存直出和配置档重生成都在这里处理；TXT 没有 M3U 选项，EPG 已提前返回。
+  if (url !== '/txt') result.content = omitPlayerOnlyOpts(result.content)
 
   return result
 }

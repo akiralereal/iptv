@@ -85,7 +85,5 @@ export function buildChannels() {
     name: channel.name,
     deferredRef: `ysp-${channel.id}`,
     logo: '',
-    opts: ['network-caching=3000'],
   }))
 }
-

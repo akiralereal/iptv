@@ -1445,7 +1445,7 @@ await checkAsync('虎牙：模块抓取赛事卡片，播放时才刷新签名�
   assert.equal(fetched.groups[0].name, '虎牙')
   assert.equal(fetched.groups[0].dataList[0].deferredRef, 'huya-660101')
   assert.equal(fetched.groups[0].dataList[0].relayHls, true)
-  assert.deepEqual(fetched.groups[0].dataList[0].opts, ['network-caching=3000'])
+  assert.equal(fetched.groups[0].dataList[0].opts, undefined, 'LunaTV 导入时 EXTINF 后必须紧跟地址')
 
   const resolved = await resolveHuyaRoom('huya-660101', {
     now: 1700000000000,
@@ -1560,7 +1560,7 @@ await checkAsync('斗鱼：模块抓取分类热门房间，播放时匿名刷�
   assert.equal(fetched.groups[0].dataList.length, 1, '默认 10 万人气应过滤第二条')
   assert.equal(fetched.groups[0].dataList[0].deferredRef, 'douyu-9999')
   assert.equal(fetched.groups[0].dataList[0].relayHls, true)
-  assert.deepEqual(fetched.groups[0].dataList[0].opts, ['network-caching=3000'])
+  assert.equal(fetched.groups[0].dataList[0].opts, undefined, 'LunaTV 导入时 EXTINF 后必须紧跟地址')
 
   let calls = 0
   const resolved = await resolveDouyuRoom('douyu-9999', {

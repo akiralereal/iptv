@@ -128,6 +128,23 @@ export function renderOpts(opts) {
 }
 
 /**
+ * 对外订阅省略仅含播放器提示的选项块（issue #114）。LunaTV 只认 EXTINF
+ * 的下一行地址，network-caching 会让整个频道被丢弃。防盗链请求头仍须保留，
+ * 未识别的选项也不擅自删除；内部缓存继续保留完整 opts，升级不必等源刷新。
+ */
+export function omitPlayerOnlyOpts(content) {
+  return String(content).replace(
+    /(^#EXTINF:[^\r\n]*\r?\n)((?:#EXTVLCOPT:[^\r\n]*\r?\n)+)/gm,
+    (entry, info, block) => {
+      const opts = block.trimEnd().split(/\r?\n/).map(parseOptLine)
+      return opts.every(opt => opt && PLAYER_KEYS.has(opt.slice(0, opt.indexOf('='))))
+        ? info
+        : entry
+    },
+  )
+}
+
+/**
  * 该频道是否**依赖自定义请求头**才能播。
  *
  * TXT（diyp / TVBox）格式只有「频道名,地址」两列，没有承载请求头的位置——

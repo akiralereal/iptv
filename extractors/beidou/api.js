@@ -1,22 +1,24 @@
 /** 辽宁「北斗融媒」省、市台目录与阿里云 HLS 短签名。 */
 import { createHash } from 'node:crypto'
 import fetch from 'node-fetch'
+import { createOauthSign, decodeOauth } from './auth.js'
 
 const UA = 'okhttp/4.12.0'
 const CATALOG_TTL_MS = 10 * 60 * 1000
 const CATALOG_RETRY_MS = 60 * 1000
 const STREAM_TTL_SECONDS = 30 * 60
+const AUTH_TTL_MS = 10 * 60 * 1000
+const AUTH_RETRY_MS = 5000
 
-// 北斗融媒各融媒租户使用独立 CDN 拉流密钥和 Referer。它们随公开客户端发布，
-// 不是用户凭据，但属于可能随客户端版本调整的平台实现参数。
+// CDN Referer 会轮换，必须从 getOauth 动态取得，不能把某次解析结果固定在这里。
 export const TENANTS = [
   {
     id: 'liaoning', label: '辽宁省台', group: '辽宁', host: 'bdrm.bdy.lnyun.com.cn', tabId: 3,
-    streamHost: 'bdrmtvzb.lnyun.com.cn', pullKey: 'MbLqEBSNY8Di3WFP', cdnReferer: 'http://dggb.bdy.lnyun.com.cn',
+    streamHost: 'bdrmtvzb.lnyun.com.cn',
   },
   {
     id: 'shenyang', label: '沈阳台', group: '辽宁', host: 'sygbdst.bdy.lnyun.com.cn', tabId: 2,
-    streamHost: 'sygbdsttvzb.lnyun.com.cn', pullKey: 'qjW8YviEH1t3z8s6', cdnReferer: 'http://doxe.bdy.lnyun.com.cn',
+    streamHost: 'sygbdsttvzb.lnyun.com.cn',
   },
 ]
 
@@ -41,16 +43,18 @@ const CHANNEL_NAMES = new Map(Object.entries({
 
 let catalogCache = new Map()
 const catalogPending = new Map()
+let authCache = new Map()
+let authPending = new Map()
 
 function apiHeaders(tenant) {
   return { 'User-Agent': UA, backos: 'phone', Referer: `https://${tenant.host}`, Accept: 'application/json' }
 }
 
-async function requestJson(url, tenant, { timeoutMs = 10000, fetchImpl = fetch } = {}) {
+async function requestJson(url, tenant, { timeoutMs = 10000, fetchImpl = fetch, method = 'GET' } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetchImpl(url, { headers: apiHeaders(tenant), signal: controller.signal })
+    const response = await fetchImpl(url, { method, headers: apiHeaders(tenant), signal: controller.signal })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const payload = await response.json()
     if (Number(payload?.code) !== 200) throw new Error(payload?.msg || `接口状态 ${payload?.code}`)
@@ -61,6 +65,34 @@ async function requestJson(url, tenant, { timeoutMs = 10000, fetchImpl = fetch }
   } finally {
     clearTimeout(timer)
   }
+}
+
+async function cachedTenantAuth(tenant, channelId, options) {
+  const now = Number(options.now ?? Date.now())
+  // 同一 CDN 的频道共享鉴权；局部引用避免清缓存时旧请求写回新缓存。
+  const cache = authCache
+  const pending = authPending
+  const cached = cache.get(tenant.id)
+  if (cached?.expiresAt > now) return cached.auth
+  if (cached?.retryAt > now) throw new Error(cached.error)
+  if (!pending.has(tenant.id)) {
+    const params = new URLSearchParams({ domainId: channelId, version: '5', sign: createOauthSign(channelId, now) })
+    const request = requestJson(`https://${tenant.host}/cloud/apis/live/api/domain/getOauth?${params}`, tenant, {
+      ...options, method: 'POST',
+    }).then(payload => {
+      const auth = decodeOauth(payload, tenant.streamHost)
+      // referTimeOut 为剩余秒数。提前 30 秒刷新，并至多缓存 10 分钟。
+      const ttl = Math.max(0, Math.min(AUTH_TTL_MS, auth.remainingSeconds * 1000 - 30000))
+      cache.set(tenant.id, { auth, expiresAt: now + ttl })
+      return auth
+    }).catch(error => {
+      // 失败重试短暂退避，过期 Referer 不再回退使用。
+      cache.set(tenant.id, { retryAt: Number(options.now ?? Date.now()) + AUTH_RETRY_MS, error: error.message })
+      throw error
+    }).finally(() => pending.delete(tenant.id))
+    pending.set(tenant.id, request)
+  }
+  return pending.get(tenant.id)
 }
 
 function parsePageConfig(raw) {
@@ -218,17 +250,18 @@ export function buildChannelGroups(rows) {
 }
 
 /** auth_key = expiry-0-0-md5(path-expiry-0-0-pullKey)。 */
-export function signStreamUrl(rawUrl, tenantId, now = Date.now()) {
+export function signStreamUrl(rawUrl, tenantId, pullKey, now = Date.now()) {
   const tenant = TENANT_BY_ID.get(String(tenantId || ''))
   if (!tenant) throw new Error('未知北斗融媒租户')
   const url = new URL(rawUrl)
   if (url.protocol !== 'https:' || url.hostname !== tenant.streamHost || !/\.m3u8$/i.test(url.pathname)) {
     throw new Error('播放地址不是该北斗融媒租户的 HTTPS HLS')
   }
+  if (typeof pullKey !== 'string' || !pullKey) throw new Error('北斗融媒拉流密钥为空')
   const expires = Math.floor(Number(now) / 1000) + STREAM_TTL_SECONDS
   if (!Number.isSafeInteger(expires) || expires < 1) throw new Error('签名时间无效')
   const digest = createHash('md5')
-    .update(`${url.pathname}-${expires}-0-0-${tenant.pullKey}`)
+    .update(`${url.pathname}-${expires}-0-0-${pullKey}`)
     .digest('hex')
   url.searchParams.set('auth_key', `${expires}-0-0-${digest}`)
   return url.href
@@ -247,10 +280,11 @@ export async function resolveChannel(ref, ctx = {}) {
     })
     const row = rows.find(item => item.id === channelId)
     if (!row) return { url: '', desc: `${tenant.label}频道当前不在官方电视列表中` }
+    const auth = await cachedTenantAuth(tenant, channelId, ctx)
     return {
-      url: signStreamUrl(row.url, tenantId, ctx.now ?? Date.now()),
+      url: signStreamUrl(row.url, tenantId, auth.pullKey, ctx.now ?? Date.now()),
       desc: `${row.name}短效播放地址生成成功`,
-      upstreamHeaders: { Referer: tenant.cdnReferer },
+      upstreamHeaders: { Referer: auth.referer },
     }
   } catch (error) {
     return { url: '', desc: `辽宁北斗融媒链接请求失败：${error?.message || String(error)}` }
@@ -260,4 +294,6 @@ export async function resolveChannel(ref, ctx = {}) {
 export function clearCache() {
   catalogCache = new Map()
   catalogPending.clear()
+  authCache = new Map()
+  authPending = new Map()
 }

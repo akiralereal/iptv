@@ -1,0 +1,20 @@
+{
+  "beforeRotation": {
+    "code": 200,
+    "data": {
+      "domain": "bdrmtvzb.lnyun.com.cn",
+      "refer": "e55v+VNw09trGeWGuBx8NgWsDmo06QkJBbX8itvV4idchkrUKVvzvzq9nyDFa2tiOWFNMooFhS4hX5XW5h/x9Uoqlx9h1olpnj7/h8i1FgCYJZEnfXyOrxAhCevTQAZPwywzsEsBwjlsijI5S2fPUrLqIpm0c8aJoNpinXgwhu8=",
+      "pullKey": "srpiNcql8kn21Sjh59/BAbh/Mq9BOXu+2zCfZUVhZIJW9FEdi0r/fnU6r1rTL+gtDTyH0cbKRURa5SJk0C5Y+aikAVa0KOpA3OuhNOzrfCOH+Nz1A+LYIraYUYdMoXB0Y7ktxXuXPntWURdJvSHsRR4F5fHAGFsa54yBgV+YZrU=",
+      "referTimeOut": "120"
+    }
+  },
+  "afterRotation": {
+    "code": 200,
+    "data": {
+      "domain": "bdrmtvzb.lnyun.com.cn",
+      "refer": "XzEBQPM/raz+OjxhH1Fm35WG0fiQJ5abor1RirrqYDUTDz/FWl9NqMLFupMMbX281rXtPINz3ZTDYpjiJ77SnG3uRlviKLwtD/LvbjtsqZYAFGGcdPl4/7C7nfGOLNtYWHrSbJyCPI0fWPiwaCD5mfiFynScxy++GFmNl7XaMi0=",
+      "pullKey": "ZvdgJybTgaMIIWaL6zEitBp8inAAFv6cqwOzTFitaGS2BpjIpT+0hwrWj8HPEpCMDqn0jjnIiSEGnQmTgsGIF76/JkAZNwHHU+fv8uCKi2SMiEkF91f/VkScOvfPPUNzaArfgUF6SPpoDhACini02w5VlGQRcPFjasQhdBZstnk=",
+      "referTimeOut": "120"
+    }
+  }
+}

@@ -87,6 +87,7 @@ await checkAsync('主 CDN 清单失败后切换备用 CDN，拍平成媒体清�
     'https://good.ysp.cctv.cn/master.m3u8',
   ], { fetchImpl })
   assert.equal(result.url, 'https://good.ysp.cctv.cn/media.m3u8')
+  assert.equal(result.sourceUrl, 'https://good.ysp.cctv.cn/master.m3u8', '保留可重新调度的官方入口')
   assert.match(result.text, /part\.ts/)
   // 官方 CDN 对短间隔重复请求回 403：换票时补这一枪分片会在 CDN 正常时把主备全判死。
   assert.equal(calls.some(url => url.endsWith('/part.ts')), false, '选 CDN 阶段不得试拉分片')
@@ -117,19 +118,84 @@ await checkAsync('同频道并发解析只取一次票，TTL 到期后自动换�
   assert.equal(requests, 2)
 })
 
-await checkAsync('绝不缓存清单正文：每次解析都只给入口地址，交回代理层实时取清单', async () => {
+await checkAsync('每次解析返回新清单，正文不随 5 分钟取票缓存复用，代理层无需重复请求', async () => {
   // 直播清单每 3 秒滚动一次，缓存正文会让播放器在整个 TTL 内反复拿到同一批分片而卡死。
+  let requests = 0
+  let selects = 0
   const resolver = createResolver({
-    request: async () => ({ urls: ['https://good.ysp.cctv.cn/live.m3u8'] }),
-    select: async () => ({ text: '#EXTM3U\n#EXTINF:6,\na.ts\n', url: 'https://good.ysp.cctv.cn/live.m3u8' }),
+    request: async () => { requests++; return { urls: ['https://good.ysp.cctv.cn/live.m3u8'] } },
+    select: async () => ({ text: `#EXTM3U\n#EXTINF:6,\npart-${++selects}.ts\n`, url: 'https://good.ysp.cctv.cn/live.m3u8' }),
   })
   const result = await resolver.resolve('ysp-cctv1', { now: 0 })
   assert.equal(result.url, 'https://good.ysp.cctv.cn/live.m3u8')
-  assert.equal(result.manifestText, undefined, 'manifestText 会被 app.js 直接下发，缓存正文等于下发陈旧分片')
-  assert.equal(result.manifestUrl, undefined)
+  assert.match(result.manifestText, /part-1\.ts/)
+  assert.equal(result.manifestUrl, result.url)
   assert.equal(result.upstreamHeaders?.Referer, 'https://live.cctv.cn/')
+  const next = await resolver.resolve('ysp-cctv1', { now: 6000 })
+  assert.match(next.manifestText, /part-2\.ts/, '轮询必须拿到滚动后的分片')
+  assert.equal(requests, 1, '清单实时刷新不能导致每次都重新取票')
+  assert.equal(selects, 2)
   const cached = [...resolver.cache.values()]
-  assert.ok(cached.every(entry => !('manifest' in entry) && !('text' in entry)), '缓存条目里不得留存清单正文')
+  assert.ok(cached.every(entry => !('manifest' in entry) && !('text' in entry) && !('manifestText' in entry)), '缓存条目里不得留存清单正文')
+})
+
+await checkAsync('缓存主线失效时可换备用入口，不复用重定向后的临时媒体地址', async () => {
+  const urls = ['https://main.ysp.cctv.cn/live.m3u8', 'https://backup.ysp.cctv.cn/live.m3u8']
+  let requests = 0
+  let selects = 0
+  const resolver = createResolver({
+    request: async () => { requests++; return { urls } },
+    select: async candidates => {
+      selects++
+      assert.equal(candidates.includes('https://temporary.ysp.cctv.cn/media.m3u8'), false)
+      assert.equal(candidates.length, 2)
+      if (selects === 3) assert.equal(candidates[0], urls[1], '上次成功的备用入口优先')
+      return {
+        url: 'https://temporary.ysp.cctv.cn/media.m3u8',
+        sourceUrl: urls[selects === 1 ? 0 : 1],
+        text: `#EXTM3U\n#EXTINF:6,\npart-${selects}.ts\n`,
+      }
+    },
+  })
+  await resolver.resolve('ysp-cctv2', { now: 0 })
+  const recovered = await resolver.resolve('ysp-cctv2', { now: 6000 })
+  assert.match(recovered.manifestText, /part-2/)
+  await resolver.resolve('ysp-cctv2', { now: 12000 })
+  assert.equal(requests, 1, '备用可用时不必重新取票')
+})
+
+await checkAsync('缓存主备全部 403 时提前换票，同频道并发恢复只换一次', async () => {
+  let requests = 0
+  let oldCalls = 0
+  const resolver = createResolver({
+    request: async () => ({ urls: [`https://good.ysp.cctv.cn/ticket-${++requests}.m3u8`] }),
+    select: async urls => {
+      if (urls[0].includes('ticket-1') && ++oldCalls > 1) throw new Error('清单 HTTP 403')
+      return { url: urls[0], text: '#EXTM3U\n#EXTINF:6,\npart.ts\n' }
+    },
+  })
+  await resolver.resolve('ysp-cctv2', { now: 0 })
+  const results = await Promise.all([
+    resolver.resolve('ysp-cctv2', { now: 6000 }),
+    resolver.resolve('ysp-cctv2', { now: 6000 }),
+  ])
+  assert.equal(requests, 2)
+  assert.ok(results.every(result => result.url.endsWith('/ticket-2.m3u8')))
+})
+
+await checkAsync('CCTV1 切换 CCTV2 时两台缓存独立，切回也读取最新清单', async () => {
+  const requests = []
+  let selects = 0
+  const resolver = createResolver({
+    request: async channel => { requests.push(channel.id); return { urls: [`https://good.ysp.cctv.cn/${channel.id}.m3u8`] } },
+    select: async urls => ({ url: urls[0], text: `#EXTM3U\n#EXTINF:6,\npart-${++selects}.ts\n` }),
+  })
+  for (const [i, ref] of ['ysp-cctv1', 'ysp-cctv2', 'ysp-cctv1'].entries()) {
+    const result = await resolver.resolve(ref, { now: i * 6000 })
+    assert.ok(result.url.endsWith(`/${ref.slice(4)}.m3u8`))
+    assert.match(result.manifestText, new RegExp(`part-${i + 1}\\.ts`))
+  }
+  assert.deepEqual(requests, ['cctv1', 'cctv2'])
 })
 
 await checkAsync('解析失败也绝不抛异常，只回空 url 与原因', async () => {

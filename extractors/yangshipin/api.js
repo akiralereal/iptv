@@ -156,7 +156,7 @@ export async function selectWorkingManifest(urls, options = {}) {
       if (variant && isOfficialMediaUrl(variant)) manifest = await fetchManifest(variant, fetchImpl, timeout.signal)
       const segments = mediaSegments(manifest.text, manifest.url)
       if (!segments.length) throw new Error('媒体清单没有分片')
-      return manifest
+      return { ...manifest, sourceUrl: url }
     } catch (error) {
       let host = '未知节点'
       try { host = new URL(url).hostname } catch { /* 保留默认文案 */ }

@@ -27,6 +27,9 @@
  *   preserveGroupSuffixes array   可选；命中这些后缀的特殊分组不被 outputGroupName 覆盖
  *   channelHlsMode        string  可选；'proxy' 或 'relay'，在输出时覆盖频道缓存中的
  *                                 HLS 路由标记，适合整个平台统一要求代理的模块
+ *   streamType            string  可选；默认 hls，flv 由本机流式代理且不转码。
+ *                                 FLV resolve 须返回 validateMediaUrl 校验官方调度跳转。
+ *   capabilities.catchup boolean 可选；false 表示纯直播，不透传回看查询参数。
  *   configSchema          array   字段描述，后台据此渲染表单、后端据此校验
  *
  *   async fetch(config, ctx) → { groups: [{ name, dataList }], meta }
@@ -75,7 +78,7 @@
  *   opts       string[]，#EXTVLCOPT 的 key=value，交给 utils/channelOpts.js 渲染
  *   proxyHls   可选；清单和分片都经本机代理
  *   relayHls   可选；只由本机刷新/改写清单，分片仍由播放器直连 CDN
- *   catchup    可选 { mode, source }，槽位先留着（咪咕的回看将来用）
+ *   catchup    可选 'none'，显式关闭该台继承订阅头的全局回看能力
  *
  * sourceId / source 由 extractorManager 统一盖章，模块不用自己填——
  * `xt:` 这个前缀格式是注册表层的事，模块不该知道。
@@ -86,6 +89,7 @@ import cztv from './cztv/index.js'
 import dalian from './dalian/index.js'
 import douyuLive from './douyu-live/index.js'
 import fjtv from './fjtv/index.js'
+import fengshows from './fengshows/index.js'
 import gdtv from './gdtv/index.js'
 import gztv from './gztv/index.js'
 import gxtv from './gxtv/index.js'
@@ -114,6 +118,7 @@ const MODULES = [
   // 顺序即后台展示顺序，也是 channelMerger 的合并顺序（先到的分组优先保留）
   migu,
   yangshipin,
+  fengshows,
   bilibiliLive,
   huyaLive,
   douyuLive,
@@ -161,6 +166,9 @@ export function validateModule(module) {
     if ((field.type === 'select' || field.type === 'multiselect') && !(field.options || []).length) {
       throw new Error(`抓取模块 ${module.id} 的字段 ${field.key} 声明了 ${field.type} 但没有 options`)
     }
+  }
+  if (module.streamType != null && !['hls', 'flv'].includes(module.streamType)) {
+    throw new Error(`抓取模块 ${module.id} 的 streamType 非法`)
   }
 }
 

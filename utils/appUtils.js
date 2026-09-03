@@ -329,7 +329,7 @@ async function channel(url, urlUserId, urlToken) {
 
   // 添加回放参数。必须是裸字符串拼接——统一用 new URL()/URLSearchParams 构造
   // 会把 puData / ddCalcu 里的原始字符重新编码，签名当场失效。
-  if (params != "") {
+  if (params != "" && module.capabilities?.catchup !== false) {
     const resultParams = new URLSearchParams(params);
     for (const [key, value] of resultParams) {
       playURL = `${playURL}&${key}=${value}`
@@ -349,6 +349,8 @@ async function channel(url, urlUserId, urlToken) {
   result.manifestUrl = resolved.manifestUrl
   // 平台可要求旧的无后缀入口也直出动态 HLS 清单；用于兼容已收藏/已下发的旧地址。
   result.relayHls = resolved.relayHls === true
+  result.streamType = module.streamType || 'hls'
+  result.validateMediaUrl = resolved.validateMediaUrl
   return result
 }
 

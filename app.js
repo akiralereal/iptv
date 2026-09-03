@@ -1,4 +1,6 @@
 import http from "node:http"
+import { resolverFor } from './extractors/registry.js'
+import { pipeFlv } from './utils/flvProxy.js'
 import { readFileSync, mkdirSync, existsSync } from "node:fs"
 import { createRequire } from "node:module"
 import fetch from 'node-fetch'
@@ -224,6 +226,15 @@ async function handleRequest(req, res) {
       res.end('Admin page not found');
       printRed("管理页面文件不存在")
     }
+    return
+  }
+
+  // Public, fixed player library asset; no user content or credentials.
+  if (urlPath === '/player-assets/mpegts.js') {
+    if (!['GET', 'HEAD'].includes(method)) { res.writeHead(405); res.end(); return }
+    const library = readFileSync(new URL('./web/vendor/mpegts.js', import.meta.url))
+    res.writeHead(200, { 'Content-Type': 'text/javascript;charset=UTF-8', 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' })
+    res.end(method === 'HEAD' ? undefined : library)
     return
   }
 
@@ -1102,6 +1113,7 @@ async function handleRequest(req, res) {
   // 长度本就在变，HEAD 报的值与随后 GET 的必然对不上，为这个达不到的准确性付整条解析链
   // 的代价并不划算。
   if (method === "OPTIONS" || method === "HEAD") {
+    const streamType = resolverFor(routeUrl.split('?')[0].replace(/^\//, ''))?.streamType
     if (relayMode || proxyMode) {
       const client = clientOf(req)
       const kind = proxyMode ? '全代理' : '兼容'
@@ -1114,7 +1126,7 @@ async function handleRequest(req, res) {
     res.writeHead(200, {
       // 清单直出地址按 HLS 类型应答 HEAD 探测：部分播放器播放前先 HEAD 判断类型，
       // 回 application/json 会被判定「不可播放」（issue #98）
-      'Content-Type': (relayMode || proxyMode) ? 'application/vnd.apple.mpegurl' : 'application/json;charset=UTF-8',
+      'Content-Type': streamType === 'flv' ? 'video/x-flv' : (relayMode || proxyMode) ? 'application/vnd.apple.mpegurl' : 'application/json;charset=UTF-8',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, HEAD, OPTIONS',
       'Access-Control-Allow-Headers': '*'
@@ -1177,6 +1189,12 @@ async function handleRequest(req, res) {
       'Content-Type': 'application/json;charset=UTF-8',
     });
     res.end(result.desc)
+    return
+  }
+
+  if (result.streamType === 'flv') {
+    const streamed = await pipeFlv(result.playURL, req, res, result.validateMediaUrl)
+    if (!streamed.ok && !streamed.disconnected) printYellow(`FLV 直播 ${routeUrl.split('?')[0]}：${streamed.error}`)
     return
   }
 

@@ -164,11 +164,14 @@
 
     <script src="https://cdn.jsdelivr.net/npm/dplayer@1.27.1/dist/DPlayer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="/player-assets/mpegts.js"></script>
     <script>
         // 从URL参数获取播放信息
         const urlParams = new URLSearchParams(window.location.search);
         const videoUrl = urlParams.get('url');
         const channelName = urlParams.get('name') || '未知频道';
+        let streamCleanup = () => {};
+        window.addEventListener('pagehide', () => streamCleanup());
         
         // 显示频道信息
         document.getElementById('channelName').textContent = channelName;
@@ -206,8 +209,8 @@
                 // Content-Type 直出动态清单；网页播放器也要显式走 hls.js。
                 let sameOriginStream = false;
                 try { sameOriginStream = new URL(videoUrl, window.location.href).origin === window.location.origin; } catch {}
-                const videoType = videoUrl.toLowerCase().includes('.m3u8') || sameOriginStream ? 'hls' :
-                                 videoUrl.toLowerCase().includes('.flv') ? 'flv' : 'auto';
+                const isFlv = /\.flv(?:[?#]|$)/i.test(videoUrl);
+                const videoType = isFlv ? 'flv' : videoUrl.toLowerCase().includes('.m3u8') || sameOriginStream ? 'hls' : 'auto';
                 
                 const dp = new DPlayer({
                     container: document.getElementById('dplayer'),
@@ -222,6 +225,30 @@
                         url: videoUrl,
                         type: videoType,
                         customType: {
+                            flv: function(video) {
+                                if (!mpegts.getFeatureList().mseLivePlayback) { showError('当前浏览器不支持 FLV，请使用 VLC、IINA 等播放器'); return; }
+                                let engine, timer, stable, attempts = 0, closed = false;
+                                const destroy = () => { clearTimeout(stable); if (engine) { const old = engine; engine = null; old.off(mpegts.Events.ERROR, retry); old.off(mpegts.Events.LOADING_COMPLETE, retry); old.destroy(); } };
+                                const retry = () => {
+                                    clearTimeout(stable);
+                                    if (closed || timer) return;
+                                    if (attempts >= 6) { destroy(); showError('直播连接失败，请检查账号配置或重新打开频道'); return; }
+                                    timer = setTimeout(() => { timer = null; connect(); }, Math.min(30000, 2000 * 2 ** attempts++));
+                                };
+                                const connect = () => {
+                                    destroy();
+                                    if (closed) return;
+                                    engine = mpegts.createPlayer({type:'flv', isLive:true, url:videoUrl}, {enableWorker:false, lazyLoad:false, autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:20, autoCleanupMinBackwardDuration:10});
+                                    engine.on(mpegts.Events.ERROR, retry);
+                                    engine.on(mpegts.Events.LOADING_COMPLETE, retry);
+                                    engine.attachMediaElement(video); engine.load();
+                                    video.play().catch(() => {});
+                                };
+                                const playing = () => { clearTimeout(stable); stable = setTimeout(() => { attempts = 0; }, 30000); };
+                                video.addEventListener('playing', playing);
+                                streamCleanup = () => { closed = true; clearTimeout(timer); destroy(); video.removeEventListener('playing', playing); };
+                                connect();
+                            },
                             hls: function (video, player) {
                                 const hls = new Hls({
                                     enableWorker: true,
@@ -230,6 +257,7 @@
                                 });
                                 hls.loadSource(video.src);
                                 hls.attachMedia(video);
+                                streamCleanup = () => hls.destroy();
                                 
                                 hls.on(Hls.Events.ERROR, function (event, data) {
                                     // 直接 console.error(data) 在内置浏览器日志里只显示 "Object"，

@@ -3183,6 +3183,17 @@
         // 模块可以声明 helper，在自己的卡片里多渲染一块辅助 UI。
         // markup 留在这里而不是模块文件：配套的 CSS、引导弹窗、bookmarklet 代码都在本页。
         function extractorHelperHtml(key, secretsSet, config) {
+            if (key === 'fengshows-bookmarklet') {
+                const configured = !!secretsSet.token;
+                return `<div class="bookmarklet-section" style="margin:0 0 12px;">
+                    <div class="bookmarklet-title"><span>🔑</span><span>凤凰秀账号</span>
+                        <span class="login-state-badge ${configured ? 'on' : 'off'}">${configured ? '已配置 Token · 自动请求 720p' : '访客模式 · 480p'}</span>
+                    </div>
+                    <div class="bookmarklet-actions"><a id="fengshowsBookmarklet" class="bookmarklet-link" draggable="true">获取凤凰秀 Token</a>
+                        <a href="https://www.fengshows.com/live" target="_blank" rel="noreferrer">打开凤凰秀官网 ↗</a></div>
+                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;">普通账号即可获取三台 720p / 25 帧，无需付费会员。把“获取凤凰秀 Token”拖到书签栏，在已登录的官网点击，再将复制结果粘贴到下方并保存。也可在开发者工具 Application → Cookies 中复制 App.user.token。凭证过期后重新获取。</div>
+                </div>`;
+            }
             if (key === 'migu-bookmarklet') {
                 // 与 B 站同款的登录态徽标。咪咕的「已登录」= 账号 ID（明文，在 config 里）
                 // 和 Token（secret，只回传有没有值）都填了；画质后果直接写在徽标上——
@@ -3438,6 +3449,7 @@
 
             // 助手随展开区一起重建，每次渲染后重新挂一次
             initMiguBookmarklet();
+            initFengshowsBookmarklet();
             // 记录本次渲染的初始值，保存时只提交用户改过的字段（见函数注释）
             captureExtractorInitialValues(m);
 
@@ -5703,6 +5715,19 @@
         }
 
         // 初始化咪咕账号获取Bookmarklet
+        function initFengshowsBookmarklet() {
+            const link = document.getElementById('fengshowsBookmarklet');
+            if (!link) return;
+            link.href = `javascript:(()=>{try{
+if(location.hostname!=='www.fengshows.com')throw new Error('请在凤凰秀官网登录后使用');
+const entry=document.cookie.split(';').map(x=>x.trim()).find(x=>x.startsWith('App.user.token='));
+if(!entry)throw new Error('未找到 Token，请先登录凤凰秀');
+let token=decodeURIComponent(entry.slice('App.user.token='.length));
+if(token.startsWith('"'))token=JSON.parse(token);
+navigator.clipboard.writeText(token).then(()=>alert('Token 已复制，请粘贴到 IPTV 源管理 → 凤凰卫视 → Token 并保存。')).catch(()=>prompt('请复制 Token：',token));
+}catch(e){alert(e.message)}})()`;
+        }
+
         function initMiguBookmarklet() {
             const bookmarkletCode = `javascript:(function(){
 try{

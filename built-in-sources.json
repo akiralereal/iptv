@@ -1,4 +1,5 @@
 {
+  "_comment": "内置单频道源清单。运行时优先从仓库 raw 拉取本文件（见 utils/builtInSources.js），所以改这里 push 即生效、无需发版重建镜像。抓取型源的入口地址：webUrl 是主地址（旧版本只认它，必须保留且指向当前最好用的站），webUrls 是备用地址清单，抓不到时按顺序重试；每轮最多试 maxAttemptsPerRun 个（默认 3）。",
   "enabled": true,
   "sources": [
     {
@@ -7,6 +8,11 @@
       "group": "体育",
       "mode": "fetch",
       "webUrl": "https://www.jrs03.com/wlty.html",
+      "webUrls": [
+        "https://www.jrs03.com/wlty.html",
+        "https://www.jrkan.com/wlty.html"
+      ],
+      "maxAttemptsPerRun": 3,
       "enabled": true,
       "updateOnStartup": true,
       "autoRefresh": true,

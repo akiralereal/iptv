@@ -3,7 +3,7 @@ import { writeJsonFileSync } from "./fileUtil.js"
 import { dataPath } from "./paths.js"
 import { enableBuiltInSources } from "../config.js"
 import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
-import { extractM3u8FromWeb } from "./webSourceExtractor.js"
+import { extractM3u8FromWeb, validateM3u8 } from "./webSourceExtractor.js"
 import { FailureBackoff } from "./refreshBackoff.js"
 import fetch from "node-fetch"
 
@@ -27,6 +27,59 @@ const GITHUB_RAW_MIRRORS = [
   (url) => toJsdelivr(url, 'https://gcore.jsdelivr.net/gh/'),
   (url) => toJsdelivr(url, 'https://cdn.jsdelivr.net/gh/'),
 ]
+
+// 一轮刷新里最多尝试几个抓取网址。抓一个地址就要起一次 Chromium（页面超时 30s），
+// 远程配置塞十几个备用域名时不加限制会让单轮跑掉十几分钟，低配 NAS 上尤其难受。
+// 可按源用 maxAttemptsPerRun 覆盖。
+const DEFAULT_MAX_FETCH_ATTEMPTS = 3
+
+/**
+ * 源的抓取网址候选清单：webUrl（主地址）+ webUrls（备用地址数组），去重保序。
+ *
+ * webUrl 必须一直保留、且是第一顺位：远程配置会被**线上跑着的旧版本**拉走，旧版只认
+ * source.webUrl；只写 webUrls 会让老镜像抓 undefined。所以「换主站」= 改 webUrl，
+ * 「加备胎」= 往 webUrls 里追加。
+ */
+export function getWebUrlCandidates(source) {
+  const list = []
+  const push = (value) => {
+    if (typeof value !== 'string') return
+    const url = value.trim()
+    if (!/^https?:\/\//i.test(url)) return
+    if (!list.includes(url)) list.push(url)
+  }
+  push(source?.webUrl)
+  if (Array.isArray(source?.webUrls)) source.webUrls.forEach(push)
+  return list
+}
+
+/**
+ * 本轮的尝试顺序：上次抓成功的地址排最前（它多半还活着，省掉前面几个死站各一次
+ * Chromium 启动），其余按配置顺序；再按 maxAttemptsPerRun 截断。
+ * 上次成功的地址一旦整轮失败，缓存会被清掉，下轮自然回到配置顺序。
+ */
+export function orderWebUrlCandidates(candidates, lastUsedUrl, maxAttempts = DEFAULT_MAX_FETCH_ATTEMPTS) {
+  const ordered = candidates.includes(lastUsedUrl)
+    ? [lastUsedUrl, ...candidates.filter(u => u !== lastUsedUrl)]
+    : [...candidates]
+  const limit = Math.max(1, Number(maxAttempts) || DEFAULT_MAX_FETCH_ATTEMPTS)
+  return ordered.slice(0, limit)
+}
+
+/**
+ * 远程配置更新后，某个 fetch 源的抓取缓存还能不能继续用。
+ * 判据是「缓存里那条链接是从哪个地址抓来的，那个地址还在不在新清单里」——
+ * 只是给清单**追加备用地址**时不该白白重抓，而主地址被换掉/移除时必须重抓。
+ * 老缓存没记 webUrl（升级前写的）时退回比对主地址。
+ */
+export function shouldInvalidateFetchCache(oldSource, newSource, cacheEntry) {
+  if (!cacheEntry) return false
+  const newList = getWebUrlCandidates(newSource)
+  if (newList.length === 0) return true
+  const usedUrl = cacheEntry.webUrl
+  if (usedUrl) return !newList.includes(usedUrl)
+  return getWebUrlCandidates(oldSource)[0] !== newList[0]
+}
 
 /**
  * 内置源管理器
@@ -166,20 +219,83 @@ class BuiltInSourceManager {
   }
 
   /**
-   * 远程配置里 fetch 源的 webUrl 若相比当前发生变化，清掉其旧抓取缓存以便用新地址重抓
+   * 远程配置里 fetch 源的抓取网址若已换掉，清其旧抓取缓存以便用新地址重抓。
+   * 判据见 shouldInvalidateFetchCache：只往清单里追加备用地址不算变更、不重抓。
    */
   invalidateChangedFetchCaches(newConfig) {
     const oldById = {}
     for (const s of (this.sources.sources || [])) oldById[s.id] = s
     let changed = false
     for (const s of newConfig.sources) {
-      if (s.mode === 'fetch' && oldById[s.id] && oldById[s.id].webUrl !== s.webUrl && this.cache[s.id]) {
+      if (s.mode !== 'fetch') continue
+      const old = oldById[s.id]
+      if (!old) continue
+      if (shouldInvalidateFetchCache(old, s, this.cache[s.id])) {
         delete this.cache[s.id]
         changed = true
-        printYellow(`内置源 ${s.name} 的 webUrl 已变更，清除旧抓取缓存以重新抓取`)
+        printYellow(`内置源 ${s.name} 的抓取网址已变更，清除旧抓取缓存以重新抓取`)
       }
     }
     if (changed) this.saveCache()
+  }
+
+  /**
+   * 依次尝试源的多个抓取网址，取第一个能抓到可用直播地址的结果。
+   *
+   * 单个站点被墙 / 换域名 / 挂掉是常态（纬来体育所在的 jrs 系尤其能换），所以这里
+   * 允许配多个入口：顺序见 orderWebUrlCandidates（上次成功的优先），一个抓不到就换下一个。
+   * 「抓到了」不等于「能播」——站还在但流停了也会抓出链接，故逐个 validateM3u8；
+   * 某个地址抓到了但都没过校验，先留作兜底、继续试下一个，全都没过再用兜底
+   * （与改造前「抓到什么用什么」保持一致，不会因为校验误判而倒退成没有频道）。
+   *
+   * @returns {Promise<{m3u8Url: string|null, webUrl: string|null, error?: string}>}
+   */
+  async extractWithFallback(source) {
+    const candidates = getWebUrlCandidates(source)
+    if (candidates.length === 0) {
+      return { m3u8Url: null, webUrl: null, error: '未配置抓取网址（webUrl / webUrls）' }
+    }
+    const order = orderWebUrlCandidates(candidates, this.cache[source.id]?.webUrl, source.maxAttemptsPerRun)
+    const multi = order.length > 1
+    let fallback = null      // 抓到了但没过校验的兜底结果
+    let lastError = ''
+
+    for (let i = 0; i < order.length; i++) {
+      const webUrl = order[i]
+      if (multi) printBlue(`  [${i + 1}/${order.length}] 尝试抓取网址: ${webUrl}`)
+      let links = []
+      try {
+        const extracted = await extractM3u8FromWeb(webUrl, { ...(source.extractOptions || {}), returnAll: true })
+        links = Array.isArray(extracted) ? extracted : extracted ? [extracted] : []
+      } catch (error) {
+        lastError = error.message
+        printYellow(`  ${webUrl} 抓取异常: ${error.message}`)
+        continue
+      }
+
+      if (links.length === 0) {
+        lastError = '未找到m3u8链接'
+        if (multi) printYellow(`  ${webUrl} 未找到 m3u8，换下一个地址`)
+        continue
+      }
+
+      for (const link of links) {
+        if (await validateM3u8(link, { referer: webUrl })) {
+          return { m3u8Url: link, webUrl }
+        }
+      }
+
+      // 校验全没过：留最长的那条（通常参数最全）作兜底，继续试下一个地址
+      if (!fallback) fallback = { m3u8Url: [...links].sort((a, b) => b.length - a.length)[0], webUrl }
+      lastError = 'm3u8校验未通过'
+      if (multi) printYellow(`  ${webUrl} 抓到 ${links.length} 个链接但校验未通过，换下一个地址`)
+    }
+
+    if (fallback) {
+      printYellow(`${source.name} 所有地址均未通过 m3u8 校验，沿用 ${fallback.webUrl} 抓到的链接`)
+      return fallback
+    }
+    return { m3u8Url: null, webUrl: null, error: lastError || '未找到m3u8链接' }
   }
 
   /**
@@ -285,15 +401,14 @@ class BuiltInSourceManager {
       
       try {
         printBlue(`更新内置源: ${source.name}`)
-        
-        const m3u8Url = await extractM3u8FromWeb(
-          source.webUrl,
-          source.extractOptions || {}
-        )
+
+        // 多个抓取网址依次重试，见 extractWithFallback
+        const { m3u8Url, webUrl, error: extractError } = await this.extractWithFallback(source)
 
         if (m3u8Url) {
           this.cache[source.id] = {
             m3u8Url,
+            webUrl,                       // 本次成功的抓取网址：下轮优先重试它，也方便排查是哪个站在供源
             lastUpdate: Date.now(),
             updateTime: new Date().toISOString()
           }
@@ -306,22 +421,24 @@ class BuiltInSourceManager {
             id: source.id, 
             name: source.name, 
             success: true,
-            m3u8Url
+            m3u8Url,
+            webUrl
           })
         } else {
-          printRed(`✗ ${source.name} 更新失败: 未找到m3u8链接`)
+          const reason = extractError || '未找到m3u8链接'
+          printRed(`✗ ${source.name} 更新失败: ${reason}`)
           // 清除旧缓存，避免继续使用已过期的链接
           if (this.cache[source.id]) {
             delete this.cache[source.id]
             this.saveCache()
             printYellow(`✗ ${source.name} 已清除过期缓存`)
           }
-          this.noteFailure(source, '未找到m3u8链接')
+          this.noteFailure(source, reason)
           results.push({ 
             id: source.id, 
             name: source.name, 
             success: false,
-            error: '未找到m3u8链接'
+            error: reason
           })
         }
       } catch (error) {
@@ -419,7 +536,9 @@ class BuiltInSourceManager {
         return {
           ...source,
           builtIn: true,
+          webUrls: getWebUrlCandidates(source),        // 完整候选清单（含主地址），排查用
           cachedM3u8Url: cachedUrl || null,
+          cachedWebUrl: this.cache[source.id]?.webUrl || null, // 当前这条链接是从哪个地址抓来的
           lastUpdate: this.cache[source.id]?.updateTime || null
         }
       })

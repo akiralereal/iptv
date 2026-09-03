@@ -10,6 +10,8 @@ import fetch from 'node-fetch'
 
 export const CHANNEL_LIST_URL = 'https://kapi.kankanews.com/content/pc/tv/channels'
 export const CHANNEL_DETAIL_URL = 'https://kapi.kankanews.com/content/pc/tv/channel/detail'
+export const PROGRAM_LIST_URL = 'https://kapi.kankanews.com/content/pc/tv/programs'
+export const PROGRAM_DETAIL_URL = 'https://kapi.kankanews.com/content/pc/tv/program/detail'
 export const SCENIC_DETAIL_URL = 'https://kapi.kankanews.com/content/pc/news/detail'
 
 // v2 详情接口虽然仍返回成功，但它生成的播放 token 会被 CDN 拒绝（HTTP 403）。
@@ -236,19 +238,45 @@ export async function fetchScenicList(options = {}) {
   return result
 }
 
+// 明确停供时不能沿用旧 token；只有临时网络故障才允许复用尚有效的缓存。
+class ChannelUnavailableError extends Error {}
+
 export async function fetchChannelDetail(channelId, options = {}) {
   const id = String(channelId || '')
   if (!CHANNEL_BY_ID.has(id)) throw new Error('频道 ID 无效')
   const result = await requestJson(CHANNEL_DETAIL_URL, { channel_id: id }, options)
-  const url = decryptLiveAddress(result?.live_address, options.publicKey)
+  let address = result?.live_address
+  let programEnd = 0
+  // 官网有节目单的频道已不再从频道详情发放地址，需查当前节目，再读
+  // program/detail.channel_info.live_address。无节目单频道仍走原接口。
+  if (Number(result?.is_exist_program) === 1) {
+    const now = Number(options.now ?? Date.now())
+    const date = new Date(now + 8 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const schedule = await requestJson(PROGRAM_LIST_URL, { channel_id: id, date }, options)
+    if (!Array.isArray(schedule?.programs)) throw new Error('节目单接口没有返回节目列表')
+    const program = schedule.programs.find(row => row?.id
+      && Number(row.start_time) * 1000 <= now && now < Number(row.end_time) * 1000)
+    if (!program) throw new ChannelUnavailableError('官网节目单中没有当前正在播出的节目')
+    programEnd = Number(program.end_time) * 1000
+    const unavailable = () => new ChannelUnavailableError(`当前节目「${program.name || '未命名'}」因版权限制，官网暂停网络直播`)
+    if (Number(program.is_shield) === 1) throw unavailable()
+    const detail = await requestJson(PROGRAM_DETAIL_URL, { channel_program_id: String(program.id) }, options)
+    if (Number(detail?.is_shield) === 1) throw unavailable()
+    if (String(detail?.channel_id) !== id || String(detail?.channel_info?.id) !== id) {
+      throw new Error('节目详情返回的频道与请求不一致')
+    }
+    address = detail.channel_info.live_address
+  }
+  if (!String(address || '').trim()) throw new ChannelUnavailableError('官网当前未提供直播地址，请稍后重试')
+  const url = decryptLiveAddress(address, options.publicKey)
   if (!validStreamUrl(url)) throw new Error('还原后的播放地址不是看看新闻 HTTPS HLS')
-  return { ...result, url }
+  return { ...result, url, programEnd }
 }
 
 async function cachedChannelDetail(channelId, options = {}) {
   const now = Number(options.now ?? Date.now())
   const cached = detailCache.get(channelId)
-  if (cached?.refreshAt > now || cached?.retryAt > now) return cached
+  if (cached?.validUntil > now && (cached.refreshAt > now || cached.retryAt > now)) return cached
 
   let pending = detailPending.get(channelId)
   if (!pending) {
@@ -256,10 +284,11 @@ async function cachedChannelDetail(channelId, options = {}) {
       .then(detail => {
         const apiTtl = Math.max(30 * 1000, Number(detail.limit_time || 180) * 1000 - 30 * 1000)
         const tokenExpiry = streamExpiry(detail.url)
+        const validUntil = Math.min(tokenExpiry || now + 30 * 60 * 1000, detail.programEnd || Infinity)
         const entry = {
           detail,
-          refreshAt: now + Math.min(DEFAULT_REFRESH_MS, apiTtl),
-          validUntil: tokenExpiry || now + 30 * 60 * 1000,
+          refreshAt: Math.min(now + Math.min(DEFAULT_REFRESH_MS, apiTtl), validUntil),
+          validUntil,
           retryAt: 0,
         }
         detailCache.set(channelId, entry)
@@ -274,6 +303,10 @@ async function cachedChannelDetail(channelId, options = {}) {
   try {
     return await pending
   } catch (error) {
+    if (error instanceof ChannelUnavailableError) {
+      detailCache.delete(channelId)
+      throw error
+    }
     if (!cached || cached.validUntil <= now + EXPIRY_SKEW_MS) throw error
     cached.retryAt = now + DETAIL_RETRY_MS
     return cached

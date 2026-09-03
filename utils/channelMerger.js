@@ -87,8 +87,12 @@ function kidsChannelKey(channel) {
  * 把符合条件的地方频道复制到内容分组，地方组仍保留完整频道；
  * 如果其它内容分组已有同台条目，用地方官方源替换并去掉重复。
  * 返回新分组，不修改输入。
+ *
+ * prepend=true 时官方源按自身顺序插到目标组最前，目标组原有的同台条目一律让位。
+ * 默认（false）是原地替换：官方源顶掉同台条目、位置沿用目标组既有排序——内容组
+ * （体育/少儿/教育）的顺序由平台分类决定，不该被地方组的收录顺序打乱。
  */
-function consolidateLocalChannels(groups, { targetGroup, matches, keyOf }) {
+function consolidateLocalChannels(groups, { targetGroup, matches, keyOf, prepend = false }) {
   const output = (Array.isArray(groups) ? groups : []).map(group => ({
     ...group,
     dataList: [...(Array.isArray(group?.dataList) ? group.dataList : [])],
@@ -126,6 +130,14 @@ function consolidateLocalChannels(groups, { targetGroup, matches, keyOf }) {
 
   const placedPreferred = new Set()
   const merged = []
+  if (prepend) {
+    for (const channel of localChannels) {
+      const key = keyOf(channel)
+      if (!key || placedPreferred.has(key)) continue
+      merged.push(preferred.get(key) || channel)
+      placedPreferred.add(key)
+    }
+  }
   for (const channel of contentGroup.dataList) {
     const key = keyOf(channel)
     const local = preferred.get(key)
@@ -199,6 +211,34 @@ function consolidateLocalSportsChannels(groups) {
     targetGroup: '体育',
     matches: isSportsChannel,
     keyOf: sportsChannelKey,
+  })
+}
+
+// 凤凰卫视三台的官方源是凤凰秀模块（归入「香港」）。「亚太」是外部订阅整理出的
+// 港澳台入口，用户找凤凰先看那里，所以官方三台再置顶复制一份进去，「香港」照旧保留。
+// 第三方源的同台条目一律让位——那些转流地址画质不明、随时失效，留在同名多源里
+// 只会让播放器在「源1/源2」之间挑到坏的那条。命名变体（凤凰卫视中文台）一并覆盖。
+const FENGSHOWS_SOURCE_ID = 'xt:fengshows'
+
+function isFengshowsChannel(channel) {
+  return primarySourceId(channel) === FENGSHOWS_SOURCE_ID
+    || (Array.isArray(channel?.sourceIds) && channel.sourceIds.includes(FENGSHOWS_SOURCE_ID))
+}
+
+// 只认「凤凰」开头的台名，并抹平各源命名差异：凤凰卫视中文台 / 凤凰中文台 → 凤凰中文。
+// 其它频道返回空串——consolidateLocalChannels 对空键不做任何删改，不会误伤。
+function phoenixChannelKey(channel) {
+  const name = String(channel?.name || '').trim().replace(/\s+/g, '')
+  if (!name.startsWith('凤凰')) return ''
+  return name.replace(/卫视/g, '').replace(/(?:台|频道)$/, '')
+}
+
+function consolidatePhoenixChannels(groups) {
+  return consolidateLocalChannels(groups, {
+    targetGroup: '亚太',
+    matches: channel => isFengshowsChannel(channel) && Boolean(phoenixChannelKey(channel)),
+    keyOf: phoenixChannelKey,
+    prepend: true,
   })
 }
 
@@ -283,6 +323,8 @@ async function getAllChannels() {
     allChannels = consolidateLocalSportsChannels(allChannels)
     allChannels = consolidateLocalKidsChannels(allChannels)
     allChannels = consolidateLocalEducationChannels(allChannels)
+    // 凤凰三台置顶进「亚太」，并顶掉第三方源的同台条目
+    allChannels = consolidatePhoenixChannels(allChannels)
     
     // 频道级去重：同一分组内，name + 播放地址 完全相同的频道只保留第一个
     // （合并顺序为 咪咕 > 内置 > 外部 > 抓取模块，因此优先保留更高优先级的来源）
@@ -408,5 +450,6 @@ export {
   normalizeContentGroupNames,
   consolidateLocalSportsChannels,
   consolidateLocalKidsChannels,
-  consolidateLocalEducationChannels
+  consolidateLocalEducationChannels,
+  consolidatePhoenixChannels
 }

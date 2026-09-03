@@ -83,6 +83,7 @@
 import bilibiliLive from './bilibili-live/index.js'
 import beidou from './beidou/index.js'
 import cztv from './cztv/index.js'
+import dalian from './dalian/index.js'
 import douyuLive from './douyu-live/index.js'
 import fjtv from './fjtv/index.js'
 import gdtv from './gdtv/index.js'
@@ -117,6 +118,7 @@ const MODULES = [
   huyaLive,
   douyuLive,
   beidou,
+  dalian,
   gdtv,
   gztv,
   gxtv,

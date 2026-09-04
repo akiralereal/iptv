@@ -162,14 +162,32 @@ function responseCookies(headers) {
   return one ? [one] : []
 }
 
-function sameHostCookie(headers, manifestUrl, rules) {
+export function readCookies(headers, manifestUrl) {
   const origin = new URL(manifestUrl)
-  // 主机边界不唯一时不能把一个 CDN 的 Cookie 透传给另一个 CDN。
-  if (rules.length !== 1 || typeof rules[0] !== 'string' || rules[0] !== origin.hostname) return ''
   return responseCookies(headers).map(line => {
-    const pair = line.split(';', 1)[0]?.trim()
-    return /^[!#$%&'*+.^_`|~0-9A-Za-z-]+=[^;\r\n]*$/.test(pair) ? pair : ''
-  }).filter(Boolean).join('; ')
+    const [pair, ...attrs] = line.split(';').map(value => value.trim())
+    if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+=[^;\r\n]*$/.test(pair)) return null
+    const options = Object.fromEntries(attrs.map(attr => {
+      const pos = attr.indexOf('=')
+      return [attr.slice(0, pos < 0 ? undefined : pos).toLowerCase(), pos < 0 ? '' : attr.slice(pos + 1)]
+    }))
+    const domain = (options.domain || origin.hostname).replace(/^\./, '').toLowerCase()
+    // 不接受比响应主机更宽的 Domain，避免上游借 Set-Cookie 扩大凭据发送范围。
+    if (domain !== origin.hostname) return null
+    const path = options.path?.startsWith('/') ? options.path : '/'
+    return { pair, domain, path }
+  }).filter(Boolean)
+}
+
+function createUpstreamHeaders(baseHeaders, cookies, rules) {
+  return raw => {
+    const target = new URL(allowUrl(raw, rules))
+    const cookie = cookies
+      .filter(item => target.hostname === item.domain && target.pathname.startsWith(item.path))
+      .map(item => item.pair)
+      .join('; ')
+    return { ...baseHeaders, ...(cookie ? { Cookie: cookie } : {}) }
+  }
 }
 
 export function createResolver({ fetchImpl = fetch } = {}) {
@@ -210,15 +228,15 @@ export function createResolver({ fetchImpl = fetch } = {}) {
     try {
       const streamUrl = await streamUrlFor(source, request)
       const referer = source.referer || source.page
-      const upstreamHeaders = { Referer: referer, Origin: new URL(referer).origin }
+      const requestHeaders = { Referer: referer, Origin: new URL(referer).origin }
       const manifest = await fetchText(streamUrl, {
         ...request,
         rules: source.rules,
-        headers: upstreamHeaders,
+        headers: requestHeaders,
       })
       validateHls(manifest.text, manifest.url, source.rules)
-      const cookie = sameHostCookie(manifest.headers, manifest.url, source.rules)
-      if (cookie) upstreamHeaders.Cookie = cookie
+      const cookies = readCookies(manifest.headers, manifest.url)
+      const upstreamHeaders = createUpstreamHeaders(requestHeaders, cookies, source.rules)
       return {
         url: manifest.url,
         desc: `${source.name} 播放地址获取成功`,

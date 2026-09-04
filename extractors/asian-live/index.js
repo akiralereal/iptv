@@ -7,10 +7,10 @@ export default {
   name: '亚洲与国际直播',
   description: `来自独立实验台验证的 ${SOURCES.length} 个公开直播频道，覆盖港台、日韩、国际资讯、体育、文旅与娱乐。`,
   capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
-  channelHlsMode: 'relay',
+  channelHlsMode: 'proxy',
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,
-  refreshDescription: '频道表随模块版本维护；每次播放都会重新获取并校验当前 HLS 清单，媒体默认直连 CDN。',
+  refreshDescription: '频道表随模块版本维护；每次播放都会重新获取并校验当前 HLS，清单与媒体均由本机代理。',
   configSchema: [],
 
   async fetch() {

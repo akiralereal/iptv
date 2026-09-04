@@ -10,6 +10,7 @@ import {
   parseNasaLive,
   parseTvb,
   parseYtn,
+  readCookies,
   STREAM_URL_TTL_MS,
   validateHls,
 } from '../extractors/asian-live/api.js'
@@ -36,6 +37,13 @@ assert.equal(claimsRef('asian-live-ytn'), true)
 assert.equal(claimsRef('asian-live-ytn/extra'), false)
 assert.equal(claimsRef('asian-live-missing'), false)
 assert.equal(sourceFromRef('asian-live-reuters')?.name, 'Reuters')
+assert.equal(
+  allowUrl(
+    'https://liveprodeuwest.global.ssl.fastly.net/eu/master.m3u8',
+    sourceFromRef('asian-live-bloomberg-europe').rules,
+  ),
+  'https://liveprodeuwest.global.ssl.fastly.net/eu/master.m3u8',
+)
 
 assert.equal(allowUrl('https://cdn.example/live.m3u8', ['cdn.example']), 'https://cdn.example/live.m3u8')
 assert.throws(() => allowUrl('http://cdn.example/live.m3u8', ['cdn.example']))
@@ -53,6 +61,16 @@ assert.equal(parseYtn('var liveUrl = {"hls":"https://ytnlive.ytn.co.kr/live.m3u8
 assert.throws(() => parseYtn('var liveUrl = process.env'))
 assert.equal(parseTvb({ code: 200, data: { stream_url: 'https://live.tvb.example/index.m3u8', stream_type: 'video' } }), 'https://live.tvb.example/index.m3u8')
 assert.throws(() => parseTvb({ code: 200, data: { stream_url: 'x', geo_blocked: true } }))
+
+assert.deepEqual(readCookies({
+  getSetCookie: () => [
+    'session=abc; Path=/live; Secure',
+    'wide=reject; Domain=.tvb.com; Path=/',
+    'broken cookie',
+  ],
+}, 'https://edge.akamai.tvb.com/live/master.m3u8'), [
+  { pair: 'session=abc', domain: 'edge.akamai.tvb.com', path: '/live' },
+])
 
 const events = [
   { meta: { 'video-url': 'https://ntv1.akamaized.net/future.m3u8', first_aired_date: '2000', end_aired_date: '3000' } },
@@ -99,6 +117,29 @@ assert.throws(() => parseNasaLive(events, 1_500_000))
 }
 
 {
+  const apiUrl = 'https://news.tvb.com/app/public/live/stream/C'
+  const manifestUrl = 'https://prd-vcache.edge-global.akamai.tvb.com/live/master.m3u8'
+  const fetchImpl = async url => {
+    if (url === apiUrl) {
+      return new Response(JSON.stringify({ code: 200, data: { stream_url: manifestUrl, stream_type: 'video' } }))
+    }
+    if (url === manifestUrl) {
+      return new Response('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\nchild.m3u8\n', {
+        headers: { 'Set-Cookie': 'tvb_session=secret; Path=/live; Secure' },
+      })
+    }
+    throw new Error(`unexpected fetch ${url}`)
+  }
+  const result = await createResolver({ fetchImpl }).resolve('asian-live-tvb-news')
+  assert.equal(result.url, manifestUrl)
+  assert.equal(typeof result.upstreamHeaders, 'function')
+  assert.equal(result.upstreamHeaders(`${new URL(manifestUrl).origin}/live/child.m3u8`).Cookie, 'tvb_session=secret')
+  assert.equal(result.upstreamHeaders(`${new URL(manifestUrl).origin}/other/child.m3u8`).Cookie, undefined, 'Cookie 不能越过 Path')
+  assert.equal(result.upstreamHeaders('https://ads.cdn.tvb.com/live/ad.ts').Cookie, undefined, 'Cookie 不能发给另一允许主机')
+  assert.throws(() => result.upstreamHeaders('https://evil.example/steal.ts'))
+}
+
+{
   const resolver = createResolver({
     fetchImpl: async () => new Response('#EXTM3U\n#EXTINF:6,\nhttps://evil.example/segment.ts\n'),
   })
@@ -107,7 +148,7 @@ assert.throws(() => parseNasaLive(events, 1_500_000))
   assert.match(result.desc, /不允许访问媒体地址/)
 }
 
-assert.equal(asianLive.channelHlsMode, 'relay')
+assert.equal(asianLive.channelHlsMode, 'proxy')
 assert.equal(asianLive.capabilities.resolve, true)
 assert.equal((await asianLive.fetch()).groups.length, groups.length)
 assert.equal(getModule('asian-live')?.id, 'asian-live')

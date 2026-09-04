@@ -47,7 +47,9 @@
  *       url 为空串表示不可用，desc 是给客户端看的原因（措辞属平台知识）。
  *       segmentTransform(buffer) 可选；仅供必须全代理、且分片需要平台特有处理的
  *       模块使用。函数可原地修改 Buffer，也可返回新的 Buffer。
- *       upstreamHeaders 可选；仅由本机清单/分片代理向官方 CDN 发送（防盗链平台）。
+ *       upstreamHeaders 可选；可以是固定请求头对象，也可以是接收目标 URL、返回请求头的
+ *       同步函数。仅由本机清单/分片代理向官方 CDN 发送（防盗链平台）。函数形态用于
+ *       按 Cookie 的 Domain / Path 限定发送范围，不能把一个 CDN 的凭据泄漏给另一个 CDN。
  *       注意 User-Agent 是例外：代理层统一改写成自己的 UA，这里声明了也不会生效，
  *       原因见 utils/hlsProxy.js 里 UA 常量上方的说明。Referer / Origin 等其余头正常透传。
  *       upstreamUrlTransform(url) 可选；全代理登记清单内的子清单/分片地址前调用。

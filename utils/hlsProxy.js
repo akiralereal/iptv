@@ -157,7 +157,7 @@ function toProxyManifest(text, pid = '', transform, upstreamHeaders, upstreamUrl
 /**
  * 代理向上游取流时统一使用的 UA。
  *
- * ⚠️ 下面三处都写作 `{ ...upstreamHeaders, 'User-Agent': UA }`——后写的键覆盖先展开的，
+ * ⚠️ 下方回源都让统一 UA 覆盖模块请求头中的 User-Agent，
  * 所以**模块在 upstreamHeaders 里声明的 User-Agent 不会生效**，一律被换成这个值。
  * 这与 registry.js 中「upstreamHeaders 是平台要求的上游请求头」的说法有出入，特此说明，
  * 免得下一个人照着声明 UA 却查不出为何没起作用。
@@ -168,6 +168,60 @@ function toProxyManifest(text, pid = '', transform, upstreamHeaders, upstreamUrl
  * 码率或流格式。真遇到某个平台因 UA 取流异常，就针对那一个模块改并实测，不要整体翻。
  */
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+
+// 普通模块传固定对象；需要按目标域名/路径选择 Cookie 的模块传函数。
+// 函数只在地址已经通过模块白名单并登记后调用，返回值仍按普通请求头处理。
+function headersFor(upstreamHeaders, url) {
+  const value = typeof upstreamHeaders === 'function' ? upstreamHeaders(url) : upstreamHeaders
+  return value && typeof value === 'object' ? value : {}
+}
+
+const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308])
+
+async function discard(response) {
+  response.body?.destroy?.()
+  await response.body?.cancel?.().catch(() => {})
+}
+
+/**
+ * 代理回源的统一请求入口。动态请求头函数会在每一跳真正发出前收到目标 URL，
+ * 因而既能按 Cookie Domain/Path 选头，也能拒绝跳出模块媒体白名单的重定向。
+ * 固定对象保持原有行为，只额外限制回源协议为 HTTP(S)。
+ */
+async function fetchUpstreamResponse(raw, {
+  method = 'GET',
+  signal,
+  upstreamHeaders,
+  headers = {},
+} = {}) {
+  let url = String(raw)
+  const initialOrigin = new URL(url).origin
+  for (let redirects = 0; redirects <= 3; redirects++) {
+    const target = new URL(url)
+    if (!['http:', 'https:'].includes(target.protocol)) throw new Error(`不支持的上游协议：${target.protocol}`)
+    const generatedHeaders = { ...headersFor(upstreamHeaders, target.href) }
+    // fetch 的自动重定向不会把固定 Cookie/Authorization 带到另一个 origin；手动跟随时
+    // 保持这个保护。动态函数已经按每一跳目标重新选择 Cookie，不做这层统一剥离。
+    if (typeof upstreamHeaders !== 'function' && target.origin !== initialOrigin) {
+      for (const name of Object.keys(generatedHeaders)) {
+        if (['authorization', 'cookie', 'proxy-authorization'].includes(name.toLowerCase())) delete generatedHeaders[name]
+      }
+    }
+    const response = await fetch(target.href, {
+      method,
+      redirect: 'manual',
+      signal,
+      headers: { ...generatedHeaders, ...headers, 'User-Agent': UA },
+    })
+    if (!REDIRECT_STATUS.has(response.status)) return response
+    const location = response.headers.get('location')
+    await discard(response)
+    if (!location) throw new Error('上游重定向缺少地址')
+    if (redirects === 3) throw new Error('上游重定向次数过多')
+    url = new URL(location, target.href).href
+  }
+  throw new Error('上游重定向次数过多')
+}
 
 // 上游 → 客户端要原样带过去的响应头（其余一律不带，避免上游的 CORS / 缓存策略干扰播放器）
 const PASS_THROUGH = ['content-type', 'content-length', 'accept-ranges', 'content-range']
@@ -216,10 +270,9 @@ async function pipeUpstream(url, req, res, transform, upstreamHeaders = {}) {
   // 只给「拿到响应头」设超时，拿到之后是流式传输，不能再掐
   const timer = setTimeout(() => ctrl.abort(), 15000)
   try {
-    const headers = { ...upstreamHeaders, 'User-Agent': UA }
     // 要做整片变换时不能把 Range 片段单独交给解码器；回完整 200 对播放器仍合法。
-    if (!transform && req.headers.range) headers.range = req.headers.range
-    const upstream = await fetch(url, { redirect: 'follow', signal: ctrl.signal, headers })
+    const headers = !transform && req.headers.range ? { range: req.headers.range } : {}
+    const upstream = await fetchUpstreamResponse(url, { signal: ctrl.signal, upstreamHeaders, headers })
     upstreamStatus = upstream.status
     clearTimeout(timer)
     if (!upstream.ok) logPipeFail(`分片上游回 ${upstream.status}: ${new URL(url).host}`)
@@ -306,12 +359,11 @@ async function probeUpstream(url, req, res, transform, upstreamHeaders = {}) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 10000)
   try {
-    const headers = { ...upstreamHeaders, 'User-Agent': UA }
-    if (req.headers.range) headers.range = req.headers.range
-    const upstream = await fetch(url, {
+    const headers = req.headers.range ? { range: req.headers.range } : {}
+    const upstream = await fetchUpstreamResponse(url, {
       method: 'HEAD',
-      redirect: 'follow',
       signal: ctrl.signal,
+      upstreamHeaders,
       headers,
     })
     clearTimeout(timer)
@@ -351,10 +403,9 @@ async function fetchNested(url, upstreamHeaders = {}) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 10000)
   try {
-    const resp = await fetch(url, {
-      redirect: 'follow',
+    const resp = await fetchUpstreamResponse(url, {
       signal: ctrl.signal,
-      headers: { ...upstreamHeaders, 'User-Agent': UA },
+      upstreamHeaders,
     })
     if (!resp.ok) return null
     const text = await resp.text()
@@ -368,4 +419,4 @@ async function fetchNested(url, upstreamHeaders = {}) {
   }
 }
 
-export { toProxyManifest, register, lookup, registrySize, pipeUpstream, probeUpstream, fetchNested, manifestCooling, markManifestResult, MANIFEST_FAIL_COOLDOWN_MS }
+export { toProxyManifest, register, lookup, registrySize, pipeUpstream, probeUpstream, fetchNested, fetchUpstreamResponse, manifestCooling, markManifestResult, MANIFEST_FAIL_COOLDOWN_MS }

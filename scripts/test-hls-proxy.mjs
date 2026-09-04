@@ -21,7 +21,7 @@ import { join } from 'node:path'
 const DATA_DIR = mkdtempSync(join(tmpdir(), 'iptv-proxy-test-'))
 process.env.mdataDir = DATA_DIR
 
-const { toProxyManifest, lookup, register, pipeUpstream, probeUpstream, manifestCooling, markManifestResult, MANIFEST_FAIL_COOLDOWN_MS } = await import('../utils/hlsProxy.js')
+const { toProxyManifest, lookup, register, pipeUpstream, probeUpstream, fetchUpstreamResponse, manifestCooling, markManifestResult, MANIFEST_FAIL_COOLDOWN_MS } = await import('../utils/hlsProxy.js')
 const { fetchManifestDirect, interfaceStr, rewriteManifest } = await import('../utils/appUtils.js')
 
 let passed = 0
@@ -146,10 +146,20 @@ check('模块可直接写入命名空间全代理地址，replace 后保持单�
 const SEG_BODY = Buffer.from('FAKE-TS-PAYLOAD-0123456789', 'utf-8')
 
 let cdnHits = 0   // 上游被打了几次；探活回归测试据此断言「一次都没打」
+let redirectTargetHits = 0
 
 const cdn = http.createServer((req, res) => {
   cdnHits++
   const path = req.url.split('?')[0]
+  if (path === '/redirect-outside') {
+    res.writeHead(302, { Location: `http://localhost:${cdn.address().port}/redirect-target` })
+    res.end(); return
+  }
+  if (path === '/redirect-target') {
+    redirectTargetHits++
+    res.writeHead(200, { 'Content-Type': 'video/mp2t' })
+    res.end(SEG_BODY); return
+  }
   if (path === '/live/no-head.ts') {
     if (req.method === 'HEAD') { res.writeHead(405); res.end(); return }
     res.writeHead(200, { 'Content-Type': 'video/mp2t', 'Content-Length': SEG_BODY.length })
@@ -177,6 +187,14 @@ const cdn = http.createServer((req, res) => {
       res.end(SEG_BODY)
       return
     }
+  }
+  if (path === '/cookie-protected/segment.ts') {
+    if (req.headers.cookie !== 'tvb_session=secret') {
+      res.writeHead(403); res.end('missing cookie'); return
+    }
+    res.writeHead(200, { 'Content-Type': 'video/mp2t', 'Content-Length': SEG_BODY.length })
+    res.end(SEG_BODY)
+    return
   }
   if (path === '/live/index.m3u8') {
     // 咪咕真实形态：master 里一条**相对**子清单
@@ -233,6 +251,16 @@ const nas = http.createServer(async (req, res) => {
 await new Promise(r => cdn.listen(0, '127.0.0.1', r))
 await new Promise(r => nas.listen(0, '127.0.0.1', r))
 const nasBase = `http://127.0.0.1:${nas.address().port}`
+
+await checkAsync('动态请求头在每次重定向前复验目标，不向白名单外地址发请求', async () => {
+  const source = `http://127.0.0.1:${cdn.address().port}/redirect-outside`
+  const upstreamHeaders = url => {
+    if (new URL(url).hostname !== '127.0.0.1') throw new Error('目标不在媒体白名单')
+    return {}
+  }
+  await assert.rejects(fetchUpstreamResponse(source, { upstreamHeaders }), /目标不在媒体白名单/)
+  assert.equal(redirectTargetHits, 0)
+})
 
 check('清单取回失败进入熔断：播放器的连环重试不再逐次打上游', () => {
   // 实测 AptvPlayer 取不到清单后 1 秒内重试 9 次；逐次转发会把平台限速越推越深。
@@ -318,6 +346,20 @@ await checkAsync('平台防盗链请求头同时用于清单和分片回源', as
   const response = await fetch(`${nasBase}/proxy/${segRef}`)
   assert.equal(response.status, 200)
   assert.deepEqual(Buffer.from(await response.arrayBuffer()), SEG_BODY)
+})
+
+await checkAsync('按目标地址生成请求头，Cookie 可限定到对应 CDN 路径', async () => {
+  const source = `http://127.0.0.1:${cdn.address().port}/cookie-protected/segment.ts`
+  const calls = []
+  const upstreamHeaders = url => {
+    calls.push(url)
+    return { Cookie: new URL(url).pathname.startsWith('/cookie-protected/') ? 'tvb_session=secret' : '' }
+  }
+  const key = register(source, 'asian-live-tvb-news', undefined, upstreamHeaders)
+  const response = await fetch(`${nasBase}/proxy/${key}.ts`)
+  assert.equal(response.status, 200)
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), SEG_BODY)
+  assert.deepEqual(calls, [source])
 })
 
 await checkAsync('分片变换函数随清单地址登记，并在回给播放器前执行', async () => {

@@ -8,6 +8,7 @@ import { hasSourceFallbackGroups } from "./sourceGroupFallback.js";
 import { resolverFor, listModules } from "../extractors/registry.js";
 import { getExtractorManager, getModuleConfig } from "./extractorManager.js";
 import { omitPlayerOnlyOpts } from "./channelOpts.js";
+import { fetchUpstreamResponse } from "./hlsProxy.js";
 
 /**
  * 清空各模块的解析缓存。
@@ -59,13 +60,9 @@ function inlineResolvedManifest(result) {
 
 // 取回一份 HLS 清单文本（跟随 302），非 200 或非 HLS 内容返回 null
 async function fetchHls(url, signal, upstreamHeaders = {}) {
-  const resp = await fetch(url, {
-    redirect: 'follow',
+  const resp = await fetchUpstreamResponse(url, {
     signal,
-    headers: {
-      ...upstreamHeaders,
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    },
+    upstreamHeaders,
   })
   if (!resp.ok) return null
   const text = await resp.text()

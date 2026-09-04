@@ -2186,6 +2186,131 @@
         .sb-copy.sb-copy-muted { border-color: #bbb; color: #666; }
         .sb-copy.sb-copy-muted:hover { background: #f5f5f5; }
 
+
+        /* ===== 设计刷新（浅色，沿用现有配色）：更大的圆角、细边框、统一按钮与胶囊标签，悬停只变边框色 ===== */
+        :root {
+            --ui-line: #e5e8ef;
+            --ui-line-strong: #d0d6e2;
+            --ui-accent: #1890ff;
+            --ui-text: #1f2937;
+            --ui-muted: #6b7280;
+            --ui-radius: 14px;
+            --ui-radius-sm: 10px;
+            --ui-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+            --ui-ring: 0 0 0 3px rgba(24, 144, 255, 0.10);
+        }
+        body {
+            background: radial-gradient(circle at 18% 0, #edf3ff 0, #f4f6fa 42%) fixed;
+            color: var(--ui-text);
+        }
+        .header, .panel, .my-playlist-header, .my-playlist-detail-header, .my-playlist-group, .group {
+            border: 1px solid var(--ui-line);
+            border-radius: var(--ui-radius);
+            box-shadow: var(--ui-shadow);
+        }
+        .header { padding: 10px 20px; }
+        .panel { padding: 22px; }
+        .my-playlist-group, .group { background: #fff; }
+        .tab { border-radius: var(--ui-radius-sm) var(--ui-radius-sm) 0 0; }
+        .tab:hover { background: #f0f4fa; }
+        /* 按钮：默认白底细边框，主色按钮保持填充，圆角统一 */
+        .btn {
+            border: 1px solid transparent;
+            border-radius: var(--ui-radius-sm);
+            font-weight: 500;
+        }
+        /* 白底细边框只给「无变体」的普通按钮（btn-secondary 没有独立定义，也按普通按钮处理）；主色 / 成功 / 危险 / 外部播放器按钮保留各自的填充色 */
+        .btn:not(.btn-primary, .btn-success, .btn-danger, .btn-warning, .player-btn) {
+            background: #fff;
+            color: var(--ui-text);
+            border-color: var(--ui-line-strong);
+        }
+        .btn:not(.btn-primary, .btn-success, .btn-danger, .btn-warning, .player-btn):hover:not(:disabled) {
+            border-color: var(--ui-accent);
+            color: var(--ui-accent);
+        }
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .btn-sm { border-radius: 8px; }
+        .restart-btn { border-radius: var(--ui-radius-sm); }
+        /* 卡片与列表项：白底、细边框、悬停只变边框色加一圈淡光，不再位移 */
+        .channel-item, .my-playlist-channel, .my-playlist-group-item, .source-card {
+            border-radius: 12px;
+            border-color: var(--ui-line);
+            background: #fff;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .channel-item:hover, .my-playlist-channel:hover, .my-playlist-group-item:hover {
+            transform: none;
+            background: #fff;
+            border-color: var(--ui-accent);
+            box-shadow: var(--ui-ring);
+        }
+        .my-playlist-group-item.active, .my-playlist-group-item.active:hover {
+            background: #667eea;
+            color: #fff;
+            border-color: #667eea;
+            box-shadow: none;
+        }
+        .my-playlist-channel { padding: 10px 14px; }
+        .source-card { border-radius: 14px; padding: 14px 16px; }
+        .source-card:hover { background: #fff; border-color: var(--ui-accent); box-shadow: var(--ui-ring); }
+        .source-card.static, .source-card.static:hover { background: #fff; border-color: var(--ui-line); box-shadow: none; }
+        /* 标签统一成胶囊 */
+        .channel-source-badge, .source-badge, .status-badge, .source-tab-count, .channel-tag { border-radius: 999px; }
+        /* 弹窗 */
+        .modal-content {
+            border: 1px solid var(--ui-line);
+            border-radius: 16px;
+            padding: 26px 28px;
+            box-shadow: 0 24px 64px rgba(16, 24, 40, 0.18);
+        }
+        .modal-content input, .modal-content select, .modal-content textarea {
+            border-radius: 8px;
+            border: 1px solid var(--ui-line-strong);
+        }
+        .modal-content input:focus, .modal-content select:focus, .modal-content textarea:focus {
+            outline: none;
+            border-color: var(--ui-accent);
+            box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.12);
+        }
+        /* 频道行内操作：「播放」常显，其余（隐藏 / 恢复等）仍是悬停才出现 */
+        .my-playlist-channel-actions { opacity: 1; }
+        .my-playlist-channel-actions button:not(.channel-play-btn) { opacity: 0; transition: opacity 0.2s; }
+        .my-playlist-channel:hover .my-playlist-channel-actions button:not(.channel-play-btn),
+        .my-playlist-channel.deleted .my-playlist-channel-actions button { opacity: 1; }
+        .my-playlist-channel-actions button {
+            border: 1px solid var(--ui-line-strong);
+            background: #fff;
+            border-radius: 8px;
+            padding: 3px 10px;
+            font-size: 12px;
+            color: var(--ui-muted);
+            cursor: pointer;
+        }
+        .my-playlist-channel-actions button:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+        .my-playlist-channel-actions .channel-play-btn { color: var(--ui-accent); border-color: rgba(24, 144, 255, 0.35); }
+        .my-playlist-channel-actions .channel-play-btn:hover { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
+        /* 页面内播放器（<dialog>，在所有弹窗之上） */
+        dialog.inline-player {
+            /* 全站 * { margin: 0 } 重置会吃掉 dialog 默认的 margin:auto 居中，这里显式放回 */
+            margin: auto;
+            width: min(960px, calc(100% - 32px));
+            max-height: calc(100vh - 32px);
+            overflow: auto;
+            border: 1px solid var(--ui-line);
+            border-radius: 16px;
+            padding: 16px;
+            background: #fff;
+            color: var(--ui-text);
+            box-shadow: 0 24px 64px rgba(16, 24, 40, 0.22);
+        }
+        dialog.inline-player::backdrop { background: rgba(15, 23, 42, 0.55); }
+        .inline-player-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .inline-player-top strong { font-size: 16px; }
+        .inline-player-tools { display: flex; gap: 8px; }
+        dialog.inline-player video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; display: block; }
+        .inline-player-status { margin: 10px 0 0; font-size: 13px; color: var(--ui-muted); min-height: 20px; }
+        .inline-player-status.bad { color: #d4380d; }
     </style>
 </head>
 <body>
@@ -6880,6 +7005,7 @@ if(success){
                                     </div>
                                     ${!isProtected && !isBatchMode ? `
                                         <div class="my-playlist-channel-actions">
+                                            ${channel.url ? `<button class="channel-play-btn" title="在页面里播放" onclick="event.stopPropagation(); playInlineById('${channel.id}')">▶ 播放</button>` : ''}
                                             <button onclick="event.stopPropagation(); hideChannel('${channel.id}')">隐藏</button>
                                         </div>
                                     ` : ''}
@@ -8034,6 +8160,7 @@ if(success){
                             ${escapeHtml(actualUrl)}
                         </div>
                         <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                            <button class="btn btn-sm btn-primary" onclick="playInline('${actualUrl.replace(/'/g, "\\'")}', '${(channel.name || '').replace(/'/g, "\\'")}')">▶ 在页面里播放</button>
                             <button class="btn btn-sm" onclick="copyToClipboard('${actualUrl.replace(/'/g, "\\'")}', '播放地址')">📋 复制地址</button>
                             ${(PLAYERS_BY_PLATFORM[getClientPlatform()] || []).map(p => {
                                 const escUrl = actualUrl.replace(/'/g, "\\'");
@@ -8686,8 +8813,122 @@ if(success){
             if (!hasModalAbove) closeExtractorDetailModal();
         });
 
+
+        // ===== 页面内播放（不跳新窗口）：HLS 走 hls.js（按需加载），FLV 走 mpegts.js，Safari 原生 HLS 兜底 =====
+        let inlinePlayerCleanup = null;
+        function inlinePlayerBaseUrl() {
+            return window.location.origin + window.location.pathname.replace(/\/[^/]+$/, '');
+        }
+        function loadScriptOnce(src, isReady) {
+            return new Promise((resolve, reject) => {
+                if (isReady()) return resolve();
+                const existing = document.querySelector(`script[data-src="${src}"]`);
+                const tag = existing || document.createElement('script');
+                tag.addEventListener('load', () => resolve());
+                tag.addEventListener('error', () => reject(new Error('播放器脚本加载失败')));
+                if (!existing) { tag.src = src; tag.dataset.src = src; document.head.appendChild(tag); }
+            });
+        }
+        function inlinePlayerStatus(text, bad) {
+            const el = document.getElementById('inlinePlayerStatus');
+            if (!el) return;
+            el.textContent = text || '';
+            el.classList.toggle('bad', !!bad);
+        }
+        function closeInlinePlayer() {
+            const dialog = document.getElementById('inlinePlayer');
+            const video = document.getElementById('inlinePlayerVideo');
+            if (inlinePlayerCleanup) { try { inlinePlayerCleanup(); } catch (e) {} inlinePlayerCleanup = null; }
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            if (dialog.open) dialog.close();
+        }
+        function openInlinePlayerPage() {
+            const dialog = document.getElementById('inlinePlayer');
+            const url = dialog.dataset.url;
+            const name = document.getElementById('inlinePlayerTitle').textContent;
+            if (url) window.open(`${inlinePlayerBaseUrl()}/player?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`, '_blank');
+        }
+        async function playInline(rawUrl, name) {
+            if (!rawUrl) { showStatus('该频道没有播放地址', 'error'); return; }
+            const url = rawUrl.replace(/\$\{replace\}/g, inlinePlayerBaseUrl());
+            const dialog = document.getElementById('inlinePlayer');
+            const video = document.getElementById('inlinePlayerVideo');
+            closeInlinePlayer();
+            dialog.dataset.url = url;
+            document.getElementById('inlinePlayerTitle').textContent = name || '播放';
+            inlinePlayerStatus('正在连接直播流…');
+            dialog.showModal();
+            try {
+                if (/\.flv(?:[?#]|$)/i.test(url)) {
+                    await loadScriptOnce('/player-assets/mpegts.js', () => window.mpegts);
+                    if (!mpegts.getFeatureList().mseLivePlayback) throw new Error('当前浏览器不支持 FLV 直播，请用 VLC / IINA 打开');
+                    const engine = mpegts.createPlayer({ type: 'flv', isLive: true, url }, { enableWorker: false, lazyLoad: false });
+                    engine.on(mpegts.Events.ERROR, (type, detail) => inlinePlayerStatus(`播放失败：${detail || type}，可尝试「新窗口打开」或用 VLC / IINA`, true));
+                    engine.attachMediaElement(video);
+                    engine.load();
+                    inlinePlayerCleanup = () => { engine.pause(); engine.unload(); engine.detachMediaElement(); engine.destroy(); };
+                } else {
+                    let sameOrigin = false;
+                    try { sameOrigin = new URL(url, window.location.href).origin === window.location.origin; } catch (e) {}
+                    const looksHls = /\.m3u8(?:[?#]|$)/i.test(url) || sameOrigin;
+                    let hlsReady = false;
+                    if (looksHls) {
+                        try { await loadScriptOnce('https://cdn.jsdelivr.net/npm/hls.js@1', () => window.Hls); hlsReady = !!(window.Hls && Hls.isSupported()); } catch (e) {}
+                    }
+                    if (hlsReady) {
+                        const hls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 90 });
+                        hls.loadSource(url);
+                        hls.attachMedia(video);
+                        hls.on(Hls.Events.ERROR, (event, data) => {
+                            if (!data.fatal) return;
+                            if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { hls.recoverMediaError(); return; }
+                            const code = data.response && data.response.code ? ` (HTTP ${data.response.code})` : '';
+                            inlinePlayerStatus(`播放失败：${data.details}${code}，可尝试「新窗口打开」或用 VLC / IINA`, true);
+                        });
+                        inlinePlayerCleanup = () => hls.destroy();
+                    } else if (!looksHls || video.canPlayType('application/vnd.apple.mpegurl')) {
+                        video.src = url;
+                    } else {
+                        throw new Error('当前浏览器不支持播放此格式，可尝试「新窗口打开」或用 VLC / IINA');
+                    }
+                }
+                video.play().catch(() => {});
+            } catch (e) {
+                inlinePlayerStatus(e.message || String(e), true);
+            }
+        }
+        function playInlineById(channelId) {
+            for (const group of (myPlaylistOriginalData || [])) {
+                const found = (group.channels || []).find(ch => ch.id === channelId);
+                if (found) { playInline(found.url, found.name); return; }
+            }
+            showStatus('频道未找到', 'error');
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const dialog = document.getElementById('inlinePlayer');
+            const video = document.getElementById('inlinePlayerVideo');
+            if (!dialog || !video) return;
+            dialog.addEventListener('close', closeInlinePlayer);            // Esc 关闭时也要释放播放器
+            dialog.addEventListener('click', e => { if (e.target === dialog) closeInlinePlayer(); }); // 点遮罩关闭
+            video.addEventListener('playing', () => inlinePlayerStatus(''));
+            video.addEventListener('error', () => { if (!inlinePlayerCleanup) inlinePlayerStatus('播放失败，可尝试「新窗口打开」或用 VLC / IINA', true); });
+        });
+
         // 页面加载时初始化
         window.onload = loadData;
     </script>
+    <dialog id="inlinePlayer" class="inline-player">
+        <div class="inline-player-top">
+            <strong id="inlinePlayerTitle"></strong>
+            <div class="inline-player-tools">
+                <button class="btn btn-sm" onclick="openInlinePlayerPage()">新窗口打开</button>
+                <button class="btn btn-sm" onclick="closeInlinePlayer()">关闭</button>
+            </div>
+        </div>
+        <video id="inlinePlayerVideo" controls playsinline></video>
+        <p id="inlinePlayerStatus" class="inline-player-status"></p>
+    </dialog>
 </body>
 </html>

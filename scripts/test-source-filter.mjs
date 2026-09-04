@@ -6,8 +6,8 @@
  *  1) ensureSourceIds —— 外部源稳定 id：缺则补、已有保留、彼此唯一、幂等。
  *  2) dedupeAllChannels —— 组内 name+地址 去重保留第一个；重复命中时把归属并入
  *     保留者的 sourceIds 并集（多源提供的同一频道，禁用其一不误删）。
- *  3) consolidatePhoenixChannels —— 凤凰秀官方三台置顶复制进「亚太」，「香港」保留；
- *     第三方源的同台条目（含凤凰卫视中文台等命名变体）让位。
+ *  3) pinPhoenixChannels —— 凤凰秀官方三台置顶复制进「亚太」，「香港」保留；
+ *     亚太里其它源的同名凤凰条目原样留在后面，不合并、不顶替。
  *  4) applyConfig.disabledSources —— 黑名单语义：频道**所有**来源都被禁才隐藏；
  *     部分来源可用则保留；旧数据（无 sourceIds）不过滤；空黑名单不过滤。
  *
@@ -23,9 +23,9 @@ import {
   consolidateLocalEducationChannels,
   consolidateLocalKidsChannels,
   consolidateLocalSportsChannels,
-  consolidatePhoenixChannels,
   dedupeAllChannels,
   normalizeContentGroupNames,
+  pinPhoenixChannels,
   primarySourceId,
 } from '../utils/channelMerger.js'
 import { applyConfig } from '../utils/playlistConfig.js'
@@ -211,13 +211,14 @@ check('地方体育频道同时归入体育组，地方组仍保留且同台优�
   assert.equal(JSON.stringify(input), before, '不应修改输入分组')
 })
 
-// 3) consolidatePhoenixChannels：凤凰三台以官方源为准，置顶进亚太
-check('凤凰秀三台置顶进亚太并顶掉第三方源，香港组仍保留三台', () => {
+// 3) pinPhoenixChannels：凤凰秀三台置顶进亚太，亚太原有条目（含第三方凤凰）原样保留
+check('凤凰秀三台置顶进亚太，第三方同名条目原位保留，香港组不动', () => {
   const input = [
     { name: '亚太', dataList: [
       { name: '凤凰中文', url: 'http://third-party/110.m3u8', sourceId: 'ext:pick' },
-      { name: '凤凰卫视资讯台', url: 'http://third-party/109.m3u8', sourceId: 'ext:pick' },
+      { name: '凤凰资讯', url: 'http://third-party/109.m3u8', sourceId: 'ext:pick' },
       { name: '中視新聞', url: 'http://4gtv/1.m3u8', sourceId: 'ext:pick' },
+      { name: '凤凰卫视电影台', url: 'http://third-party/movie', sourceId: 'ext:pick' },
       { name: '翡翠台', url: 'http://tvb/1.m3u8', sourceId: 'ext:pick' },
     ] },
     { name: '国际', dataList: [{ name: '凤凰香港', url: 'http://third-party/fhhk', sourceId: 'ext:pick' }] },
@@ -228,26 +229,32 @@ check('凤凰秀三台置顶进亚太并顶掉第三方源，香港组仍保留�
     ] },
   ]
   const before = JSON.stringify(input)
-  const output = consolidatePhoenixChannels(input)
+  const output = pinPhoenixChannels(input)
   const apac = output.find(group => group.name === '亚太').dataList
 
-  // 官方三台按凤凰秀自身顺序占据最前，第三方同台条目（含命名变体）全部让位
+  // 官方三台按凤凰秀自身顺序占据最前；亚太原有条目一条不少、顺序不变，只是整体后挪
   assert.deepEqual(apac.map(channel => channel.name), [
-    '凤凰资讯', '凤凰中文', '凤凰香港', '中視新聞', '翡翠台',
+    '凤凰资讯', '凤凰中文', '凤凰香港',
+    '凤凰中文', '凤凰资讯', '中視新聞', '凤凰卫视电影台', '翡翠台',
   ])
-  assert.ok(apac.slice(0, 3).every(channel => channel.sourceId === 'xt:fengshows'))
-  assert.ok(apac.slice(0, 3).every(channel => !channel.url && channel.deferredRef))
+  assert.ok(apac.slice(0, 3).every(channel => channel.sourceId === 'xt:fengshows' && channel.deferredRef && !channel.url))
+  // 第三方凤凰是独立条目：地址、归属原样，不并进官方条目
+  assert.deepEqual(apac.slice(3, 5).map(channel => channel.url), ['http://third-party/110.m3u8', 'http://third-party/109.m3u8'])
+  assert.ok(apac.slice(3).every(channel => channel.sourceId === 'ext:pick'))
+  assert.ok(apac.slice(0, 3).every(channel => !channel.sourceIds))
+  // 真实流水线紧接着做组内去重：同名不同地址是两条独立频道，不该被合掉
+  assert.equal(dedupeAllChannels(output), 0)
+  // 其它分组里的凤凰同样不动
+  assert.deepEqual(output.find(group => group.name === '国际').dataList.map(channel => channel.url), ['http://third-party/fhhk'])
   // 香港组是官方源的本位分组，一条不少
   assert.deepEqual(output.find(group => group.name === '香港').dataList.map(channel => channel.name), [
     '凤凰资讯', '凤凰中文', '凤凰香港',
   ])
-  // 其它分组里的第三方凤凰也一并清掉，免得换个分组继续存在
-  assert.equal(output.some(group => group.name === '国际'), false)
   assert.equal(JSON.stringify(input), before, '不应修改输入分组')
 })
 
 check('原本没有亚太组时自动创建，并放在地方分组之前', () => {
-  const output = consolidatePhoenixChannels([
+  const output = pinPhoenixChannels([
     { name: '卫视', dataList: [{ name: '湖南卫视', url: 'http://a/1.m3u8', sourceId: 'ext:pick' }] },
     { name: '香港', dataList: [{ name: '凤凰中文', deferredRef: 'fengshows-chinese.flv', sourceId: 'xt:fengshows' }] },
   ])
@@ -256,7 +263,7 @@ check('原本没有亚太组时自动创建，并放在地方分组之前', () =
 })
 
 check('凤凰秀模块未启用时，亚太的第三方凤凰原样保留', () => {
-  const output = consolidatePhoenixChannels([
+  const output = pinPhoenixChannels([
     { name: '亚太', dataList: [
       { name: '凤凰中文', url: 'http://third-party/110.m3u8', sourceId: 'ext:pick' },
       { name: '中視新聞', url: 'http://4gtv/1.m3u8', sourceId: 'ext:pick' },
@@ -265,14 +272,13 @@ check('凤凰秀模块未启用时，亚太的第三方凤凰原样保留', () =
   assert.deepEqual(output[0].dataList.map(channel => channel.name), ['凤凰中文', '中視新聞'])
 })
 
-check('凤凰电影台等非三台频道不受影响', () => {
-  const output = consolidatePhoenixChannels([
-    { name: '亚太', dataList: [{ name: '凤凰卫视电影台', url: 'http://third-party/movie', sourceId: 'ext:pick' }] },
+check('重复执行不会叠加官方副本，第三方条目仍在原位', () => {
+  const groups = [
+    { name: '亚太', dataList: [{ name: '凤凰中文', url: 'http://third-party/110.m3u8', sourceId: 'ext:pick' }] },
     { name: '香港', dataList: [{ name: '凤凰中文', deferredRef: 'fengshows-chinese.flv', sourceId: 'xt:fengshows' }] },
-  ])
-  assert.deepEqual(output.find(group => group.name === '亚太').dataList.map(channel => channel.name), [
-    '凤凰中文', '凤凰卫视电影台',
-  ])
+  ]
+  const twice = pinPhoenixChannels(pinPhoenixChannels(groups))
+  assert.deepEqual(twice.find(group => group.name === '亚太').dataList.map(channel => channel.sourceId), ['xt:fengshows', 'ext:pick'])
 })
 
 // 4) applyConfig disabledSources 语义

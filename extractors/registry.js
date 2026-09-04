@@ -84,6 +84,7 @@
  * `xt:` 这个前缀格式是注册表层的事，模块不该知道。
  */
 import bilibiliLive from './bilibili-live/index.js'
+import asianLive from './asian-live/index.js'
 import beidou from './beidou/index.js'
 import cztv from './cztv/index.js'
 import dalian from './dalian/index.js'
@@ -119,6 +120,7 @@ const MODULES = [
   migu,
   yangshipin,
   fengshows,
+  asianLive,
   bilibiliLive,
   huyaLive,
   douyuLive,

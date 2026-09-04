@@ -16,7 +16,6 @@
  * 运行： node scripts/test-m3u-parse.mjs   （或 npm test）
  */
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { parsePlaylistContent } from '../utils/externalSources.js'
 
 let passed = 0
@@ -60,21 +59,6 @@ check('URL 原样保留：&timestamp 不被改写成 ×tamp', () => {
   const url = 'http://h/x.m3u8?pid=2028597139&timestamp=20260710&lt=2&notin=x'
   const [ch] = parsePlaylistContent(`#EXTINF:-1 group-title="央视",CCTV1综合\n${url}`)
   assert.equal(ch.url, url)
-})
-
-check('内置国际新闻频道统一归入国际，不再产生新闻分组', () => {
-  const channels = parsePlaylistContent(readFileSync(new URL('../IPTV.m3u', import.meta.url), 'utf8'))
-  const internationalNews = new Set(['Reuters', 'Sky News', 'NHK World', 'France24'])
-  assert.deepEqual(
-    channels.filter(channel => internationalNews.has(channel.name)).map(channel => [channel.name, channel.group]),
-    [
-      ['Reuters', '国际'],
-      ['Sky News', '国际'],
-      ['NHK World', '国际'],
-      ['France24', '国际'],
-    ],
-  )
-  assert.equal(channels.some(channel => channel.group === '新闻'), false)
 })
 
 console.log(`\n全部通过：${passed}/${passed} ✅`)

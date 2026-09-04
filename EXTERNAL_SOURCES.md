@@ -51,7 +51,7 @@ import { extractM3u8FromWeb } from "./utils/webSourceExtractor.js"
 
 const m3u8Url = await extractM3u8FromWeb("https://www.example.com/tv.html", {
   playButtonSelector: ".play-btn",  // 播放按钮的 CSS 选择器
-  waitTime: 5000,                   // 等待时间（毫秒）
+  waitTime: 5000,                   // 等待 m3u8 的最长时间（毫秒），嗅到即走
   headless: true                    // 无头浏览器模式
 })
 ```
@@ -131,7 +131,7 @@ Content-Type: application/json
 ```javascript
 {
   playButtonSelector: ".play-btn", // 播放按钮CSS选择器
-  waitTime: 5000,                  // 点击后等待时间
+  waitTime: 5000,                  // 点击后等待 m3u8 的最长时间（毫秒），嗅到即走
   headless: true,                  // 无头模式（不显示浏览器）
   timeout: 30000                   // 页面加载超时时间
 }

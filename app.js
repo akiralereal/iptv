@@ -1354,6 +1354,25 @@ server.listen(port, async () => {
     }
   }, sourceTickMs); // 每 5 分钟检查一次：让各源的 refreshInterval 被准时执行（此前每小时才 check，间隔不精确）—— issue #73
 
+  // 需要网页抓取的内置源（纬来体育等）的启动抓取。放到首份播放列表生成之后、不 await 地在
+  // 后台跑：此前它排在启动流程最前面且串行，内网抓不到时一轮十几分钟，其它所有源都得等它。
+  // 抓到了走「仅重新生成播放列表」把新地址补进去；抓取本身有防重入，5 分钟 tick 撞上会跳过
+  async function refreshBuiltInSourcesAfterStartup() {
+    // 用户配置了「启动时不更新」：启动那轮连咪咕都不刷，内置源也照旧不抓，交给定时刷新
+    if (externalSourceManager.sources?.updateOnStartup === false) return
+    try {
+      printBlue("启动模式：后台抓取需要网页抓取的内置源...")
+      const result = await updateBuiltInSources({ startupMode: true })
+      if (Array.isArray(result?.results) && result.results.some(r => r.success)) {
+        printBlue("内置源启动抓取拿到新地址，重新生成播放列表...")
+        await update(hours, { regenerateOnly: true })
+        printGreen("播放列表已补入内置源最新地址")
+      }
+    } catch (error) {
+      printRed(`内置源启动抓取失败: ${error?.message || error}`)
+    }
+  }
+
   try {
     // 初始化数据（启动模式）
     await update(hours, { startupMode: true })
@@ -1361,6 +1380,8 @@ server.listen(port, async () => {
     console.log(error)
     printRed("更新失败")
   }
+
+  void refreshBuiltInSourcesAfterStartup()
 
   // 启动后检查：如果有订阅源首次获取失败（parsedChannels 为空），60秒后自动重试
   setTimeout(async () => {

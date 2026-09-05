@@ -104,4 +104,79 @@ check('远程配置更新：按上述判据逐源清缓存，只追加备胎的�
   }
 })
 
+// ---- 抓取失败时旧缓存的去留 ----
+const checkAsync = async (name, fn) => { await fn(); passed++; console.log(`  ✅ ${name}`) }
+
+await checkAsync('抓取失败：缓存里的直播地址校验仍通过 → 保留，频道不消失', async () => {
+  const saveCache = builtInSourceManager.saveCache
+  const cache = builtInSourceManager.cache
+  let saved = 0
+  builtInSourceManager.saveCache = () => { saved++ }
+  try {
+    builtInSourceManager.cache = { vl: { m3u8Url: 'https://s/live.m3u8?sign=x', webUrl: 'https://a.com/w.html' } }
+    const seen = []
+    const kept = await builtInSourceManager.dropCacheUnlessStillValid(
+      { id: 'vl', name: '测试源' },
+      async (url, opts) => { seen.push([url, opts]); return true }
+    )
+    assert.equal(kept, true)
+    assert.ok(builtInSourceManager.cache.vl, '校验通过不该删缓存')
+    assert.equal(saved, 0, '没改缓存就不该落盘')
+    // 校验要带上当初抓取页做 Referer（有的流按 Referer 放行）
+    assert.deepEqual(seen, [['https://s/live.m3u8?sign=x', { referer: 'https://a.com/w.html' }]])
+  } finally {
+    builtInSourceManager.saveCache = saveCache
+    builtInSourceManager.cache = cache
+  }
+})
+
+await checkAsync('抓取失败：缓存地址校验不过（或校验抛错）→ 清掉并落盘', async () => {
+  const saveCache = builtInSourceManager.saveCache
+  const cache = builtInSourceManager.cache
+  let saved = 0
+  builtInSourceManager.saveCache = () => { saved++ }
+  try {
+    builtInSourceManager.cache = { vl: { m3u8Url: 'https://s/live.m3u8', webUrl: 'https://a.com' }, other: { m3u8Url: 'o' } }
+    assert.equal(await builtInSourceManager.dropCacheUnlessStillValid({ id: 'vl', name: '测试源' }, async () => false), false)
+    assert.equal(builtInSourceManager.cache.vl, undefined)
+    assert.ok(builtInSourceManager.cache.other, '只动本源的缓存')
+    assert.equal(saved, 1)
+
+    builtInSourceManager.cache = { vl: { m3u8Url: 'https://s/live.m3u8' } }
+    assert.equal(await builtInSourceManager.dropCacheUnlessStillValid({ id: 'vl', name: '测试源' }, async () => { throw new Error('boom') }), false)
+    assert.equal(builtInSourceManager.cache.vl, undefined, '校验抛错按失效处理')
+
+    // 本来就没缓存：什么都不做、不落盘
+    saved = 0
+    assert.equal(await builtInSourceManager.dropCacheUnlessStillValid({ id: 'none', name: 'x' }, async () => true), false)
+    assert.equal(saved, 0)
+  } finally {
+    builtInSourceManager.saveCache = saveCache
+    builtInSourceManager.cache = cache
+  }
+})
+
+await checkAsync('防重入：一轮抓取进行中再调 updateFetchSources 直接跳过，不重复抓', async () => {
+  const run = builtInSourceManager.runFetchSources
+  let runs = 0
+  let release
+  builtInSourceManager.runFetchSources = () => new Promise(resolve => { runs++; release = () => resolve({ success: true, results: [] }) })
+  try {
+    const first = builtInSourceManager.updateFetchSources({ autoOnly: true })
+    await new Promise(r => setTimeout(r, 0))
+    const second = await builtInSourceManager.updateFetchSources({ autoOnly: true })
+    assert.equal(second.skipped, true, '第二次应被跳过')
+    assert.equal(runs, 1, '实际抓取只跑了一次')
+    release()
+    await first
+    assert.equal(builtInSourceManager.fetching, false, '结束后放开闸门')
+    // 放开后能再抓
+    builtInSourceManager.runFetchSources = async () => ({ success: true, results: [] })
+    const third = await builtInSourceManager.updateFetchSources({ autoOnly: true })
+    assert.equal(third.skipped, undefined)
+  } finally {
+    builtInSourceManager.runFetchSources = run
+  }
+})
+
 console.log(`\n全部通过：${passed} 项`)

@@ -14,7 +14,7 @@
  *   A. 环境：Node / 代理环境变量 / 将要使用的浏览器
  *   B. 入口页：DNS（系统解析 vs 阿里 DNS，对比是否被污染）→ GET 页面 → 解析出播放器 iframe 与
  *      外链脚本的域名 → 逐个 DNS + GET 探测（这一步不开浏览器就能定位是哪一环不通）
- *   C. 浏览器：与项目相同的启动器 / 拦截规则 / UA，导航用与项目相同的 networkidle2 + 30s；
+ *   C. 浏览器：与项目相同的启动器 / 拦截规则 / UA，导航用与项目相同的 networkidle2 + 15s；
  *      导航超时时**不丢弃**已嗅探到的 m3u8，并列出超时那一刻还挂着的请求（内网常见的卡点）
  *   D. m3u8：解析域名（系统 vs 阿里 DNS）、带 Referer 校验（与项目 validateM3u8 相同）
  *
@@ -51,7 +51,7 @@ const useModule = flag('--module')
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 const HTTP_TIMEOUT_MS = 10000
-const NAV_TIMEOUT_MS = 30000   // 与 webSourceExtractor.js 的 timeout 一致
+const NAV_TIMEOUT_MS = 15000   // 与 webSourceExtractor.js 的 timeout 默认值一致
 
 // ---------- 小工具 ----------
 const ms = (t) => `${Math.round(t)}ms`

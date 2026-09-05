@@ -4,7 +4,11 @@
  *   1. 嗅到即走：页面里有请求一直挂着（到不了 networkidle2）时，仍拿到 m3u8，且不等导航超时；
  *   2. 站点不通（连接被拒）：快速放弃，把时间留给下一个入口；
  *   3. 主文档零响应：导航超时后立即放弃，不再白等 waitTime；
- *   4. 播放器在跨域 iframe 里、要点播放按钮才拉流：兜底触发要遍历所有 frame 才点得到。
+ *   4. 播放器在跨域 iframe 里、要点播放按钮才拉流：兜底触发要遍历所有 frame 才点得到；
+ *   5. 渲染进程主线程被脚本死循环卡死：frame.evaluate 有 10 秒上限，整次在几十秒内放弃，
+ *      不再等 puppeteer 默认 180 秒的 protocolTimeout（此前一个入口耗 6 分钟的根源）；
+ *   6. 页面一上来就 alert()：自动关闭，后续脚本照跑、m3u8 照拿；
+ *   7. 主文档 10 秒内零响应：不等 30 秒导航超时就放弃。
  * 不在 npm test 里（需要机器上有 Chrome/Chromium），手动跑：
  *
  *   node scripts/verify-web-extract-timeout.mjs
@@ -53,6 +57,12 @@ const app = http.createServer((req, res) => {
       return             // 永不响应
     case '/silent':
       return             // 主文档本身永不响应 → 导航超时且零响应
+    case '/busy-page':   // 3 个请求挂着（到不了 networkidle2）+ 主线程随即死循环 → evaluate 永远没有回应
+      res.setHeader('content-type', 'text/html')
+      return res.end(`<html><body><script>for (let i = 0; i < 3; i++) fetch('/hang?b' + i); setTimeout(() => { while (true) {} }, 300)</script></body></html>`)
+    case '/alert-page':  // alert 挂起主线程；关掉后才会去拉清单
+      res.setHeader('content-type', 'text/html')
+      return res.end(`<html><body><script>alert('hello'); fetch('/live.m3u8')</script></body></html>`)
     default:
       res.statusCode = 404
       return res.end()
@@ -77,7 +87,7 @@ await new Promise(r => player.listen(0, '127.0.0.1', r))
 playerPort = player.address().port
 const base = `http://127.0.0.1:${app.address().port}`
 
-console.log('网页抓取「嗅到即走 / 导航超时不丢链接 / 遍历 frame 触发播放」验证')
+console.log('网页抓取「嗅到即走 / 导航超时不丢链接 / 遍历 frame 触发播放 / evaluate 上限 / 弹窗 / 零响应」验证')
 
 {
   const t0 = Date.now()
@@ -116,6 +126,37 @@ console.log('网页抓取「嗅到即走 / 导航超时不丢链接 / 遍历 fra
   assert.deepEqual(r, [`http://127.0.0.1:${playerPort}/iframe.m3u8`])
   assert.equal(hits.iframeM3u8, 1)
   ok('播放器在跨域 iframe 里：兜底触发点到了 iframe 里的播放按钮，拉到 m3u8')
+}
+
+{
+  const t0 = Date.now()
+  const r = await extractM3u8FromWeb(`${base}/busy-page`, { waitTime: 1000, timeout: 3000 })
+  const elapsed = Date.now() - t0
+  assert.equal(r, null)
+  // 3s 导航超时 + 2s + 1s + 一次 10s evaluate 超时（第二次对同一 frame 直接跳过）+ 关浏览器
+  assert.ok(elapsed >= 10000, `应真的等到了 10 秒的 evaluate 上限，实际 ${elapsed}ms`)
+  assert.ok(elapsed < 45000, `渲染进程卡死时应在几十秒内放弃，而不是 180 秒 protocolTimeout，实际 ${elapsed}ms`)
+  ok(`主线程死循环：evaluate 10 秒上限生效，${elapsed}ms 放弃（旧实现约 6 分钟）`)
+}
+
+{
+  const before = hits.m3u8
+  const t0 = Date.now()
+  const r = await extractM3u8FromWeb(`${base}/alert-page`, { waitTime: 3000, returnAll: true, timeout: 20000 })
+  const elapsed = Date.now() - t0
+  assert.deepEqual(r, [`${base}/live.m3u8`], 'alert 关掉后应拿到清单')
+  assert.equal(hits.m3u8, before + 1)
+  assert.ok(elapsed < 15000, `alert 应被自动关闭而不是挂到导航超时，实际 ${elapsed}ms`)
+  ok(`页面一上来 alert()：自动关闭，${elapsed}ms 拿到 m3u8`)
+}
+
+{
+  const t0 = Date.now()
+  const r = await extractM3u8FromWeb(`${base}/silent`, { waitTime: 5000, timeout: 30000 })
+  const elapsed = Date.now() - t0
+  assert.equal(r, null)
+  assert.ok(elapsed >= 9500 && elapsed < 17000, `零响应应在 10 秒左右放弃、不等 30 秒导航超时，实际 ${elapsed}ms`)
+  ok(`主文档零响应且导航超时设 30s：${elapsed}ms 即放弃`)
 }
 
 assert.equal(unhandled, 0, '不应有未处理的 Promise 拒绝（导航被浏览器关闭打断时）')

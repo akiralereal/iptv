@@ -99,12 +99,11 @@ async function updateTV(hours, options = {}) {
   // 更新外部源（在获取数据之前）
   // regenerateOnly 模式下跳过外部源更新（因为这个模式用于配置变更后重新生成）
   if (!regenerateOnly) {
-    // 更新内置源（需要抓取的）
-    if (startupMode) {
-      printBlue("启动模式：检查需要更新的内置源...")
-      await updateBuiltInSources({ startupMode: true })
-    }
-    
+    // 需要网页抓取的内置源（纬来体育等）在启动模式下**不在这里抓**：抓一次要起 Chromium、
+    // 跑几个入口，内网抓不到时一轮十几分钟，而它排在最前面且串行，外部源、抓取模块、
+    // 生成播放列表全得等它（v4.6.1 用户日志：启动 836 秒里 823 秒在等它）。启动时先用缓存
+    // 出列表，抓取放到列表生成之后在后台跑，抓到再重新生成一次（见 app.js
+    // refreshBuiltInSourcesAfterStartup）。定时全量更新仍在下面的 else 分支里抓
     if (startupMode) {
       // 启动模式：只更新设置了 updateOnStartup: true 的源
       printBlue("启动模式：检查需要更新的外部源...")

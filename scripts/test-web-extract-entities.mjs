@@ -14,7 +14,7 @@
  * 运行： node scripts/test-web-extract-entities.mjs   （或 npm test）
  */
 import assert from 'node:assert/strict'
-import { restoreLegacyEntities } from '../utils/webSourceExtractor.js'
+import { restoreLegacyEntities, describePendingRequests } from '../utils/webSourceExtractor.js'
 
 let passed = 0
 const check = (name, fn) => { fn(); passed++; console.log(`  ✅ ${name}`) }
@@ -51,4 +51,30 @@ check('&amp; 来源的 & 已是干净的，不受影响', () => {
   assert.equal(restoreLegacyEntities('http://h/x.m3u8?x=1&timestamp=2'), 'http://h/x.m3u8?x=1&timestamp=2')
 })
 
-console.log(`\n全部通过：${passed}/5 ✅`)
+// ---- 导航超时诊断：挂着的请求按域名汇总 ----
+check('挂着的请求按域名汇总：数量、类型、最久等待、是否收到过响应', () => {
+  const now = 100000
+  const pending = new Map([
+    ['https://cloud.example.hk/a.js', { start: now - 28000, type: 'script', responded: false }],
+    ['https://cloud.example.hk/b.js', { start: now - 29500, type: 'script', responded: false }],
+    ['https://cloud.example.hk/player.html', { start: now - 5000, type: 'document', responded: false }],
+    ['https://cdn.example.cn/x.css', { start: now - 3000, type: 'stylesheet', responded: true }],
+  ])
+  assert.equal(
+    describePendingRequests(pending, now),
+    'cloud.example.hk×3(script/document,无响应,30s) cdn.example.cn×1(stylesheet,3s)'
+  )
+})
+
+check('挂着的请求汇总：最多列 maxHosts 个域名（按数量降序）、空集合返回空串、坏 URL 不抛', () => {
+  const now = 1000
+  const many = new Map([...Array(8)].map((_, i) => [`https://h${i}.com/${i}`, { start: now - 1000, type: 'xhr' }]))
+  many.set('https://h0.com/again', { start: now - 500, type: 'xhr' })
+  const out = describePendingRequests(many, now, 3)
+  assert.equal(out.split(' ').length, 3)
+  assert.ok(out.startsWith('h0.com×2('), '数量最多的域名排最前')
+  assert.equal(describePendingRequests(new Map(), now), '')
+  assert.equal(describePendingRequests(new Map([['not a url', { start: now - 2000 }]]), now), 'not a url×1(?,无响应,2s)')
+})
+
+console.log(`\n全部通过：${passed}/7 ✅`)

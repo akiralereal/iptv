@@ -133,7 +133,7 @@ Content-Type: application/json
   playButtonSelector: ".play-btn", // 播放按钮CSS选择器
   waitTime: 5000,                  // 点击后等待 m3u8 的最长时间（毫秒），嗅到即走
   headless: true,                  // 无头模式（不显示浏览器）
-  timeout: 30000                   // 页面加载超时时间
+  timeout: 15000                   // 页面导航超时上限（毫秒，嗅到 m3u8 即提前结束；默认 15000）
 }
 ```
 

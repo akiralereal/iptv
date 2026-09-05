@@ -56,7 +56,8 @@ export function getWebUrlCandidates(source) {
 /**
  * 本轮的尝试顺序：上次抓成功的地址排最前（它多半还活着，省掉前面几个死站各一次
  * Chromium 启动），其余按配置顺序；再按 maxAttemptsPerRun 截断。
- * 上次成功的地址一旦整轮失败，缓存会被清掉，下轮自然回到配置顺序。
+ * 整轮失败时只有缓存链接经校验确已失效才会被清掉、下轮回到配置顺序；链接仍可用则继续沿用，
+ * 下轮也仍优先重试它（见 dropCacheUnlessStillValid）。
  */
 export function orderWebUrlCandidates(candidates, lastUsedUrl, maxAttempts = DEFAULT_MAX_FETCH_ATTEMPTS) {
   const ordered = candidates.includes(lastUsedUrl)
@@ -99,6 +100,7 @@ class BuiltInSourceManager {
     // 抓取失败的退避（内存态）。失败会清缓存，而「没缓存 = 需要刷新」会让一个当前
     // 抓不到的源在每个 5 分钟 tick 都起一次 Chromium 重抓（用户日志里纬来体育即如此）
     this.backoff = new FailureBackoff()
+    this.fetching = false // 一轮抓取进行中（防重入，见 updateFetchSources）
     this.loadConfig()
     this.loadCache()
   }
@@ -355,6 +357,23 @@ class BuiltInSourceManager {
    * @param {boolean} options.forceAll - 强制更新所有抓取源
    */
   async updateFetchSources(options = {}) {
+    // 防重入：一轮抓取要起 Chromium、跑几个入口，最长几分钟；启动后的后台抓取、5 分钟 tick、
+    // 定时全量更新都可能撞上。撞上就跳过本次，不把同一个源抓两遍——那会两个 Chromium 同时
+    // 压一台 NAS，退避计数也被记两次（v4.6.1 用户日志：启动那轮与第一个 tick 各抓了一遍纬来体育）
+    if (this.fetching) {
+      printYellow('内置源上一轮抓取仍在进行，跳过本次')
+      return { success: true, message: '正在抓取中', results: [], skipped: true }
+    }
+    this.fetching = true
+    try {
+      return await this.runFetchSources(options)
+    } finally {
+      this.fetching = false
+    }
+  }
+
+  /** updateFetchSources 的实际工作，调用方请走带防重入的 updateFetchSources */
+  async runFetchSources(options = {}) {
     const { startupMode = false, autoOnly = false, forceAll = false } = options
 
     // 全局关闭内置源时直接跳过（连远程配置也不拉）
@@ -427,12 +446,7 @@ class BuiltInSourceManager {
         } else {
           const reason = extractError || '未找到m3u8链接'
           printRed(`✗ ${source.name} 更新失败: ${reason}`)
-          // 清除旧缓存，避免继续使用已过期的链接
-          if (this.cache[source.id]) {
-            delete this.cache[source.id]
-            this.saveCache()
-            printYellow(`✗ ${source.name} 已清除过期缓存`)
-          }
+          await this.dropCacheUnlessStillValid(source)
           this.noteFailure(source, reason)
           results.push({ 
             id: source.id, 
@@ -443,12 +457,7 @@ class BuiltInSourceManager {
         }
       } catch (error) {
         printRed(`✗ ${source.name} 更新失败: ${error.message}`)
-        // 清除旧缓存，避免继续使用已过期的链接
-        if (this.cache[source.id]) {
-          delete this.cache[source.id]
-          this.saveCache()
-          printYellow(`✗ ${source.name} 已清除过期缓存`)
-        }
+        await this.dropCacheUnlessStillValid(source)
         this.noteFailure(source, error.message)
         results.push({ 
           id: source.id, 
@@ -471,6 +480,33 @@ class BuiltInSourceManager {
     }
 
     return { success: true, results }
+  }
+
+  /**
+   * 抓取失败时旧缓存的去留：链接还能用就留着。
+   * 纬来体育这类源的 m3u8 是静态的（expire / sign 多日不变、服务端不校验 expire），一次抓不到
+   * （入口站抽风、跨境链路卡住）不代表链接失效；此前一失败就删缓存，频道整个从播放列表消失、
+   * 要等下次抓成功才回来。现在先带 Referer 校验旧链接，校验不过（流真停了 / 换了地址）才删。
+   * @param {Function} [validate] 校验函数，便于单测注入
+   * @returns {Promise<boolean>} 是否保留了缓存
+   */
+  async dropCacheUnlessStillValid(source, validate = validateM3u8) {
+    const cached = this.cache[source.id]
+    if (!cached?.m3u8Url) return false
+    let stillValid = false
+    try {
+      stillValid = await validate(cached.m3u8Url, { referer: cached.webUrl })
+    } catch {
+      stillValid = false
+    }
+    if (stillValid) {
+      printYellow(`✗ ${source.name} 本轮抓取失败，但缓存的直播地址仍可用，继续沿用`)
+      return true
+    }
+    delete this.cache[source.id]
+    this.saveCache()
+    printYellow(`✗ ${source.name} 缓存的直播地址也已失效，已清除`)
+    return false
   }
 
   /** 记一次抓取失败并打印下次重试时间（退避规则见 refreshBackoff.js） */

@@ -16,8 +16,8 @@
  * 缓存放在模块里而不是外壳里：它缓存的 content 是咪咕的响应体（登录态信息由此
  * 而来），3 小时也是签名有效期这个平台属性，不是通用的 HTTP 缓存策略。
  */
-import { get302URL, getAndroidURL, getAndroidURL720p, printLoginInfo } from "./androidURL.js"
-import { printDebug, printGreen } from "../../utils/colorOut.js"
+import { get302URL, getAndroidURL, getAndroidURL720p, printStreamInfo } from "./androidURL.js"
+import { printDebug } from "../../utils/colorOut.js"
 
 // 键是裸 pid。过期条目只是不命中、不回收——这是搬家前的行为，不加 LRU/上限，
 // 那会改变「重启前一直命中」这个存量特性。
@@ -35,14 +35,14 @@ function readCache(pid) {
 
   let msg = "节目调整，暂不提供服务"
   if (urlCache[pid].content != null) {
-    printLoginInfo(urlCache[pid])
     msg = urlCache[pid].content.message
   }
   const url = urlCache[pid].url
   // 节目调整
   if (url == "") return { url: "", desc: `${pid} ${msg}` }
 
-  printGreen("使用缓存数据")
+  // 一行「咪咕取流（缓存）：档位」替代原来的「登录认证成功」+「使用缓存数据」两行
+  printStreamInfo(urlCache[pid], { cached: true })
   return { url, desc: "缓存获取成功" }
 }
 
@@ -94,7 +94,7 @@ export async function resolve(ref, ctx = {}) {
       }
     }
   }
-  printLoginInfo(resObj)
+  printStreamInfo(resObj)
 
   // 缓存有效时长
   let addTime = 3 * 60 * 60 * 1000

@@ -20,7 +20,7 @@ import { join } from 'node:path'
 
 // androidURL.js 间接 import config.js，后者会读数据目录；指到临时目录避免碰真实数据
 process.env.mdataDir = mkdtempSync(join(tmpdir(), 'iptv-migu-4k-test-'))
-const { getAndroidURL } = await import('../extractors/migu/androidURL.js')
+const { getAndroidURL, printStreamInfo } = await import('../extractors/migu/androidURL.js')
 
 const PID = '967231356'
 const OPTS = { enableHDR: false, enableH265: false }
@@ -118,6 +118,44 @@ try {
     assert.deepEqual(calls, ['9+ott', '9'])
     assert.equal(res.url, '')
     assert.ok(res.content?.message, '失败结果要带可展示的 message')
+  })
+  // ---- 取流摘要日志（替代原来的「登录认证成功」+ 红字「认证失败 视频内容不完整」）----
+  const RED = '\x1B[31m', GREEN = '\x1B[32m', YELLOW = '\x1B[33m'
+  const stream = ({ url = 'http://x/y.m3u8', logined = true, authResult = 'SUCCESS', rateType = '9', rateDesc = '臻享 超高清', trySeeDuration = '0' } = {}) => ({
+    url, content: { body: { urlInfo: { rateType, rateDesc, trySeeDuration }, auth: { logined, authResult, resultDesc: '产品:未订购且不享受权益免费' } } },
+  })
+
+  await check('取流摘要：会员完整播放一行绿字，只写档位', async () => {
+    printStreamInfo(stream())
+    assert.equal(logs.length, 1)
+    assert.ok(logs[0].startsWith(GREEN) && logs[0].includes('咪咕取流：臻享 超高清'), logs[0])
+  })
+
+  await check('取流摘要：账号没订购该内容但流已下发，不再打红字', async () => {
+    printStreamInfo(stream({ authResult: 'FAIL' }))
+    assert.equal(logs.length, 1)
+    assert.ok(!logs.some(l => l.includes(RED)), '不该有红字')
+    assert.ok(!logs.some(l => l.includes('认证失败')), '不再打「认证失败 视频内容不完整」')
+  })
+
+  await check('取流摘要：只给试看时黄字并写明秒数', async () => {
+    printStreamInfo(stream({ authResult: 'FAIL', trySeeDuration: '360' }))
+    assert.equal(logs.length, 1)
+    assert.ok(logs[0].startsWith(YELLOW) && logs[0].includes('仅试看 360 秒'), logs[0])
+  })
+
+  await check('取流摘要：游客标「游客」，缓存命中标「缓存」', async () => {
+    printStreamInfo(stream({ logined: false, rateType: '3', rateDesc: '高清 720P' }))
+    printStreamInfo(stream(), { cached: true })
+    assert.ok(logs[0].includes('咪咕取流：游客 · 高清 720P'), logs[0])
+    assert.ok(logs[1].includes('咪咕取流（缓存）：臻享 超高清'), logs[1])
+  })
+
+  await check('取流摘要：拿不到地址或 content 为空时什么都不打、不抛错', async () => {
+    printStreamInfo(stream({ url: '' }))
+    printStreamInfo({ url: 'http://x', content: null })
+    printStreamInfo(null)
+    assert.equal(logs.length, 0)
   })
 } finally {
   console.log = origLog

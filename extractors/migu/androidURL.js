@@ -296,19 +296,31 @@ async function get302URL(resObj) {
   return ""
 }
 
-function printLoginInfo(resObj) {
-  // content 可能是 null——rateType <= 1 时 getAndroidURL 直接返回 {url:"", content:null}
-  // （见本文件 :49-55）。而调用点 utils/appUtils.js:293 在 try 之外，app.js 的
-  // 请求 handler 也没有顶层 try，于是这里一个 TypeError 就让请求永远不 end：
-  // 客户端挂死到超时，服务端只在 unhandledRejection 留一行日志。
-  if (resObj?.content?.body?.auth?.logined) {
-    printGreen("登录认证成功")
-    if (resObj.content.body.auth.authResult == "FAIL") {
-      printRed(`认证失败 视频内容不完整 可能缺少相关VIP: ${resObj.content.body.auth.resultDesc}`)
-    }
+/**
+ * 取流成功后打一行摘要：拿到的档位、是否游客、是否只给了试看。
+ *
+ * 此前这里打「登录认证成功」，鉴权字段为 FAIL 时再打一行红字「认证失败 视频内容不完整
+ * 可能缺少相关VIP」。可那行红字在流已经正常下发时也会打——账号没订购该内容的产品但内容
+ * 本身允许播放、或者咪咕只给了几分钟试看——看着像出了错，其实什么都没坏；真正要紧的
+ * 「拿到哪一档、试看多少秒」反而不打，issue #117 排查时全靠播放器截图。现在：完整播放绿字，
+ * 只给试看黄字，红字只留给拿不到地址的情况（由调用方按 desc 报）。
+ *
+ * content 可能是 null——rateType <= 1 时 getAndroidURL 直接返回 {url:"", content:null}；
+ * 调用点在 try 之外，这里抛 TypeError 会让请求永远不 end，所以一律可选链。
+ */
+function printStreamInfo(resObj, { cached = false } = {}) {
+  const body = resObj?.content?.body
+  if (!resObj?.url || !body) return
+  const info = body.urlInfo || {}
+  const rate = info.rateDesc || rateLabel(parseInt(info.rateType))
+  const who = body.auth?.logined ? '' : '游客 · '
+  const trySee = parseInt(info.trySeeDuration) || 0
+  const head = `咪咕取流${cached ? '（缓存）' : ''}：${who}${rate}`
+  if (trySee > 0) {
+    printYellow(`${head} · 仅试看 ${trySee} 秒（账号没有这条内容的观看权益）`)
   } else {
-    // printYellow("未登录")
+    printGreen(head)
   }
 }
 
-export { getAndroidURL, getAndroidURL720p, get302URL, printLoginInfo }
+export { getAndroidURL, getAndroidURL720p, get302URL, printStreamInfo }

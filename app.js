@@ -1356,10 +1356,10 @@ server.listen(port, async () => {
 
   // 需要网页抓取的内置源（纬来体育等）的启动抓取。放到首份播放列表生成之后、不 await 地在
   // 后台跑：此前它排在启动流程最前面且串行，内网抓不到时一轮十几分钟，其它所有源都得等它。
-  // 抓到了走「仅重新生成播放列表」把新地址补进去；抓取本身有防重入，5 分钟 tick 撞上会跳过
+  // 抓到了走「仅重新生成播放列表」把新地址补进去；抓取本身有防重入，5 分钟 tick 撞上会跳过。
+  // 抓不抓只看内置源清单里每个源自己的 updateOnStartup（与搬过来之前一致）；外部源那个全局
+  // updateOnStartup 是咪咕的「重启时更新」开关（见 externalSources.js setUpdateOnStartup），不管这里
   async function refreshBuiltInSourcesAfterStartup() {
-    // 用户配置了「启动时不更新」：启动那轮连咪咕都不刷，内置源也照旧不抓，交给定时刷新
-    if (externalSourceManager.sources?.updateOnStartup === false) return
     try {
       printBlue("启动模式：后台抓取需要网页抓取的内置源...")
       const result = await updateBuiltInSources({ startupMode: true })

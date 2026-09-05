@@ -5,6 +5,8 @@
 //
 // 「深度探活」(DEEP=1，默认开)：不止看状态码，而是把清单读出来验一遍，再真下一段分片。
 //   很多死源是 HTTP 200 + 一个「链接已失效 / 短链不存在」的 HTML 页面，只看状态码会当成活的。
+//   直播清单（没有 #EXT-X-ENDLIST）下的是最新一段：滑动窗口里最老的分片源站常已删掉
+//   （大立电视台实测首段 404、末段正常），下首段会把活源判死、DRY_RUN=0 时误删。
 // rtmp 源用真实 RTMP 握手 + connect + play 探活（node:net 手写，不依赖 ffprobe）。
 //
 // ⚠️ 务必在「真实使用网络」下运行：无外网环境会把外网源判失效（属预期）；
@@ -121,6 +123,14 @@ const firstUri = (txt, base) => {
   }
   return null
 }
+const lastUri = (txt, base) => {
+  const ls = txt.split('\n')
+  for (let i = ls.length - 1; i >= 0; i--) {
+    const s = ls[i].trim()
+    if (s && !s.startsWith('#')) { try { return new URL(s, base).href } catch { return null } }
+  }
+  return null
+}
 const variantUri = (txt, base) => {
   const ls = txt.split('\n')
   for (let i = 0; i < ls.length; i++) {
@@ -140,7 +150,7 @@ async function probeHttpOnce(url) {
 
   const text = r.buf.toString('utf8')
   if (text.slice(0, 200).includes('#EXTM3U')) {
-    // HLS：master 逐级下钻到媒体清单，再真下第一个分片
+    // HLS：master 逐级下钻到媒体清单，再真下一段分片
     let txt = text, base = r.finalUrl, ttfb = r.ttfb
     for (let d = 0; d < 2 && txt.includes('#EXT-X-STREAM-INF'); d++) {
       const v = variantUri(txt, base)
@@ -149,11 +159,19 @@ async function probeHttpOnce(url) {
       if (!rv.ok || !rv.bytes) return { status: 'dead', code: 'variant', detail: `主清单通但子清单取不到 (${rv.code})` }
       txt = rv.buf.toString('utf8'); base = rv.finalUrl; ttfb += rv.ttfb
     }
-    const seg = firstUri(txt, base)
-    if (!seg) return { status: 'dead', code: 'empty', detail: '清单里没有分片（空播放列表）' }
-    const rs = await withHostGate(seg, () => httpGet(seg, {
-      timeoutMs: SEG_TIMEOUT_MS, maxBytes: 400_000, range: 'bytes=0-400000', referer: base,
-    }))
+    // 直播清单（无 ENDLIST）先下最新一段：滑动窗口最老的分片源站常已删掉（大立电视台实测首段 404、
+    // 末段正常），只下首段会把活源判死；点播清单仍下首段。最新一段不行再退回首段试一次，
+    // 照顾个别末段还没写完就先列进清单的源站
+    const live = !txt.includes('#EXT-X-ENDLIST')
+    const candidates = [...new Set([live ? lastUri(txt, base) : firstUri(txt, base), firstUri(txt, base)].filter(Boolean))]
+    if (!candidates.length) return { status: 'dead', code: 'empty', detail: '清单里没有分片（空播放列表）' }
+    let rs
+    for (const seg of candidates) {
+      rs = await withHostGate(seg, () => httpGet(seg, {
+        timeoutMs: SEG_TIMEOUT_MS, maxBytes: 400_000, range: 'bytes=0-400000', referer: base,
+      }))
+      if (rs.bytes >= SEG_MIN_BYTES) break
+    }
     if (rs.bytes < SEG_MIN_BYTES) return { status: 'dead', code: 'segment', detail: `分片下不动 (${rs.code}, ${rs.bytes}B)` }
     return { status: 'alive', code: r.code, ttfb: ttfb + rs.ttfb, detail: 'hls' }
   }

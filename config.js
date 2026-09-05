@@ -73,11 +73,14 @@ function applyConfig(systemConfig) {
   refreshToken = systemConfig.refreshToken !== undefined ? systemConfig.refreshToken : parseBool(process.env.mrefreshToken, true)
   // 管理页面自定义路径（默认 admin）：改名后用 /<adminPath> 访问后台，裸 /admin 失效
   adminPath = sanitizeSegment(systemConfig.adminPath || process.env.madminPath, 'admin')
-  // 外部/精选频道无台标时，按中文名兜底的台标 CDN 基址（默认 fanmingming，留空字符串则关闭）。
+  // 外部/精选频道无台标时，按中文名兜底的台标 CDN 基址（默认 fanmingming 台标库，留空字符串则关闭）。
   // 仅写进 m3u 由播放器侧拉取静态图，服务器不发请求；故默认开。空值用 !== undefined 判定以允许显式关闭。
+  // 默认走 jsDelivr 的 gcore 镜像而不是原站 live.fanmingming.com / .cn：两个原站域名在大陆都被 DNS 污染，
+  // 2026-09 大陆探针 30/30 连不上（issue #25 / #114 台标全裂），镜像与原站文件一一对应、大陆 10/10 可达。
+  // cdn.jsdelivr.net / fastly.jsdelivr.net 的 Fastly 节点会把这个超大仓库 301 到 raw.githubusercontent.com（大陆同样不可达），故只用 gcore。
   externalLogoBase = systemConfig.externalLogoBase !== undefined
     ? systemConfig.externalLogoBase
-    : (process.env.mexternalLogoBase !== undefined ? process.env.mexternalLogoBase : "https://live.fanmingming.com/tv/")
+    : (process.env.mexternalLogoBase !== undefined ? process.env.mexternalLogoBase : "https://gcore.jsdelivr.net/gh/fanmingming/live@main/tv/")
   // EPG 名称规整（issue #39）：把异构源频道的 tvg-id/tvg-name 归一到规范名（EPG 频道名），默认开。
   enableTvgNormalize = systemConfig.enableTvgNormalize !== undefined ? systemConfig.enableTvgNormalize : parseBool(process.env.menableTvgNormalize, true)
   // EPG 聚合（issue #38）：把外部 XMLTV 源的节目单归一后合并进 playback.xml，给咪咕没覆盖的频道补节目单。默认开，

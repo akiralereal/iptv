@@ -15,6 +15,7 @@ services:
       - menableHDR=true                         # 可选：是否开启HDR
       - menableH265=true                        # 可选：是否开启H265原画（可能有兼容性问题）
       - mupdateInterval=6                       # 可选：节目信息更新间隔（小时）
+      # - mexternalLogoBase=https://gcore.jsdelivr.net/gh/fanmingming/live@main/tv/   # 可选：外部/抓取频道无台标时按名兜底的台标库地址（默认 fanmingming 库的 jsDelivr 镜像，大陆可达）；留空关闭
       # ---- 内容开关（默认全开，老用户无需理会；任一设 false 即关闭对应内容）----
       # - mblank=true                           # 空白模式总开关：开启后下面三项「默认」关闭（一行得到空白部署）；可叠加 menableMigu=true 等单独开回
       # - menableMigu=true                      # 咪咕源（核心：CCTV/卫视抓取 + 体育赛事 + EPG），关闭后仅用内置/外部源

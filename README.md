@@ -347,6 +347,7 @@ B站等直连源的 `Referer` / `User-Agent` 属于播放所需的请求头，�
 | menableH265 | true | boolean | 是否开启 H.265 原画<br>有兼容性问题（如只有声音没画面）时设 `false` 关闭 |
 | menableClientDispatch | false | boolean | 客户端就近取流：**服务器与观看设备不同运营商**导致抓取频道跨网卡顿 / 播不了时设 `true`<br>同网部署无需开启 |
 | mupdateInterval | 8 | number | 节目单 / 源更新间隔（小时），不建议过短 |
+| mexternalLogoBase | `https://gcore.jsdelivr.net/gh/fanmingming/live@main/tv/` | string | 外部 / 内置 / 抓取模块频道**没有自带台标**时，按频道名到公共台标库兜底取图的基址（默认 fanmingming 台标库的 jsDelivr 镜像，大陆直连可达）<br>换成其它库需保证 `<基址><频道名>.png` 可访问；留空关闭兜底。本地 `logos/` 里的图始终优先 |
 | mrefreshToken | true | boolean | 是否每月自动续期平台 token<br>**可能导致封号**，可设 `false` 关闭 |
 | mblank | false | boolean | 空白模式总开关，设 `true` 后下面三项内容开关**默认翻转为关**<br>细粒度开关显式设值时优先于本项 |
 | menableMigu | true | boolean | 是否启用咪咕抓取模块（CCTV/卫视 + 体育赛事 + EPG）<br>设 `false` 后**体育赛事、回看、对应 EPG 不可用** |
@@ -398,6 +399,7 @@ node app.js
 
 ### 未发布
 
+- **修复大陆用户外部 / 抓取模块频道台标全部加载不出来**：央视频、B 站、虎牙、精选频道等没有自带台标的频道，此前按名兜底取图的默认地址是 `live.fanmingming.com`，该域名及其 `.cn` 镜像在大陆均被 DNS 污染、根本连不上（大陆探针 30/30 失败），表现为 LunaTV 等播放器里咪咕频道有台标、其它源全是裂图。默认地址改为同一台标库的 jsDelivr 镜像（`gcore.jsdelivr.net/gh/fanmingming/live@main/tv/`），文件一一对应、大陆直连可达，升级后清单重生成即自动生效、无需任何操作；已自行设置 `mexternalLogoBase` 或放了本地 `logos/` 的用户不受影响。环境变量 `mexternalLogoBase` 补进配置表与 compose 示例（issue #25 / #114）
 - **凤凰三台不再置顶复制到「亚太」**：v4.7.0 起内置精选列表的港澳台频道已全部按「香港」「台湾」归组，「亚太」分组不再有任何内置条目，凤凰秀官方三台再复制一份进去只剩一个孤零零的空壳分组。现在三台只保留在「香港」，与内置的三条第三方凤凰线路并列，仍是置顶不顶替；外部订阅自带的「亚太」分组及其中的凤凰条目原样不动，播放器按名聚合时官方源照旧排在前面
 
 ### v4.7.0 (2026-09-05)

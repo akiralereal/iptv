@@ -202,52 +202,6 @@ function consolidateLocalSportsChannels(groups) {
   })
 }
 
-// 凤凰卫视三台的官方源是凤凰秀模块（归入「香港」）。「亚太」是外部订阅整理出的
-// 港澳台入口，用户找凤凰先看那里，所以官方三台再置顶复制一份进去，「香港」照旧保留。
-// 只置顶、不顶替：亚太里其它源的同名凤凰条目原样留在原位，是用户自己配的备用线路；
-// 官方源排在前面已经是播放器按名聚合后的默认源（源1），删掉等于替用户决定不要备份。
-const FENGSHOWS_SOURCE_ID = 'xt:fengshows'
-
-function isFengshowsChannel(channel) {
-  return primarySourceId(channel) === FENGSHOWS_SOURCE_ID
-    || (Array.isArray(channel?.sourceIds) && channel.sourceIds.includes(FENGSHOWS_SOURCE_ID))
-}
-
-/**
- * 把凤凰秀官方三台按模块自身顺序置顶复制进「亚太」；没有亚太组就在地方分组之前新建。
- * 亚太原有条目一条不动、只整体后挪；重复执行不会叠加副本。返回新分组，不修改输入。
- */
-function pinPhoenixChannels(groups) {
-  const output = (Array.isArray(groups) ? groups : []).map(group => ({
-    ...group,
-    dataList: [...(Array.isArray(group?.dataList) ? group.dataList : [])],
-  }))
-  const targetGroup = '亚太'
-  const official = []
-  const seen = new Set()
-  for (const group of output) {
-    if (group.name === targetGroup) continue
-    for (const channel of group.dataList) {
-      if (!isFengshowsChannel(channel)) continue
-      const name = String(channel?.name || '').trim()
-      if (!name || seen.has(name)) continue
-      seen.add(name)
-      official.push(channel)
-    }
-  }
-  if (!official.length) return output
-
-  let apac = output.find(group => group.name === targetGroup)
-  if (!apac) {
-    apac = { name: targetGroup, dataList: [] }
-    const firstLocal = output.findIndex(group => isLocalGroup(group.name))
-    output.splice(firstLocal >= 0 ? firstLocal : output.length, 0, apac)
-  }
-  // 上一轮置顶进来的官方副本先摘掉再重放，重复执行不会越叠越多
-  apac.dataList = [...official, ...apac.dataList.filter(channel => !isFengshowsChannel(channel))]
-  return output
-}
-
 /**
  * 获取所有频道数据（咪咕 + 外部源）
  * @param {Object} options - 选项
@@ -329,8 +283,6 @@ async function getAllChannels() {
     allChannels = consolidateLocalSportsChannels(allChannels)
     allChannels = consolidateLocalKidsChannels(allChannels)
     allChannels = consolidateLocalEducationChannels(allChannels)
-    // 凤凰秀三台置顶复制进「亚太」；亚太里其它源的凤凰条目原样留在后面，不合并、不顶替
-    allChannels = pinPhoenixChannels(allChannels)
     
     // 频道级去重：同一分组内，name + 播放地址 完全相同的频道只保留第一个
     // （合并顺序为 咪咕 > 内置 > 外部 > 抓取模块，因此优先保留更高优先级的来源）
@@ -456,6 +408,5 @@ export {
   normalizeContentGroupNames,
   consolidateLocalSportsChannels,
   consolidateLocalKidsChannels,
-  consolidateLocalEducationChannels,
-  pinPhoenixChannels
+  consolidateLocalEducationChannels
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { Response } from 'node-fetch'
 
 import asianLive from '../extractors/asian-live/index.js'
@@ -7,8 +8,6 @@ import {
   allowUrl,
   createResolver,
   fetchText,
-  parseNasaLive,
-  parseTvb,
   parseYtn,
   readCookies,
   STREAM_URL_TTL_MS,
@@ -17,33 +16,31 @@ import {
 import { buildGroups, claimsRef, sourceFromRef, SOURCES } from '../extractors/asian-live/channels.js'
 import { getModule, resolverFor } from '../extractors/registry.js'
 
-assert.equal(SOURCES.length, 43)
-assert.equal(SOURCES.some(source => source.id === 'nasa-tv-legacy'), false, '已断流的 NASA Legacy 不应进入生产模块')
+assert.deepEqual(SOURCES.map(source => source.id), ['ytn', 'nhk-world'])
 assert.equal(new Set(SOURCES.map(source => source.id)).size, SOURCES.length, '频道 id 必须唯一')
+assert.ok(SOURCES.every(source => source.kind && !source.streamUrl), '模块只应保留动态解析频道')
 assert.ok(SOURCES.every(source => source.rules.length > 0), '每个频道都必须声明媒体主机边界')
 
 const groups = buildGroups()
-assert.deepEqual(groups.map(group => group.name), ['香港', '韩国', '日本', '国际', '宠物', '文旅', '娱乐时尚', '体育', '台湾'])
-assert.equal(groups.reduce((sum, group) => sum + group.dataList.length, 0), SOURCES.length)
+assert.deepEqual(groups.map(group => group.name), ['韩国', '日本'])
+assert.equal(groups.reduce((sum, group) => sum + group.dataList.length, 0), 2)
 assert.ok(groups.flatMap(group => group.dataList).every(channel => channel.deferredRef.startsWith('asian-live-')))
-assert.equal(groups.find(group => group.name === '文旅').dataList.some(channel => channel.name === 'National Geographic'), true)
-assert.equal(groups.find(group => group.name === '文旅').dataList.some(channel => channel.name === 'Love Nature 4K'), true)
-assert.equal(groups.some(group => group.name === '新闻'), false, '国际新闻频道不应另建新闻分组')
-assert.equal(SOURCES.find(source => source.name === 'Reuters')?.group, '国际')
-assert.equal(SOURCES.find(source => source.name === 'NHK World')?.group, '日本')
-assert.ok(SOURCES.filter(source => source.name.startsWith('France 24 ')).every(source => source.group === '国际'))
 
 assert.equal(claimsRef('asian-live-ytn'), true)
 assert.equal(claimsRef('asian-live-ytn/extra'), false)
 assert.equal(claimsRef('asian-live-missing'), false)
-assert.equal(sourceFromRef('asian-live-reuters')?.name, 'Reuters')
-assert.equal(
-  allowUrl(
-    'https://liveprodeuwest.global.ssl.fastly.net/eu/master.m3u8',
-    sourceFromRef('asian-live-bloomberg-europe').rules,
-  ),
-  'https://liveprodeuwest.global.ssl.fastly.net/eu/master.m3u8',
-)
+assert.equal(sourceFromRef('asian-live-nhk-world')?.name, 'NHK World')
+
+const playlist = readFileSync(new URL('../IPTV.m3u', import.meta.url), 'utf8')
+const directBlock = playlist.match(/# === BEGIN 亚洲直播实验台已处理直连源 ===([\s\S]*?)# === END 亚洲直播实验台已处理直连源 ===/)
+assert.ok(directBlock, 'IPTV.m3u 必须保留实验台直连源的独立标记区块')
+const directEntries = [...directBlock[1].matchAll(/^#EXTINF:[^\n]*,([^\n]+)\n([^#\n][^\n]*)$/gm)]
+  .map(([, name, url]) => ({ name: name.trim(), url: url.trim() }))
+assert.equal(directEntries.length, 50, '实验台固定直连源应完整同步到 IPTV.m3u')
+assert.equal(new Set(directEntries.map(entry => entry.name)).size, directEntries.length, '直连区块频道名不得重复')
+assert.equal(new Set(directEntries.map(entry => entry.url)).size, directEntries.length, '直连区块 URL 不得重复')
+assert.ok(directEntries.every(entry => /^https?:\/\//.test(entry.url)), '直连区块只接受原始 HTTP(S) 地址')
+assert.ok(SOURCES.every(source => !directEntries.some(entry => entry.name === source.name)), '动态模块不得与直连区块重复')
 
 assert.equal(allowUrl('https://cdn.example/live.m3u8', ['cdn.example']), 'https://cdn.example/live.m3u8')
 assert.throws(() => allowUrl('http://cdn.example/live.m3u8', ['cdn.example']))
@@ -59,25 +56,16 @@ assert.throws(() => validateHls(crossHostManifest, 'https://manifest.example/liv
 
 assert.equal(parseYtn('var liveUrl = {"hls":"https://ytnlive.ytn.co.kr/live.m3u8","live":"true"};'), 'https://ytnlive.ytn.co.kr/live.m3u8')
 assert.throws(() => parseYtn('var liveUrl = process.env'))
-assert.equal(parseTvb({ code: 200, data: { stream_url: 'https://live.tvb.example/index.m3u8', stream_type: 'video' } }), 'https://live.tvb.example/index.m3u8')
-assert.throws(() => parseTvb({ code: 200, data: { stream_url: 'x', geo_blocked: true } }))
 
 assert.deepEqual(readCookies({
   getSetCookie: () => [
     'session=abc; Path=/live; Secure',
-    'wide=reject; Domain=.tvb.com; Path=/',
+    'wide=reject; Domain=.ytn.co.kr; Path=/',
     'broken cookie',
   ],
-}, 'https://edge.akamai.tvb.com/live/master.m3u8'), [
-  { pair: 'session=abc', domain: 'edge.akamai.tvb.com', path: '/live' },
+}, 'https://ytnlive.ytn.co.kr/live/master.m3u8'), [
+  { pair: 'session=abc', domain: 'ytnlive.ytn.co.kr', path: '/live' },
 ])
-
-const events = [
-  { meta: { 'video-url': 'https://ntv1.akamaized.net/future.m3u8', first_aired_date: '2000', end_aired_date: '3000' } },
-  { meta: { 'video-url': 'https://ntv1.akamaized.net/live.m3u8', first_aired_date: '900', end_aired_date: '1100' } },
-]
-assert.equal(parseNasaLive(events, 1_000_000), 'https://ntv1.akamaized.net/live.m3u8')
-assert.throws(() => parseNasaLive(events, 1_500_000))
 
 {
   const fetchImpl = async () => new Response('', { status: 302, headers: { location: 'https://evil.example/live.m3u8' } })
@@ -89,7 +77,7 @@ assert.throws(() => parseNasaLive(events, 1_500_000))
 
 {
   const calls = []
-  const fetchImpl = async (url) => {
+  const fetchImpl = async url => {
     calls.push(url)
     if (url.startsWith('https://www.ytn.co.kr/_hd/cdnurl.js')) {
       return new Response('var liveUrl = {"hls":"https://ytnlive.ytn.co.kr/live.m3u8","live":"true"};')
@@ -105,8 +93,6 @@ assert.throws(() => parseNasaLive(events, 1_500_000))
   const second = await resolver.resolve('asian-live-ytn', { now: now + STREAM_URL_TTL_MS - 1 })
   assert.equal(first.url, 'https://ytnlive.ytn.co.kr/live.m3u8')
   assert.equal(second.url, first.url)
-  assert.match(first.manifestText, /^#EXTM3U/)
-  assert.equal(first.manifestUrl, first.url)
   assert.equal(first.relayHls, true)
   assert.equal(calls.filter(url => url.startsWith('https://www.ytn.co.kr/')).length, 1, '短时复用动态地址')
   assert.equal(calls.filter(url => url === first.url).length, 2, '直播清单每次请求都应刷新')
@@ -117,41 +103,37 @@ assert.throws(() => parseNasaLive(events, 1_500_000))
 }
 
 {
-  const apiUrl = 'https://news.tvb.com/app/public/live/stream/C'
-  const manifestUrl = 'https://prd-vcache.edge-global.akamai.tvb.com/live/master.m3u8'
   const fetchImpl = async url => {
-    if (url === apiUrl) {
-      return new Response(JSON.stringify({ code: 200, data: { stream_url: manifestUrl, stream_type: 'video' } }))
+    if (url === 'https://livepl.nhkworld.jp/hlslive_web.json') {
+      return new Response(JSON.stringify({ main: { jstrm: 'https://masterpl.hls.nhkworld.jp/live/master.m3u8' } }))
     }
-    if (url === manifestUrl) {
-      return new Response('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\nchild.m3u8\n', {
-        headers: { 'Set-Cookie': 'tvb_session=secret; Path=/live; Secure' },
-      })
+    if (url === 'https://masterpl.hls.nhkworld.jp/live/master.m3u8') {
+      return new Response('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\nhttps://media-test.hls.nhkworld.jp/live/child.m3u8\n')
     }
     throw new Error(`unexpected fetch ${url}`)
   }
-  const result = await createResolver({ fetchImpl }).resolve('asian-live-tvb-news')
-  assert.equal(result.url, manifestUrl)
-  assert.equal(typeof result.upstreamHeaders, 'function')
-  assert.equal(result.upstreamHeaders(`${new URL(manifestUrl).origin}/live/child.m3u8`).Cookie, 'tvb_session=secret')
-  assert.equal(result.upstreamHeaders(`${new URL(manifestUrl).origin}/other/child.m3u8`).Cookie, undefined, 'Cookie 不能越过 Path')
-  assert.equal(result.upstreamHeaders('https://ads.cdn.tvb.com/live/ad.ts').Cookie, undefined, 'Cookie 不能发给另一允许主机')
-  assert.throws(() => result.upstreamHeaders('https://evil.example/steal.ts'))
+  const result = await createResolver({ fetchImpl }).resolve('asian-live-nhk-world')
+  assert.equal(result.url, 'https://masterpl.hls.nhkworld.jp/live/master.m3u8')
+  assert.equal(result.relayHls, true)
+  assert.doesNotThrow(() => result.upstreamUrlTransform('https://media-test.hls.nhkworld.jp/live/segment.ts'))
 }
 
 {
-  const resolver = createResolver({
-    fetchImpl: async () => new Response('#EXTM3U\n#EXTINF:6,\nhttps://evil.example/segment.ts\n'),
-  })
-  const result = await resolver.resolve('asian-live-reuters')
+  const fetchImpl = async url => {
+    if (url === 'https://livepl.nhkworld.jp/hlslive_web.json') {
+      return new Response(JSON.stringify({ main: { jstrm: 'https://masterpl.hls.nhkworld.jp/live/master.m3u8' } }))
+    }
+    return new Response('#EXTM3U\n#EXTINF:6,\nhttps://evil.example/segment.ts\n')
+  }
+  const result = await createResolver({ fetchImpl }).resolve('asian-live-nhk-world')
   assert.equal(result.url, '')
   assert.match(result.desc, /不允许访问媒体地址/)
 }
 
 assert.equal(asianLive.channelHlsMode, 'proxy')
 assert.equal(asianLive.capabilities.resolve, true)
-assert.equal((await asianLive.fetch()).groups.length, groups.length)
+assert.equal((await asianLive.fetch()).groups.length, 2)
 assert.equal(getModule('asian-live')?.id, 'asian-live')
 assert.equal(resolverFor('asian-live-ytn')?.id, 'asian-live')
 
-console.log('✓ 亚洲与国际直播模块频道表、解析缓存、HLS 边界和注册测试通过')
+console.log('✓ 亚洲与国际直播模块仅保留动态源，直连源独立同步且解析边界测试通过')

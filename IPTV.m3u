@@ -1,6 +1,7 @@
 #EXTM3U
 #EXT-X-APP APTV
 
+# === BEGIN 直连源 ===
 #EXTINF:-1 group-title="卫视",湖南卫视4K
 http://hlsal-ldvt.qing.mgtv.com/nn_live/nn_x64/Y2RuZXhfaWQ9YWxfaGxzX2xkdnQmZT02OTE0NjA0JnY9MSZpZD1ITldTWkdTVCZzPTcwN2RiYTc2YzJjNmJmMTQ4MmUyZGYzOWU2NWM3YWFi/HNWSZGST.m3u8
 #EXTINF:-1 group-title="卫视",东方卫视4K
@@ -8,184 +9,184 @@ https://bp-resource-dfl.bestv.cn/148/3/video.m3u8
 #EXTINF:-1 group-title="卫视",浙江卫视4K
 http://ali-xwl.cztv.com/live/channel4k2160p.m3u8
 
-
-#EXTINF:-1 group-title="亚太",凤凰中文
+#EXTINF:-1 group-title="香港",凤凰中文
 http://zmgd.zyrnet.com:8888/hls/110/index.m3u8
-#EXTINF:-1 group-title="亚太",凤凰资讯
+#EXTINF:-1 group-title="香港",凤凰资讯
 http://zmgd.zyrnet.com:8888/hls/109/index.m3u8
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%87%A4%E5%87%B0%E9%A6%99%E6%B8%AF.png" group-title="亚太",凤凰香港
+#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%87%A4%E5%87%B0%E9%A6%99%E6%B8%AF.png" group-title="香港",凤凰香港
 https://cdn.qd.je/163189/fhhk
 
 #EXTINF:-1 tvg-logo="https://live.fanmingming.com/tv/%E7%BA%AC%E6%9D%A5%E4%BD%93%E8%82%B2.png" group-title="体育",纬来体育
 https://hlsz.yjjcfw.com/live/vl.m3u8?expire=1786948372&sign=2e4a56b89fe644db147552011f972714
-#EXTINF:-1 tvg-logo="https://epg.pw/media/images/channel/2023/07/22/large/20230722105459178241_22.png" group-title="台湾",纬来日本
-rtmp://f13h.mine.nu/sat/tv771
-#EXTINF:-1 tvg-logo="https://epg.pw/media/images/channel/2023/07/22/large/20230722124851344289_73.png" group-title="台湾",纬来育乐
-rtmp://f13h.mine.nu/sat/tv701
+# === END 直连源 ===
 
-
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E4%B8%AD%E8%A6%96%E6%96%B0%E8%81%9E.png" group-title="亚太",中視新聞
-http://4gtv.cnlive.club/channel/7e6461d6/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E4%B8%AD%E5%A4%A9%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="亚太",中天新聞
-http://4gtv.cnlive.club/channel/3824d067/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB%E6%96%B0%E9%97%BB.png" group-title="亚太",TVB新闻
-https://cdn6.cc.cd/163189/wxxw
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%98%8E%E7%8F%A0%E5%8F%B0(%E5%AD%97%E5%B9%95).png" group-title="亚太",明珠台
-https://cdn.qd.je/163189/mzt
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E7%BF%A1%E7%BF%A0%E5%8F%B0%E5%AD%97%E5%B9%95.png" group-title="亚太",翡翠台
+# === BEGIN 亚太旧源直连复核保留 ===
+# 说明：以下频道已绕过 VPN 复核根地址与实际媒体数据；不可直连、明显不稳定及旧式 RTMP 源已清理。
+#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E7%BF%A1%E7%BF%A0%E5%8F%B0%E5%AD%97%E5%B9%95.png" group-title="香港",翡翠台
 https://cdn3.indevs.in/stream/tvb/fct/
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB%E5%A8%B1%E4%B9%90%E6%96%B0%E9%97%BB%E5%8F%B0.png" group-title="亚太",TVB娱乐新闻台
-https://cdn6.cc.cd/163189/ylxw
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB1.png" group-title="亚太",TVB1
-https://cdn6.cc.cd/163189/tvb1
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBJ1.png" group-title="亚太",TVBJ1
-https://cdn6.cc.cd/163189/j1
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%97%A0%E7%BA%BF%E6%96%B0%E9%97%BB%E5%8F%B0.png" group-title="亚太",无线新闻台
-https://cdn6.cc.cd/163189/wxxwt
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBPlus.png" group-title="亚太",TVBPlus
-https://cdn3.indevs.in/stream/tvb/tvbp/
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/HOY%20TV.png" group-title="亚太",HOY TV
-https://cdn.qd.je/163189/hoy
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/HOY%E8%B5%84%E8%AE%AF%E5%8F%B0.png" group-title="亚太",HOY资讯台
-https://cdn.qd.je/163189/hoy78
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/HOY%E5%9B%BD%E9%99%85%E8%B4%A2%E7%BB%8F%E5%8F%B0.png" group-title="亚太",HOY国际财经台
-https://cdn.qd.je/163189/hoy76
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/ViuTV.png" group-title="亚太",ViuTV
-https://cdn.qd.je/163189/viu
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/ViuTVsix.png" group-title="亚太",ViuTVsix
-https://cdn.qd.je/163189/viu6
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/NOW%E6%96%B0%E9%97%BB%E5%8F%B0.png" group-title="亚太",NOW新闻台
-https://cdn.qd.je/163189/now
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/RTHK31.png" group-title="亚太",RTHK31
-https://cdn.qd.je/163189/rthk31
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/RTHK32.png" group-title="亚太",RTHK32
-https://cdn.qd.je/163189/rthk32
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%BE%B3%E8%A7%86%E6%BE%B3%E9%97%A8.png" group-title="亚太",澳视澳门
-https://cdn.qd.je/163189/asam
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%BE%B3%E8%A7%86%E5%8D%AB%E6%98%9F.png" group-title="亚太",澳视卫星
-https://cdn.qd.je/163189/as
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%BE%B3%E9%97%A8%E4%BD%93%E8%82%B2.png" group-title="亚太",澳门体育
-https://cdn.qd.je/163189/amty
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%BE%B3%E9%97%A8%E7%BB%BC%E8%89%BA.png" group-title="亚太",澳门综艺
-https://cdn.qd.je/163189/amzy
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%BE%B3%E9%97%A8%E8%8E%B2%E8%8A%B1.png" group-title="亚太",澳门莲花
-https://cdn.qd.je/163189/amlh
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/CH5.png" group-title="亚太",CH5
-https://cdn.qd.je/163189/ch5
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/CH8.png" group-title="亚太",CH8
-https://cdn.qd.je/163189/ch8
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/CHU.png" group-title="亚太",CHU
-https://cdn.qd.je/163189/chu
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/Astro%20AOD.png" group-title="亚太",Astro AOD
-https://cdn.qd.je/163189/aod
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/Astro%E6%AC%A2%E5%96%9C%E5%8F%B0.png" group-title="亚太",Astro欢喜台
-https://cdn.qd.je/163189/hxt
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%B0%91%E8%A6%96%E7%AC%AC%E4%B8%80%E5%8F%B0.png" group-title="亚太",民視第一台
-http://4gtv.cnlive.club/channel/nc56ba28/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%B0%91%E8%A6%96%E5%8F%B0%E7%81%A3%E5%8F%B0.png" group-title="亚太",民視台灣台
-http://4gtv.cnlive.club/channel/nce5d867/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%B0%91%E8%A6%96.png" group-title="亚太",民視
-http://4gtv.cnlive.club/channel/n7222a63c/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E8%8F%AF%E8%A6%96.png" group-title="亚太",華視
-http://4gtv.cnlive.club/channel/n721fc25a/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E4%B8%89%E7%AB%8B%E7%B6%9C%E5%90%88%E5%8F%B0.png" group-title="亚太",三立綜合台
-http://4gtv.cnlive.club/channel/45c7d3e3/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBS%E7%B2%BE%E9%87%87%E5%8F%B0.png" group-title="亚太",TVBS精采台
-http://4gtv.cnlive.club/channel/49d50255/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E7%B6%9C%E5%90%88%E5%8F%B0.png" group-title="亚太",靖天綜合台
-http://4gtv.cnlive.club/channel/3f6ecb92/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E6%97%A5%E6%9C%AC%E5%8F%B0.png" group-title="亚太",靖天日本台
-http://4gtv.cnlive.club/channel/3f1816f7/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/LiveABC%E4%BA%92%E5%8B%95%E8%8B%B1%E8%AA%9E%E9%A0%BB%E9%81%93.png" group-title="亚太",ABC互動英語
-http://4gtv.cnlive.club/channel/2a571abf/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%B0%BC%E5%85%8B%E5%85%92%E7%AB%A5%E9%A0%BB%E9%81%93.png" group-title="亚太",Nickelodeon
-http://4gtv.cnlive.club/channel/51bbda39/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E5%8D%A1%E9%80%9A%E5%8F%B0.png" group-title="亚太",靖天卡通台
-http://4gtv.cnlive.club/channel/3ed78a45/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E6%B4%8B%E5%8D%A1%E9%80%9ANice%20Bingo.png" group-title="亚太",Nice Bingo
-http://4gtv.cnlive.club/channel/n15c65427/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/MOMO%E8%A6%AA%E5%AD%90%E5%8F%B0.png" group-title="亚太",MOMO親子台
-http://4gtv.cnlive.club/channel/n33a56e39/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%8F%A1%E9%9B%BB%E8%A6%96%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="亚太",Mnews鏡新闻
-http://4gtv.cnlive.club/channel/351c8485/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%9D%B1%E6%A3%AE%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="亚太",東森新聞
-http://4gtv.cnlive.club/channel/n5ca63a3a/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E8%8F%AF%E8%A6%96%E6%96%B0%E8%81%9E.png" group-title="亚太",華視新聞
-http://4gtv.cnlive.club/channel/n692bc32c/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%B0%91%E8%A6%96%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="亚太",民視新聞台
-http://4gtv.cnlive.club/channel/nca14742/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E4%B8%89%E7%AB%8B%E6%96%B0%E8%81%9EiNEWS.png" group-title="亚太",三立新聞iNEWS
-http://4gtv.cnlive.club/channel/4fa717ad/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBS%E6%96%B0%E8%81%9E.png" group-title="亚太",TVBS新聞
-http://4gtv.cnlive.club/channel/n1ea96b20/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%9D%B1%E6%A3%AE%E8%B2%A1%E7%B6%93%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="亚太",東森財經新聞台
-http://4gtv.cnlive.club/channel/57ce2e74/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%AF%B0%E5%AE%87%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="亚太",寰宇新聞台
-http://4gtv.cnlive.club/channel/n4da4274/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%AF%B0%E5%AE%87%E6%96%B0%E8%81%9E%E5%8F%B0%E7%81%A3%E5%8F%B0.png" group-title="亚太",寰宇新聞台灣台
-http://4gtv.cnlive.club/channel/n37458587/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBS.png" group-title="亚太",TVBS
-http://4gtv.cnlive.club/channel/58f128b2/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%B0%91%E8%A6%96%E7%B6%9C%E8%97%9D%E5%8F%B0.png" group-title="亚太",民視綜藝台
-http://4gtv.cnlive.club/channel/nc46cff5/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E8%82%B2%E6%A8%82%E5%8F%B0.png" group-title="亚太",靖天育樂台
-http://4gtv.cnlive.club/channel/3f7d0a6e/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/KLT-%E9%9D%96%E5%A4%A9%E5%9C%8B%E9%9A%9B%E5%8F%B0.png" group-title="亚太",靖天國際台
-http://4gtv.cnlive.club/channel/n481b36ac/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/Nice%20TV%20%E9%9D%96%E5%A4%A9%E6%AD%A1%E6%A8%82%E5%8F%B0.png" group-title="亚太",靖天歡樂台
-http://4gtv.cnlive.club/channel/n122ce57e/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E8%B3%87%E8%A8%8A%E5%8F%B0.png" group-title="亚太",靖天資訊台
-http://4gtv.cnlive.club/channel/3fae463b/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBS%E6%AD%A1%E6%A8%82%E5%8F%B0.png" group-title="亚太",TVBS歡樂台
-http://4gtv.cnlive.club/channel/498f035d/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-name="公视" tvg-logo="https://epg.112114.xyz/logo/公视.png" group-title="亚太",公视高清
+#EXTINF:-1 tvg-name="公视" tvg-logo="https://epg.112114.xyz/logo/公视.png" group-title="台湾",公视高清
 http://211.72.174.95:8116/0.ts
-#EXTINF:-1 tvg-name="民视" tvg-logo="https://epg.112114.xyz/logo/民视.png" group-title="亚太",民视高清
+#EXTINF:-1 tvg-name="民视" tvg-logo="https://epg.112114.xyz/logo/民视.png" group-title="台湾",民视高清
 http://211.72.174.95:8115/0.ts
-#EXTINF:-1 tvg-name="华视" tvg-logo="https://epg.112114.xyz/logo/华视.png" group-title="亚太",华视高清
+#EXTINF:-1 tvg-name="华视" tvg-logo="https://epg.112114.xyz/logo/华视.png" group-title="台湾",华视高清
 http://220.135.241.47:8317/0.ts
-#EXTINF:-1 tvg-name="台视" tvg-logo="https://epg.112114.xyz/logo/台视.png" group-title="亚太",台视高清
+#EXTINF:-1 tvg-name="台视" tvg-logo="https://epg.112114.xyz/logo/台视.png" group-title="台湾",台视高清
 http://211.72.174.95:8112/0.ts
-#EXTINF:-1 tvg-name="华视" tvg-logo="https://epg.112114.xyz/logo/华视.png" group-title="亚太",华视教体
-http://220.135.241.47:8318/0.ts
-#EXTINF:-1 tvg-name="台视财经" tvg-logo="https://epg.112114.xyz/logo/台视财经.png" group-title="亚太",台视财经
-http://220.135.241.47:8315/0.ts
-#EXTINF:-1 group-title="亚太",TVBS亚洲
+#EXTINF:-1 group-title="台湾",TVBS亚洲
 http://38.64.72.148/hls/modn/list/4005/playlist.m3u8
+# === END 亚太旧源直连复核保留 ===
 
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB%E6%98%9F%E6%B2%B3.png" group-title="影视",TVB星河
-https://cdn6.cc.cd/163189/tvbxh
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB%E4%BA%9A%E6%B4%B2%E6%AD%A6%E4%BE%A0.png" group-title="影视",TVB亚洲武侠
-https://cdn6.cc.cd/163189/yzwx
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%87%8D%E6%B8%A9%E7%BB%8F%E5%85%B8.png" group-title="影视",重温经典
-https://cdn.qd.je/163189/cwjd
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%BE%99%E5%8D%8E%E7%94%B5%E5%BD%B1.png" group-title="影视",龙华电影
-https://cdn.qd.je/163189/lhdy
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%BE%99%E5%8D%8E%E7%BB%8F%E5%85%B8.png" group-title="影视",龙华经典
-https://cdn.qd.je/163189/lhjd
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%BE%99%E5%8D%8E%E5%81%B6%E5%83%8F.png" group-title="影视",龙华偶像
-https://cdn.qd.je/163189/lhox
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%BE%99%E5%8D%8E%E6%97%A5%E9%9F%A9.png" group-title="影视",龙华日韩
-https://cdn.qd.je/163189/lhrh
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%BE%99%E5%8D%8E%E6%88%8F%E5%89%A7.png" group-title="影视",龙华戏剧
-https://cdn.qd.je/163189/lhxj
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%BE%99%E5%8D%8E%E6%B4%8B%E7%89%87.png" group-title="影视",龙华洋片
-https://cdn.qd.je/163189/lhyp
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%BE%99%E5%8D%8E%E5%8D%A1%E9%80%9A.png" group-title="影视",龙华卡通
-https://cdn.qd.je/163189/lhkt
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%A4%A9%E6%98%A0%E6%96%B0%E5%8A%A0%E5%9D%A1.png" group-title="影视",天映频道
-https://cdn.qd.je/163189/typd
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%85%AC%E8%A6%96%E6%88%B2%E5%8A%87.png" group-title="影视",公視戲劇
-http://4gtv.cnlive.club/channel/7fdd881e/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E6%88%B2%E5%8A%87%E5%8F%B0.png" group-title="影视",靖天戲劇台
-http://4gtv.cnlive.club/channel/3f07b409/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E6%B4%8B%E6%88%B2%E5%8A%87%E5%8F%B0.png" group-title="影视",靖洋戲劇台
-http://4gtv.cnlive.club/channel/48117ce7/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E6%98%A0%E7%95%AB.png" group-title="影视",靖天映畫
-http://4gtv.cnlive.club/channel/n610faa83/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E9%9B%BB%E5%BD%B1%E5%8F%B0.png" group-title="影视",靖天電影台
-http://4gtv.cnlive.club/channel/3fcf6ae8/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/amc%E9%9B%BB%E5%BD%B1%E5%8F%B0.png" group-title="影视",amc電影台
-http://4gtv.cnlive.club/channel/n4f2af9e/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E7%B6%93%E5%85%B8%E9%9B%BB%E5%BD%B1%E5%8F%B0.png" group-title="影视",經典電影台
-http://4gtv.cnlive.club/channel/n2eb7240a/index.m3u8?q=1784702901150
+# === BEGIN 亚洲直播实验台已处理直连源 ===
+# 说明：以下频道均由 asian-live-lab 筛选并按直连方式验证，使用固定原始 HLS 地址。
+# 维护：此区块与上方原有精选频道分开；YTN News、NHK World 属于动态源，保留在“亚洲与国际直播”模块。
+# 实验台备注：官方自适应 360p / 540p / 720p
+#EXTINF:-1 group-title="韩国",Arirang
+https://amdlive-ch01-g-ctnd-com.akamaized.net/arirang_1gch/smil:arirang_1gch.smil/playlist.m3u8
+# 实验台备注：香港粤语财经直播，单档 576p
+#EXTINF:-1 group-title="香港",耀才财经
+https://v3.mediacast.hk/webcast/bshdlive-pc/playlist.m3u8
+# 实验台备注：英语宠物生活与纪实频道，最高 1080p
+#EXTINF:-1 group-title="宠物",Pet Club TV
+https://petclub-samsungaus.amagi.tv/playlist.m3u8
+# 实验台备注：Plex 官方授权分发的英语野生动物直播频道，1080p
+#EXTINF:-1 group-title="文旅",WildEarth
+https://wildearth-plex.amagi.tv/masterR1080p.m3u8
+# 实验台备注：英语自然纪实频道，单档 2160p / 29.97fps HEVC
+#EXTINF:-1 tvg-logo="https://images.sr.roku.com/idType/roku-trc/context/trc/id/479fe0d11f3f5132a3f36b617547da3b/https%3A%2F%2Fimage.roku.com%2Fbh-uploads%2Fproduction%2FinfoHUDLogo%2F1738776545554_LoveNature_logos_HUB_Centered.png" group-title="文旅",Love Nature 4K
+https://pb-ehs1glsha1juy.akamaized.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/pb-ehs1glsha1juy/f2141f37-1f48-475b-ba54-b9efb62346db/0.m3u8
+# 实验台备注：FashionTV 官网直播频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",FashionTV Paris L'Original
+https://ftv1.b-cdn.net/bfdbb576-83f7-11f0-9f89-0200170e3e04_1000028043_HLS/manifest.m3u8
+# 实验台备注：频道官网嵌入的英语时尚与生活方式直播，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Global Fashion Channel
+https://pubgfc.teleosmedia.com/linear/globalfashionchannel/globalfashionchannel/playlist.m3u8
+# 实验台备注：Stingray 为 Samsung TV Plus 提供的演唱会频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Qello Concerts
+https://lotus.stingray.com/manifest/qello-qello001-montreal/samsungtvplus/master.m3u8
+# 实验台备注：40media 官方演唱会频道，1080p
+#EXTINF:-1 group-title="娱乐时尚",Totalmusic Concerts
+https://cdn.40mediagroup.com/live/c7eds/Totalmusic_Concerts/SA_LIVE_hls_enc/master.m3u8
+# 实验台备注：香港粤语综合娱乐网络频道，单档直播
+#EXTINF:-1 group-title="娱乐时尚",面包台
+https://video.bread-tv.com:8091/hls-live24/online/index.m3u8
+# 实验台备注：英语闯关真人秀 FAST 频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Wipeout Xtra
+https://amg00627-banijaygroup-wipeoutxtraau-samsungau-ashbl.amagi.tv/playlist/amg00627-banijaygroup-wipeoutxtraau-samsungau/playlist.m3u8
+# 实验台备注：英语脱口秀精选 FAST 频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Graham Norton
+https://amg00654-itv-amg00654c35-rakuten-gb-7598.playouts.now.amagi.tv/playlist.m3u8
+# 实验台备注：英语悬疑与罪案 FAST 频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Mystery TV
+https://aenetworks-mysterytv-rakuten.amagi.tv/playlist.m3u8
+# 实验台备注：西班牙语综合娱乐频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Estrella TV
+https://estrellatv-oando.amagi.tv/playlist.m3u8
+# 实验台备注：Lionsgate 英语电影 FAST 频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",MovieSphere
+https://amg00353-lionsgatefilmsi-moviesphereaus-samsungau-7qzhf.amagi.tv/playlist/amg00353-lionsgatefilmsi-moviesphereaus-samsungau/playlist.m3u8
+# 实验台备注：意大利语综合国际频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Rai Italia
+https://d3k8wzt41aflvx.cloudfront.net/RAIHD/Live.m3u8
+# 实验台备注：意大利语影视娱乐频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Rai World Premium
+https://d3k8wzt41aflvx.cloudfront.net/RAIP/Live.m3u8
+# 实验台备注：意大利语综合娱乐国际频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Mediaset Italia
+https://d3k8wzt41aflvx.cloudfront.net/Mediaset_AU/Live.m3u8
+# 实验台备注：英语历史纪录片 FAST 频道，最高 1080p
+#EXTINF:-1 group-title="文旅",History Hit
+https://lds-timeline-rakuten.amagi.tv/playlist.m3u8
+# 实验台备注：英语自然与野生动物纪录片频道，最高 1080p
+#EXTINF:-1 group-title="文旅",Terra Mater WILD
+https://amg01775-amg01775c1-amgplt0343.playout.now3.amagi.tv/playlist/amg01775-amg01775c1-amgplt0343/playlist.m3u8
+# 实验台备注：英语法庭纪实与案件报道频道，最高 1080p
+#EXTINF:-1 group-title="文旅",Court TV
+https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01438-ewscrippscompan-courttv-tablo/playlist.m3u8
+# 实验台备注：英语综合纪录片 FAST 频道，最高 1080p
+#EXTINF:-1 group-title="文旅",Documentary+
+https://ef79b15c8c7c46c7a9de9d33001dbd07.mediatailor.us-west-2.amazonaws.com/v1/master/ba62fe743df0fe93366eba3a257d792884136c7f/LINEAR-859-DOCUMENTARYPLUS-DOCUMENTARYPLUS/mt/documentaryplus/859/hls/master/playlist.m3u8
+# 实验台备注：CGTN 英语纪录频道，最高 1080p
+#EXTINF:-1 group-title="文旅",CGTN Documentary
+https://english-livebkali.cgtn.com/live/doccgtn.m3u8
+# 实验台备注：英语国际旅行与生活方式频道，最高 1080p
+#EXTINF:-1 group-title="文旅",InTravel
+https://amg00861-amg00861c10-rakuten-uk-3152.playouts.now.amagi.tv/playlist.m3u8
+# 实验台备注：新加坡英语亚洲新闻频道，最高 1080p
+#EXTINF:-1 group-title="国际",CNA
+https://d2e1asnsl7br7b.cloudfront.net/7782e205e72f43aeb4a48ec97f66ebbe/index.m3u8
+# 实验台备注：路透英语国际新闻直播，固定 1080p / 29.97fps
+#EXTINF:-1 tvg-logo="https://provider-static.plex.tv/epg/cms/production/8cf9c131-2d92-4d91-86b1-22ef458d703f/reuters_reutersnow_1RDX.png" group-title="国际",Reuters
+https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/e7493ea5-5c1c-4d7a-a3f7-e95516048ad8/3.m3u8
+# 实验台备注：泰国新闻频道，官方自适应直播最高约 2 Mbps
+#EXTINF:-1 group-title="国际",NEWS1
+https://server1.streamssl.com/stream/news1.m3u8
+# 实验台备注：法语国际新闻高码率直播
+#EXTINF:-1 group-title="国际",France 24 Français
+https://live.france24.com/hls/live/2037179-b/F24_FR_HI_HLS/master_5000.m3u8
+# 实验台备注：英语国际新闻高码率直播
+#EXTINF:-1 group-title="国际",France 24 English
+https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_5000.m3u8
+# 实验台备注：西班牙语国际新闻高码率直播
+#EXTINF:-1 group-title="国际",France 24 Español
+https://live.france24.com/hls/live/2037220-b/F24_ES_HI_HLS/master_5000.m3u8
+# 实验台备注：香港电台综合旗舰频道，最高 1080p
+#EXTINF:-1 group-title="香港",港台电视31
+https://rthktv31-live.akamaized.net/hls/live/2036818/RTHKTV31/master.m3u8
+# 实验台备注：澳大利亚赛马直播频道，720p
+#EXTINF:-1 group-title="体育",Sky Racing 1
+https://636ffd31f0e12.streamlock.net/RacingStream1/RacingStream1/playlist.m3u8
+# 实验台备注：澳大利亚赛马直播频道，720p
+#EXTINF:-1 group-title="体育",Sky Racing 2
+https://636ffd31f0e12.streamlock.net/RacingStream2/RacingStream2/playlist.m3u8
+# 实验台备注：英语户外与极限运动频道，最高 1080p
+#EXTINF:-1 group-title="体育",World of Freesports
+https://mainstreammedia-worldoffreesportsintl-rakuten.amagi.tv/playlist.m3u8
+# 实验台备注：英语极限运动国际频道，最高 1080p
+#EXTINF:-1 group-title="体育",FUEL TV
+https://amg01074-fueltv-fueltvemeaen-rakuten-b6j62.amagi.tv/hls/amagi_hls_data_rakutenAA-fueltvemeaen/CDN/master.m3u8
+# 实验台备注：英语赛车赛事与专题频道，最高 1080p
+#EXTINF:-1 group-title="体育",FloRacing
+https://amg02278-amg02278c1-flosports-worldwide-7592.playouts.now.amagi.tv/playlist.m3u8
+# 实验台备注：英语体育新闻与数据分析频道，最高 1080p
+#EXTINF:-1 group-title="体育",SportsGrid
+https://sportsgrid-tribal.amagi.tv/playlist.m3u8
+# 实验台备注：ACC 大学体育赛事与专题频道，最高 1080p
+#EXTINF:-1 group-title="体育",ACCDN
+https://raycom-accdn-firetv.amagi.tv/playlist.m3u8
+# 实验台备注：Pac-12 大学体育赛事与专题频道，最高 1080p
+#EXTINF:-1 group-title="体育",Pac-12 Insider
+https://pac12-firetv.amagi.tv/playlist.m3u8
+# 实验台备注：英语职业扑克赛事频道，最高 1080p
+#EXTINF:-1 group-title="体育",World Poker Tour
+https://amg00477-samsungelectron-worldpokertour-samsunguk-81igb.amagi.tv/playlist/amg00477-samsungelectron-worldpokertour-samsunguk/playlist.m3u8
+# 实验台备注：极限运动、赛车及户外节目，最高 1080p
+#EXTINF:-1 group-title="体育",Red Bull TV
+https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8
+# 实验台备注：Samsung TV Plus 澳大利亚区体育明星纪实频道，最高 1080p
+#EXTINF:-1 group-title="体育",Trace Sport Stars
+https://lightning-tracesport-samsungau.amagi.tv/playlist.m3u8
+# 实验台备注：beIN 官方免费英语体育频道，最高 1080p
+#EXTINF:-1 tvg-logo="https://image.xumo.com/v1/channels/channel/99991387/168x168.png?type=color_onBlack" group-title="体育",beIN Sports Xtra
+https://bein-xtra-bein.amagi.tv/playlist.m3u8
+# 实验台备注：FIFA 官方免费 FAST 频道，精选赛事、回放及专题节目，最高 720p
+#EXTINF:-1 group-title="体育",FIFA+
+https://d2w9q46ikgrcwx.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-of5cbk3sav3w5/v1/sysdata_s_p_a_fifa_7/samsungheadend_us/latest/main/hls/playlist.m3u8
+# 实验台备注：NHL 官方免费内容频道，不是付费线性频道 NHL Network
+#EXTINF:-1 group-title="体育",NHL FAST
+https://nhl-firetv.amagi.tv/playlist1080p.m3u8
+# 实验台备注：Tennis Channel 官方国际版 FAST 频道，LG Channels 英国区讯源
+#EXTINF:-1 tvg-logo="https://i.ibb.co/pBBqvWSK/tennis-channel.png" group-title="体育",Tennis Channel International
+https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01444-tennischannelth-tennischnlintl-lggb/playlist.m3u8
+# 实验台备注：Xumo 官方 UFC FAST 频道，主要播放经典比赛、回放及专题，不包含当期付费赛事
+#EXTINF:-1 tvg-logo="https://d1biytugnv36sr.cloudfront.net/resize?width=400&height=200&url=https://static.frequency.com/studio/ufc/channels/ufc-domestic400x200.png" group-title="体育",UFC 24/7
+https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/194a140c-0cf5-443e-b747-08bf621d75a8/0.m3u8
+# 实验台备注：Krave Media 官方 24/7 赛车频道，Samsung TV Plus 澳大利亚区讯源，最高 1080p
+#EXTINF:-1 group-title="体育",MTRSPT1
+https://amg02873-kravemedia-mtrspt1-samsungau-2anp4.amagi.tv/playlist/amg02873-kravemedia-mtrspt1-samsungau/playlist.m3u8
+# 实验台备注：中国旅行与风光频道，最高 1080p
+#EXTINF:-1 group-title="文旅",China Travel
+https://fastlive.cctvplus.com/out/v1/ca6f9297b7314a63959435028af287fc/index.m3u8
+# 实验台备注：台湾闽南语综合频道，单档 HTTP 直播
+#EXTINF:-1 group-title="台湾",大立电视台
+http://www.dalitv.com.tw:4568/live/dali/index.m3u8
+# === END 亚洲直播实验台已处理直连源 ===

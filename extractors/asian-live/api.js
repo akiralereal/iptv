@@ -93,39 +93,8 @@ export function parseYtn(text) {
   return data.hls
 }
 
-export function parseTvb(body) {
-  if (body?.code !== 200 || body?.data?.geo_blocked || body?.data?.stream_type === 'audio' || !body?.data?.stream_url) {
-    throw new Error('TVB 当前地区没有可用视频直播')
-  }
-  return body.data.stream_url
-}
-
-export function parseNasaLive(items, now = Date.now()) {
-  if (!Array.isArray(items)) throw new Error('NASA+ 直播日程格式错误')
-  const current = Math.floor(now / 1000)
-  const event = items.find(item => {
-    const start = Number(item?.meta?.first_aired_date)
-    const end = Number(item?.meta?.end_aired_date)
-    const stream = item?.meta?.['video-url']
-    return Number.isFinite(start) && Number.isFinite(end) && start <= current && current <= end
-      && typeof stream === 'string' && stream.length > 0
-  })
-  if (!event) throw new Error('NASA+ 当前没有正在进行的官方直播活动')
-  return event.meta['video-url']
-}
-
 async function dynamicStreamUrl(source, options) {
   const common = { fetchImpl: options.fetchImpl, timeoutMs: options.timeoutMs }
-  if (source.kind === 'tvb') {
-    const result = await fetchText('https://news.tvb.com/app/public/live/stream/C', {
-      ...common,
-      rules: ['news.tvb.com'],
-      method: 'POST',
-      body: '{}',
-      headers: { Referer: source.page, Origin: new URL(source.page).origin, 'Content-Type': 'application/json' },
-    })
-    return parseTvb(JSON.parse(result.text))
-  }
   if (source.kind === 'ytn') {
     const result = await fetchText(`https://www.ytn.co.kr/_hd/cdnurl.js?_=${options.now ?? Date.now()}`, {
       ...common,
@@ -143,14 +112,6 @@ async function dynamicStreamUrl(source, options) {
     const url = JSON.parse(result.text)?.main?.jstrm
     if (typeof url !== 'string' || !url) throw new Error('NHK 当前没有直播')
     return url
-  }
-  if (source.kind === 'nasa') {
-    const result = await fetchText('https://plus.nasa.gov/wp-json/wp/v2/scheduled_video?per_page=20&orderby=date&order=desc&_fields=link,title,meta', {
-      ...common,
-      rules: ['plus.nasa.gov'],
-      headers: { Referer: source.page },
-    })
-    return parseNasaLive(JSON.parse(result.text), options.now)
   }
   throw new Error(`${source.name} 缺少播放地址解析器`)
 }

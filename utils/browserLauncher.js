@@ -65,6 +65,22 @@ export const BASE_ARGS = [
   '--media-cache-size=1',
 ]
 
+/**
+ * Alpine（Docker 镜像里的 /usr/bin/chromium）专用：把 V8 的 JS 栈预算压到 96KB。
+ * 官方镜像 CI 实测（Alpine 3.24 / Chromium 152）：JS 递归到一定深度后渲染进程直接崩、不抛 RangeError——
+ * 普通递归到 17000 层能正常抛错，但每层有分配（闭包 / 数组）的递归到一千多层就崩；obfuscator.io 的
+ * debugProtection（jsjiami 等混淆器都带，纬来体育播放器页就是）恰恰是每 2 秒一轮「递归到栈溢出再 catch」，
+ * 于是播放器 iframe 一进来就崩，表现为「frame 不响应脚本执行」「脚本无响应」。JS 栈预算压小后 V8 在撞穿
+ * 之前就抛 RangeError，页面自己 catch 掉继续跑；64 / 96 / 128 都验证可用、160 仍崩。桌面 Chrome 没这个问题，
+ * 所以只在 Alpine 上加，代价是页面的 JS 递归上限约八百层，对直播页够用。
+ */
+const ALPINE_RELEASE_FILE = '/etc/alpine-release'
+const ALPINE_ARGS = ['--js-flags=--stack-size=96']
+
+export function platformArgs(exists = existsSync) {
+  return exists(ALPINE_RELEASE_FILE) ? ALPINE_ARGS : []
+}
+
 const LAUNCH_TIMEOUT_MS = 30 * 1000
 const DEFAULT_WAIT_MS = 60 * 1000
 const DEFAULT_CLOSE_TIMEOUT_MS = 5 * 1000
@@ -118,7 +134,7 @@ export async function launchWithFallback({
   for (let i = 0; i < candidates.length; i++) {
     const candidate = candidates[i]
     try {
-      const browser = await launchImpl({ headless, args: BASE_ARGS, timeout: LAUNCH_TIMEOUT_MS, ...candidate.opts })
+      const browser = await launchImpl({ headless, args: [...BASE_ARGS, ...platformArgs(exists)], timeout: LAUNCH_TIMEOUT_MS, ...candidate.opts })
       if (candidate.opts.executablePath && announcedExecutable !== candidate.opts.executablePath) {
         announcedExecutable = candidate.opts.executablePath
         printBlue(`使用浏览器: ${candidate.opts.executablePath}`)

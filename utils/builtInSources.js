@@ -4,6 +4,7 @@ import { dataPath } from "./paths.js"
 import { enableBuiltInSources } from "../config.js"
 import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 import { extractM3u8FromWeb, validateM3u8 } from "./webSourceExtractor.js"
+import { decodeM3u8FromWeb } from "./playerPageSandbox.js"
 import { FailureBackoff } from "./refreshBackoff.js"
 import fetch from "node-fetch"
 
@@ -250,6 +251,11 @@ class BuiltInSourceManager {
    * 某个地址抓到了但都没过校验，先留作兜底、继续试下一个，全都没过再用兜底
    * （与改造前「抓到什么用什么」保持一致，不会因为校验误判而倒退成没有频道）。
    *
+   * 每个入口先走沙箱解析（playerPageSandbox.js：几秒钟、不起 Chromium，把页内解密脚本在 node:vm
+   * 里跑一遍拿地址），拿到且校验通过即用；沙箱拿不到或校验不过才起浏览器嗅探。既省掉 NAS 上起一次
+   * Chromium 的几百 MB 与十几秒，也绕开镜像里 Alpine Chromium 遇混淆脚本深递归即崩的问题（见
+   * browserLauncher.platformArgs）。源可用 extractOptions.sandbox=false 关掉沙箱只走浏览器。
+   *
    * @returns {Promise<{m3u8Url: string|null, webUrl: string|null, error?: string}>}
    */
   async extractWithFallback(source) {
@@ -266,6 +272,22 @@ class BuiltInSourceManager {
       const webUrl = order[i]
       if (multi) printBlue(`  [${i + 1}/${order.length}] 尝试抓取网址: ${webUrl}`)
       let links = []
+
+      // 先沙箱：拿到且校验通过就不起浏览器
+      if (source.extractOptions?.sandbox !== false) {
+        const sandboxLinks = await decodeM3u8FromWeb(webUrl)
+        for (const link of sandboxLinks) {
+          if (await validateM3u8(link, { referer: webUrl })) {
+            printGreen(`  沙箱解析到可用地址，无需起浏览器: ${link}`)
+            return { m3u8Url: link, webUrl }
+          }
+        }
+        if (sandboxLinks.length) {
+          printYellow(`  沙箱解析到 ${sandboxLinks.length} 条链接但校验未通过，改用浏览器嗅探`)
+          if (!fallback) fallback = { m3u8Url: [...sandboxLinks].sort((a, b) => b.length - a.length)[0], webUrl }
+        }
+      }
+
       try {
         const extracted = await extractM3u8FromWeb(webUrl, { ...(source.extractOptions || {}), returnAll: true })
         links = Array.isArray(extracted) ? extracted : extracted ? [extracted] : []

@@ -13,6 +13,7 @@ import {
   isLaunchTimeoutError,
   launchBrowser,
   launchWithFallback,
+  platformArgs,
 } from '../utils/browserLauncher.js'
 import { shouldBlockRequest } from '../utils/webSourceExtractor.js'
 
@@ -41,6 +42,19 @@ await check('启动参数带 Docker 必备的 --disable-dev-shm-usage 且关闭�
   assert.ok(BASE_ARGS.includes('--disk-cache-size=1'))
   assert.ok(BASE_ARGS.includes('--no-sandbox'))
   assert.ok(BASE_ARGS.includes('--autoplay-policy=no-user-gesture-required'))
+})
+
+await check('Alpine（Docker 镜像）才加 --js-flags=--stack-size=96，其它平台不加；启动时真的带上', async () => {
+  const onAlpine = (p) => p === '/etc/alpine-release'
+  assert.deepEqual(platformArgs(onAlpine), ['--js-flags=--stack-size=96'])
+  assert.deepEqual(platformArgs(() => false), [])
+  assert.ok(!BASE_ARGS.some(a => a.includes('--stack-size')), '基础参数里不该带 stack-size')
+  const seen = []
+  const fakeBrowser = () => ({ process: () => null, once() {}, on() {} })
+  await launchWithFallback({ launchImpl: async opts => { seen.push(opts.args); return fakeBrowser() }, env: {}, platform: 'linux', exists: onAlpine })
+  assert.ok(seen[0].includes('--js-flags=--stack-size=96'))
+  await launchWithFallback({ launchImpl: async opts => { seen.push(opts.args); return fakeBrowser() }, env: {}, platform: 'linux', exists: () => false })
+  assert.ok(!seen[1].includes('--js-flags=--stack-size=96'))
 })
 
 await check('闸门：超出上限的请求排队，位子归还后按顺序放行', async () => {

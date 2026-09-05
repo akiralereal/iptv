@@ -6,7 +6,8 @@
  *   node scripts/probe-builtin-fetch.mjs                      # 默认源 vl-sports，只试主地址
  *   node scripts/probe-builtin-fetch.mjs --url https://www.jrs33.com/wlty.html   # 指定入口
  *   node scripts/probe-builtin-fetch.mjs --all                # 所有入口都做 HTTP 探测，浏览器只抓第一个能打开的
- *   node scripts/probe-builtin-fetch.mjs --no-browser         # 只做 DNS/HTTP 探测，不起 Chromium
+ *   node scripts/probe-builtin-fetch.mjs --no-browser         # 只做 DNS/HTTP 探测 + 沙箱解析，不起 Chromium
+ *   node scripts/probe-builtin-fetch.mjs --no-sandbox         # 跳过沙箱解析阶段
  *   node scripts/probe-builtin-fetch.mjs --module             # 浏览器阶段改用项目的 extractM3u8FromWeb 原样跑
  *   node scripts/probe-builtin-fetch.mjs --config /path/built-in-sources.json
  *
@@ -14,6 +15,8 @@
  *   A. 环境：Node / 代理环境变量 / 将要使用的浏览器
  *   B. 入口页：DNS（系统解析 vs 阿里 DNS，对比是否被污染）→ GET 页面 → 解析出播放器 iframe 与
  *      外链脚本的域名 → 逐个 DNS + GET 探测（这一步不开浏览器就能定位是哪一环不通）
+ *   B2. 沙箱解析：与项目相同的 decodeM3u8FromWeb——把入口页 / 播放器 iframe 的脚本放进 node:vm 跑，
+ *      不起浏览器就把页内解密出来的 m3u8 拿到手（项目里这一步成功就不会再起 Chromium）
  *   C. 浏览器：与项目相同的启动器 / 拦截规则 / UA，导航用与项目相同的 networkidle2 + 15s；
  *      导航超时时**不丢弃**已嗅探到的 m3u8，并列出超时那一刻还挂着的请求（内网常见的卡点）
  *   D. m3u8：解析域名（系统 vs 阿里 DNS）、带 Referer 校验（与项目 validateM3u8 相同）
@@ -31,6 +34,7 @@ process.env.mbuiltInSourcesUrl = ''
 
 const { launchBrowser, closeBrowser, findSystemChrome } = await import('../utils/browserLauncher.js')
 const { extractM3u8FromWeb, validateM3u8, shouldBlockRequest, restoreLegacyEntities } = await import('../utils/webSourceExtractor.js')
+const { decodeM3u8FromWeb } = await import('../utils/playerPageSandbox.js')
 const { getWebUrlCandidates } = await import('../utils/builtInSources.js')
 
 // ---------- 参数 ----------
@@ -47,6 +51,7 @@ const configPath = opt('--config') || `${process.cwd()}/built-in-sources.json`
 const onlyUrl = opt('--url')
 const probeAll = flag('--all')
 const noBrowser = flag('--no-browser')
+const noSandbox = flag('--no-sandbox')
 const useModule = flag('--module')
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
@@ -181,8 +186,28 @@ if (!chosen) {
   process.exit(1)
 }
 
-// ---------- C. 浏览器嗅探 ----------
+// ---------- B2. 沙箱解析（项目里每个入口都先走这一步，成功就不起浏览器） ----------
 let links = []
+if (noSandbox) {
+  line(`\n=== B2. 已跳过沙箱解析（--no-sandbox）===`)
+} else {
+  line(`\n=== B2. 沙箱解析（项目 decodeM3u8FromWeb 原样，不起浏览器）: ${chosen} ===`)
+  const t0 = performance.now()
+  const sandboxLinks = await decodeM3u8FromWeb(chosen)
+  info(`耗时 ${ms(performance.now() - t0)}，返回 ${sandboxLinks.length} 条`)
+  for (const u of sandboxLinks) {
+    const valid = await validateM3u8(u, { referer: chosen })
+    ;(valid ? ok : warn)(`${valid ? '校验通过' : '校验未通过'}: ${u}`)
+  }
+  if (sandboxLinks.length) {
+    info(`项目里到这一步（校验通过）就直接用了；下面的浏览器阶段只是对照`)
+    links = sandboxLinks
+  } else {
+    warn(`沙箱没解出地址：页面结构不认识或脚本依赖联网，项目里会退回浏览器嗅探`)
+  }
+}
+
+// ---------- C. 浏览器嗅探 ----------
 if (noBrowser) {
   line(`\n=== C. 已跳过浏览器（--no-browser）===`)
 } else if (useModule) {

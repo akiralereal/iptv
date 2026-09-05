@@ -56,7 +56,11 @@ const directBlock = playlist.match(/# === BEGIN 亚洲直播实验台已处理�
 assert.ok(directBlock, 'IPTV.m3u 必须保留实验台直连源的独立标记区块')
 const directEntries = [...directBlock[1].matchAll(/^#EXTINF:[^\n]*,([^\n]+)\n([^#\n][^\n]*)$/gm)]
   .map(([, name, url]) => ({ name: name.trim(), url: url.trim() }))
-assert.equal(directEntries.length, 50, '实验台固定直连源应完整同步到 IPTV.m3u')
+// 不写死条数：IPTV.m3u 本就是「改文件 push 即生效」的清单，探活剔死链、补新源都不该让测试红。
+// 只守结构——区块非空，且每条 #EXTINF 紧跟一行地址（中间夹注释或漏行都会让播放器把整份列表读错位）
+assert.ok(directEntries.length > 0, '实验台直连区块不能为空')
+const extinfCount = (directBlock[1].match(/^#EXTINF:/gm) || []).length
+assert.equal(directEntries.length, extinfCount, '直连区块里每条 #EXTINF 后都必须紧跟一行地址')
 assert.equal(new Set(directEntries.map(entry => entry.name)).size, directEntries.length, '直连区块频道名不得重复')
 assert.equal(new Set(directEntries.map(entry => entry.url)).size, directEntries.length, '直连区块 URL 不得重复')
 assert.ok(directEntries.every(entry => /^https?:\/\//.test(entry.url)), '直连区块只接受原始 HTTP(S) 地址')

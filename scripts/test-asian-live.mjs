@@ -15,6 +15,7 @@ import {
 } from '../extractors/asian-live/api.js'
 import { buildGroups, claimsRef, sourceFromRef, SOURCES } from '../extractors/asian-live/channels.js'
 import { getModule, resolverFor } from '../extractors/registry.js'
+import { pruneUnclaimedCachedChannels } from '../utils/extractorManager.js'
 
 assert.deepEqual(SOURCES.map(source => source.id), ['ytn', 'nhk-world'])
 assert.equal(new Set(SOURCES.map(source => source.id)).size, SOURCES.length, '频道 id 必须唯一')
@@ -30,6 +31,25 @@ assert.equal(claimsRef('asian-live-ytn'), true)
 assert.equal(claimsRef('asian-live-ytn/extra'), false)
 assert.equal(claimsRef('asian-live-missing'), false)
 assert.equal(sourceFromRef('asian-live-nhk-world')?.name, 'NHK World')
+
+const oldModuleCache = [
+  {
+    name: '韩国',
+    dataList: [
+      { name: 'YTN News', deferredRef: 'asian-live-ytn' },
+      { name: 'Arirang', deferredRef: 'asian-live-arirang' },
+    ],
+  },
+  {
+    name: '国际',
+    dataList: [{ name: 'Reuters', deferredRef: 'asian-live-reuters' }],
+  },
+]
+const prunedCache = pruneUnclaimedCachedChannels(asianLive, oldModuleCache)
+assert.equal(prunedCache.removed, 2, '升级时应移除旧模块中已迁入 IPTV.m3u 的缓存频道')
+assert.deepEqual(prunedCache.groups, [
+  { name: '韩国', dataList: [{ name: 'YTN News', deferredRef: 'asian-live-ytn' }] },
+])
 
 const playlist = readFileSync(new URL('../IPTV.m3u', import.meta.url), 'utf8')
 const directBlock = playlist.match(/# === BEGIN 亚洲直播实验台已处理直连源 ===([\s\S]*?)# === END 亚洲直播实验台已处理直连源 ===/)

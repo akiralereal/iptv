@@ -61,6 +61,41 @@ function emptyHealth() {
   }
 }
 
+/**
+ * 延迟解析模块升级后，磁盘缓存里可能还留着新版已经不再认领的 deferredRef。
+ * 若原样输出，已迁入 IPTV.m3u 的固定源会和旧模块缓存同时出现，甚至继续生成
+ * 永远无法解析的本地代理地址。每次加载缓存都按模块当前 claimsRef 收口；没有
+ * deferredRef 的普通缓存频道不受影响。
+ */
+export function pruneUnclaimedCachedChannels(module, groups) {
+  const sourceGroups = Array.isArray(groups) ? groups : []
+  if (module?.capabilities?.resolve !== true || typeof module.claimsRef !== 'function') {
+    return { groups: sourceGroups, removed: 0 }
+  }
+
+  let removed = 0
+  const current = []
+  for (const group of sourceGroups) {
+    const channels = []
+    for (const channel of (Array.isArray(group?.dataList) ? group.dataList : [])) {
+      if (channel?.deferredRef == null) {
+        channels.push(channel)
+        continue
+      }
+      let claimed = false
+      try {
+        claimed = module.claimsRef(String(channel.deferredRef)) === true
+      } catch {
+        claimed = false
+      }
+      if (claimed) channels.push(channel)
+      else removed++
+    }
+    if (channels.length > 0) current.push({ ...group, dataList: channels })
+  }
+  return { groups: current, removed }
+}
+
 function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
@@ -301,10 +336,21 @@ class ExtractorManager {
     if (!isPlainObject(this.cache.modules)) this.cache.modules = {}
     // 磁盘上的配置可能整份换过（备份导入走 reload→load）：把所有模块的配置代数
     // +1，作废还在飞的抓取轮——它们跑的是换盘前的配置（见 #runOne）。
+    let cachePruned = false
     for (const module of listModules()) {
       this.configGen.set(module.id, (this.configGen.get(module.id) || 0) + 1)
+      const cacheEntry = this.#cacheEntry(module.id)
+      const pruned = pruneUnclaimedCachedChannels(module, cacheEntry.groups)
+      if (pruned.removed > 0) {
+        cacheEntry.groups = pruned.groups
+        cacheEntry.health.channelCount = pruned.groups.reduce(
+          (sum, group) => sum + group.dataList.length, 0)
+        cachePruned = true
+        printYellow(`抓取模块 ${module.name} 已清理 ${pruned.removed} 个新版不再认领的缓存频道`)
+      }
     }
     this.loaded = true
+    if (cachePruned) this.#saveCache()
     // 放在 load() 而不是启动流程里：配置导入会调 reload()，用户导入一份「搬家之前
     // 导出的备份」时，包里 extractors.json 没有这些字段、system-config.json 有，
     // 那时也必须搬一次，否则导入完就是当场降档。

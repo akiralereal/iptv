@@ -31,6 +31,9 @@ pe-cache.json
 # 外部 EPG 源下载缓存（issue #38）
 epg-cache/
 
+# 公共台标库索引缓存（issue #124）
+logo-index.json
+
 # 持久化数据目录（mdataDir 指向时）
 data/
 

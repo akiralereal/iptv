@@ -11,7 +11,7 @@
 //   - 坏源/超时自动跳过并沿用上次缓存，绝不拖垮基础节目单。
 
 import fetch from 'node-fetch'
-import { gunzipSync } from 'node:zlib'
+import { gunzipSync, gzipSync } from 'node:zlib'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { appendFileSync, writeJsonFileSync } from './fileUtil.js'
 import { dataPath } from './paths.js'
@@ -30,12 +30,12 @@ const MAX_XML_BYTES = 150 * 1024 * 1024
 
 /**
  * 内置默认 EPG 源：新装时自动写入 data/epg-sources.json，开箱即用、无需任何手动配置。
- * 用户想增删改 / 调优先级，编辑该文件即可（手动可选）。
+ * 用户想增删改 / 调优先级，编辑该文件或用后台「EPG 源管理」即可（手动可选）。
  */
 const BUILT_IN_EPG_SOURCES = [
   {
     name: '默认EPG',
-    url: 'http://epg.51zmt.top:8000/e.xml.gz',
+    url: 'https://e.erw.cc/all.xml.gz',
     enabled: true,
     format: 'auto',        // auto | xml | gz
     refreshInterval: 720,  // 刷新间隔（分钟），默认 12 小时
@@ -46,6 +46,30 @@ const BUILT_IN_EPG_SOURCES = [
     matchedCount: 0
   }
 ]
+
+// 老的内置默认源。epg.51zmt.top 现在对 e.xml.gz / difang.xml.gz / cc.xml.gz 返回同一份文件，
+// 只剩 101 个频道（央视 + 卫视）、2 天节目，而这些频道咪咕本来就有 EPG——实测它只补到 6 个
+// 4K 变体，地方台一个都没有。换成 e.erw.cc（521 频道、9 天节目、大陆探针 10/10 直连可达）后，
+// 同一份播放列表多补 135 个频道的节目单，且老源能补的它全覆盖。issue #124
+const LEGACY_EPG_SOURCE_URLS = ['http://epg.51zmt.top:8000/e.xml.gz']
+
+// 老部署的 data/epg-sources.json 里已经写死了老地址，只改内置默认对他们不生效。
+// 因此对「一字未改的内置默认源」做一次原地升级：名字仍是「默认EPG」、地址还是老地址的那一条
+// 换成新地址并清空运行状态（触发立即重新下载）。用户改过名/改过地址/自己加的源一律不碰，
+// 关掉过的保持关闭状态。
+function migrateLegacySources(config) {
+  let changed = false
+  for (const s of (config.sources || [])) {
+    if (!s || s.name !== '默认EPG' || !LEGACY_EPG_SOURCE_URLS.includes(s.url)) continue
+    s.url = BUILT_IN_EPG_SOURCES[0].url
+    s.lastUpdated = null
+    s.lastStatus = null
+    s.channelCount = 0
+    s.matchedCount = 0
+    changed = true
+  }
+  return changed
+}
 
 function defaultConfig() {
   return { enabled: true, sources: BUILT_IN_EPG_SOURCES.map(s => ({ ...s })) }
@@ -64,6 +88,10 @@ function loadEpgConfig() {
     if (typeof parsed !== 'object' || parsed === null) throw new Error('格式非对象')
     if (typeof parsed.enabled !== 'boolean') parsed.enabled = true
     if (!Array.isArray(parsed.sources)) parsed.sources = []
+    if (migrateLegacySources(parsed)) {
+      saveEpgConfig(parsed)
+      printBlue('默认 EPG 源已升级到 e.erw.cc（老地址只剩央视卫视、地方台补不到）')
+    }
     return parsed
   } catch (e) {
     printRed(`加载 EPG 源配置失败，回退内置默认: ${e.message}`)
@@ -86,6 +114,19 @@ function ensureCacheDir() {
 function cacheFileFor(source, index) {
   const safe = String(source.name || `source${index}`).replace(/[^\w一-龥-]/g, '_').slice(0, 60)
   return dataPath(`epg-cache/${safe}_${index}.xml`)
+}
+
+// 缓存按 gzip 落盘：一份覆盖全国地方台的 XMLTV 解压后有十几 MB，原样堆在数据目录里
+// 对 NAS 用户是白占的空间（压缩后约 1/13），而每轮只在真正解析时才解压一次，代价可忽略。
+// 老部署里已有的明文缓存不作废：读取时按 gzip magic 判定，明文照样能用。issue #124
+function writeCachedXml(cachePath, xml) {
+  writeFileSync(cachePath, gzipSync(Buffer.from(xml, 'utf-8')))
+}
+
+function readCachedXml(cachePath) {
+  const buf = readFileSync(cachePath)
+  const isGz = buf.length > 2 && buf[0] === 0x1f && buf[1] === 0x8b
+  return (isGz ? gunzipSync(buf) : buf).toString('utf-8')
 }
 
 // 是否到刷新时间：无缓存/无 lastUpdated → 需要；否则按 refreshInterval 判断
@@ -124,7 +165,7 @@ async function ensureRawXml(source, cachePath) {
   if (haveCache && !isDue(source)) return true
   try {
     const xml = await downloadXml(source)
-    writeFileSync(cachePath, xml, 'utf-8')
+    writeCachedXml(cachePath, xml)
     source.lastUpdated = new Date().toISOString()
     source.lastStatus = 'ok'
     printGreen(`EPG 源「${source.name}」下载成功`)
@@ -186,7 +227,7 @@ async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, cover
 
     let xml
     try {
-      xml = readFileSync(cachePath, 'utf-8')
+      xml = readCachedXml(cachePath)
     } catch (e) {
       source.lastStatus = `缓存读取失败: ${e.message}`
       continue

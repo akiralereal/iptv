@@ -13,10 +13,10 @@ http://ali-xwl.cztv.com/live/channel4k2160p.m3u8
 http://zmgd.zyrnet.com:8888/hls/110/index.m3u8
 #EXTINF:-1 group-title="香港",凤凰资讯
 http://zmgd.zyrnet.com:8888/hls/109/index.m3u8
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%87%A4%E5%87%B0%E9%A6%99%E6%B8%AF.png" group-title="香港",凤凰香港
+#EXTINF:-1 tvg-logo="" group-title="香港",凤凰香港
 https://cdn.qd.je/163189/fhhk
 
-#EXTINF:-1 tvg-logo="https://live.fanmingming.com/tv/%E7%BA%AC%E6%9D%A5%E4%BD%93%E8%82%B2.png" group-title="体育",纬来体育
+#EXTINF:-1 tvg-logo="" group-title="体育",纬来体育
 https://hlsz.yjjcfw.com/live/vl.m3u8?expire=1786948372&sign=2e4a56b89fe644db147552011f972714
 # === END 直连源 ===
 
@@ -32,15 +32,15 @@ https://hls.nxhhy.cn/live/nxwl1M.m3u8
 
 # === BEGIN 亚太旧源直连复核保留 ===
 # 说明：以下频道已绕过 VPN 复核根地址与实际媒体数据；不可直连、明显不稳定及旧式 RTMP 源已清理。
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E7%BF%A1%E7%BF%A0%E5%8F%B0%E5%AD%97%E5%B9%95.png" group-title="香港",翡翠台
+#EXTINF:-1 tvg-logo="" group-title="香港",翡翠台
 https://cdn3.indevs.in/stream/tvb/fct/
-#EXTINF:-1 tvg-name="公视" tvg-logo="https://epg.112114.xyz/logo/公视.png" group-title="台湾",公视高清
+#EXTINF:-1 tvg-name="公视" tvg-logo="" group-title="台湾",公视高清
 http://211.72.174.95:8116/0.ts
-#EXTINF:-1 tvg-name="民视" tvg-logo="https://epg.112114.xyz/logo/民视.png" group-title="台湾",民视高清
+#EXTINF:-1 tvg-name="民视" tvg-logo="" group-title="台湾",民视高清
 http://211.72.174.95:8115/0.ts
-#EXTINF:-1 tvg-name="华视" tvg-logo="https://epg.112114.xyz/logo/华视.png" group-title="台湾",华视高清
+#EXTINF:-1 tvg-name="华视" tvg-logo="" group-title="台湾",华视高清
 http://220.135.241.47:8317/0.ts
-#EXTINF:-1 tvg-name="台视" tvg-logo="https://epg.112114.xyz/logo/台视.png" group-title="台湾",台视高清
+#EXTINF:-1 tvg-name="台视" tvg-logo="" group-title="台湾",台视高清
 http://211.72.174.95:8112/0.ts
 #EXTINF:-1 group-title="台湾",TVBS亚洲
 http://38.64.72.148/hls/modn/list/4005/playlist.m3u8

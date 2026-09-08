@@ -15,7 +15,7 @@ import { ANNOUNCEMENT, isAnnouncementChannel, protectAnnouncementConfig, systemC
 function classifyLogo(logo) {
   if (!logo) return 'none'
   if (logo.includes('/logos/')) return 'local'                                  // ${replace}/logos/<名>.<ext>（本地上传/手放，最高优先级）
-  if (externalLogoBase && logo.startsWith(externalLogoBase)) return 'auto'       // fanmingming 等公共库按名兜底
+  if (externalLogoBase && logo.startsWith(externalLogoBase)) return 'auto'       // 公共台标库按名兜底
   return 'source'                                                               // 咪咕 pics / m3u 源自带
 }
 

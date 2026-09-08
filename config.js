@@ -40,7 +40,7 @@ function sanitizeSegment(value, fallback) {
 // ESM 命名导出是实时绑定，重新赋值后所有 import 方都会读到新值。
 // 注意：port、programInfoUpdateInterval 在 server.listen / setInterval 时已被读取，
 // 热更新不会改变已启动的监听端口与定时器周期，这两项仍需重启生效。
-let userId, token, port, host, rateType, debug, pass, enableHDR, enableH265, programInfoUpdateInterval, refreshToken, adminPath, externalLogoBase, enableTvgNormalize, enableEpgAggregation, enableUserTokens, enableDisplayNameUnify, enableClientDispatch
+let userId, token, port, host, rateType, debug, pass, enableHDR, enableH265, programInfoUpdateInterval, refreshToken, adminPath, externalLogoBase, externalLogoIndex, enableTvgNormalize, enableEpgAggregation, enableUserTokens, enableDisplayNameUnify, enableClientDispatch
 // 内容开关：咪咕核心 / 内置单频道源 / 内置订阅源。默认全开（老用户零感知）
 let enableMigu, enableBuiltInSources, enableBuiltInSubscriptions, enableExtractors
 
@@ -73,14 +73,29 @@ function applyConfig(systemConfig) {
   refreshToken = systemConfig.refreshToken !== undefined ? systemConfig.refreshToken : parseBool(process.env.mrefreshToken, true)
   // 管理页面自定义路径（默认 admin）：改名后用 /<adminPath> 访问后台，裸 /admin 失效
   adminPath = sanitizeSegment(systemConfig.adminPath || process.env.madminPath, 'admin')
-  // 外部/精选频道无台标时，按中文名兜底的台标 CDN 基址（默认 fanmingming 台标库，留空字符串则关闭）。
-  // 仅写进 m3u 由播放器侧拉取静态图，服务器不发请求；故默认开。空值用 !== undefined 判定以允许显式关闭。
-  // 默认走 jsDelivr 的 gcore 镜像而不是原站 live.fanmingming.com / .cn：两个原站域名在大陆都被 DNS 污染，
-  // 2026-09 大陆探针 30/30 连不上（issue #25 / #114 台标全裂），镜像与原站文件一一对应、大陆 10/10 可达。
-  // cdn.jsdelivr.net / fastly.jsdelivr.net 的 Fastly 节点会把这个超大仓库 301 到 raw.githubusercontent.com（大陆同样不可达），故只用 gcore。
+  // 外部/精选频道无台标时，按中文名兜底的台标库基址（留空字符串则关闭）。
+  // 仅写进 m3u 由播放器侧拉取静态图，服务器不发请求（索引除外，见 externalLogoIndex）；故默认开。
+  // 空值用 !== undefined 判定以允许显式关闭。
+  // 默认库 2026-09 由 fanmingming（929 个台标）换成 taksssss/tv 的 icon（3266 个）：后者对我们
+  // 实际写出的频道是前者的严格超集（两库都有 115、只有 fanmingming 有 0、只有它有 34），
+  // 地方台/央视付费频道补得多得多（issue #124）。
+  // 一律走 jsDelivr 的 gcore 镜像：原站 live.fanmingming.com / .cn 在大陆被 DNS 污染（issue #25 / #114），
+  // epg.112114.xyz 这类自建站同样大陆 10/10 不可达；gcore 镜像大陆 10/10 直连可达（2026-09 探针实测）。
+  // cdn.jsdelivr.net / fastly.jsdelivr.net 的 Fastly 节点会把超大仓库 301 到 raw.githubusercontent.com（大陆同样不可达），故只用 gcore。
   externalLogoBase = systemConfig.externalLogoBase !== undefined
     ? systemConfig.externalLogoBase
-    : (process.env.mexternalLogoBase !== undefined ? process.env.mexternalLogoBase : "https://gcore.jsdelivr.net/gh/fanmingming/live@main/tv/")
+    : (process.env.mexternalLogoBase !== undefined ? process.env.mexternalLogoBase : "https://gcore.jsdelivr.net/gh/taksssss/tv@main/icon/")
+  // 台标库索引（issue #124）：库自带的「频道名 → 图片」清单，下载一次落盘缓存、之后纯本地比对。
+  // 有索引才知道「库里到底有没有这张图」——没有就写空串让播放器出占位图，不再往订阅里塞必 404 的地址（裂图）。
+  // 自定义了 externalLogoBase 却没给对应索引时自动关掉索引（库的命名规则不同，用别人的清单只会误判），
+  // 退回「按名盲拼」的老行为。显式设为空字符串也可关闭。
+  externalLogoIndex = systemConfig.externalLogoIndex !== undefined
+    ? systemConfig.externalLogoIndex
+    : (process.env.mexternalLogoIndex !== undefined
+      ? process.env.mexternalLogoIndex
+      : (externalLogoBase === "https://gcore.jsdelivr.net/gh/taksssss/tv@main/icon/"
+        ? "https://gcore.jsdelivr.net/gh/taksssss/tv@main/iconList_default.json"
+        : ""))
   // EPG 名称规整（issue #39）：把异构源频道的 tvg-id/tvg-name 归一到规范名（EPG 频道名），默认开。
   enableTvgNormalize = systemConfig.enableTvgNormalize !== undefined ? systemConfig.enableTvgNormalize : parseBool(process.env.menableTvgNormalize, true)
   // EPG 聚合（issue #38）：把外部 XMLTV 源的节目单归一后合并进 playback.xml，给咪咕没覆盖的频道补节目单。默认开，
@@ -123,7 +138,7 @@ applyConfig(loadSystemConfig())
 // 重新加载系统配置（保存系统配置后调用，避免必须重启进程）
 function reloadConfig() {
   applyConfig(loadSystemConfig())
-  return { userId, token, port, host, rateType, pass, enableHDR, enableH265, programInfoUpdateInterval, refreshToken, adminPath, externalLogoBase, enableTvgNormalize, enableEpgAggregation, enableUserTokens, enableDisplayNameUnify, enableClientDispatch, enableMigu, enableBuiltInSources, enableBuiltInSubscriptions, enableExtractors }
+  return { userId, token, port, host, rateType, pass, enableHDR, enableH265, programInfoUpdateInterval, refreshToken, adminPath, externalLogoBase, externalLogoIndex, enableTvgNormalize, enableEpgAggregation, enableUserTokens, enableDisplayNameUnify, enableClientDispatch, enableMigu, enableBuiltInSources, enableBuiltInSubscriptions, enableExtractors }
 }
 
-export { userId, token, port, host, rateType, debug, pass, enableHDR, programInfoUpdateInterval, enableH265, refreshToken, adminPath, externalLogoBase, enableTvgNormalize, enableEpgAggregation, enableUserTokens, enableDisplayNameUnify, enableClientDispatch, enableMigu, enableBuiltInSources, enableBuiltInSubscriptions, enableExtractors, reloadConfig, sanitizeSegment }
+export { userId, token, port, host, rateType, debug, pass, enableHDR, programInfoUpdateInterval, enableH265, refreshToken, adminPath, externalLogoBase, externalLogoIndex, enableTvgNormalize, enableEpgAggregation, enableUserTokens, enableDisplayNameUnify, enableClientDispatch, enableMigu, enableBuiltInSources, enableBuiltInSubscriptions, enableExtractors, reloadConfig, sanitizeSegment }

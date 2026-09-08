@@ -3,7 +3,7 @@
   "sources": [
     {
       "name": "默认EPG",
-      "url": "http://epg.51zmt.top:8000/e.xml.gz",
+      "url": "https://e.erw.cc/all.xml.gz",
       "enabled": true,
       "format": "auto",
       "refreshInterval": 720,

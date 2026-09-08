@@ -398,7 +398,8 @@ B 站直播已与虎牙、斗鱼一样改为播放时解析、由本机中继清
 | menableH265 | true | boolean | 是否开启 H.265 原画<br>有兼容性问题（如只有声音没画面）时设 `false` 关闭 |
 | menableClientDispatch | false | boolean | 客户端就近取流：**服务器与观看设备不同运营商**导致抓取频道跨网卡顿 / 播不了时设 `true`<br>同网部署无需开启 |
 | mupdateInterval | 8 | number | 节目单 / 源更新间隔（小时），不建议过短 |
-| mexternalLogoBase | `https://gcore.jsdelivr.net/gh/fanmingming/live@main/tv/` | string | 外部 / 内置 / 抓取模块频道**没有自带台标**时，按频道名到公共台标库兜底取图的基址（默认 fanmingming 台标库的 jsDelivr 镜像，大陆直连可达）<br>换成其它库需保证 `<基址><频道名>.png` 可访问；留空关闭兜底。本地 `logos/` 里的图始终优先 |
+| mexternalLogoBase | `https://gcore.jsdelivr.net/gh/taksssss/tv@main/icon/` | string | 外部 / 内置 / 抓取模块频道**没有自带台标**时，按频道名到公共台标库兜底取图的基址（默认 taksssss 台标库的 jsDelivr 镜像，3266 个台标，大陆直连可达）<br>换成其它库需保证 `<基址><频道名>.png` 可访问；留空关闭兜底。本地 `logos/` 里的图始终优先 |
+| mexternalLogoIndex | 跟随 `mexternalLogoBase` | string | 台标库的「频道名 → 图片」索引地址。有索引才知道库里到底有没有这张图：没有就把台标留空、由播放器画占位图，而不是写一个必定 404 的地址（裂图）<br>索引每 7 天下载一次并落盘缓存，拉不到时自动退回按名兜底。自定义了 `mexternalLogoBase` 时默认关闭（别人的清单对不上你的库）；留空同样关闭 |
 | mrefreshToken | true | boolean | 是否每月自动续期平台 token<br>**可能导致封号**，可设 `false` 关闭 |
 | mblank | false | boolean | 空白模式总开关，设 `true` 后下面三项内容开关**默认翻转为关**<br>细粒度开关显式设值时优先于本项 |
 | menableMigu | true | boolean | 是否启用咪咕抓取模块（CCTV/卫视 + 体育赛事 + EPG）<br>设 `false` 后**体育赛事、回看、对应 EPG 不可用** |

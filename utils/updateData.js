@@ -4,6 +4,7 @@ import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile, wr
 import { updatePlaybackData } from "./playback.js"
 import { aggregateExternalEpg } from "./epgAggregator.js"
 import { normalizeKey, logoMatchName } from "./channelNormalize.js"
+import { ensureLogoIndex, resolveLibraryLogo } from "./logoLibrary.js"
 import { renderOpts, needsOpts } from "./channelOpts.js"
 import { refreshToken as enableTokenRefresh, host, pass, enableMigu, externalLogoBase } from "../config.js"
 import refreshToken from "./refreshToken.js"
@@ -137,6 +138,9 @@ async function updateTV(hours, options = {}) {
   let datas = await getAllChannels({ skipMigu, useCachedMigu: regenerateOnly })
   printGreen("电视频道-获取成功")
 
+  // 台标库索引（issue #124）：命中缓存时零网络开销，到期才下载一次；失败自动退回盲拼
+  await ensureLogoIndex()
+
   // 守卫一：声明了 critical 的抓取模块（咪咕）一条频道都没拿到。
   //
   // 全局的「总频道数为 0」守卫护不住这种情况——外部源随便几十条就能把总数撑起来，
@@ -256,7 +260,7 @@ async function updateTV(hours, options = {}) {
       const isExtractor = channelItem.source === 'extractor'
       const isExternal = !isExtractor && (channelItem.source === 'external' || !!channelItem.url)
       // 台标优先级：本地 logos/<频道名>.<ext>（用户后台上传或手动放，最高、仅查本地不联网）
-      //   > 源自带台标（咪咕 pics / m3u 手写）> fanmingming 兜底（仅外部/内置）> 空。
+      //   > 源自带台标（咪咕 pics / m3u 手写）> 公共台标库兜底（仅外部/内置）> 空。
       // 取图用「台标匹配名」做 key（issue #40）：CCTV1高清（电信）→ CCTV1、湖南卫视（电信）→ 湖南卫视，
       // 让特殊命名的常见频道也能命中本地/公共库；频道显示名不变。本地查找仍以显示名优先、规范名兜底。
       const logoKey = logoMatchName(channelItem.name)
@@ -268,7 +272,15 @@ async function updateTV(hours, options = {}) {
         logoUrl = channelItem.pics?.highResolutionH || channelItem.logo || ""
       }
       if (!logoUrl && (isExternal || isBuiltIn || isExtractor) && externalLogoBase) {
-        logoUrl = `${externalLogoBase}${encodeURIComponent(logoKey || channelItem.name)}.png`
+        // 有索引就只写库里真实存在的图（issue #124）：查不到写空串，让播放器出自己的占位图，
+        // 而不是一个必定 404 的地址（裂图）。景观/慢直播这类「频道名不是台名」的伪频道
+        // 天然查不到，正好自动留空。索引不可用时（首次没网/库改版）退回按名盲拼的老行为。
+        const libraryName = resolveLibraryLogo(channelItem.name, datas[i].name)
+        if (libraryName === null) {
+          logoUrl = `${externalLogoBase}${encodeURIComponent(logoKey || channelItem.name)}.png`
+        } else if (libraryName) {
+          logoUrl = `${externalLogoBase}${encodeURIComponent(libraryName)}.png`
+        }
       }
       
       // 内置源使用playURL字段，外部源与抓取模块使用url字段，咪咕源构造URL

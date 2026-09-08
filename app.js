@@ -149,7 +149,7 @@ function logProxyManifest(pid, req, contentLength) {
 // 运行时长
 var hours = 0
 
-// 本地台标文件夹：用户把 <频道名>.png 放进数据目录的 logos/，优先于 fanmingming 兜底。
+// 本地台标文件夹：用户把 <频道名>.png 放进数据目录的 logos/，优先于公共台标库兜底。
 // 放 mdataDir 下随数据卷持久化；启动时建好，方便用户找到位置。
 const LOGOS_DIR = dataPath('logos')
 try { mkdirSync(LOGOS_DIR, { recursive: true }) } catch (e) { /* 已存在或无法创建，读写时再报 */ }

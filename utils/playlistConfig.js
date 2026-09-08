@@ -6,6 +6,7 @@ import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 import { enableTvgNormalize, enableDisplayNameUnify, externalLogoBase } from "../config.js"
 import { getCanonicalMap, normalizeKey, normalizeTvgName, getPlaybackChannelIds } from "./channelNormalize.js"
 import { matchKeywordGroup } from "./groupRulesAPI.js"
+import { normalizeHiddenRules, matchHiddenRule } from "./hiddenRules.js"
 import { matchSourceFallbackGroup } from "./sourceGroupFallback.js"
 import { collectOptsUntilUrl, renderOpts, needsOpts } from "./channelOpts.js"
 import { ANNOUNCEMENT, isAnnouncementChannel, protectAnnouncementConfig, systemChannelByUrl } from "./announcement.js"
@@ -113,7 +114,9 @@ const DEFAULT_CONFIG = {
   deletedGroups: [],        // 删除的分组名列表
   groupRenameMap: {},       // 分组重命名映射 { 原始名: 新名 }
   groupSortMode: {},        // 组内排序模式 { 显示分组名: 'name' }；'name'=按名称自动排序，缺省=手动(channelOrder)
-  disabledSources: []       // 本档禁用的源（issue #29/#68）：['migu' | 'bi:<id>' | 'ext:<id>']，黑名单——新源默认全档可见
+  disabledSources: [],      // 本档禁用的源（issue #29/#68）：['migu' | 'bi:<id>' | 'ext:<id>']，黑名单——新源默认全档可见
+  hiddenRules: []           // 按名字长期屏蔽（issue #123）：[{value, mode:'exact'|'contains'}]，
+                            // 与 hiddenChannels 的区别是不绑频道 ID——源换址 / 频道每天重建都照样生效
 }
 
 // 播放地址里的「时效 / 签名」参数（issue #123）。
@@ -351,6 +354,7 @@ function getCustomGroupNames(config) {
 export function collectGroupConflicts(groups, config) {
   config = protectAnnouncementConfig(config)
   const renameMap = config?.groupRenameMap || {}
+  const hiddenRules = normalizeHiddenRules(config?.hiddenRules)   // 规整一次，循环内复用
   const occupiedNames = new Map([['未分组', '__reserved_ungrouped__']])
   const conflicts = []
 
@@ -365,6 +369,11 @@ export function collectGroupConflicts(groups, config) {
     const stillVisible = group.channels.some(channel => {
       const channelKey = `${group.name}::${channel.id}`
       if (config?.hiddenChannels?.includes(channelKey)) return false      // 被隐藏
+      // 被名字规则屏蔽（issue #123）——与 applyConfig 的判定同源。漏了这条，
+      // 一个被规则清空的分组会继续占着分组名，用户改名 / 新建同名分组时误报「分组已存在」
+      // 却在列表里找不到它（就是 issue #35 那套症状）。
+      if (hiddenRules.length > 0
+          && matchHiddenRule([channel.name, config?.channelRenameMap?.[channelKey]], hiddenRules)) return false
       if (config?.channelGroupMap?.[channelKey]) return false             // 被移动到别的分组
       if (isGroupDeleted(group.name, config?.deletedGroups)) return false // 整组被删除
       // 全部来源被本档禁用（issue #29/#68）——与 applyConfig 的过滤语义一致
@@ -433,6 +442,7 @@ export function applyConfig(groups, config) {
     // 2. 应用配置
     const resultGroups = {}
     const channelGroupMap = config.channelGroupMap || {}
+    const hiddenRules = normalizeHiddenRules(config.hiddenRules)   // 规整一次，循环内复用；无规则时零成本
 
     // EPG 名称规整（#39）/ 统一显示名（#56）共用「归一 key → 规范名」映射；构建一次循环内复用，getCanonicalMap 内部按文件 mtime 缓存
     const canonicalMap = (enableTvgNormalize || enableDisplayNameUnify) ? getCanonicalMap() : null
@@ -441,6 +451,7 @@ export function applyConfig(groups, config) {
     channelMap.forEach((channel, key) => {
       // 频道标识：原始分组名::频道ID（与 hiddenChannels / channelGroupMap 同源，避免重命名/同名错乱）
       const channelKey = `${channel.originalGroup}::${channel.id}`
+      const originalName = channel.name   // 重命名前的源始名：名字规则要同时认它和改后的显示名
 
       // 单频道重命名：覆盖显示名（只改 name，不动 tvgName，保 EPG 匹配）；channel 已是副本，可安全修改
       const protectedAnnouncement = isAnnouncementChannel(channel)
@@ -451,6 +462,14 @@ export function applyConfig(groups, config) {
 
       // 跳过隐藏的频道（按分组独立隐藏）。公告频道同样可隐藏：它只是不能删、不能挪、不能改名。
       if (config.hiddenChannels?.includes(channelKey)) {
+        return
+      }
+
+      // 按名字长期屏蔽（issue #123）：hiddenChannels 绑频道 ID，而 ID 里含播放地址，
+      // 上游换路径就换 ID、那条隐藏静默失效；每天重建的赛事 / 事件直播更是压根没有稳定 ID。
+      // 规则按名字判，两种情况都盖得住。原始名与改后的显示名任一命中即隐藏——
+      // 用户可能照着界面上改过的名字配规则，也可能照着源里的原名配。
+      if (hiddenRules.length > 0 && matchHiddenRule([originalName, channel.name], hiddenRules)) {
         return
       }
 

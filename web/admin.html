@@ -3070,6 +3070,9 @@
         }
         .confirm-title, .modal-content h3 { color: var(--ui-text); }
         .confirm-message { color: var(--ui-text-secondary); }
+        /* 确认框的文案里有换行（如「屏蔽规则会命中这些频道：…」逐行列出）。
+           默认 white-space 会把 \n 折叠成空格，多行提示挤成一坨；长清单还会把按钮顶出可视区。 */
+        .confirm-message { white-space: pre-line; max-height: 46vh; overflow-y: auto; }
         .confirm-btn-confirm { background: var(--ui-danger); border-color: var(--ui-danger); }
         .confirm-btn-confirm:hover { background: #a92b38; border-color: #a92b38; }
         .reset-option { padding: 12px 13px; border-color: var(--ui-line); border-radius: 11px; }
@@ -3273,6 +3276,36 @@
             <div class="modal-actions" style="margin-top: 20px;">
                 <button class="btn" onclick="closeResetModal()">取消</button>
                 <button class="btn btn-warning" onclick="executeReset()">确定重置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 按名字屏蔽频道的规则弹窗（issue #123） -->
+    <div class="modal" id="hiddenRuleModal">
+        <div class="modal-content" style="width: 620px; max-width: 92%;">
+            <h3>🚫 屏蔽规则 <span style="font-size:13px;font-weight:normal;color:#888;">当前档：<span id="hiddenRuleProfileLabel">默认</span></span></h3>
+            <p style="color: #666; font-size: 13px; margin-bottom: 4px;">
+                按<strong>名字</strong>屏蔽，命中的频道不会进播放列表。和逐条「隐藏」的区别：隐藏绑的是频道 ID，
+                源换个地址 ID 就变、那条隐藏会失效；规则只看名字，<strong>源换址、频道每天重建都照样生效</strong>。
+            </p>
+            <p style="color: #999; font-size: 12px; margin-bottom: 14px;">只影响当前配置档，删掉规则即恢复。</p>
+
+            <div id="hiddenRuleList" style="max-height: 320px; overflow-y: auto; margin-bottom: 14px;"></div>
+
+            <div style="border-top: 1px solid #eee; padding-top: 14px;">
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <input type="text" id="hiddenRuleValue" placeholder="频道名或关键字，例如：购物" oninput="previewHiddenRule()" style="flex: 1; min-width: 200px; padding: 7px 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    <select id="hiddenRuleMode" onchange="previewHiddenRule()" style="padding: 7px 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="contains">名字包含</option>
+                        <option value="exact">整名相同</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="addHiddenRule()">添加</button>
+                </div>
+                <div id="hiddenRulePreview" style="font-size: 12px; color: #888; margin-top: 8px; min-height: 18px;"></div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 18px;">
+                <button class="btn" onclick="closeHiddenRuleModal()">关闭</button>
             </div>
         </div>
     </div>
@@ -3500,6 +3533,7 @@
                     <div class="my-playlist-actions" style="flex-wrap: wrap; align-items: center;">
                         <span style="font-size: 14px; color: #333;">当前档：<strong id="currentProfileLabel">默认</strong></span>
                         <button class="btn btn-primary" onclick="openProfileModal()" title="管理多套配置档：切换 / 新建 / 改名 / 删除 / 重置">✏️ 编辑</button>
+                        <button class="btn" onclick="openHiddenRuleModal()" title="按名字长期屏蔽频道：源换地址、频道每天重建都照样生效">🚫 屏蔽规则</button>
                     </div>
                 </div>
                 <div class="subscribe-bar" id="subscribeBar"></div>
@@ -5404,6 +5438,221 @@
             const r = await groupRulesPost({ action: 'removeRule', group });
             if (r.success) { groupRulesData = r.data; renderGroupRules(); showStatus('已删除', 'success'); }
             else showStatus(r.message || '删除失败', 'error');
+        }
+
+        // ========== 按名字屏蔽频道的规则（issue #123） ==========
+        // 与「隐藏」的分工：隐藏绑 `原始分组::频道ID`，而频道 ID 里含播放地址——上游换个路径就换 ID，
+        // 那条隐藏静默失效、频道自己冒回分组；每天重建的赛事 / 事件直播更是压根没有稳定 ID。
+        // 规则只看名字，两种情况都盖得住。规则存在配置档里（每档独立），判定在服务端 applyConfig。
+        //
+        // 这一整块只新增、不改动任何既有的 hiddenChannels 读写路径——那些路径漏改一处
+        // 就会变成「隐藏了取消不掉」，比功能缺失更糟。逃生舱也因此没有塞进「已隐藏」列表，
+        // 而是让每条规则自己显示命中了哪些频道，用户在加规则前就能看到误伤面。
+
+        // 下面两个函数必须与服务端 utils/hiddenRules.js 的语义逐字一致，否则界面预览的命中数
+        // 和实际生效的结果对不上。空 value 永不命中是硬底线：'' 会让 includes('') 恒为真，
+        // 一条空规则将清空整份播放列表。
+        function normalizeHiddenRulesClient(rules) {
+            if (!Array.isArray(rules)) return [];
+            const seen = new Set();
+            const out = [];
+            for (const rule of rules) {
+                const raw = typeof rule === 'string' ? { value: rule } : rule;
+                if (!raw || typeof raw !== 'object') continue;
+                const value = typeof raw.value === 'string' ? raw.value.trim() : '';
+                if (!value) continue;
+                const mode = raw.mode === 'exact' ? 'exact' : 'contains';
+                const key = mode + '\n' + value.toLowerCase();
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push({ value, mode });
+            }
+            return out;
+        }
+
+        function hiddenRuleHits(rule, names) {
+            const value = typeof rule?.value === 'string' ? rule.value.trim().toLowerCase() : '';
+            if (!value) return false;
+            return (Array.isArray(names) ? names : [names])
+                .filter(n => typeof n === 'string' && n.trim())
+                .map(n => n.trim().toLowerCase())
+                .some(n => rule.mode === 'exact' ? n === value : n.includes(value));
+        }
+
+        function hiddenRulesOf() { return normalizeHiddenRulesClient(myPlaylistConfig.hiddenRules); }
+
+        // 某条规则会屏蔽掉哪些频道。按「原始全集」算，且与服务端一样同时认原始名和重命名后的显示名。
+        function channelsMatchedByHiddenRule(rule) {
+            const out = [];
+            for (const group of (myPlaylistOriginalData || [])) {
+                for (const ch of (group.channels || [])) {
+                    const renamed = myPlaylistConfig.channelRenameMap?.[`${group.name}::${ch.id}`];
+                    if (hiddenRuleHits(rule, [ch.name, renamed])) out.push({ group: group.name, name: renamed || ch.name });
+                }
+            }
+            return out;
+        }
+
+        function openHiddenRuleModal() {
+            document.getElementById('hiddenRuleProfileLabel').textContent =
+                (profileList.find(p => p.id === activeProfile) || {}).name || '默认';
+            document.getElementById('hiddenRuleValue').value = '';
+            document.getElementById('hiddenRulePreview').textContent = '';
+            renderHiddenRules();
+            document.getElementById('hiddenRuleModal').style.display = 'block';
+        }
+
+        function closeHiddenRuleModal() {
+            document.getElementById('hiddenRuleModal').style.display = 'none';
+        }
+
+        function renderHiddenRules() {
+            const box = document.getElementById('hiddenRuleList');
+            if (!box) return;
+            const rules = hiddenRulesOf();
+            if (!rules.length) {
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有规则。可以在这里添加，也可以在频道列表里点某个频道的「屏蔽」按钮一键生成。</div>';
+                return;
+            }
+            box.innerHTML = rules.map((r, i) => {
+                const hits = channelsMatchedByHiddenRule(r);
+                const label = r.mode === 'exact' ? '整名相同' : '名字包含';
+                // 命中清单直接摊开给用户看——这是误伤的唯一可见入口
+                const list = hits.length
+                    ? `<div style="font-size:12px;color:#666;margin-top:6px;word-break:break-all;">${hits.slice(0, 12).map(h => `${escapeHtml(h.group)} · ${escapeHtml(h.name)}`).join('　|　')}${hits.length > 12 ? `　…另 ${hits.length - 12} 个` : ''}</div>`
+                    : '<div style="font-size:12px;color:#bbb;margin-top:6px;">当前没有频道命中（源里暂时没有这个名字，规则仍然有效）</div>';
+                return `<div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <div style="min-width:0;">
+                            <span style="color:#bbb;font-size:12px;margin-right:6px;">${i + 1}.</span>
+                            <strong style="word-break:break-all;">${escapeHtml(r.value)}</strong>
+                            <span style="font-size:12px;color:#888;margin-left:6px;">${label}</span>
+                            <span style="font-size:12px;color:${hits.length ? '#fa8c16' : '#bbb'};margin-left:6px;">屏蔽 ${hits.length} 个</span>
+                        </div>
+                        <button class="btn btn-sm btn-danger" style="flex-shrink:0;" onclick="removeHiddenRule(${i})">删除</button>
+                    </div>
+                    ${list}
+                </div>`;
+            }).join('');
+        }
+
+        // 整份 POST 前必须确认配置已从服务端加载成功，否则会把默认空骨架存上去、清掉该档全部自定义
+        async function saveHiddenRules(rules, okMessage) {
+            if (!myPlaylistConfigLoaded) {
+                await loadMyPlaylistConfig();
+                if (!myPlaylistConfigLoaded) {
+                    showStatus('当前档配置未加载成功，请刷新页面后重试', 'error');
+                    return false;
+                }
+            }
+            const before = myPlaylistConfig.hiddenRules;
+            myPlaylistConfig.hiddenRules = rules;
+            try {
+                const response = await fetch(mpConfigUrl(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    myPlaylistConfig.hiddenRules = before;   // 存失败就回滚内存，别让界面显示一个没落盘的状态
+                    showStatus(result.message || '保存失败', 'error');
+                    return false;
+                }
+                await loadMyPlaylist(false);
+                renderHiddenRules();
+                showStatus(okMessage, 'success');
+                return true;
+            } catch (error) {
+                myPlaylistConfig.hiddenRules = before;
+                showStatus('保存失败: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        // 边打字边报命中数：「名字包含」很容易一刀切掉一大片，让误伤面在按「添加」之前就可见。
+        function previewHiddenRule() {
+            const box = document.getElementById('hiddenRulePreview');
+            if (!box) return;
+            const value = (document.getElementById('hiddenRuleValue').value || '').trim();
+            const mode = document.getElementById('hiddenRuleMode').value === 'exact' ? 'exact' : 'contains';
+            if (!value) { box.textContent = ''; return; }
+            const hits = channelsMatchedByHiddenRule({ value, mode });
+            if (!hits.length) {
+                box.style.color = '#999';
+                box.textContent = '当前没有频道命中（规则仍可保存，以后出现同名频道会被挡掉）';
+                return;
+            }
+            box.style.color = hits.length > 20 ? '#cf1322' : '#fa8c16';
+            box.textContent = `将屏蔽 ${hits.length} 个频道：` + hits.slice(0, 6).map(h => `${h.group} · ${h.name}`).join('，')
+                + (hits.length > 6 ? ` …另 ${hits.length - 6} 个` : '');
+        }
+
+        async function addHiddenRule() {
+            const input = document.getElementById('hiddenRuleValue');
+            const value = (input.value || '').trim();
+            const mode = document.getElementById('hiddenRuleMode').value === 'exact' ? 'exact' : 'contains';
+            if (!value) { showStatus('请先填写要屏蔽的名字或关键字', 'error'); return; }
+
+            const rules = hiddenRulesOf();
+            if (rules.some(r => r.mode === mode && r.value.toLowerCase() === value.toLowerCase())) {
+                showStatus('这条规则已经有了', 'info');
+                return;
+            }
+            // 先把误伤面摆出来再让用户确认——「名字包含」很容易一刀切掉一大片
+            const hits = channelsMatchedByHiddenRule({ value, mode });
+            const preview = hits.length
+                ? `将屏蔽 ${hits.length} 个频道：\n${hits.slice(0, 15).map(h => `${h.group} · ${h.name}`).join('\n')}${hits.length > 15 ? `\n…另 ${hits.length - 15} 个` : ''}`
+                : '当前没有频道命中这条规则（源里暂时没有这个名字）。规则仍会保存，以后出现同名频道会被挡掉。';
+            const confirmed = await showConfirm(`${preview}\n\n确定添加吗？`, '添加屏蔽规则');
+            if (!confirmed) return;
+
+            if (await saveHiddenRules([...rules, { value, mode }], `已添加规则，屏蔽 ${hits.length} 个频道`)) {
+                input.value = '';
+                document.getElementById('hiddenRulePreview').textContent = '';
+            }
+        }
+
+        async function removeHiddenRule(index) {
+            const rules = hiddenRulesOf();
+            const rule = rules[index];
+            if (!rule) return;
+            const confirmed = await showConfirm(`删除规则「${rule.value}」后，被它屏蔽的频道会重新出现。确定吗？`, '删除屏蔽规则');
+            if (!confirmed) return;
+            await saveHiddenRules(rules.filter((_, i) => i !== index), '已删除规则');
+        }
+
+        // 频道列表里的「屏蔽」按钮：按该频道的**原始名**生成一条整名规则。
+        // 用原始名而不是重命名后的显示名——显示名会随用户取消重命名而消失，规则就跟着落空；
+        // 原始名跟着源走，稳。服务端两边都认，所以功能上等价。
+        async function blockChannelByName(channelId) {
+            const group = myPlaylistData[selectedGroupIndex];
+            const channel = group?.channels.find(c => c.id === channelId);
+            if (!channel) return;
+            const originalGroupName = channelOriginalGroupName(channel, group.name);
+            const original = (myPlaylistOriginalData || [])
+                .find(g => g.name === originalGroupName)?.channels.find(c => c.id === channelId);
+            const value = original?.name || channel.name;
+            if (!value) { showStatus('这个频道没有名字，无法按名字屏蔽', 'error'); return; }
+
+            const rules = hiddenRulesOf();
+            if (rules.some(r => r.mode === 'exact' && r.value.toLowerCase() === value.toLowerCase())) {
+                showStatus('这个频道名已经在屏蔽规则里了', 'info');
+                return;
+            }
+            const hits = channelsMatchedByHiddenRule({ value, mode: 'exact' });
+            const renamedNote = original && original.name !== channel.name
+                ? `\n（按源里的原始名「${value}」屏蔽，改名前后都算数）`
+                : '';
+            const others = hits.length > 1
+                ? `\n\n同名的还有 ${hits.length - 1} 个，会一起屏蔽：\n${hits.map(h => `${h.group} · ${h.name}`).join('\n')}`
+                : '';
+            const confirmed = await showConfirm(
+                `以后叫「${value}」的频道都不再出现，源换地址、频道重建也一样。${renamedNote}${others}\n\n确定屏蔽吗？`,
+                '永久屏蔽此频道名'
+            );
+            if (!confirmed) return;
+            await saveHiddenRules([...rules, { value, mode: 'exact' }], `已屏蔽「${value}」`);
         }
 
         // 在「频道详情」里直接给本频道设别名（issue #62）：把本频道名追加到指定规范名下（不覆盖已有别名），
@@ -7566,7 +7815,8 @@ if(success){
             groupOrder: [],
             deletedGroups: [],
             groupRenameMap: {},
-            groupSortMode: {}
+            groupSortMode: {},
+            hiddenRules: []   // 按名字长期屏蔽（issue #123）：[{value, mode:'exact'|'contains'}]
         };
         // 多套 m3u 配置档：当前编辑/查看的档 + 档列表（default 恒在首位）
         let activeProfile = 'default';
@@ -8271,6 +8521,7 @@ if(success){
                                         <div class="my-playlist-channel-actions">
                                             ${channel.url ? `<button class="channel-play-btn" title="在页面里播放" onclick="event.stopPropagation(); playInlineById('${channel.id}')">▶ 播放</button>` : ''}
                                             <button onclick="event.stopPropagation(); hideChannel('${channel.id}')">隐藏</button>
+                                            <button title="以后叫这个名字的频道都不再出现（源换地址也一样）" onclick="event.stopPropagation(); blockChannelByName('${channel.id}')">屏蔽</button>
                                         </div>
                                     ` : ''}
                                 </div>

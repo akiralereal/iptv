@@ -73,12 +73,18 @@ export function isAnnouncementChannel(channel) {
  * 隐藏走普通的 hiddenChannels，随时可在「已隐藏」里恢复。
  * 返回副本，避免读取/校验过程中反向修改调用方持有的配置对象。
  */
+// 手改过的配置文件里，本该是数组的字段可能是字符串（"hiddenRules": "购物"）。
+// 直接展开会把字符串拆成**字符数组**——'购物' → ['购','物']，而按名字屏蔽是子串匹配，
+// 单个字会命中一大片，整份播放列表当场少掉几百个频道。非数组一律当空处理。
+const asArray = value => (Array.isArray(value) ? [...value] : [])
+
 export function protectAnnouncementConfig(input = {}) {
   const config = {
     ...input,
-    hiddenChannels: [...(input.hiddenChannels || [])],
-    deletedGroups: [...(input.deletedGroups || [])],
-    groupOrder: [...(input.groupOrder || [])],
+    hiddenChannels: asArray(input.hiddenChannels),
+    hiddenRules: asArray(input.hiddenRules),
+    deletedGroups: asArray(input.deletedGroups),
+    groupOrder: asArray(input.groupOrder),
     channelGroupMap: { ...(input.channelGroupMap || {}) },
     channelRenameMap: { ...(input.channelRenameMap || {}) },
     channelOrder: { ...(input.channelOrder || {}) },

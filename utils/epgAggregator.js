@@ -50,7 +50,7 @@ const BUILT_IN_EPG_SOURCES = [
 // 老的内置默认源。epg.51zmt.top 现在对 e.xml.gz / difang.xml.gz / cc.xml.gz 返回同一份文件，
 // 只剩 101 个频道（央视 + 卫视）、2 天节目，而这些频道咪咕本来就有 EPG——实测它只补到 6 个
 // 4K 变体，地方台一个都没有。换成 e.erw.cc（521 频道、9 天节目、大陆探针 10/10 直连可达）后，
-// 同一份播放列表多补 135 个频道的节目单，且老源能补的它全覆盖。issue #124
+// 同一份播放列表多补 129 个频道的节目单，且老源能补的它全覆盖。issue #124
 const LEGACY_EPG_SOURCE_URLS = ['http://epg.51zmt.top:8000/e.xml.gz']
 
 // 老部署的 data/epg-sources.json 里已经写死了老地址，只改内置默认对他们不生效。

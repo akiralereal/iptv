@@ -3,7 +3,7 @@
 // 配置就是一个 JSON 文件 data/epg-sources.json，这里直接对其做 CRUD，
 // 复用 epgAggregator 的 loadEpgConfig / saveEpgConfig 保证读写一致。
 
-import { loadEpgConfig, saveEpgConfig } from "./epgAggregator.js"
+import { loadEpgConfig, saveEpgConfig, BUILT_IN_EPG_SOURCES, LEGACY_EPG_SOURCE_URLS } from "./epgAggregator.js"
 
 function trimStr(v) {
   return typeof v === 'string' ? v.trim() : ''
@@ -22,7 +22,10 @@ function isHttpUrl(u) {
 // 获取 EPG 源配置（含每个源的运行状态：lastUpdated / lastStatus / channelCount / matchedCount）
 export function getEpgSourcesAPI() {
   try {
-    return { success: true, data: loadEpgConfig() }
+    // legacyUrls：已废掉的老默认源地址。migrateLegacySources 只原地升级「一字未改」的内置默认源，
+    // 用户改过名字的那条会被当成自定义源留在原地——它现在只回 101 个央视卫视、地方台一个都补不到，
+    // 而界面上除了「已匹配」数字偏低看不出任何异常。把清单交给前端，让它在源列表里明说。issue #124
+    return { success: true, data: loadEpgConfig(), legacyUrls: LEGACY_EPG_SOURCE_URLS, defaultUrl: BUILT_IN_EPG_SOURCES[0]?.url || '' }
   } catch (error) {
     return { success: false, message: error.message }
   }

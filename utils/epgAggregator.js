@@ -275,4 +275,4 @@ function saveRunStates(runConfig) {
   saveEpgConfig(fresh)
 }
 
-export { aggregateExternalEpg, loadEpgConfig, saveEpgConfig, BUILT_IN_EPG_SOURCES }
+export { aggregateExternalEpg, loadEpgConfig, saveEpgConfig, BUILT_IN_EPG_SOURCES, LEGACY_EPG_SOURCE_URLS }

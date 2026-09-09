@@ -3275,8 +3275,15 @@
                 <label class="reset-option">
                     <input type="checkbox" id="resetHidden" checked>
                     <div class="reset-option-info">
-                        <strong>隐藏的分组和频道</strong>
-                        <span>显示所有被隐藏的分组和频道</span>
+                        <strong>逐条隐藏的分组和频道</strong>
+                        <span>恢复用「隐藏」按钮逐条隐藏的分组和频道</span>
+                    </div>
+                </label>
+                <label class="reset-option">
+                    <input type="checkbox" id="resetRules" checked>
+                    <div class="reset-option-info">
+                        <strong>屏蔽规则</strong>
+                        <span>清空按名字长期屏蔽的规则，被规则挡掉的频道重新出现</span>
                     </div>
                 </label>
                 <label class="reset-option">
@@ -3320,6 +3327,19 @@
 
             <div class="modal-actions" style="margin-top: 18px;">
                 <button class="btn" onclick="closeHiddenRuleModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 缺台标的频道清单（issue #124） -->
+    <div class="modal" id="missingLogoModal">
+        <div class="modal-content" style="width: 560px; max-width: 92%;">
+            <h3>🖼 缺台标的频道 <span style="font-size:13px;font-weight:normal;color:#888;">共 <span id="missingLogoCount">0</span> 个</span></h3>
+            <p style="color:#666;font-size:13px;margin-bottom:4px;">公共台标库里没有这些台的图，订阅里留了空、播放器会画自己的占位图。想补的话两种办法：</p>
+            <p style="color:#999;font-size:12px;margin-bottom:12px;">① 点「补台标」进频道详情上传；② 直接把 <code>&lt;频道名&gt;.png</code> 放进数据目录的 <code>logos/</code>。景观 / 慢直播这类本来就不是台名的，留空即可。</p>
+            <div id="missingLogoList" style="max-height:380px;overflow-y:auto;"></div>
+            <div class="modal-actions" style="margin-top:16px;">
+                <button class="btn" onclick="closeMissingLogoModal()">关闭</button>
             </div>
         </div>
     </div>
@@ -3548,6 +3568,7 @@
                         <span style="font-size: 14px; color: #333;">当前档：<strong id="currentProfileLabel">默认</strong></span>
                         <button class="btn btn-primary" onclick="openProfileModal()" title="管理多套配置档：切换 / 新建 / 改名 / 删除 / 重置">✏️ 编辑</button>
                         <button class="btn" onclick="openHiddenRuleModal()" title="按名字长期屏蔽频道：源换地址、频道每天重建都照样生效">🚫 屏蔽规则</button>
+                        <button class="btn" onclick="openMissingLogoModal()" title="列出当前档里没有台标的频道，点进去就能上传">🖼 缺台标</button>
                     </div>
                 </div>
                 <div class="subscribe-bar" id="subscribeBar"></div>
@@ -5071,11 +5092,26 @@
                 if (payload && payload.success && payload.data) {
                     epgConfig = payload.data;
                     if (!Array.isArray(epgConfig.sources)) epgConfig.sources = [];
+                    // 只有 GET 会带 legacyUrls；增删改的响应不带，沿用上次的清单（它不会变）
+                    if (Array.isArray(payload.legacyUrls)) epgLegacyUrls = payload.legacyUrls;
+                    if (typeof payload.defaultUrl === 'string') epgDefaultUrl = payload.defaultUrl;
                     renderEpgSources();
                 }
             } catch (e) {
                 console.error('加载 EPG 源失败', e);
             }
+        }
+
+        // 已废掉的老默认源地址（GET /api/epg-sources 下发）。自动迁移只碰「一字未改」的内置默认源，
+        // 改过名的那条会停在死源上：它现在只回 101 个央视卫视，而这些频道咪咕本来就有节目单，
+        // 所以它实际几乎什么都没补到——但源列表里只是一个偏低的「已匹配」数字，看不出问题。issue #124
+        let epgLegacyUrls = [];
+        let epgDefaultUrl = '';
+        function epgLegacyHint(s) {
+            if (!s || !epgLegacyUrls.includes(String(s.url || '').trim())) return '';
+            const suggest = epgDefaultUrl ? `建议把地址改成 <code>${escapeHtml(epgDefaultUrl)}</code>，或` : '建议';
+            return `<div style="margin-top:4px;font-size:12px;color:#d46b08;">⚠ 这个地址已经废了：现在只剩央视和卫视（咪咕本来就有），地方台一个都补不到。`
+                + `${suggest}删掉这条、让程序重建默认源。</div>`;
         }
 
         function epgStatusHtml(s) {
@@ -5084,7 +5120,8 @@
             else if (typeof s.lastStatus === 'string' && s.lastStatus.indexOf('失败') >= 0) { color = '#ff4d4f'; text = s.lastStatus; }
             const when = s.lastUpdated ? new Date(s.lastUpdated).toLocaleString() : '从未';
             return `<span style="color:${color};">● ${escapeHtml(text)}</span>` +
-                `<span style="color:#888;"> · 频道 ${s.channelCount || 0} · 已匹配 ${s.matchedCount || 0} · 上次 ${escapeHtml(when)}</span>`;
+                `<span style="color:#888;"> · 频道 ${s.channelCount || 0} · 已匹配 ${s.matchedCount || 0} · 上次 ${escapeHtml(when)}</span>` +
+                epgLegacyHint(s);
         }
 
         function renderEpgSources() {
@@ -5667,6 +5704,51 @@
             );
             if (!confirmed) return;
             await saveHiddenRules([...rules, { value, mode: 'exact' }], `已屏蔽「${value}」`);
+        }
+
+        // ========== 缺台标的频道（issue #124） ==========
+        // 台标改成按库索引取图后，库里没有的一律留空（播放器画占位图，不再裂图）。剩下没图的
+        // 可以自己往数据目录 logos/ 放一张 <频道名>.png，或在频道详情里上传——但先得知道是哪些。
+        // 逐频道的状态点能看出来，可几十个要靠肉眼扫。这里给一张工单式清单，点进去就是上传入口。
+        // 只新增，不碰任何现有渲染；按当前档的**可见**频道算，隐藏掉的没必要补。
+        function channelsMissingLogo() {
+            const out = [];
+            for (const g of (myPlaylistData || [])) {
+                if (isSystemAnnouncementGroup(g)) continue;
+                for (const ch of (g.channels || [])) {
+                    if (!ch.logo) out.push({ group: g.name, id: ch.id, name: ch.name });
+                }
+            }
+            return out;
+        }
+
+        function openMissingLogoModal() {
+            const list = channelsMissingLogo();
+            document.getElementById('missingLogoCount').textContent = String(list.length);
+            const box = document.getElementById('missingLogoList');
+            if (!list.length) {
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">当前档里所有可见频道都有台标 🎉</div>';
+            } else {
+                const byGroup = new Map();
+                for (const it of list) {
+                    if (!byGroup.has(it.group)) byGroup.set(it.group, []);
+                    byGroup.get(it.group).push(it);
+                }
+                box.innerHTML = [...byGroup.entries()].map(([g, items]) => `
+                    <div style="margin-bottom:10px;">
+                        <div style="font-size:12px;color:#888;margin-bottom:4px;">${escapeHtml(g)} · ${items.length}</div>
+                        ${items.map(it => `
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 8px;border:1px solid #eee;border-radius:5px;margin-bottom:4px;">
+                            <span style="min-width:0;word-break:break-all;">${escapeHtml(it.name)}</span>
+                            <button class="btn btn-sm" style="flex-shrink:0;" onclick="closeMissingLogoModal(); showChannelDetail('${String(it.id).replace(/'/g, "\\'")}', false)">补台标</button>
+                        </div>`).join('')}
+                    </div>`).join('');
+            }
+            document.getElementById('missingLogoModal').style.display = 'block';
+        }
+
+        function closeMissingLogoModal() {
+            document.getElementById('missingLogoModal').style.display = 'none';
         }
 
         // 在「频道详情」里直接给本频道设别名（issue #62）：把本频道名追加到指定规范名下（不覆盖已有别名），
@@ -9291,6 +9373,7 @@ if(success){
             if (h) h.textContent = '选择要重置的配置项，未选中的保留不变。仅重置当前档，其它档不受影响。';
             document.getElementById('resetRename').checked = true;
             document.getElementById('resetHidden').checked = true;
+            document.getElementById('resetRules').checked = true;
             document.getElementById('resetOrder').checked = true;
             document.getElementById('resetModal').style.display = 'block';
         }
@@ -9302,9 +9385,10 @@ if(success){
         async function executeReset() {
             const resetRename = document.getElementById('resetRename').checked;
             const resetHidden = document.getElementById('resetHidden').checked;
+            const resetRules = document.getElementById('resetRules').checked;
             const resetOrder = document.getElementById('resetOrder').checked;
 
-            if (!resetRename && !resetHidden && !resetOrder) {
+            if (!resetRename && !resetHidden && !resetRules && !resetOrder) {
                 showStatus('请至少选择一项', 'error');
                 return;
             }
@@ -9319,6 +9403,12 @@ if(success){
                 myPlaylistConfig.hiddenChannels = [];
                 myPlaylistConfig.deletedGroups = [];
                 parts.push('隐藏');
+            }
+            // 屏蔽规则（issue #123）单独一项：它是用户特意配的、重建成本高，
+            // 不能被笼统的「重置隐藏」顺手扫掉；但也不能漏——否则弹窗承诺「频道重新出现」却不出现
+            if (resetRules) {
+                myPlaylistConfig.hiddenRules = [];
+                parts.push('屏蔽规则');
             }
             if (resetOrder) {
                 myPlaylistConfig.groupOrder = [];

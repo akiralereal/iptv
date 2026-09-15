@@ -45,6 +45,59 @@ function localLogoVersion(file) {
   }
 }
 
+/** 现有播放列表正文；文件不存在（首次部署）或读不出来都返回空串——「没有可保的东西」。 */
+function readPlaylistContent() {
+  try {
+    return readFileSync(dataPath('interface.txt'), 'utf-8')
+  } catch {
+    return ''
+  }
+}
+
+/** 播放列表里出现过的源归属（EXTINF 的 source-ids，分号分隔）。 */
+export function playlistSourceIds(playlistContent) {
+  const ids = new Set()
+  for (const [, value] of String(playlistContent || '').matchAll(/source-ids="([^"]*)"/g)) {
+    for (const id of value.split(';')) {
+      if (id) ids.add(id)
+    }
+  }
+  return ids
+}
+
+/**
+ * 「关键源本轮颗粒无收」时，**真正值得为它保留现有播放列表**的那些源。
+ *
+ * 守卫一的原话是「宁可保留上一份，也不要覆盖成没有咪咕的版本」，成立的前提是
+ * 上一份里**确实有**咪咕的频道。两种情况下这个前提不成立，而原来的无条件 return false
+ * 把用户钉死在零频道上（issue #129）：
+ *
+ *   · 首次部署：根本没有 interface.txt。用户内置源 + 抓取模块明明抓到了三百多条，
+ *     却因为咪咕不通而一个字节都没写出来——「我的频道」全空、建了分组也是空的、
+ *     /interface.m3u 直接吐「获取失败」，且每个刷新周期重复同一个结局，永不自愈。
+ *   · 咪咕长期不可达（海外部署、软路由分流）：上一份列表本来就是在它缺席时生成的，
+ *     保留它等于把播放列表永久冻结——此后加订阅源、改频道配置触发的重新生成全部被挡，
+ *     抓取模块的短效直链也再不会刷新。
+ *
+ * 有可保的才保，没有就照常生成，咪咕恢复后下一轮自动补齐。
+ *
+ * 老列表（升级上来、还没有 source-ids 标记，见 app.js 的升级自愈）无从判断里面有没有
+ * 咪咕频道，一律按「有」处理：保守保留，行为与改动前逐字一致。
+ *
+ * 提成纯函数是为了能被测试锁住——这条判定改错了不会报错，只会让某一类用户
+ * 要么永远空列表、要么好列表被悄悄覆盖。
+ *
+ * @param {Array<{name: string, sourceId: string}>} shortfall - criticalShortfall() 的结果
+ * @param {string} playlistContent - 现有 interface.txt 正文，没有则空串
+ */
+export function preservableShortfall(shortfall, playlistContent) {
+  const content = String(playlistContent || '')
+  if (!content.trim()) return []                      // 没有列表 = 没有可保的
+  if (!content.includes('source-ids="')) return shortfall   // 无源归属标记的老列表：保守保留
+  const present = playlistSourceIds(content)
+  return shortfall.filter(module => present.has(module.sourceId))
+}
+
 /**
  * @param {Number} hours -更新小时数
  * @param {Object} options - 更新选项
@@ -148,10 +201,16 @@ async function updateTV(hours, options = {}) {
   // 安全的：咪咕现抓失败会让总数真的变成 0；收编后失败被吞在模块内，那份保护是靠
   // 巧合得来的。触发场景很日常：容器重启时咪咕/网络暂不可达（NAS 重启、compose
   // 启动顺序、家宽还没拨上）。
+  //
+  // 但「保留现有播放列表」的前提是**真有东西可保**，见 preservableShortfall。
   const shortfall = getExtractorManager().criticalShortfall()
   if (shortfall.length) {
-    printRed(`${shortfall.join('、')} 本次一条频道都没取到（疑似网络不可达），保留现有播放列表，不覆盖`)
-    return false
+    const preservable = preservableShortfall(shortfall, readPlaylistContent())
+    if (preservable.length) {
+      printRed(`${preservable.map(m => m.name).join('、')} 本次一条频道都没取到（疑似网络不可达），保留现有播放列表，不覆盖`)
+      return false
+    }
+    printYellow(`${shortfall.map(m => m.name).join('、')} 本次一条频道都没取到，但现有播放列表里本来就没有它的频道（首次部署 / 上一轮同样没抓到），本轮按缺它生成，恢复后自动补齐`)
   }
 
   // 守卫二：本次获取到 0 个频道。

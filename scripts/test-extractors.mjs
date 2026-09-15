@@ -1221,7 +1221,8 @@ try {
     // 守卫失效 → 播放列表被重写成没有咪咕的版本（实测 484 条 → 0 条）。
     // 那份保护本来是靠「咪咕失败 = 全局 0 条」的巧合得来的，现在改成显式声明。
     const manager = newManager()
-    assert.deepEqual(manager.criticalShortfall(), ['咪咕视频'], '缓存为空时必须报出来')
+    // 带 sourceId 返回：写盘守卫要用它去现有播放列表里查这个源在不在（issue #129）
+    assert.deepEqual(manager.criticalShortfall(), [{ id: 'migu', name: '咪咕视频', sourceId: 'migu' }], '缓存为空时必须报出来')
 
     // 有频道了就不该再报
     manager.cache.modules['migu'] = {

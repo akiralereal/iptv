@@ -985,17 +985,18 @@ class ExtractorManager {
    * 用于 updateData 的写盘守卫：这类模块拿不到频道时，宁可保留上一份播放列表
    * 也不要覆盖。全局的「总频道数为 0」守卫护不住它——外部源随便几十条就能把
    * 总数撑起来，而用户会看到咪咕频道整批消失且日志里只有一行「咪咕 0 个」。
+   *
+   * 返回 `{ id, name, sourceId }` 而不是光给名字：守卫还要拿 sourceId 去现有播放列表里
+   * 查「这个源的频道到底在不在里面」，不在就没什么可保的，该照常生成（见
+   * updateData 的 preservableShortfall）。
    */
   criticalShortfall() {
     if (!this.loaded) this.load()
     const groups = this.getValidChannels()
     return listModules()
       .filter(module => module.capabilities?.critical && this.isModuleEnabled(module))
-      .filter(module => {
-        const sourceId = module.sourceId || sourceIdOf(module.id)
-        return !groups.some(group => group.dataList.some(ch => ch.sourceId === sourceId))
-      })
-      .map(module => module.name)
+      .map(module => ({ id: module.id, name: module.name, sourceId: module.sourceId || sourceIdOf(module.id) }))
+      .filter(module => !groups.some(group => group.dataList.some(ch => ch.sourceId === module.sourceId)))
   }
 
   /**

@@ -1,17 +1,17 @@
-/** GOOD TV：官网两路公开电视直播，归入台湾分组，清单与分片全代理。 */
+/** GOOD TV：官网两路公开电视直播，归入台湾分组，两条官方线路择优，清单与分片全代理。 */
 import { buildChannels, claimsRef, resolveChannel } from './api.js'
 
 export default {
   id: 'goodtv',
   name: 'GOOD TV',
-  description: 'GOOD TV 好消息电视台官网公开的综合台、真理台，归入台湾分组；无需登录，上游 CDN 按播放器标识放行，清单和媒体全代理。',
+  description: 'GOOD TV 好消息电视台官网公开的综合台、真理台（1080p），归入台湾分组；无需登录，官网的两条线路自动择优、出错即换线，清单和媒体全代理。',
   capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   catalogVersion: 1,
   outputGroupName: '台湾',
   channelHlsMode: 'proxy',
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,
-  refreshDescription: '自动管理：两路固定频道表随模块版本更新；官方地址不带签名，上游 CDN 只放行常见播放器标识，清单与分片一律经本机全代理回源。',
+  refreshDescription: '自动管理：两路固定频道表随模块版本更新；官方地址不带签名，播放时在官网的 CloudFront / Akamai 两条线路间择优，当前线路取不到清单会当场换线。其中一条线路只放行常见播放器标识，清单与分片一律经本机全代理回源。',
 
   configSchema: [],
 

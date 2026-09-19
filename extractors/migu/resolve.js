@@ -28,18 +28,27 @@ export function clearCache() {
   for (const key of Object.keys(urlCache)) delete urlCache[key]
 }
 
+// 咪咕拒绝时的原话太含糊：版权屏蔽给的是「节目播出调整，换个内容看看吧！」，用户看不出
+// 是上游按节目屏蔽，会去排查账号、画质和频道 ID（issue #131：亚运会期间 CCTV5 / CCTV5+
+// 播到相关赛事就整条屏蔽，节目结束自动放开）。只对认得出的 rid 补一句人话，其余原样透传。
+const RID_HINTS = {
+  COPYRIGHT_SHIELD_INVALID: "（咪咕版权屏蔽：当前节目在咪咕没有版权，通常节目结束后自动恢复，可先切到其他源的同名频道）",
+}
+
+/** 拿不到地址时的原因。desc 既进日志也是响应正文，新取与缓存命中两条路必须一致。 */
+export function failDesc(pid, content) {
+  const msg = content != null ? content.message : "节目调整，暂不提供服务"
+  return `${pid} ${msg}${RID_HINTS[content?.rid] || ""}`
+}
+
 /** 读缓存。命中返回 { url, desc }，未命中返回 null。 */
 function readCache(pid) {
   if (typeof urlCache[pid] !== "object") return null
   if (urlCache[pid].valTime - Date.now() < 0) return null
 
-  let msg = "节目调整，暂不提供服务"
-  if (urlCache[pid].content != null) {
-    msg = urlCache[pid].content.message
-  }
   const url = urlCache[pid].url
   // 节目调整
-  if (url == "") return { url: "", desc: `${pid} ${msg}` }
+  if (url == "") return { url: "", desc: failDesc(pid, urlCache[pid].content) }
 
   // 一行「咪咕取流（缓存）：档位」替代原来的「登录认证成功」+「使用缓存数据」两行
   printStreamInfo(urlCache[pid], { cached: true })
@@ -110,10 +119,7 @@ export async function resolve(ref, ctx = {}) {
     content: resObj.content,
   }
 
-  if (resObj.url == "") {
-    const msg = resObj.content != null ? resObj.content.message : "节目调整，暂不提供服务"
-    return { url: "", desc: `${pid} ${msg}` }
-  }
+  if (resObj.url == "") return { url: "", desc: failDesc(pid, resObj.content) }
 
   return { url: resObj.url, desc: "链接获取成功" }
 }

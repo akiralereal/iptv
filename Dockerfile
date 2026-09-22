@@ -18,13 +18,11 @@ RUN if [ -f package-lock.json ]; then \
       npm install --production; \
     fi
 
-# 再复制其他文件
-COPY . .
-
 # 安装 tini 作为 init 进程（PID 1）。
 # Node 作为 PID 1 时不会回收被 Chromium 退出后重新挂到它名下的子进程，
 # 会累积成僵尸(defunct)进程；tini 负责转发信号并回收这些孤儿进程。
-RUN apk add --no-cache tini
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+ && apk add --no-cache tini
 
 # 安装系统 Chromium 用于网页抓取功能（可选）
 # 注意：某些架构（如 s390x）可能没有 chromium 包，失败时跳过
@@ -42,6 +40,9 @@ ENV TZ=Asia/Shanghai
 RUN apk add --no-cache tzdata \
   && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
   && echo $TZ > /etc/timezone
+
+# 再复制其他文件
+COPY . .
 
 # 默认把运行时配置/数据写到 /iptv/data，并声明为数据卷。
 # 这样即使用户不在 compose 里挂卷，常规 `docker compose pull && up -d` 升级也会

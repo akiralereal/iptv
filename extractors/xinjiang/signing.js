@@ -2,7 +2,7 @@ import { constants, createHash, publicEncrypt } from 'node:crypto'
 
 // 官网包内也包含一个空 PEM 模板；要求正文每行都是 base64，避免误取模板。
 const PUBLIC_KEY_RE = /-----BEGIN PUBLIC KEY-----\r?\n(?:[A-Za-z0-9+/=]{1,80}\r?\n)+-----END PUBLIC KEY-----/
-const ARRAY_FUNCTION_RE = /function\s+([A-Za-z_$][\w$]*)\(\)\{const\s+([A-Za-z_$][\w$]*)=(\[[\s\S]*?\]);return\s+\1=function/g
+const ARRAY_FUNCTION_RE = /function\s+([A-Za-z_$][\w$]*)\(\)\{const\s+([A-Za-z_$][\w$]*)=(\[[\s\S]*?\]);return\s+\1=function\(\)\{return\s+\2\},\1\(\)/g
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -27,24 +27,22 @@ function decoderFor(bundle, arrayName) {
 }
 
 function parseAssignments(block, alias, values, offset) {
-  const call = `${escapeRegExp(alias)}\\((\\d+)\\)`
-  const expression = `(?:${call}|"([^"]*)"|(\\d+))`
-  const re = new RegExp(
-    `(?:const\\s+)?([A-Za-z_$][\\w$]*)\\s*=\\s*\\{\\}|`
-      + `([A-Za-z_$][\\w$]*)(?:\\.([A-Za-z_][\\w$]*)|\\[(?:${call}|"([^"]+)")\\])\\s*=\\s*${expression}`,
-    'g',
-  )
   const records = new Map()
   const decode = raw => values[Number(raw) - offset]
-  for (const hit of block.matchAll(re)) {
-    if (hit[1]) {
-      records.set(hit[1], {})
-      continue
-    }
-    const name = hit[2]
+  const objectRe = /(?:const\s+)?([A-Za-z_$][\w$]*)\s*=\s*\{\}/g
+  for (const hit of block.matchAll(objectRe)) records.set(hit[1], {})
+
+  const call = `${escapeRegExp(alias)}\\(\\s*(\\d+)\\s*\\)`
+  const assignmentRe = new RegExp(
+    `([A-Za-z_$][\\w$]*)(?:\\.([A-Za-z_$][\\w$]*)|\\[\\s*(?:${call}|"([^\"]+)")\\s*\\])`
+      + `\\s*=\\s*(?:${call}|"([^\"]*)"|(\\d+))`,
+    'g',
+  )
+  for (const hit of block.matchAll(assignmentRe)) {
+    const name = hit[1]
     if (!records.has(name)) continue
-    const key = hit[3] || (hit[4] ? decode(hit[4]) : hit[5])
-    const value = hit[6] ? decode(hit[6]) : (hit[7] !== undefined ? hit[7] : Number(hit[8]))
+    const key = hit[2] || (hit[3] ? decode(hit[3]) : hit[4])
+    const value = hit[5] ? decode(hit[5]) : (hit[6] !== undefined ? hit[6] : Number(hit[7]))
     if (typeof key === 'string') records.get(name)[key] = value
   }
   return [...records.values()]
@@ -62,7 +60,7 @@ export function extractSigningMaterial(bundle, date = shanghaiDate()) {
     let values
     try { values = JSON.parse(match[3]) } catch { continue }
     if (!Array.isArray(values) || !values.includes('random_string')
-      || !values.includes('random_number') || !values.includes('date') || !values.includes(date)) continue
+      || !values.includes('random_number') || !values.includes('date')) continue
     const decoder = decoderFor(bundle, match[1])
     if (!decoder) continue
     const keyAt = bundle.indexOf('-----BEGIN PUBLIC KEY-----', match.index)

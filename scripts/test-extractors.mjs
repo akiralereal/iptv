@@ -808,8 +808,13 @@ const oneGroup = [{
 
 try {
   check('迁移：把系统配置里真有的画质搬进模块，幂等，且不覆盖已配过的', () => {
+    // enableHDR 是 hidden 字段，env 压过已存值；shell 里带着 compose 的 menableHDR=true 跑测试
+    // 会把这里的断言打翻，所以先摘掉
+    const savedHDR = process.env.menableHDR
+    delete process.env.menableHDR
     const manager = newManager({ rateType: 9, enableHDR: false, enableH265: false, port: '1905' })
     const cfg = manager.effectiveConfig(getModule('migu'))
+    if (savedHDR !== undefined) process.env.menableHDR = savedHDR
     assert.equal(cfg.rateType, 9)
     assert.equal(cfg.enableHDR, false)
     assert.equal(cfg.enableH265, false)
@@ -822,6 +827,39 @@ try {
     manager.updateModuleConfig('migu', { rateType: 4 })
     manager.load()
     assert.equal(manager.effectiveConfig(getModule('migu')).rateType, 4, '标记在就不该再搬')
+  })
+
+  check('★ 隐藏字段 env 压过已存值：迁移搬来的 enableHDR:true 不能顶死 menableHDR=false（#117）', () => {
+    // 老「系统配置」页每次保存都无条件写 enableHDR:true，迁移把它搬成模块「已存值」；
+    // enableHDR 在后台是 hidden 的，用户只剩 README 写的 menableHDR=false 这一条路，
+    // 若已存值仍优先，用户关 HDR 就毫无反应，也没有任何界面能改回来。
+    const manager = newManager({ enableHDR: true, rateType: 9 })
+    const migu = getModule('migu')
+    assert.equal(manager.config.modules.migu.config.enableHDR, true, '前提：值确实被搬成了已存值')
+    const saved = { hdr: process.env.menableHDR, rate: process.env.mrateType }
+    try {
+      process.env.menableHDR = 'false'
+      process.env.mrateType = '4'
+      const cfg = manager.effectiveConfig(migu)
+      assert.equal(cfg.enableHDR, false, '隐藏字段：env 必须生效')
+      assert.equal(cfg.rateType, 9, '可见字段不受影响：已存值仍压过 env（后台改过的不能被 compose 悄悄改掉）')
+      process.env.menableHDR = ''
+      assert.equal(manager.effectiveConfig(migu).enableHDR, true, 'env 为空串视为没设，回到已存值')
+      delete process.env.menableHDR
+      assert.equal(manager.effectiveConfig(migu).enableHDR, true, 'env 没设回到已存值')
+      // 反向同样成立：文件里 false、compose 示例的 menableHDR=true 也压过去
+      manager.updateModuleConfig('migu', { enableHDR: false })
+      process.env.menableHDR = 'true'
+      assert.equal(manager.effectiveConfig(migu).enableHDR, true, '反向也是 env 优先')
+      // 后台状态里要标出它来自 env（隐藏字段不渲染，但 API 载荷得自洽）
+      const state = manager.getState().modules.find(m => m.id === 'migu')
+      assert.equal(state.envProvided.enableHDR, 'menableHDR')
+    } finally {
+      for (const [env, v] of [['menableHDR', saved.hdr], ['mrateType', saved.rate]]) {
+        if (v === undefined) delete process.env[env]
+        else process.env[env] = v
+      }
+    }
   })
 
   check('迁移：凭据不写进日志（docker 日志常被贴进 issue）', () => {

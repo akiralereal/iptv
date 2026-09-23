@@ -247,8 +247,9 @@ export default {
     },
     {
       // 原「系统配置」页里这一项就是 display:none 隐藏的，没有任何说明文案。
-      // 保持隐藏——让它突然出现在界面上，对「零变化」同样是变化。仍可用
-      // menableHDR 环境变量控制，与今天一致。
+      // 保持隐藏——让它突然出现在界面上，对「零变化」同样是变化。用 menableHDR
+      // 环境变量控制；hidden 字段的 env 压过已存值（老页面整份写回的 true 迁移过来后
+      // 曾把 env 顶死，issue #117），见 extractorManager.resolveConfig。
       key: 'enableHDR',
       label: '启用 HDR',
       type: 'boolean',

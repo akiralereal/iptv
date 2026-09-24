@@ -100,7 +100,7 @@ await checkAsync('模块挂上节目单提供者，频道表每一路都在模�
   assert.equal(getModule('xinjiang'), xinjiang)
   assert.equal(xinjiang.epg, xinjiangEpg)
   assert.equal(xinjiang.capabilities.epg, true)
-  assert.equal(xinjiang.catalogVersion, 1)
+  assert.equal(xinjiang.catalogVersion, 2)
   assert.equal(xinjiangEpg.days, 2)
   assert.doesNotThrow(() => validateModule(xinjiang))
   // 取流与节目单用的是同一张表
@@ -113,7 +113,8 @@ await checkAsync('模块挂上节目单提供者，频道表每一路都在模�
   assert.deepEqual(provided.map(channel => channel.ref), buildChannels().map(channel => channel.deferredRef))
   // 官网频道接口 TVChannelList 的 Id，2026-09-25 核实
   assert.deepEqual(provided.map(channel => [channel.name, channel.key]), [
-    ['新疆卫视', '1'], ['维吾尔语新闻综合', '3'], ['哈萨克语新闻综合', '4'], ['新疆体育健康', '21'], ['新疆少儿', '23'],
+    ['新疆卫视', '1'], ['维吾尔语新闻综合', '3'], ['哈萨克语新闻综合', '4'], ['新疆汉语综艺', '16'], ['维吾尔语影视', '17'],
+    ['新疆体育健康', '21'], ['新疆少儿', '23'],
   ])
 })
 

@@ -26,11 +26,6 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
 
 export { CHANNELS }
 
-export const UNAVAILABLE_CHANNELS = Object.freeze([
-  Object.freeze({ callSign: 'XJTV-4', name: '汉语综艺频道', reason: '官网标记禁播且 CDN 返回 404' }),
-  Object.freeze({ callSign: 'XJTV-5', name: '维吾尔语影视频道', reason: '官网标记禁播且 CDN 返回 404' }),
-])
-
 const CHANNEL_BY_REF = new Map(CHANNELS.map(channel => [channel.ref, channel]))
 const CHANNEL_BY_ID = new Map(CHANNELS.map(channel => [channel.channelId, channel]))
 const MEDIA_PREFIXES = CHANNELS.map(channel => channel.path.slice(0, channel.path.lastIndexOf('/') + 1))
@@ -161,6 +156,8 @@ export function parseChannelList(payload, { now = Date.now() } = {}) {
   if (response?.success !== true || !Array.isArray(response?.data)) {
     throw new Error('新疆频道接口返回异常')
   }
+  // 逐路校验：标禁播或这次没给的只跳过那一路（汉语综艺、维吾尔语影视就整路禁播过），
+  // 播放时那一路报「不在官网有效直播列表中」；一路都没有才算接口异常
   const urls = new Map()
   let hardExpiresAt = Infinity
   for (const [channelId, channel] of CHANNEL_BY_ID) {
@@ -172,9 +169,7 @@ export function parseChannelList(payload, { now = Date.now() } = {}) {
     urls.set(channelId, parsed.url)
     hardExpiresAt = Math.min(hardExpiresAt, parsed.expiresAt - 60 * 1000)
   }
-  if (urls.size !== CHANNELS.length) {
-    throw new Error(`新疆广电当前仅返回 ${urls.size}/${CHANNELS.length} 路可播放频道`)
-  }
+  if (!urls.size) throw new Error('新疆广电当前没有返回任何可播放频道')
   return { urls, hardExpiresAt }
 }
 

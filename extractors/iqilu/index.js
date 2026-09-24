@@ -6,18 +6,21 @@ import {
   primeChannelCache,
   resolveChannel,
 } from './api.js'
+import epg from './epg.js'
 
 export default {
   id: 'iqilu',
   name: '山东',
   description: '山东卫视及八个地面频道官方直播。播放时自动完成官网 AES 鉴权并获取最新地址。',
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  capabilities: { cache: 'disk', resolve: true, epg: true },
   outputGroupName: '山东',
   defaultRefreshMinutes: 240,
   refreshConfigurable: false,
   refreshDescription: '自动管理：频道页每 240 分钟刷新；播放地址按频道缓存 30 分钟，失败后短暂重试。',
 
   configSchema: [],
+  // 官网直播页用的闪电新闻节目单，按频道表里的 epgId 取今明两天；与取流链路互不依赖（见 epg.js）
+  epg,
 
   async fetch(_config, ctx = {}) {
     const rows = await fetchChannelList({ timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl })

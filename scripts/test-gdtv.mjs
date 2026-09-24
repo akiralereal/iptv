@@ -27,6 +27,20 @@ check('频道表固定排除购物频道，同时保留广东移动与 4K', () =
   assert.ok(channels.every(channel => channel.deferredRef.startsWith('gdtv-')))
 })
 
+check('台标用官网频道卡的缩放版，各台互不相同；目录里只有总台标的四路留空', () => {
+  const channels = buildChannels()
+  const withLogo = channels.filter(channel => channel.logo)
+  assert.equal(withLogo.length, 13)
+  assert.ok(withLogo.every(channel =>
+    /^https:\/\/img\.gdtv\.cn\/image\/\d{6}\/[^?]+\?x-oss-process=image\/resize,w_400$/.test(channel.logo)))
+  assert.equal(new Set(withLogo.map(channel => channel.logo)).size, withLogo.length)
+  assert.equal(channels.find(channel => channel.name === '广东卫视').logo,
+    'https://img.gdtv.cn/image/202212/0.341152693165587748d6fc1c271c6514dOSS1670410407.jpg?x-oss-process=image/resize,w_400')
+  for (const name of ['岭南戏曲', '广东台经典剧', '广东纪录片', '广东健康']) {
+    assert.equal(channels.find(channel => channel.name === name).logo, '', `${name}官方只有总台标，应留空`)
+  }
+})
+
 check('频道引用和官网页面范围严格受模块白名单约束', () => {
   assert.equal(channelIdFromRef('gdtv-43'), '43')
   assert.equal(channelIdFromRef('gdtv-42'), '', '南方购物不能通过手写引用绕过过滤')

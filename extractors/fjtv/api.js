@@ -318,7 +318,7 @@ async function probeFuzhouChannel(channel, { timeoutMs = 10000, fetchImpl = fetc
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const manifest = await response.text()
     if (!/^\s*#EXTM3U(?:\r?\n|$)/.test(manifest)) throw new Error('返回内容不是 HLS 清单')
-    return { name: channel.name, url: channel.url, logo: '' }
+    return { name: channel.name, url: channel.url, logo: channel.logo }
   } catch (error) {
     const reason = error?.name === 'AbortError' ? `超时 ${timeoutMs}ms` : (error?.message || String(error))
     throw new Error(`${channel.name}探测失败：${reason}`)

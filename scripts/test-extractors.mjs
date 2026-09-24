@@ -2414,6 +2414,10 @@ await checkAsync('福建：福州固定官方 HLS 逐路探测，单路失败不
   assert.deepEqual(calls, FUZHOU_CHANNELS.map(channel => channel.url))
   assert.deepEqual(result.channels.map(channel => channel.name), ['福州综合', '福州少儿'])
   assert.match(result.warnings[0], /福州生活探测失败：HTTP 503/)
+  // 台标来自官网播放器频道列表的 icon，三路各不相同
+  assert.ok(FUZHOU_CHANNELS.every(channel => /^https:\/\/img\.zohi\.tv\/a\/10001\/\d{6}\/[0-9a-f]{32}\.jpe?g$/.test(channel.logo)))
+  assert.equal(new Set(FUZHOU_CHANNELS.map(channel => channel.logo)).size, FUZHOU_CHANNELS.length)
+  assert.deepEqual(result.channels.map(channel => channel.logo), [FUZHOU_CHANNELS[0].logo, FUZHOU_CHANNELS[2].logo])
 
   await assert.rejects(
     () => fetchFuzhouChannels({ fetchImpl: async () => fakeResponse('<html>not hls</html>') }),

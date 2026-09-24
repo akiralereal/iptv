@@ -37,8 +37,15 @@ export const XIAMEN_CHANNELS = Object.freeze([
 // 福视悦动官网播放器公开的三路固定 HLS。它们不经过海博 API，因而海博被
 // 讯飞 WAF 拦截时仍可独立工作。只接受这张固定表，避免把活动直播混进频道组。
 // 官网节目单只列台里的自办栏目，中间大段空白；少儿频道一天只有一条，不值得出节目单。
+// 台标是官网播放器频道列表接口（app.zohi.tv/video/player/streamlist?live_type=1）的 icon 字段：
+// 接口给相对路径，按官网图床 img.zohi.tv 拼全（800×450 频道卡）。取流不走这个接口，就写死在这里。
+const FUZHOU_LOGO = 'https://img.zohi.tv/a/10001/202211/'
+
 export const FUZHOU_CHANNELS = Object.freeze([
-  Object.freeze({ name: '福州综合', url: 'http://live.zohi.tv/video/s10001-fztv-1/index.m3u8', streamId: '804' }),
-  Object.freeze({ name: '福州生活', url: 'http://live.zohi.tv/video/s10001-fztv-3/index.m3u8', streamId: '801' }),
-  Object.freeze({ name: '福州少儿', url: 'http://live.zohi.tv/video/s10001-fztv-4/index.m3u8', streamId: '795', epg: false }),
+  Object.freeze({ name: '福州综合', url: 'http://live.zohi.tv/video/s10001-fztv-1/index.m3u8', streamId: '804',
+    logo: `${FUZHOU_LOGO}7dc00f5410904976c5d8b577209accdd.jpeg` }),
+  Object.freeze({ name: '福州生活', url: 'http://live.zohi.tv/video/s10001-fztv-3/index.m3u8', streamId: '801',
+    logo: `${FUZHOU_LOGO}1e6fccf484ec0e4ae1246af0382484e3.jpg` }),
+  Object.freeze({ name: '福州少儿', url: 'http://live.zohi.tv/video/s10001-fztv-4/index.m3u8', streamId: '795', epg: false,
+    logo: `${FUZHOU_LOGO}c30842306796c86665249c5db6f47ba4.jpg` }),
 ])

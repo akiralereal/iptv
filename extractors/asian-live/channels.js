@@ -26,6 +26,9 @@ export const SOURCES = [
 
 const BY_ID = new Map(SOURCES.map(source => [source.id, source]))
 
+/** 频道对外的 deferredRef；取流按它认领频道，节目单（epg.js）也按它对齐。 */
+export const sourceRef = source => `asian-live-${source.id}`
+
 export function sourceFromRef(ref) {
   const match = /^asian-live-([a-z0-9][a-z0-9-]{0,47})$/.exec(String(ref || ''))
   return match ? BY_ID.get(match[1]) : undefined
@@ -41,7 +44,7 @@ export function buildGroups() {
     if (!groups.has(source.group)) groups.set(source.group, { name: source.group, dataList: [] })
     groups.get(source.group).dataList.push({
       name: source.name,
-      deferredRef: `asian-live-${source.id}`,
+      deferredRef: sourceRef(source),
       logo: source.logo || '',
       opts: ['network-caching=3000'],
       catchup: 'none',

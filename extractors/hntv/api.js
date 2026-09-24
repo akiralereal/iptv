@@ -1,11 +1,12 @@
-/** 河南广播电视台（大象新闻）的频道接口、SHA-256 请求签名与地址缓存。 */
-import { createHash } from 'node:crypto'
+/** 河南广播电视台（大象新闻）的频道接口与地址缓存；请求签名见 sign.js。 */
 import fetch from 'node-fetch'
+import { CHANNELS } from './channels.js'
+import { buildSignedHeaders } from './sign.js'
+
+export { buildSignedHeaders }
 
 export const CHANNEL_LIST_URL = 'https://pubmod.hntv.tv/program/getAuth/live/class/program/11/'
 
-// 官网 2026-08 播放器公开携带的 Web 请求盐；不是用户凭据，但属于易变实现细节。
-const SIGN_SECRET = '6ca114a836ac7d73'
 const CHANNEL_REFRESH_MS = 2 * 60 * 60 * 1000
 const CHANNEL_RETRY_MS = 60 * 1000
 const EXPIRY_SKEW_MS = 5 * 60 * 1000
@@ -13,35 +14,9 @@ const FALLBACK_STREAM_TTL_MS = 3 * 60 * 60 * 1000
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
-// 固定白名单保持输出顺序，避免接口混入购物频道或将来新增的临时专题流。
-const CHANNELS = [
-  { id: '145', rawName: '河南卫视', name: '河南卫视' },
-  { id: '149', rawName: '新闻频道', name: '河南新闻' },
-  { id: '141', rawName: '都市频道', name: '河南都市' },
-  { id: '146', rawName: '民生频道', name: '河南民生' },
-  { id: '147', rawName: '法治频道', name: '河南法治' },
-  { id: '151', rawName: '公共频道', name: '河南公共' },
-  { id: '152', rawName: '河南乡村频道', name: '河南乡村' },
-  { id: '148', rawName: '电视剧频道', name: '河南电视剧' },
-  { id: '154', rawName: '梨园频道', name: '梨园频道' },
-  { id: '155', rawName: '文物宝库', name: '文物宝库' },
-  { id: '156', rawName: '武术频道', name: '武术世界' },
-  { id: '157', rawName: '睛彩中原', name: '睛彩中原' },
-  { id: '194', rawName: '国学频道', name: '国学频道' },
-]
-
 const CHANNEL_BY_ID = new Map(CHANNELS.map(channel => [channel.id, channel]))
 let channelCache = null
 let channelPending = null
-
-export function buildSignedHeaders(now = Date.now()) {
-  const timestamp = String(Math.floor(Number(now) / 1000))
-  if (!/^\d{10}$/.test(timestamp)) throw new Error('请求时间无效')
-  return {
-    sign: createHash('sha256').update(`${SIGN_SECRET}${timestamp}`).digest('hex'),
-    timestamp,
-  }
-}
 
 function validStreamUrl(raw) {
   try {

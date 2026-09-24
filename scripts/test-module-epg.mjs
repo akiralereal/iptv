@@ -184,6 +184,34 @@ await checkAsync('同名频道来自不同模块时，前一个官方没发或�
   }
 })
 
+await checkAsync('直链频道没有 ref：按来源模块 + 频道名精确对上，别的模块同名不串', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'iptv-module-epg-'))
+  const bak = join(dir, 'playback.xml.bak')
+  writeFileSync(bak, '')
+  try {
+    const plain = {
+      name: '直链台',
+      epg: {
+        days: 1,
+        channels: () => [{ ref: 'plain-1', name: '黑龙江都市', key: 'dushi' }],
+        async programmes(key) { return [{ title: `${key} 的节目`, start: NEWS.st * 1000, stop: NEWS.et * 1000 }] },
+      },
+    }
+    const result = await appendModuleEpg(bak, [
+      { sourceId: 'xt:plain', name: '黑龙江都市' },
+      { sourceId: 'xt:plain', name: '黑龙江都市HD' },   // 模块登记表里没有这个名字
+      { sourceId: 'xt:other', name: '黑龙江都市' },     // 别的模块（没有节目单）
+    ], new Set(), {
+      resolveModule: () => { throw new Error('直链频道不该按 ref 找模块') },
+      moduleForSource: sourceId => (sourceId === 'xt:plain' ? plain : undefined),
+    })
+    assert.deepEqual(result, { appended: 1, failed: 0 })
+    assert.match(readFileSync(bak, 'utf8'), /dushi 的节目/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 check('注册表拒绝不完整的节目单提供者', () => {
   const base = { id: 'fake', fetch: async () => ({ groups: [] }) }
   assert.throws(() => validateModule({ ...base, epg: { channels: () => [] } }), /channels\(\) 与 programmes\(\)/)

@@ -4,10 +4,11 @@
 // 不再取；这里写成的频道记进 coveredKeys，外部源不会重复补。
 //
 // 频道按 ref 找到自己的模块，再由模块的频道表换成平台内部 key，不按名字模糊配对。
+// 直链频道（黑龙江这类不走延迟解析的）没有 ref，按来源模块 + 频道名精确对上该模块登记的频道。
 // 取数、合并、序列化在零依赖的 epgXmltv.js，这里只管 iptv 这一侧的衔接。
 
 import { appendFileSync } from './fileUtil.js'
-import { resolverFor } from '../extractors/registry.js'
+import { listModules, resolverFor, sourceIdOf } from '../extractors/registry.js'
 import { normalizeKey } from './channelNormalize.js'
 import { epgChannelId } from './epgAggregator.js'
 import { channelXml, mapSettled, providerProgrammes } from './epgXmltv.js'
@@ -21,7 +22,7 @@ const CONCURRENCY = 4
  * 把模块节目单追加进正在写的 playback.xml.bak。
  *
  * @param {string} playbackBakPath
- * @param {{ref: string, name: string}[]} channels - 播放列表里实际写出的延迟解析频道
+ * @param {{ref?: string, sourceId?: string, name: string}[]} channels - 播放列表里实际写出的模块频道
  * @param {Set<string>} coveredKeys - 已有节目单的频道归一 key；本函数会把自己写成的加进去
  * @returns {Promise<{appended: number, failed: number}>}
  */
@@ -29,24 +30,29 @@ export async function appendModuleEpg(playbackBakPath, channels, coveredKeys, {
   now = Date.now(),
   fetchImpl = proxyAwareFetch,
   timeoutMs = 10000,
-  // 按 ref 找模块；测试注入假模块用
+  // 按 ref / 来源找模块；测试注入假模块用
   resolveModule = resolverFor,
+  moduleForSource = sourceId => listModules().find(module => sourceIdOf(module.id) === sourceId),
 } = {}) {
   const keysByProvider = new Map()
   // 同名频道在播放器里是同一个 tvg-id，只写一份节目单。但同名的可能来自不同模块：
   // 按播放列表顺序逐个试，前一个官方没发或没取到才轮到下一个
   //（央视频的国学频道没有节目单文件，河南模块的有）
   const groups = new Map()
-  for (const { ref, name } of channels) {
-    const module = resolveModule(ref)
+  for (const { ref, sourceId, name } of channels) {
+    const module = ref != null ? resolveModule(ref) : moduleForSource(sourceId)
     const provider = module?.epg
     if (!provider) continue
     let keys = keysByProvider.get(provider)
     if (!keys) {
-      keys = new Map(provider.channels().map(channel => [channel.ref, channel.key]))
+      const listed = provider.channels()
+      keys = {
+        byRef: new Map(listed.map(channel => [channel.ref, channel.key])),
+        byName: new Map(listed.map(channel => [channel.name, channel.key])),
+      }
       keysByProvider.set(provider, keys)
     }
-    const key = keys.get(ref)
+    const key = ref != null ? keys.byRef.get(ref) : keys.byName.get(name)
     const normKey = normalizeKey(name)
     if (key == null || !normKey || coveredKeys.has(normKey)) continue
     let group = groups.get(normKey)

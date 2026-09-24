@@ -92,7 +92,7 @@
  *                                              day 为 YYYYMMDD，start / stop 为毫秒时间戳
  *       }
  *       由 utils/moduleEpg.js 在咪咕之后、外部 XMLTV 聚合之前调用，按 ref 找频道、不按名字
- *       配对。提供者只用注入的 fetchImpl，不 import 项目内部模块——配合零依赖的
+ *       模糊配对；直链频道没有 ref，按本模块内频道名精确对应 channels() 里的 name。提供者只用注入的 fetchImpl，不 import 项目内部模块——配合零依赖的
  *       utils/epgXmltv.js 与 scripts/build-epg.mjs，整套能拆出去单独产出节目单。
  *       programmes() 抛错只让该频道本轮没有节目单；官方当天没发的返回空数组。
  *

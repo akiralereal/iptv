@@ -374,8 +374,8 @@ async function updateTV(hours, options = {}) {
 
       // 记录实际进入播放列表的频道名，供 EPG 聚合配对
       playlistChannelNames.push(channelItem.name)
-      if (isExtractor && channelItem.deferredRef != null) {
-        moduleEpgChannels.push({ ref: channelItem.deferredRef, name: channelItem.name })
+      if (isExtractor) {
+        moduleEpgChannels.push({ ref: channelItem.deferredRef, sourceId: channelItem.sourceId, name: channelItem.name })
       }
 
       // 要不要为这个频道抓节目单，按**能力**判定而不是按源类型：

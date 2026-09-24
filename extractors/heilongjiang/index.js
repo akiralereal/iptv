@@ -6,7 +6,8 @@ export default {
   name: '黑龙江',
   description: '黑龙江广播电视台七套公开频道（极光新闻 App 在用的官方入口）；无需登录，地址固定且上游不设防盗链，由播放器直连官方 CDN。',
   capabilities: { cache: 'disk', resolve: false, epg: false, catchup: false },
-  catalogVersion: 1,
+  // v2：七套频道带上官方台标
+  catalogVersion: 2,
   outputGroupName: '黑龙江',
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,

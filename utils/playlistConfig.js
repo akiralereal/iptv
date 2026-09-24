@@ -13,9 +13,11 @@ import { ANNOUNCEMENT, isAnnouncementChannel, protectAnnouncementConfig, systemC
 
 // 台标来源分类（供后台展示）：本地上传 / 源自带 / 公共库兜底 / 无。
 // 依据 interface 里写出的 tvg-logo 形态判定，不联网、零额外成本。issue #38 / #40
-function classifyLogo(logo) {
+export function classifyLogo(logo) {
   if (!logo) return 'none'
   if (logo.includes('/logos/')) return 'local'                                  // ${replace}/logos/<名>.<ext>（本地上传/手放，最高优先级）
+  // 本机托管的（utils/logoCache.js）：地址里的 from 记着它原本来自源自带还是公共库
+  if (logo.includes('/logo-cache/')) return /[?&]from=auto(?:&|$)/.test(logo) ? 'auto' : 'source'
   if (externalLogoBase && logo.startsWith(externalLogoBase)) return 'auto'       // 公共台标库按名兜底
   return 'source'                                                               // 咪咕 pics / m3u 源自带
 }

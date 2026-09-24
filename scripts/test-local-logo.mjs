@@ -179,6 +179,22 @@ try {
     assert.equal(traversal.status, 400)
   })
 
+  await check('托管台标 /logo-cache/：按哈希文件名取图、带缓存头，文件名不合规回 400，同样在鉴权之后', async () => {
+    const CACHE_DIR = join(DATA_DIR, 'logo-cache')
+    mkdirSync(CACHE_DIR, { recursive: true })
+    writeFileSync(join(CACHE_DIR, '0123456789abcdef0123.png'), SECOND)
+    const response = await request(`/${PASS}/logo-cache/0123456789abcdef0123.png?v=1&from=auto`)
+    assert.equal(response.status, 200)
+    assert.equal(response.headers['content-type'], 'image/png')
+    assert.ok(response.body.equals(SECOND))
+    assert.match(response.headers.etag, /^"[0-9a-f]+-[0-9a-f]+"$/)
+    assert.equal((await request(`/${PASS}/logo-cache/0123456789abcdef9999.png`)).status, 404)
+    for (const bad of ['index.json', '..%2Findex.json', 'ABCDEF0123456789ABCD.png', '0123456789abcdef0123.exe']) {
+      assert.equal((await request(`/${PASS}/logo-cache/${bad}`)).status, 400, bad)
+    }
+    assert.equal((await request('/logo-cache/0123456789abcdef0123.png')).status, 403)
+  })
+
   console.log(`\n全部通过 (${passed} 项)`)
   rmSync(DATA_DIR, { recursive: true, force: true })
   process.exit(0)

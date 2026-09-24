@@ -7,7 +7,8 @@ import { appendModuleEpg } from "./moduleEpg.js"
 import { normalizeKey, logoMatchName } from "./channelNormalize.js"
 import { ensureLogoIndex, resolveLibraryLogo } from "./logoLibrary.js"
 import { renderOpts, needsOpts } from "./channelOpts.js"
-import { refreshToken as enableTokenRefresh, host, pass, enableMigu, externalLogoBase } from "../config.js"
+import { refreshToken as enableTokenRefresh, host, pass, enableMigu, externalLogoBase, enableLogoCache } from "../config.js"
+import { finishLogoCache, hostedLogoUrl, prefetchLogos } from "./logoCache.js"
 import refreshToken from "./refreshToken.js"
 import { printGreen, printRed, printYellow, printBlue } from "./colorOut.js"
 import { getDateString } from "./time.js"
@@ -44,6 +45,31 @@ function localLogoVersion(file) {
   } catch {
     return ''
   }
+}
+
+// 本地上传的台标：显示名优先，台标匹配名兜底（issue #40：CCTV1高清（电信）→ CCTV1）
+function localLogo(name) {
+  const key = logoMatchName(name)
+  return findLocalLogo(name) || (key && key !== name ? findLocalLogo(key) : '')
+}
+
+/**
+ * 频道自己的台标（咪咕 pics / 模块官方 / m3u 手写）与台标库兜底，按优先级排好的候选。
+ * 本地上传的不在这里：它最优先，也不需要托管。库兜底只给外部 / 内置 / 抓取模块频道。
+ */
+function logoCandidates(channelItem, groupName, libraryAllowed) {
+  const candidates = []
+  const own = channelItem.pics?.highResolutionH || channelItem.logo || ''
+  if (own) candidates.push({ url: own, from: 'source' })
+  if (libraryAllowed && externalLogoBase) {
+    // 有索引就只写库里真实存在的图（issue #124）：查不到就不给这个候选，让播放器出自己的占位图，
+    // 而不是一个必定 404 的地址（裂图）。景观/慢直播这类「频道名不是台名」的伪频道
+    // 天然查不到，正好自动留空。索引不可用时（首次没网/库改版）退回按名盲拼的老行为。
+    const libraryName = resolveLibraryLogo(channelItem.name, groupName)
+    const name = libraryName === null ? (logoMatchName(channelItem.name) || channelItem.name) : libraryName
+    if (name) candidates.push({ url: `${externalLogoBase}${encodeURIComponent(name)}.png`, from: 'auto' })
+  }
+  return candidates
 }
 
 /** 现有播放列表正文；文件不存在（首次部署）或读不出来都返回空串——「没有可保的东西」。 */
@@ -295,6 +321,26 @@ async function updateTV(hours, options = {}) {
 
   // 分组列表
   const includeExternalInPlaylists = externalSourceManager.sources?.includeInPlaylists !== false
+
+  // 台标本机托管（utils/logoCache.js）：先把这一轮要用的候选台标下载好，写列表时挑已托管的。
+  // 快速重生成不下载，只用已有的托管结果。
+  if (enableLogoCache && !regenerateOnly) {
+    const urls = []
+    for (const group of datas) {
+      for (const channelItem of group.dataList) {
+        const isExtractor = channelItem.source === 'extractor'
+        const isExternal = !isExtractor && (channelItem.source === 'external' || !!channelItem.url)
+        if ((isExternal && !includeExternalInPlaylists) || localLogo(channelItem.name)) continue
+        const libraryAllowed = isExternal || isExtractor || channelItem.source === 'built-in'
+        for (const candidate of logoCandidates(channelItem, group.name, libraryAllowed)) urls.push(candidate.url)
+      }
+    }
+    try {
+      await prefetchLogos(urls)
+    } catch (e) {
+      printYellow(`台标托管下载失败，本轮沿用原台标地址: ${e.message}`)
+    }
+  }
   // EPG 聚合（issue #38）用：本次写入播放列表的频道原始名 + 已由咪咕给到 EPG 的频道归一 key
   const playlistChannelNames = []
   const epgCoveredKeys = new Set()
@@ -331,27 +377,14 @@ async function updateTV(hours, options = {}) {
       const isExtractor = channelItem.source === 'extractor'
       const isExternal = !isExtractor && (channelItem.source === 'external' || !!channelItem.url)
       // 台标优先级：本地 logos/<频道名>.<ext>（用户后台上传或手动放，最高、仅查本地不联网）
-      //   > 源自带台标（咪咕 pics / m3u 手写）> 公共台标库兜底（仅外部/内置）> 空。
-      // 取图用「台标匹配名」做 key（issue #40）：CCTV1高清（电信）→ CCTV1、湖南卫视（电信）→ 湖南卫视，
-      // 让特殊命名的常见频道也能命中本地/公共库；频道显示名不变。本地查找仍以显示名优先、规范名兜底。
-      const logoKey = logoMatchName(channelItem.name)
-      let logoUrl = findLocalLogo(channelItem.name)
-      if (!logoUrl && logoKey && logoKey !== channelItem.name) {
-        logoUrl = findLocalLogo(logoKey)
-      }
+      //   > 源自带台标（咪咕 pics / 模块官方 / m3u 手写）> 公共台标库兜底（仅外部/内置/模块）> 空。
+      // 取图用「台标匹配名」做 key（issue #40），让特殊命名的常见频道也能命中本地/公共库；频道显示名不变。
+      // 开着托管时，后两级从已下载校验过的图里挑：源自带的坏了（404、不是图片）自动换库里的，
+      // 都没托管上时沿用原地址（与托管前一样），全都确认坏了就留空。
+      let logoUrl = localLogo(channelItem.name)
       if (!logoUrl) {
-        logoUrl = channelItem.pics?.highResolutionH || channelItem.logo || ""
-      }
-      if (!logoUrl && (isExternal || isBuiltIn || isExtractor) && externalLogoBase) {
-        // 有索引就只写库里真实存在的图（issue #124）：查不到写空串，让播放器出自己的占位图，
-        // 而不是一个必定 404 的地址（裂图）。景观/慢直播这类「频道名不是台名」的伪频道
-        // 天然查不到，正好自动留空。索引不可用时（首次没网/库改版）退回按名盲拼的老行为。
-        const libraryName = resolveLibraryLogo(channelItem.name, datas[i].name)
-        if (libraryName === null) {
-          logoUrl = `${externalLogoBase}${encodeURIComponent(logoKey || channelItem.name)}.png`
-        } else if (libraryName) {
-          logoUrl = `${externalLogoBase}${encodeURIComponent(libraryName)}.png`
-        }
+        const candidates = logoCandidates(channelItem, datas[i].name, isExternal || isBuiltIn || isExtractor)
+        logoUrl = enableLogoCache ? hostedLogoUrl(candidates) : (candidates[0]?.url || '')
       }
       
       // 内置源使用playURL字段，外部源与抓取模块使用url字段，咪咕源构造URL
@@ -438,6 +471,8 @@ async function updateTV(hours, options = {}) {
     }
     printGreen(`分组:${datas[i].name} 更新完成！`)
   }
+
+  if (enableLogoCache) finishLogoCache()
 
   if (playbackFailed > 0) {
     printYellow(`节目单抓取失败 ${playbackFailed} 个频道（播放列表不受影响，这些频道本轮没有节目单）：${lastPlaybackError}`)

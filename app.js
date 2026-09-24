@@ -11,6 +11,7 @@ import { printBlue, printGreen, printGrey, printMagenta, printRed, printYellow }
 import { channel, interfaceStr, fetchManifestDirect, rewriteManifest, inlineResolvedManifest } from "./utils/appUtils.js";
 import { toProxyManifest, lookup as lookupProxyTarget, pipeUpstream, probeUpstream, fetchNested, manifestCooling, markManifestResult } from "./utils/hlsProxy.js";
 import { dataPath } from "./utils/paths.js";
+import { cachedLogoFile } from "./utils/logoCache.js";
 import { getExtractorManager, getModuleConfig } from "./utils/extractorManager.js";
 import { getExtractorsAPI, startModuleLoginAPI, pollModuleLoginAPI, setExtractorEnabledAPI,
   updateExtractorConfigAPI, runExtractorNowAPI, setContentFlagAPI, startBrowserLoginAPI,
@@ -993,7 +994,8 @@ async function handleRequest(req, res) {
     return
   }
 
-  // 本地台标：/logos/<文件名>（也兼容前面带 /userId/token 段的情况），从数据目录 logos/ 读取。
+  // 本地台标：/logos/<文件名>（也兼容前面带 /userId/token 段的情况），从数据目录 logos/ 读取；
+  // 托管台标：/logo-cache/<哈希>.<扩展名>（utils/logoCache.js 下载校验过的），从数据目录 logo-cache/ 读取。
   // 必须放在下方「用户段解析」之前，否则 /logos/x.png 会被当成 /userId/token 拆掉。
   const logosIdx = routePath.indexOf('/logos/')
   if (logosIdx !== -1) {
@@ -1007,34 +1009,20 @@ async function handleRequest(req, res) {
     if (!logoName || logoName.includes('/') || logoName.includes('\\') || logoName.includes('..')) {
       res.writeHead(400); res.end(); return
     }
-    try {
-      const file = dataPath(`logos/${logoName}`)
-      // 条件请求（issue #119）：订阅里的台标 URL 已带 ?v=<mtime>，换图即换 URL；这里再补
-      // ETag / Last-Modified，让不认 query 的客户端至少能用 If-None-Match 拿到 304 而不是旧图。
-      const stat = statSync(file)
-      const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`
-      const lastModified = new Date(stat.mtimeMs).toUTCString()
-      const cacheHeaders = { 'Cache-Control': 'public, max-age=86400', ETag: etag, 'Last-Modified': lastModified }
-      const ifNoneMatch = String(headers['if-none-match'] || '')
-      const ifModifiedSince = Date.parse(headers['if-modified-since'] || '')
-      const notModified = ifNoneMatch
-        ? ifNoneMatch.split(',').some(tag => tag.trim() === etag)
-        : Number.isFinite(ifModifiedSince) && Math.floor(stat.mtimeMs / 1000) * 1000 <= ifModifiedSince
-      if (notModified) {
-        res.writeHead(304, cacheHeaders); res.end(); return
-      }
-      const buf = readFileSync(file)
-      const ext = logoName.slice(logoName.lastIndexOf('.') + 1).toLowerCase()
-      const mime = ext === 'png' ? 'image/png'
-        : (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg'
-        : ext === 'webp' ? 'image/webp'
-        : ext === 'svg' ? 'image/svg+xml'
-        : 'application/octet-stream'
-      res.writeHead(200, { 'Content-Type': mime, 'Content-Length': buf.length, ...cacheHeaders })
-      res.end(method === 'HEAD' ? undefined : buf)
-    } catch (e) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('logo not found')
-    }
+    const ext = logoName.slice(logoName.lastIndexOf('.') + 1).toLowerCase()
+    const mime = ext === 'png' ? 'image/png'
+      : (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg'
+      : ext === 'webp' ? 'image/webp'
+      : ext === 'svg' ? 'image/svg+xml'
+      : 'application/octet-stream'
+    serveDataImage(res, method, headers, dataPath(`logos/${logoName}`), mime)
+    return
+  }
+  const cachedIdx = routePath.indexOf('/logo-cache/')
+  if (cachedIdx !== -1) {
+    const cached = cachedLogoFile(routePath.slice(cachedIdx + '/logo-cache/'.length))
+    if (!cached) { res.writeHead(400); res.end(); return }
+    serveDataImage(res, method, headers, cached.path, cached.mime)
     return
   }
 
@@ -1358,6 +1346,31 @@ async function handleRequest(req, res) {
   });
 
   res.end()
+}
+
+// 从数据目录回一张图片（本地上传台标 / 托管台标）。
+// 条件请求（issue #119）：订阅里的台标 URL 已带 ?v=<mtime>，换图即换 URL；这里再补
+// ETag / Last-Modified，让不认 query 的客户端至少能用 If-None-Match 拿到 304 而不是旧图。
+function serveDataImage(res, method, headers, file, mime) {
+  try {
+    const stat = statSync(file)
+    const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`
+    const lastModified = new Date(stat.mtimeMs).toUTCString()
+    const cacheHeaders = { 'Cache-Control': 'public, max-age=86400', ETag: etag, 'Last-Modified': lastModified }
+    const ifNoneMatch = String(headers['if-none-match'] || '')
+    const ifModifiedSince = Date.parse(headers['if-modified-since'] || '')
+    const notModified = ifNoneMatch
+      ? ifNoneMatch.split(',').some(tag => tag.trim() === etag)
+      : Number.isFinite(ifModifiedSince) && Math.floor(stat.mtimeMs / 1000) * 1000 <= ifModifiedSince
+    if (notModified) {
+      res.writeHead(304, cacheHeaders); res.end(); return
+    }
+    const buf = readFileSync(file)
+    res.writeHead(200, { 'Content-Type': mime, 'Content-Length': buf.length, ...cacheHeaders })
+    res.end(method === 'HEAD' ? undefined : buf)
+  } catch (e) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('logo not found')
+  }
 }
 
 const server = http.createServer((req, res) => {

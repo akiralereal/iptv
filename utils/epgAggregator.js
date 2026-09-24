@@ -4,15 +4,16 @@
 //   合并进咪咕已生成的 playback.xml，做到「播放器只填本项目的 /playback.xml 就覆盖全部频道」。
 //
 // 设计要点（v1，尽量简单）：
-//   - 默认开启、内置默认源、零配置自动跑；手动只是「可选」（改 data/epg-sources.json）。
+//   - 默认开启、不带内置外部源：节目单默认由咪咕与各模块的官方接口提供（moduleEpg.js），
+//     这里只处理用户自己在后台（或 data/epg-sources.json）加的 XMLTV 源。
 //   - 只为「播放列表里实际存在、且咪咕没给到 EPG」的频道补节目单 —— 不整份塞进来，playback.xml 保持精简。
 //   - 频道配对复用 issue #39 的归一逻辑（normalizeKey / normalizeTvgName），与播放列表 tvg-id 对齐。
-//   - 多源冲突按 priority「每个频道选一个源」：先到先得，咪咕最高优先（它有的频道不会被外部覆盖）。
+//   - 多源冲突按 priority「每个频道选一个源」：先到先得，咪咕与模块官方节目单最先（它们有的频道不会被外部覆盖）。
 //   - 坏源/超时自动跳过并沿用上次缓存，绝不拖垮基础节目单。
 
 import fetch from 'node-fetch'
 import { gunzipSync, gzipSync } from 'node:zlib'
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs'
 import { appendFileSync, writeJsonFileSync } from './fileUtil.js'
 import { dataPath } from './paths.js'
 import { normalizeKey, normalizeTvgName } from './channelNormalize.js'
@@ -29,23 +30,11 @@ const DOWNLOAD_TIMEOUT = 60000
 const MAX_XML_BYTES = 150 * 1024 * 1024
 
 /**
- * 内置默认 EPG 源：新装时自动写入 data/epg-sources.json，开箱即用、无需任何手动配置。
- * 用户想增删改 / 调优先级，编辑该文件或用后台「EPG 源管理」即可（手动可选）。
+ * 内置默认外部 EPG 源：现在一个都没有。
+ * 先后用过的两家都是个人维护的站点，一家退化、一家转收费，默认源的可用性就这样系在别人身上。
+ * 节目单改由咪咕与各模块从官方接口取（moduleEpg.js）；想要更广覆盖的用户在后台「EPG 聚合」自己加源。
  */
-const BUILT_IN_EPG_SOURCES = [
-  {
-    name: '默认EPG',
-    url: 'https://e.erw.cc/all.xml.gz',
-    enabled: true,
-    format: 'auto',        // auto | xml | gz
-    refreshInterval: 720,  // 刷新间隔（分钟），默认 12 小时
-    priority: 10,          // 数字小 = 优先级高，多源命中同一频道时高优先级胜
-    lastUpdated: null,
-    lastStatus: null,
-    channelCount: 0,
-    matchedCount: 0
-  }
-]
+const BUILT_IN_EPG_SOURCES = []
 
 // 节目单里的频道 id 与播放列表 tvg-id 取同一变换（开启归一时取规范名，否则原名），
 // 播放器才对得上。外部聚合与模块节目单（moduleEpg.js）共用。
@@ -53,28 +42,26 @@ export function epgChannelId(name) {
   return enableTvgNormalize ? (normalizeTvgName(name) || name) : name
 }
 
-// 老的内置默认源。epg.51zmt.top 现在对 e.xml.gz / difang.xml.gz / cc.xml.gz 返回同一份文件，
-// 只剩 101 个频道（央视 + 卫视）、2 天节目，而这些频道咪咕本来就有 EPG——实测它只补到 6 个
-// 4K 变体，地方台一个都没有。换成 e.erw.cc（521 频道、9 天节目、大陆探针 10/10 直连可达）后，
-// 同一份播放列表多补 129 个频道的节目单，且老源能补的它全覆盖。issue #124
-const LEGACY_EPG_SOURCE_URLS = ['http://epg.51zmt.top:8000/e.xml.gz']
+// 用过、已经停用的内置默认源：
+// - epg.51zmt.top：退化到只剩 101 个央视卫视、2 天节目（咪咕本来就有），issue #124 换掉；
+// - e.erw.cc：站长 2026-10-01 起关掉免费下载，XML 只给赞助用户。
+const LEGACY_EPG_SOURCE_URLS = ['http://epg.51zmt.top:8000/e.xml.gz', 'https://e.erw.cc/all.xml.gz']
 
-// 老部署的 data/epg-sources.json 里已经写死了老地址，只改内置默认对他们不生效。
-// 因此对「一字未改的内置默认源」做一次原地升级：名字仍是「默认EPG」、地址还是老地址的那一条
-// 换成新地址并清空运行状态（触发立即重新下载）。用户改过名/改过地址/自己加的源一律不碰，
-// 关掉过的保持关闭状态。
+// 老部署的 data/epg-sources.json 里还写着这些地址。下载失败后聚合会一直沿用最后一份缓存、
+// 配对又不看日期，留着它只会给一批频道挂上过期节目单，还把用户自己加的源挡在后面。
+// 所以「一字未改的内置默认源」（名字仍是「默认EPG」、地址还是上面之一）直接删掉；
+// 用户改过名 / 改过地址 / 自己加的源一律不碰，后台会在停用地址那条上提示。
 function migrateLegacySources(config) {
-  let changed = false
-  for (const s of (config.sources || [])) {
-    if (!s || s.name !== '默认EPG' || !LEGACY_EPG_SOURCE_URLS.includes(s.url)) continue
-    s.url = BUILT_IN_EPG_SOURCES[0].url
-    s.lastUpdated = null
-    s.lastStatus = null
-    s.channelCount = 0
-    s.matchedCount = 0
-    changed = true
-  }
-  return changed
+  const sources = config.sources || []
+  const retired = s => s && s.name === '默认EPG' && LEGACY_EPG_SOURCE_URLS.includes(s.url)
+  if (!sources.some(retired)) return false
+  // 缓存按「名字_序号」落盘：删掉一条后，后面的源会挪到它的序号上，同名的就会读到它的旧缓存
+  sources.forEach((s, index) => {
+    if (!retired(s)) return
+    try { unlinkSync(cacheFileFor(s, index)) } catch { /* 没下过或已删 */ }
+  })
+  config.sources = sources.filter(s => !retired(s))
+  return true
 }
 
 function defaultConfig() {
@@ -86,7 +73,7 @@ function loadEpgConfig() {
   if (!existsSync(EPG_SOURCES_PATH)) {
     const config = defaultConfig()
     saveEpgConfig(config)
-    printBlue('已创建默认 EPG 源配置 epg-sources.json（默认开启，开箱即用）')
+    printBlue('已创建 EPG 源配置 epg-sources.json（聚合已开启，暂无外部源；节目单默认由咪咕与各模块官方接口提供）')
     return config
   }
   try {
@@ -96,7 +83,7 @@ function loadEpgConfig() {
     if (!Array.isArray(parsed.sources)) parsed.sources = []
     if (migrateLegacySources(parsed)) {
       saveEpgConfig(parsed)
-      printBlue('默认 EPG 源已升级到 e.erw.cc（老地址只剩央视卫视、地方台补不到）')
+      printBlue('已移除停用的内置默认 EPG 源（erw 10 月 1 日起停止免费下载）：节目单改由咪咕与各模块官方接口提供，需要更多覆盖可在后台「EPG 聚合」自己加源')
     }
     return parsed
   } catch (e) {

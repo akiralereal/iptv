@@ -3839,7 +3839,7 @@
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                         <div>
                             <div style="font-size:16px; font-weight:600; color:#333;">📅 EPG 节目单源（聚合）</div>
-                            <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕未覆盖的频道补节目单。默认已开启、内置默认源，开箱即用。改动即时保存、无需重启，下次更新生效（或点「立即刷新」）。</div>
+                            <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕和各模块官方节目单都没覆盖的频道补节目单。默认已开启，但不带内置外部源，需要更广覆盖时在下面自己加。改动即时保存、无需重启，下次更新生效（或点「立即刷新」）。</div>
                         </div>
                         <label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
                             <input type="checkbox" id="epgEnabled" onchange="setEpgEnabled(this.checked)">
@@ -5102,16 +5102,16 @@
             }
         }
 
-        // 已废掉的老默认源地址（GET /api/epg-sources 下发）。自动迁移只碰「一字未改」的内置默认源，
-        // 改过名的那条会停在死源上：它现在只回 101 个央视卫视，而这些频道咪咕本来就有节目单，
-        // 所以它实际几乎什么都没补到——但源列表里只是一个偏低的「已匹配」数字，看不出问题。issue #124
+        // 停用的老默认源地址（GET /api/epg-sources 下发）。自动迁移只删「一字未改」的内置默认源，
+        // 改过名的那条会停在停用的地址上：51zmt 只剩央视卫视（issue #124），erw 已停止免费下载——
+        // 源列表里只看得到一个偏低的「已匹配」数字或一行失败状态，看不出原因。
         let epgLegacyUrls = [];
         let epgDefaultUrl = '';
         function epgLegacyHint(s) {
             if (!s || !epgLegacyUrls.includes(String(s.url || '').trim())) return '';
             const suggest = epgDefaultUrl ? `建议把地址改成 <code>${escapeHtml(epgDefaultUrl)}</code>，或` : '建议';
-            return `<div style="margin-top:4px;font-size:12px;color:#d46b08;">⚠ 这个地址已经废了：现在只剩央视和卫视（咪咕本来就有），地方台一个都补不到。`
-                + `${suggest}删掉这条、让程序重建默认源。</div>`;
+            return `<div style="margin-top:4px;font-size:12px;color:#d46b08;">⚠ 这是停用的老默认源：51zmt 只剩央视和卫视（咪咕本来就有），erw 已停止免费下载。`
+                + `${suggest}删掉这条。节目单现由咪咕和各模块的官方接口提供，这条留着只会挂上过期节目单。</div>`;
         }
 
         function epgStatusHtml(s) {

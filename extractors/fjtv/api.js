@@ -1,7 +1,7 @@
 /** 福建省级短效接口、海博地市频道，以及福州、厦门广电独立直播线路。 */
 import { createHash } from 'node:crypto'
 import fetch from 'node-fetch'
-import { PROVINCE_CHANNELS, XIAMEN_CHANNELS } from './channels.js'
+import { FUZHOU_CHANNELS, PROVINCE_CHANNELS, XIAMEN_CHANNELS } from './channels.js'
 
 export const CHANNEL_LIST_URL = 'https://mapi-plus.fjtv.net/api/open/haibo8/tv_channel_list.php'
 export const PROVINCE_CHANNEL_URL = 'https://live.fjtv.net/m2o/channel/channel_info.php'
@@ -27,16 +27,8 @@ const PROVINCE_API_SECRET = '68a04b8177bdc9e5e16a89e6777a7b66'
 const PROVINCE_API_VERSION = '1.0.0'
 const PROVINCE_MEDIA_HOSTS = new Set(['live1-fuyun.fjtv.net', 'live2-fuyun.fjtv.net'])
 
-// 福视悦动官网播放器公开的三路固定 HLS。它们不经过海博 API，因而海博被
-// 讯飞 WAF 拦截时仍可独立工作。只接受这张固定表，避免把活动直播混进频道组。
-export const FUZHOU_CHANNELS = Object.freeze([
-  Object.freeze({ name: '福州综合', url: 'http://live.zohi.tv/video/s10001-fztv-1/index.m3u8' }),
-  Object.freeze({ name: '福州生活', url: 'http://live.zohi.tv/video/s10001-fztv-3/index.m3u8' }),
-  Object.freeze({ name: '福州少儿', url: 'http://live.zohi.tv/video/s10001-fztv-4/index.m3u8' }),
-])
-
-// 省级六路、厦门三路的固定频道表与节目单共用，见 channels.js
-export { PROVINCE_CHANNELS, XIAMEN_CHANNELS }
+// 省级六路、厦门三路、福州三路的固定频道表与节目单共用，见 channels.js
+export { FUZHOU_CHANNELS, PROVINCE_CHANNELS, XIAMEN_CHANNELS }
 
 const XIAMEN_BY_ID = new Map(XIAMEN_CHANNELS.map(channel => [channel.id, channel]))
 

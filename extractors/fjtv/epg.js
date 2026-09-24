@@ -15,9 +15,13 @@
  * 约一周。每条带 dates，拿它核对取到的正是所要那天。start_time 是 unix 秒；end_time 只有今天
  * 那天是对的（别的日子套用今天的日期），结束按 start_time + toff（秒）算。厦视三套只有占位，不列。
  *
- * 地市频道（海博地市九路、福州三路）没有可用的官方节目单：海博里全是占位；福州台官网
- * 播放器的 playbill 只列自办栏目（综合频道一天 10 条、少儿频道 1 条，中间大段空白），
- * 写进去反而挡住外部源的完整节目单，所以不做。
+ * 福州（app.zohi.tv/video/player/playbill?stream_id=<id>&site_id=10001）：福视悦动官网播放器
+ * 自己用的节目单，不用签名、不挑来源头。只给今天（外加次日零点那一条），不认日期参数；
+ * starttime / endtime 是 unix 秒。只列台里的自办栏目，中间大段空白：综合一天约 10 条、生活约 7 条，
+ * 聊胜于无——现在没有内置外部源，不出就是什么都没有；少儿一天只有一条，不出。福州三路是直链频道，
+ * 没有 ref，流水线按模块内频道名对上。
+ *
+ * 海博地市九路没有可用的官方节目单：里面全是占位。
  *
  * 省级数据是播出串联单的粒度（少儿频道一天上百条），宣传片、片头、不到一分钟的碎片按
  * fillerReason() 丢掉，留下的空档 XMLTV 允许。
@@ -26,12 +30,13 @@
  * 不 import 项目里的其它模块——连同 channels.js 拿出去就能单独产出节目单。
  */
 import { createHash } from 'node:crypto'
-import { PROVINCE_CHANNELS, XIAMEN_CHANNELS } from './channels.js'
+import { FUZHOU_CHANNELS, PROVINCE_CHANNELS, XIAMEN_CHANNELS } from './channels.js'
 
 export const CLOUDLIVE_API = 'https://mapi-plus.fjtv.net/cloudlive-manage-mapi'
 export const BUSINESS_URL = `${CLOUDLIVE_API}/api/topic/business`
 export const PROVINCE_EPG_URL = `${CLOUDLIVE_API}/api/topic/program/list`
 export const XIAMEN_EPG_URL = 'https://mapi1.kxm.xmtv.cn/api/v1/program.php'
+export const FUZHOU_EPG_URL = 'https://app.zohi.tv/video/player/playbill'
 
 const COMPANY_ID = '468'
 const PROVINCE_UA = 'node'
@@ -50,7 +55,8 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const MAX_DAYS_BACK = 30
 const MAX_DAYS_AHEAD = 7
 
-const KEY_RE = /^(province):(\d{18})$|^(xiamen):(\d{1,4})$/
+const KEY_RE = /^(province):(\d{18})$|^(xiamen):(\d{1,4})$|^(fuzhou):(\d{1,6})$/
+const FUZHOU_REFERER = 'https://www.zohi.tv/'
 
 const PLACEHOLDER_TITLE = '精彩节目'
 // 不到 1 分钟的不算节目：15 秒片头、30 秒总宣、零点切下的碎片
@@ -178,6 +184,27 @@ export function parseXiamenProgrammes(payload, day) {
   return { programmes, dates: [...dates] }
 }
 
+/** 福州 playbill → [{ title, start, stop }]（毫秒）；只留开始时间落在那天的，次日零点那条丢掉。 */
+export function parseFuzhouProgrammes(payload, day) {
+  const range = shanghaiDay(day)
+  if (!range) throw new Error('福州节目单参数非法')
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('福州节目单返回结构不符合预期')
+  if (payload.state !== true) throw new Error(`福州节目单接口拒绝：${payload.error || '未知原因'}`)
+  if (!Array.isArray(payload.data)) throw new Error('福州节目单返回结构不符合预期')
+  const items = payload.data
+    .filter(row => String(row?.disable ?? '0') === '0')
+    .map(row => ({
+      title: cleanTitle(row?.name),
+      start: Number(row?.starttime) * 1000,
+      stop: Number(row?.endtime) * 1000,
+    }))
+  const programmes = finish(items, range)
+  if (items.some(item => item.title) && !items.some(item => Number.isSafeInteger(item.start) && Number.isSafeInteger(item.stop) && item.stop > item.start)) {
+    throw new Error('福州节目单时间格式异常')
+  }
+  return programmes
+}
+
 async function readCapped(response, label) {
   if (Number(response.headers?.get?.('content-length') || 0) > MAX_BYTES) {
     await response.body?.cancel?.().catch(() => {})
@@ -291,6 +318,15 @@ async function xiamenProgrammes(channelId, day, { fetchImpl, timeoutMs, now }) {
   return (await get(zone + drift)).programmes
 }
 
+async function fuzhouProgrammes(streamId, day, { fetchImpl, timeoutMs, now }) {
+  // 接口只给今天
+  if (offsetFromToday(day, now) !== 0) return []
+  const url = new URL(FUZHOU_EPG_URL)
+  url.search = new URLSearchParams({ stream_id: streamId, site_id: '10001' })
+  const headers = { 'User-Agent': XIAMEN_UA, Referer: FUZHOU_REFERER, Accept: 'application/json, text/plain, */*' }
+  return parseFuzhouProgrammes(await fetchJson(fetchImpl, url.href, headers, timeoutMs, '福州节目单'), day)
+}
+
 export function clearCache() {
   secretCache = null
   secretPending = null
@@ -308,6 +344,9 @@ export default {
         .map(channel => ({ ref: `fjtv-province-${channel.id}`, name: channel.name, key: `province:${channel.id}` })),
       ...XIAMEN_CHANNELS.filter(channel => channel.epg !== false)
         .map(channel => ({ ref: `fjtv-xiamen-${channel.id}`, name: channel.name, key: `xiamen:${channel.id}` })),
+      // 福州是直链频道：ref 只作标识，流水线按名字对上
+      ...FUZHOU_CHANNELS.filter(channel => channel.epg !== false)
+        .map(channel => ({ ref: `fjtv-fuzhou-${channel.streamId}`, name: channel.name, key: `fuzhou:${channel.streamId}` })),
     ]
   },
 
@@ -318,8 +357,8 @@ export default {
     const offset = offsetFromToday(String(day), now)
     if (offset < -MAX_DAYS_BACK || offset > MAX_DAYS_AHEAD) return []
     const options = { fetchImpl, timeoutMs, now: Number(now) }
-    return match[1]
-      ? provinceProgrammes(match[2], String(day), options)
-      : xiamenProgrammes(match[4], String(day), options)
+    if (match[1]) return provinceProgrammes(match[2], String(day), options)
+    if (match[3]) return xiamenProgrammes(match[4], String(day), options)
+    return fuzhouProgrammes(match[6], String(day), options)
   },
 }

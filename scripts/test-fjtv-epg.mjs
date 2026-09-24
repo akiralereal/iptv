@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * 福建官方节目单回归测试（全离线）：省级云直播平台的 app_secret 换取与缓存、按 topic_id 取节目、
- * 占位与串联包装过滤；厦门按 zone 取天、end_time 错位、零点校正；上海时间与机器时区无关；
+ * 占位与串联包装过滤；厦门按 zone 取天、end_time 错位、零点校正；福州 playbill 只有今天；
+ * 上海时间与机器时区无关；
  * 错误路径；以及节目单频道与模块实际发出的频道一一对应。
  *
  * 夹具按 2026-09-25 实测响应裁剪，字段与形状保持原样。
@@ -14,10 +15,10 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 
 import fjtvEpg, {
-  BUSINESS_URL, PROVINCE_EPG_URL, XIAMEN_EPG_URL,
-  clearCache, companySignature, fillerReason, parseProvinceProgrammes, parseXiamenProgrammes, shanghaiDay,
+  BUSINESS_URL, FUZHOU_EPG_URL, PROVINCE_EPG_URL, XIAMEN_EPG_URL,
+  clearCache, companySignature, fillerReason, parseFuzhouProgrammes, parseProvinceProgrammes, parseXiamenProgrammes, shanghaiDay,
 } from '../extractors/fjtv/epg.js'
-import { PROVINCE_CHANNELS, XIAMEN_CHANNELS } from '../extractors/fjtv/channels.js'
+import { FUZHOU_CHANNELS, PROVINCE_CHANNELS, XIAMEN_CHANNELS } from '../extractors/fjtv/channels.js'
 import * as fjtvApi from '../extractors/fjtv/api.js'
 import { getModule, validateModule } from '../extractors/registry.js'
 import { channelXml, providerProgrammes, shanghaiDays, xmltvTime } from '../utils/epgXmltv.js'
@@ -391,7 +392,8 @@ await checkAsync('节目单频道与模块实际发出的延迟解析频道一�
   const channels = result.groups.flatMap(group => group.dataList)
   const deferred = new Map(channels.filter(channel => channel.deferredRef).map(channel => [channel.deferredRef, channel.name]))
   assert.equal(deferred.size, 9, '省级六路 + 厦门三路')
-  const provided = new Map(fjtvEpg.channels().map(channel => [channel.ref, channel.name]))
+  const epgChannels = fjtvEpg.channels()
+  const provided = new Map(epgChannels.filter(channel => !channel.key.startsWith('fuzhou:')).map(channel => [channel.ref, channel.name]))
   assert.equal(provided.size, 7)
   for (const [ref, name] of provided) assert.equal(deferred.get(ref), name, `${ref} 的显示名要与模块发出的一致`)
   assert.ok([...provided.keys()].every(ref => module.claimsRef(ref)))
@@ -402,10 +404,13 @@ await checkAsync('节目单频道与模块实际发出的延迟解析频道一�
     [...PROVINCE_CHANNELS, ...XIAMEN_CHANNELS].filter(channel => channel.epg === false).map(channel => channel.name),
     ['东南卫视', '厦视三套'],
   )
-  // 直链的地市频道不出节目单，名字也不与节目单频道撞
+  // 直链频道没有 ref，流水线按模块内频道名对上：只有福州综合、福州生活出节目单
   const direct = channels.filter(channel => !channel.deferredRef).map(channel => channel.name)
   assert.equal(direct.length, 9 + 3 - 1, '海博九路里的福州台换成福州三路')
-  assert.ok(direct.every(name => ![...provided.values()].includes(name)))
+  const byName = epgChannels.filter(channel => channel.key.startsWith('fuzhou:')).map(channel => channel.name)
+  assert.deepEqual(byName, ['福州综合', '福州生活'])
+  assert.ok(byName.every(name => direct.includes(name)), '福州节目单的名字要与模块发出的直链频道一致')
+  assert.ok(direct.every(name => ![...provided.values()].includes(name)), '直链频道不与按 ref 对上的频道同名')
 })
 
 check('模块挂上节目单且通过注册表校验；频道表与取流共用同一份', () => {
@@ -416,6 +421,45 @@ check('模块挂上节目单且通过注册表校验；频道表与取流共用�
   assert.doesNotThrow(() => validateModule(module))
   assert.equal(fjtvApi.PROVINCE_CHANNELS, PROVINCE_CHANNELS)
   assert.equal(fjtvApi.XIAMEN_CHANNELS, XIAMEN_CHANNELS)
+  assert.equal(fjtvApi.FUZHOU_CHANNELS, FUZHOU_CHANNELS)
+})
+
+// 福州 playbill 实测响应（福州综合 2026-09-25，10 条里留 4 条：零点、晚间、末条与次日零点）
+const fuzhouRow = (name, start, stop, disable = '0') => ({
+  name, starttime: start, endtime: String(stop), playing: false, isplayed: false,
+  disable, video: {}, replay: 'false',
+})
+const FUZHOU_0925 = {
+  state: true,
+  data: [
+    fuzhouRow('福州新闻（重）', 1790265600, 1790266800),
+    fuzhouRow('福州新闻', 1790332800, 1790334120),
+    fuzhouRow('停用条目', 1790338000, 1790339000, '1'),
+    fuzhouRow('福州新闻（重）', 1790348400, 1790349600),
+    fuzhouRow('福州新闻（重）', 1790352000, 1790353200),
+  ],
+}
+
+await checkAsync('福州：playbill 只给今天，次日零点那条与停用条目丢掉，明天不请求', async () => {
+  assert.deepEqual(parseFuzhouProgrammes(FUZHOU_0925, '20260925').map(item => [item.title, xmltvTime(item.start)]), [
+    ['福州新闻（重）', '20260925000000 +0800'],
+    ['福州新闻', '20260925184000 +0800'],
+    ['福州新闻（重）', '20260925230000 +0800'],
+  ])
+  assert.throws(() => parseFuzhouProgrammes({ state: false, error: 'stream 未找到' }, '20260925'), /stream 未找到/)
+  assert.throws(() => parseFuzhouProgrammes({ state: true, data: [fuzhouRow('坏数据', 'x', 'y')] }, '20260925'), /时间格式异常/)
+  let requested = ''
+  const fetchImpl = async (url, init) => {
+    requested = String(url)
+    assert.equal(init.redirect, 'manual')
+    return new Response(JSON.stringify(FUZHOU_0925))
+  }
+  const today = await fjtvEpg.programmes('fuzhou:804', '20260925', { fetchImpl, now: NOW })
+  assert.equal(requested, `${FUZHOU_EPG_URL}?stream_id=804&site_id=10001`)
+  assert.equal(today.length, 3)
+  requested = ''
+  assert.deepEqual(await fjtvEpg.programmes('fuzhou:804', '20260926', { fetchImpl, now: NOW }), [])
+  assert.equal(requested, '', '接口只给今天，明天不白请求')
 })
 
 console.log(`\n全部通过：${passed} ✅`)

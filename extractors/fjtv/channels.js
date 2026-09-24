@@ -1,8 +1,9 @@
 /**
- * 福建省级六路与厦门三路的固定频道表：取流（api.js）与节目单（epg.js）共用，纯数据、不 import 任何东西。
+ * 福建省级六路、厦门三路与福州三路的固定频道表：取流（api.js）与节目单（epg.js）共用，纯数据、不 import 任何东西。
  *
  * 省级 id 同时是官网 m2o 取流接口的 channel_id 和云直播平台的 topic_id（节目单按它查）；
  * 厦门 id 同时是看厦门取流接口与节目单接口的 channel_id。
+ * 福州 streamId 是福视悦动官网播放器节目单接口的 stream_id。
  * epg: false 表示官方不出节目单：东南卫视与厦视三套的节目单接口只回整点「精彩节目」占位
  * （2026-09-25 往前查到 09-18、往后到次日都是），不去白白请求。
  */
@@ -31,4 +32,13 @@ export const XIAMEN_CHANNELS = Object.freeze([
   Object.freeze({ id: '16', rawNames: Object.freeze(['厦视一套']), name: '厦视一套', path: 'xmtjs1' }),
   Object.freeze({ id: '17', rawNames: Object.freeze(['厦视二套']), name: '厦视二套', path: 'xmtjs2' }),
   Object.freeze({ id: '18', rawNames: Object.freeze(['直播通道3', '厦视三套']), name: '厦视三套', path: 'xmtjs3', epg: false }),
+])
+
+// 福视悦动官网播放器公开的三路固定 HLS。它们不经过海博 API，因而海博被
+// 讯飞 WAF 拦截时仍可独立工作。只接受这张固定表，避免把活动直播混进频道组。
+// 官网节目单只列台里的自办栏目，中间大段空白；少儿频道一天只有一条，不值得出节目单。
+export const FUZHOU_CHANNELS = Object.freeze([
+  Object.freeze({ name: '福州综合', url: 'http://live.zohi.tv/video/s10001-fztv-1/index.m3u8', streamId: '804' }),
+  Object.freeze({ name: '福州生活', url: 'http://live.zohi.tv/video/s10001-fztv-3/index.m3u8', streamId: '801' }),
+  Object.freeze({ name: '福州少儿', url: 'http://live.zohi.tv/video/s10001-fztv-4/index.m3u8', streamId: '795', epg: false }),
 ])

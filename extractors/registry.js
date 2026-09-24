@@ -150,6 +150,7 @@ import migu from './migu/index.js'
 import njtv from './njtv/index.js'
 import nmtv from './nmtv/index.js'
 import qtv from './qtv/index.js'
+import qinghai from './qinghai/index.js'
 import shanxi from './shanxi/index.js'
 import shaanxi from './shaanxi/index.js'
 import songjiang from './songjiang/index.js'
@@ -205,6 +206,7 @@ const MODULES = [
   shanxi,
   shaanxi,
   tianjin,
+  qinghai,
   xinjiang,
   xizang,
   yunnan,

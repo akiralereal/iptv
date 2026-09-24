@@ -1,16 +1,19 @@
 /** 大连云：大连市级正式电视直播，匿名媒体票据与播放地址均按当前客户端即时获取。 */
 import { buildChannelGroups, clearCache, fetchChannelRows, resolveChannel } from './api.js'
+import epg from './epg.js'
 
 export default {
   id: 'dalian',
   name: '大连',
   outputGroupName: '辽宁',
   description: '大连云官方正式电视直播；固定排除购物、测试、研发和回看内容，只追加真实在线的大连频道。',
-  capabilities: { cache: 'memory', resolve: true, epg: false },
+  capabilities: { cache: 'memory', resolve: true, epg: true },
   defaultRefreshMinutes: 5,
   refreshConfigurable: false,
   refreshDescription: '自动管理：每 5 分钟刷新官方目录与媒体票据，并验证 HLS 正在产出；上游短暂失败时有限回退。',
   configSchema: [],
+  // 大连云 App 节目单，按频道号取；与取流只共用匿名令牌与 ticket 的纯计算（见 epg.js）
+  epg,
 
   async fetch(_config, ctx = {}) {
     const { rows, skipped, warnings } = await fetchChannelRows({

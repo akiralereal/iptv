@@ -35,6 +35,10 @@ const BUDGET_MS = 90 * 1000
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
+// 不声明 webp/avif：带了的话，按 Accept 转码的图床（内蒙古的腾讯云 CDN 就是）会把 PNG 转成 WebP 给，
+// 而不少老电视盒子的播放器显示不了 WebP。不声明就拿原图。
+const ACCEPT = 'image/png,image/jpeg,image/gif,image/*;q=0.8,*/*;q=0.5'
+
 const MIME = { png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' }
 
 let index = null
@@ -126,7 +130,7 @@ async function download(url, { fetchImpl, timeoutMs }) {
   try {
     const response = await fetchImpl(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': UA, Accept: 'image/avif,image/webp,image/png,image/*,*/*;q=0.8' },
+      headers: { 'User-Agent': UA, Accept: ACCEPT },
     })
     // 4xx 是地址坏了；5xx 当网络问题，下一轮再试
     if (response.status >= 400 && response.status < 500) {

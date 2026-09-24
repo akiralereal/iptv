@@ -199,6 +199,17 @@ await checkAsync('一个月没用到的清掉，目录里的无主文件一并�
   assert.ok(files.some(name => name.endsWith('.jpg')), '最近用过的留着')
 })
 
+await checkAsync('下载时不声明 WebP / AVIF，按 Accept 转码的图床给原图', async () => {
+  reset()
+  let accept = null
+  await prefetchLogos([OWN], {
+    now: T0,
+    fetchImpl: async (_url, init) => { accept = init.headers.Accept; return new Response(png()) },
+  })
+  assert.ok(accept && !/webp|avif/i.test(accept), accept)
+  assert.match(accept, /image\/png/)
+})
+
 check('托管路由只认 20 位小写哈希加图片扩展名', () => {
   assert.equal(cachedLogoFile('0123456789abcdef0123.webp').mime, 'image/webp')
   for (const bad of ['index.json', '../x.png', '0123456789ABCDEF0123.png', '0123456789abcdef012.png', '0123456789abcdef0123.exe']) {

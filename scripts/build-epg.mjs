@@ -15,7 +15,7 @@ import { channelXml, mapSettled, providerProgrammes } from '../utils/epgXmltv.js
 const args = process.argv.slice(2)
 const outIndex = args.findIndex(arg => arg === '-o' || arg === '--out')
 const outFile = outIndex >= 0 ? args[outIndex + 1] : ''
-const only = new Set(args.filter((arg, index) => index !== outIndex && index !== outIndex + 1))
+const only = new Set(outIndex >= 0 ? args.filter((arg, index) => index !== outIndex && index !== outIndex + 1) : args)
 
 const providers = listModules()
   .filter(module => module.epg && (!only.size || only.has(module.id)))

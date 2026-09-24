@@ -1,11 +1,12 @@
 /** 河北广播电视台「冀时」：电视与「美丽河北」城市慢直播，播放时生成两小时 HLS 签名。 */
 import { buildChannels, clearCache, fetchAllRows, primeChannelCache, resolveChannel } from './api.js'
+import epg from './epg.js'
 
 export default {
   id: 'hebtv',
   name: '河北',
   description: '河北广播电视台六套非购物电视频道与「美丽河北」城市景观慢直播，播放时自动续签。',
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  capabilities: { cache: 'disk', resolve: true, epg: true },
   outputGroupName: '河北',
   preserveGroupSuffixes: ['景观'],
   defaultRefreshMinutes: 240,
@@ -13,6 +14,8 @@ export default {
   refreshDescription: '自动管理：电视与景观列表每 240 分钟刷新；播放地址在请求时生成约两小时有效的官网签名。',
 
   configSchema: [],
+  // 官网节目单，按节目源号取六套电视频道；景观慢直播不出（见 epg.js）
+  epg,
 
   async fetch(_config, ctx = {}) {
     const result = await fetchAllRows({ timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl })

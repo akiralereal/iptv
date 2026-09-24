@@ -35,7 +35,7 @@ check('模块注册为免账号的贵州全代理模块', () => {
   assert.equal(gzstv.name, '贵州')
   assert.equal(gzstv.channelHlsMode, 'proxy')
   assert.equal(gzstv.capabilities.catchup, false)
-  assert.equal(gzstv.catalogVersion, 1)
+  assert.equal(gzstv.catalogVersion, 2)
   assert.deepEqual(gzstv.configSchema, [])
   assert.equal(resolverFor('gzstv-satellite'), gzstv)
   assert.equal(resolverFor('gzstv-satellite/extra'), null)
@@ -56,6 +56,11 @@ await checkAsync('官网八路频道固定输出并明确排除购物频道', as
   const channels = buildChannels()
   assert.deepEqual(channels.map(channel => channel.deferredRef), CHANNELS.map(channel => channel.ref))
   assert.ok(channels.every(channel => channel.catchup === 'none'))
+  // 八路都给频道接口 image 字段下发的官方频道标，不留空（LOGO.md 第 4 条）
+  assert.deepEqual(channels.map(channel => channel.logo), [
+    'Wv8DYDU_DFQg', 'SoNtDtRcuDbR', 'kq09201cePrU', 'TlQgNo6srb2p',
+    'fGTUM0FqTtzG', 'sz3062_R-Ma-', 'Y2UfPmdykgir', 'b9BSCCj5xEsx',
+  ].map(file => `https://mstatic.gzstv.com/media/streams/images/2021/01/04/${file}.jpg`))
   const result = await gzstv.fetch()
   assert.deepEqual(result.groups, [{ name: '贵州', dataList: channels }])
   assert.equal(claimsRef('gzstv-mobile'), true)

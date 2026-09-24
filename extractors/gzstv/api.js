@@ -12,16 +12,28 @@ const TOKEN_HARD_TTL_MS = 2 * 60 * 1000
 const TOKEN_RETRY_MS = 5 * 1000
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+const LOGO_BASE = 'https://mstatic.gzstv.com/media/streams/images/2021/01/04/'
 
+// 台标是频道接口（/v1/tv/<slug>/）下发的 image 字段，官网播放器拿它当封面：每套一张 500×500 的
+// 「贵州-N」频道标，8 张实测都是 JPEG。接口只能逐台查、取流时才调，频道表本身写死，地址也一并写死；
+// 经济频道（ch09）接口给的就是「贵州-7」那张，不是抄错。
 export const CHANNELS = Object.freeze([
-  Object.freeze({ ref: 'gzstv-satellite', slug: 'ch01', streamName: 'CH01_lo.m3u8', rawName: '贵州卫视', name: '贵州卫视' }),
-  Object.freeze({ ref: 'gzstv-public', slug: 'ch02', streamName: 'CH02_lo.m3u8', rawName: '公共频道', name: '贵州公共' }),
-  Object.freeze({ ref: 'gzstv-film-arts', slug: 'ch03', streamName: 'CH03_lo.m3u8', rawName: '影视文艺频道', name: '贵州影视文艺' }),
-  Object.freeze({ ref: 'gzstv-life', slug: 'ch04', streamName: 'CH04_lo.m3u8', rawName: '大众生活频道', name: '贵州大众生活' }),
-  Object.freeze({ ref: 'gzstv-eco-rural', slug: 'ch05', streamName: 'CH05_lo.m3u8', rawName: '生态·乡村频道', name: '贵州生态乡村' }),
-  Object.freeze({ ref: 'gzstv-science-health', slug: 'ch06', streamName: 'CH06_lo.m3u8', rawName: '科教健康频道', name: '贵州科教健康' }),
-  Object.freeze({ ref: 'gzstv-economy', slug: 'ch09', streamName: 'CH09_lo.m3u8', rawName: '贵州经济频道', name: '贵州经济' }),
-  Object.freeze({ ref: 'gzstv-mobile', slug: 'ch13', streamName: 'CH13_lo.m3u8', rawName: '贵州移动电视', name: '贵州移动电视' }),
+  Object.freeze({ ref: 'gzstv-satellite', slug: 'ch01', streamName: 'CH01_lo.m3u8', rawName: '贵州卫视', name: '贵州卫视',
+    logo: `${LOGO_BASE}Wv8DYDU_DFQg.jpg` }),
+  Object.freeze({ ref: 'gzstv-public', slug: 'ch02', streamName: 'CH02_lo.m3u8', rawName: '公共频道', name: '贵州公共',
+    logo: `${LOGO_BASE}SoNtDtRcuDbR.jpg` }),
+  Object.freeze({ ref: 'gzstv-film-arts', slug: 'ch03', streamName: 'CH03_lo.m3u8', rawName: '影视文艺频道', name: '贵州影视文艺',
+    logo: `${LOGO_BASE}kq09201cePrU.jpg` }),
+  Object.freeze({ ref: 'gzstv-life', slug: 'ch04', streamName: 'CH04_lo.m3u8', rawName: '大众生活频道', name: '贵州大众生活',
+    logo: `${LOGO_BASE}TlQgNo6srb2p.jpg` }),
+  Object.freeze({ ref: 'gzstv-eco-rural', slug: 'ch05', streamName: 'CH05_lo.m3u8', rawName: '生态·乡村频道', name: '贵州生态乡村',
+    logo: `${LOGO_BASE}fGTUM0FqTtzG.jpg` }),
+  Object.freeze({ ref: 'gzstv-science-health', slug: 'ch06', streamName: 'CH06_lo.m3u8', rawName: '科教健康频道', name: '贵州科教健康',
+    logo: `${LOGO_BASE}sz3062_R-Ma-.jpg` }),
+  Object.freeze({ ref: 'gzstv-economy', slug: 'ch09', streamName: 'CH09_lo.m3u8', rawName: '贵州经济频道', name: '贵州经济',
+    logo: `${LOGO_BASE}Y2UfPmdykgir.jpg` }),
+  Object.freeze({ ref: 'gzstv-mobile', slug: 'ch13', streamName: 'CH13_lo.m3u8', rawName: '贵州移动电视', name: '贵州移动电视',
+    logo: `${LOGO_BASE}b9BSCCj5xEsx.jpg` }),
 ])
 
 const CHANNEL_BY_REF = new Map(CHANNELS.map(channel => [channel.ref, channel]))
@@ -148,7 +160,7 @@ export function buildChannels() {
   return CHANNELS.map(channel => ({
     name: channel.name,
     deferredRef: channel.ref,
-    logo: '',
+    logo: channel.logo,
     opts: ['network-caching=3000'],
     catchup: 'none',
   }))

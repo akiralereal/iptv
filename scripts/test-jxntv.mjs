@@ -39,7 +39,7 @@ check('模块已注册为免账号的江西全代理模块', () => {
   assert.equal(jxntv.category, undefined)
   assert.equal(jxntv.channelHlsMode, 'proxy')
   assert.equal(jxntv.capabilities.catchup, false)
-  assert.equal(jxntv.catalogVersion, 1)
+  assert.equal(jxntv.catalogVersion, 2)
   assert.deepEqual(jxntv.configSchema, [])
   assert.equal(resolverFor('jxntv-satellite'), jxntv)
   assert.equal(resolverFor('jxntv-satellite/extra'), null)
@@ -63,6 +63,13 @@ await checkAsync('官网八路频道固定输出为独立江西分组', async ()
   const channels = buildChannels()
   assert.deepEqual(channels.map(channel => channel.deferredRef), CHANNELS.map(channel => channel.ref))
   assert.ok(channels.every(channel => channel.catchup === 'none'))
+  // 八路都给今视频 App 频道目录下发的官方频道标，写的是去掉 OSS 签名的稳定地址（LOGO.md 第 4 条）
+  assert.deepEqual(channels.map(channel => channel.logo), [
+    'ae00a8764c764390bb58094d46f5b2af', '67d8420f601b4b95bcb3f9c1d2aee40c',
+    '4294b5a4be2c4958bcf2711430cc483b', '07e893cd94224d9ebcf4eb588d2a43d1',
+    'aa18d5b48b63473591293aabd67c53be', '3d27952c09c44cf3b68cb19863605973',
+    '167e9ebbb9f54cc787db75cbf0bc4aa8', '8eba1c8045384be1bed2f6aef90e4526',
+  ].map(id => `https://image.jxgdw.com/material/${id}`))
   const result = await jxntv.fetch()
   assert.deepEqual(result.groups, [{ name: '江西', dataList: channels }])
   assert.equal(claimsRef('jxntv-ceramics'), true)

@@ -17,15 +17,29 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
 // 官网脚本公开下发签名算法和盐值；UUID 只用于匿名防盗链，不是账号凭据。
 export const DEVICE_UUID = createHash('md5').update(`jxntv:${UA}`).digest('hex').slice(0, 12)
 
+const LOGO_BASE = 'https://image.jxgdw.com/material/'
+
+// 台标取江西广电「今视频」App 频道目录（share.jxgdw.com/api/tv/channel/page）每路下发的 iconUrl：
+// 透明底的频道标，7 张 144×96、移动电视那张 2848×1811，实测都是 PNG。目录给的是 24 小时过期的
+// OSS 签名地址，去掉签名照样能取（公共读），所以写死去签名的地址，免得托管缓存每天当成新图重下。
+// 官网直播页的频道图标只是 25px 的雪碧图，不用。
 export const CHANNELS = Object.freeze([
-  Object.freeze({ ref: 'jxntv-satellite', route: 'jxtv1', streamName: 'tv_jxtv1.m3u8', rawName: '江西卫视', name: '江西卫视' }),
-  Object.freeze({ ref: 'jxntv-city', route: 'jxtv2', streamName: 'tv_jxtv2.m3u8', rawName: '都市频道', name: '江西都市' }),
-  Object.freeze({ ref: 'jxntv-economy-life', route: 'jxtv3', streamName: 'tv_jxtv3_hd.m3u8', rawName: '经济生活频道', name: '江西经济生活' }),
-  Object.freeze({ ref: 'jxntv-public-agriculture', route: 'jxtv5', streamName: 'tv_jxtv5.m3u8', rawName: '公共·农业频道', name: '江西公共农业' }),
-  Object.freeze({ ref: 'jxntv-kids', route: 'jxtv6', streamName: 'tv_jxtv6.m3u8', rawName: '少儿频道', name: '江西少儿' }),
-  Object.freeze({ ref: 'jxntv-news', route: 'jxtv7', streamName: 'tv_jxtv7.m3u8', rawName: '新闻频道', name: '江西新闻' }),
-  Object.freeze({ ref: 'jxntv-mobile', route: 'jxtv8', streamName: 'tv_jxtv8.m3u8', rawName: '移动电视频道', name: '江西移动电视' }),
-  Object.freeze({ ref: 'jxntv-ceramics', route: 'tcpd', streamName: 'tv_taoci.m3u8', rawName: '陶瓷频道', name: '江西陶瓷' }),
+  Object.freeze({ ref: 'jxntv-satellite', route: 'jxtv1', streamName: 'tv_jxtv1.m3u8', rawName: '江西卫视', name: '江西卫视',
+    logo: `${LOGO_BASE}ae00a8764c764390bb58094d46f5b2af` }),
+  Object.freeze({ ref: 'jxntv-city', route: 'jxtv2', streamName: 'tv_jxtv2.m3u8', rawName: '都市频道', name: '江西都市',
+    logo: `${LOGO_BASE}67d8420f601b4b95bcb3f9c1d2aee40c` }),
+  Object.freeze({ ref: 'jxntv-economy-life', route: 'jxtv3', streamName: 'tv_jxtv3_hd.m3u8', rawName: '经济生活频道', name: '江西经济生活',
+    logo: `${LOGO_BASE}4294b5a4be2c4958bcf2711430cc483b` }),
+  Object.freeze({ ref: 'jxntv-public-agriculture', route: 'jxtv5', streamName: 'tv_jxtv5.m3u8', rawName: '公共·农业频道', name: '江西公共农业',
+    logo: `${LOGO_BASE}07e893cd94224d9ebcf4eb588d2a43d1` }),
+  Object.freeze({ ref: 'jxntv-kids', route: 'jxtv6', streamName: 'tv_jxtv6.m3u8', rawName: '少儿频道', name: '江西少儿',
+    logo: `${LOGO_BASE}aa18d5b48b63473591293aabd67c53be` }),
+  Object.freeze({ ref: 'jxntv-news', route: 'jxtv7', streamName: 'tv_jxtv7.m3u8', rawName: '新闻频道', name: '江西新闻',
+    logo: `${LOGO_BASE}3d27952c09c44cf3b68cb19863605973` }),
+  Object.freeze({ ref: 'jxntv-mobile', route: 'jxtv8', streamName: 'tv_jxtv8.m3u8', rawName: '移动电视频道', name: '江西移动电视',
+    logo: `${LOGO_BASE}167e9ebbb9f54cc787db75cbf0bc4aa8` }),
+  Object.freeze({ ref: 'jxntv-ceramics', route: 'tcpd', streamName: 'tv_taoci.m3u8', rawName: '陶瓷频道', name: '江西陶瓷',
+    logo: `${LOGO_BASE}8eba1c8045384be1bed2f6aef90e4526` }),
 ])
 
 const CHANNEL_BY_REF = new Map(CHANNELS.map(channel => [channel.ref, channel]))
@@ -168,7 +182,7 @@ export function buildChannels() {
   return CHANNELS.map(channel => ({
     name: channel.name,
     deferredRef: channel.ref,
-    logo: '',
+    logo: channel.logo,
     opts: ['network-caching=3000'],
     catchup: 'none',
   }))

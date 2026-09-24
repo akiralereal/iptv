@@ -12,6 +12,8 @@ const MEDIA_HOSTS = new Set([
   'live-master.jlntv.cn',
   'lsfb.avap.jilintv.cn',
 ])
+const IMAGE_HOST = 'cdn.jlntv.cn'
+const BROADCAST_LIST_PATH = '/broadcast/list?page=1&size=10000&type=1'
 const MAX_RESPONSE_SIZE = 2 * 1024 * 1024
 const MIN_TOKEN_LIFETIME_MS = 60 * 1000
 const API_CACHE_MS = 45 * 1000
@@ -159,6 +161,36 @@ export function parseBroadcast(text, expected, options = {}) {
   return selectBroadcast(decryptJlntvResponse(text), expected, options)
 }
 
+/**
+ * 频道图标：电视频道列表每项的 image 就是官网电视页的频道图标（省级六套各有一张，地方台是各台台标）。
+ * 图床带 CDN 鉴权，sign 每次请求都重签、去掉就 403，所以只能原样用接口当下给的地址，不能写死。
+ */
+export function officialLogoUrl(raw) {
+  try {
+    const url = new URL(String(raw || '').trim())
+    return url.protocol === 'https:' && url.hostname === IMAGE_HOST
+      && !url.username && !url.password && !url.port
+      && /^\/saas\/image\/[\w./-]+\.(?:png|jpe?g|webp)$/i.test(url.pathname)
+      ? url.href
+      : ''
+  } catch {
+    return ''
+  }
+}
+
+/** 按列表 ID 与原名同时认，返回 broadcastId → 台标；认不到的不给。 */
+export function selectLogos(payload) {
+  const logos = new Map()
+  const items = Array.isArray(payload?.data) ? payload.data : []
+  for (const channel of BROADCAST_CHANNELS) {
+    const item = items.find(value => value && value.contentType === 'tv'
+      && String(value.id) === channel.broadcastId && value.title === channel.rawName)
+    const logo = officialLogoUrl(item?.image || item?.data?.image)
+    if (logo) logos.set(channel.broadcastId, logo)
+  }
+  return logos
+}
+
 export function selectStreamDetail(payload, expected, options = {}) {
   const item = payload?.data
   if (!item || String(item.id) !== String(expected.contentId) || item.contentType !== 'stream') {
@@ -220,6 +252,7 @@ async function cachedApi(path, options = {}) {
   return active.promise
 }
 
+// 地方台也在同一份电视频道列表里（ID 与原名如下），但播放走固定直链；这里的 ID 只用来认台标。
 export const BROADCAST_CHANNELS = Object.freeze([
   { ref: 'jlntv-satellite', broadcastId: '1531', rawName: '吉林卫视', name: '吉林卫视', dynamic: 'broadcast' },
   { ref: 'jlntv-city', broadcastId: '1532', rawName: '都市频道', name: '吉林都市', dynamic: 'broadcast' },
@@ -227,15 +260,15 @@ export const BROADCAST_CHANNELS = Object.freeze([
   { ref: 'jlntv-movies', broadcastId: '1535', rawName: '影视频道', name: '吉林影视', dynamic: 'broadcast' },
   { ref: 'jlntv-rural', broadcastId: '1536', rawName: '乡村频道', name: '吉林乡村', dynamic: 'broadcast' },
   { ref: 'jlntv-variety-culture', broadcastId: '1538', rawName: '综艺·文化频道', name: '吉林综艺文化', dynamic: 'broadcast' },
-  { ref: 'jlntv-changchun', name: '长春综合', url: 'https://stream2.jlntv.cn/jlcc/sd/live.m3u8' },
-  { ref: 'jlntv-jilin-city', name: '吉林新闻综合', url: 'https://stream2.jlntv.cn/jilin1/sd/live.m3u8' },
-  { ref: 'jlntv-siping', name: '四平新闻综合', url: 'https://stream2.jlntv.cn/sptv/sd/live.m3u8' },
-  { ref: 'jlntv-liaoyuan', name: '辽源新闻综合', url: 'https://stream2.jlntv.cn/liaoyuan1/sd/live.m3u8' },
-  { ref: 'jlntv-tonghua', name: '通化新闻综合', url: 'https://live-master.jlntv.cn/thhd/sd/live.m3u8' },
-  { ref: 'jlntv-baishan', name: '白山新闻综合', url: 'https://stream2.jlntv.cn/baishan1/sd/live.m3u8' },
-  { ref: 'jlntv-baicheng', name: '白城新闻综合', url: 'https://stream2.jlntv.cn/baicheng1/sd/live.m3u8' },
-  { ref: 'jlntv-songyuan', name: '松原新闻综合', url: 'https://stream2.jlntv.cn/sytv/sd/live.m3u8' },
-  { ref: 'jlntv-yanbian', name: '延边卫视', url: 'https://stream2.jlntv.cn/jlyb/sd/live.m3u8' },
+  { ref: 'jlntv-changchun', broadcastId: '812402', rawName: '长春综合', name: '长春综合', url: 'https://stream2.jlntv.cn/jlcc/sd/live.m3u8' },
+  { ref: 'jlntv-jilin-city', broadcastId: '812373', rawName: '吉林新闻综合', name: '吉林新闻综合', url: 'https://stream2.jlntv.cn/jilin1/sd/live.m3u8' },
+  { ref: 'jlntv-siping', broadcastId: '812374', rawName: '四平新闻综合', name: '四平新闻综合', url: 'https://stream2.jlntv.cn/sptv/sd/live.m3u8' },
+  { ref: 'jlntv-liaoyuan', broadcastId: '812376', rawName: '辽源新闻综合', name: '辽源新闻综合', url: 'https://stream2.jlntv.cn/liaoyuan1/sd/live.m3u8' },
+  { ref: 'jlntv-tonghua', broadcastId: '812379', rawName: '通化新闻综合', name: '通化新闻综合', url: 'https://live-master.jlntv.cn/thhd/sd/live.m3u8' },
+  { ref: 'jlntv-baishan', broadcastId: '812383', rawName: '白山新闻综合', name: '白山新闻综合', url: 'https://stream2.jlntv.cn/baishan1/sd/live.m3u8' },
+  { ref: 'jlntv-baicheng', broadcastId: '812380', rawName: '白城新闻综合', name: '白城新闻综合', url: 'https://stream2.jlntv.cn/baicheng1/sd/live.m3u8' },
+  { ref: 'jlntv-songyuan', broadcastId: '812382', rawName: '松原新闻综合', name: '松原新闻综合', url: 'https://stream2.jlntv.cn/sytv/sd/live.m3u8' },
+  { ref: 'jlntv-yanbian', broadcastId: '812244', rawName: '延边卫视', name: '延边卫视', url: 'https://stream2.jlntv.cn/jlyb/sd/live.m3u8' },
 ])
 
 export const SCENIC_CHANNELS = Object.freeze([
@@ -257,21 +290,45 @@ export const SCENIC_CHANNELS = Object.freeze([
 const ALL_CHANNELS = [...BROADCAST_CHANNELS, ...SCENIC_CHANNELS]
 const CHANNEL_BY_REF = new Map(ALL_CHANNELS.map(channel => [channel.ref, channel]))
 
-function buildChannel(channel) {
+function buildChannel(channel, logo = '') {
   return {
     name: channel.name,
     deferredRef: channel.ref,
-    logo: '',
+    logo,
     opts: ['network-caching=3000'],
     catchup: 'none',
   }
 }
 
-export function buildGroups() {
+/** 频道表固定；电视频道的台标来自 selectLogos，慢直播是景观机位、不是电视台，不给台标。 */
+export function buildGroups(logos = new Map()) {
   return [
-    { name: '吉林', dataList: BROADCAST_CHANNELS.map(buildChannel) },
-    { name: '吉林风景', dataList: SCENIC_CHANNELS.map(buildChannel) },
+    { name: '吉林', dataList: BROADCAST_CHANNELS.map(channel => buildChannel(channel, logos.get(channel.broadcastId))) },
+    { name: '吉林风景', dataList: SCENIC_CHANNELS.map(channel => buildChannel(channel)) },
   ]
+}
+
+/**
+ * 更新时取一次电视频道列表只为拿台标（签名地址见 officialLogoUrl）；取流仍在播放时做。
+ * 列表取不到就让这一轮失败：上一轮的频道和台标原样沿用、几分钟后重试。照常出频道反而会把
+ * 已有台标清空一整天——开机时网络还没通就是这样。
+ */
+export async function fetchGroups(ctx = {}) {
+  let text
+  try {
+    text = await cachedApi(BROADCAST_LIST_PATH, {
+      timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error(`吉林广电接口超时 ${ctx.timeoutMs || 15000}ms`)
+    throw error
+  }
+  const logos = selectLogos(decryptJlntvResponse(text))
+  const missing = BROADCAST_CHANNELS.length - logos.size
+  const warnings = missing
+    ? [`官网电视频道列表里有 ${missing} 路没认到台标（官网可能改了频道 ID、台名或图床）`]
+    : []
+  return { groups: buildGroups(logos), warnings }
 }
 
 export function claimsRef(ref) {
@@ -296,7 +353,7 @@ export async function resolveChannel(ref, ctx = {}) {
       url = officialHlsUrl(channel.url)
       if (SCENIC_CHANNELS.includes(channel)) page = slowPage(channel.contentId)
     } else if (channel.dynamic === 'broadcast') {
-      const text = await cachedApi('/broadcast/list?page=1&size=10000&type=1', options)
+      const text = await cachedApi(BROADCAST_LIST_PATH, options)
       url = parseBroadcast(text, channel, options)
     } else {
       if (!/^\d+$/.test(String(channel.contentId))) throw new Error('慢直播内容 ID 无效')

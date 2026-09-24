@@ -156,6 +156,7 @@ import songjiang from './songjiang/index.js'
 import sztv from './sztv/index.js'
 import yangshipin from './yangshipin/index.js'
 import xinjiang from './xinjiang/index.js'
+import xizang from './xizang/index.js'
 import yunnan from './yunnan/index.js'
 
 // 模块 id 会进 sourceId 并写进 EXTINF 属性值，不消毒就是注入面。
@@ -203,6 +204,7 @@ const MODULES = [
   shanxi,
   shaanxi,
   xinjiang,
+  xizang,
   yunnan,
   qtv,
   kankanews,

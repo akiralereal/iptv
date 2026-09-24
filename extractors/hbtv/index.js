@@ -21,7 +21,7 @@ export default {
   async fetch(_config, ctx = {}) {
     const rows = await fetchChannelPage({ timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now })
     primePageCache(rows, ctx.now ?? Date.now())
-    return { groups: [{ name: '湖北电视台', dataList: buildChannels() }], meta: { skipped: [], warnings: [] } }
+    return { groups: [{ name: '湖北电视台', dataList: buildChannels(rows) }], meta: { skipped: [], warnings: [] } }
   },
 
   claimsRef: ref => /^hbtv-(?:431|432|433|435|437|438)$/.test(String(ref || '')),

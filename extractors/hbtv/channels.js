@@ -21,14 +21,16 @@ export function channelIdFromRef(ref) {
   return match && CHANNEL_BY_ID.has(match[1]) ? match[1] : ''
 }
 
-export function buildChannels() {
+/** rows 是 api.js 解析官网直播页得到的六套频道，台标用其中的 logo（官网频道图标）。 */
+export function buildChannels(rows = []) {
+  const logos = new Map((Array.isArray(rows) ? rows : []).map(row => [String(row?.id), row?.logo || '']))
   return CHANNELS.map(channel => ({
     name: channel.name,
     deferredRef: `hbtv-${channel.id}`,
     // CDN 清单有浏览器指纹校验，分片又要求官网 Referer；两者都在服务端完成，
     // 不把匿名 client-id、短效票或请求头暴露给播放器。
     proxyHls: true,
-    logo: '',
+    logo: logos.get(channel.id) || '',
     opts: ['network-caching=3000'],
   }))
 }

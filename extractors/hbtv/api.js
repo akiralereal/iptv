@@ -34,16 +34,34 @@ function officialStream(raw, definition, now) {
   }
 }
 
-/** 只接受固定六套频道的 ID、官网原名与固定 HLS 路径。 */
+/**
+ * 官网直播页频道条目的 thumb 就是频道图标（2026-09-25：m.hbtv.com.cn 站点资源目录下 168×168
+ * 或 300×300 的 PNG，六套各一张，大陆 10 个探针都能取到）。路径带站点模板的哈希目录，
+ * 改版会变，所以跟着频道页一起取，不写死；只收长江云自家域名。
+ */
+function officialLogo(raw) {
+  try {
+    const url = new URL(String(raw || '').replaceAll('\\/', '/').trim().replace(/^http:/i, 'https:'))
+    const officialHost = /(^|\.)hbtv\.com\.cn$/.test(url.hostname) || /(^|\.)cjyun\.org(\.cn)?$/.test(url.hostname)
+    return url.protocol === 'https:' && officialHost ? url.href : ''
+  } catch {
+    return ''
+  }
+}
+
+/** 只接受固定六套频道的 ID、官网原名与固定 HLS 路径；台标取同一条目里的 thumb。 */
 export function parseChannelPage(html, now = Date.now()) {
   const source = String(html || '')
   const rows = []
   for (const definition of CHANNELS) {
     const pattern = new RegExp(
-      `id\\s*:\\s*${definition.id}\\s*,[\\s\\S]{0,160}?name\\s*:\\s*"${escapeRegExp(definition.rawName)}"[\\s\\S]{0,200}?stream\\s*:\\s*"([^"]+)"`,
+      `id\\s*:\\s*${definition.id}\\s*,[\\s\\S]{0,160}?name\\s*:\\s*"${escapeRegExp(definition.rawName)}"[\\s\\S]{0,200}?stream\\s*:\\s*"([^"]+)"`
+      // thumb 不出这一条的花括号，免得拿到下一套频道的图
+      + '(?:[^{}]{0,200}?thumb\\s*:\\s*"([^"]+)")?',
     )
-    const row = officialStream(pattern.exec(source)?.[1], definition, now)
-    if (row) rows.push(row)
+    const match = pattern.exec(source)
+    const row = officialStream(match?.[1], definition, now)
+    if (row) rows.push({ ...row, logo: officialLogo(match[2]) })
   }
   return rows
 }

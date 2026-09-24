@@ -7,6 +7,9 @@
  * 都要带官网 Referer 才 200，裸请求一律 403。而 upstreamHeaders 只有
  * resolve() 能返回，频道对象上没有别的口子。
  */
+import { CHANNELS } from './channels.js'
+
+export { CHANNELS }
 
 export const DAAI_ORIGIN = 'https://m.daai.tv'
 export const DAAI_PAGE = `${DAAI_ORIGIN}/v3/live`
@@ -14,19 +17,6 @@ export const DAAI_PAGE = `${DAAI_ORIGIN}/v3/live`
 // 官方推流域名按台分开；路径前缀固定，媒体分片与清单同目录。
 const MEDIA_HOSTS = new Set(['pulltv1.wanfudaluye.com', 'pulltv2.wanfudaluye.com'])
 const MEDIA_PATH_PREFIX = '/live/'
-
-export const CHANNELS = Object.freeze([
-  Object.freeze({
-    ref: 'daai-tv1',
-    name: '大爱一台',
-    url: 'https://pulltv1.wanfudaluye.com/live/tv1.m3u8',
-  }),
-  Object.freeze({
-    ref: 'daai-tv2',
-    name: '大爱二台',
-    url: 'https://pulltv2.wanfudaluye.com/live/tv2.m3u8',
-  }),
-])
 
 const CHANNEL_BY_REF = new Map(CHANNELS.map(channel => [channel.ref, channel]))
 

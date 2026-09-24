@@ -101,7 +101,8 @@
  *   name       必需，显示名，也是去重键的一半
  *   url        直链模块必需
  *   deferredRef  延迟解析模块必需（与 url 二选一）
- *   logo       台标，空串即可
+ *   logo       官方台标的完整图片地址；官方确实没有才留空。默认没有台标库兜底，
+ *              留空就是没有台标。取法与要求见仓库根目录 LOGO.md
  *   groupTitle 装饰用；真正的分组来自所在 group.name
  *   opts       string[]，#EXTVLCOPT 的 key=value，交给 utils/channelOpts.js 渲染
  *   proxyHls   可选；清单和分片都经本机代理

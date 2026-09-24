@@ -3335,8 +3335,8 @@
     <div class="modal" id="missingLogoModal">
         <div class="modal-content" style="width: 560px; max-width: 92%;">
             <h3>🖼 缺台标的频道 <span style="font-size:13px;font-weight:normal;color:#888;">共 <span id="missingLogoCount">0</span> 个</span></h3>
-            <p style="color:#666;font-size:13px;margin-bottom:4px;">公共台标库里没有这些台的图，订阅里留了空、播放器会画自己的占位图。想补的话两种办法：</p>
-            <p style="color:#999;font-size:12px;margin-bottom:12px;">① 点「补台标」进频道详情上传；② 直接把 <code>&lt;频道名&gt;.png</code> 放进数据目录的 <code>logos/</code>。景观 / 慢直播这类本来就不是台名的，留空即可。</p>
+            <p style="color:#666;font-size:13px;margin-bottom:4px;">这些台的源没带台标，或带的已失效，订阅里留了空、播放器会画自己的占位图。想补的话：</p>
+            <p style="color:#999;font-size:12px;margin-bottom:12px;">① 点「补台标」进频道详情上传；② 直接把 <code>&lt;频道名&gt;.png</code> 放进数据目录的 <code>logos/</code>；③ 想整批按名兜底，自己设 <code>mexternalLogoBase</code> 接一个公共台标库（默认不配，见 README）。景观 / 慢直播这类本来就不是台名的，留空即可。</p>
             <div id="missingLogoList" style="max-height:380px;overflow-y:auto;"></div>
             <div class="modal-actions" style="margin-top:16px;">
                 <button class="btn" onclick="closeMissingLogoModal()">关闭</button>

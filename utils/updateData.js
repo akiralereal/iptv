@@ -377,7 +377,7 @@ async function updateTV(hours, options = {}) {
       const isExtractor = channelItem.source === 'extractor'
       const isExternal = !isExtractor && (channelItem.source === 'external' || !!channelItem.url)
       // 台标优先级：本地 logos/<频道名>.<ext>（用户后台上传或手动放，最高、仅查本地不联网）
-      //   > 源自带台标（咪咕 pics / 模块官方 / m3u 手写）> 公共台标库兜底（仅外部/内置/模块）> 空。
+      //   > 源自带台标（咪咕 pics / 模块官方 / m3u 手写）> 台标库兜底（用户自己配了才有，仅外部/内置/模块）> 空。
       // 取图用「台标匹配名」做 key（issue #40），让特殊命名的常见频道也能命中本地/公共库；频道显示名不变。
       // 开着托管时，后两级从已下载校验过的图里挑：源自带的坏了（404、不是图片）自动换库里的，
       // 都没托管上时沿用原地址（与托管前一样），全都确认坏了就留空。

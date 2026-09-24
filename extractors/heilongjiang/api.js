@@ -9,7 +9,6 @@
  * 唯一要留意的是端口：官方业务域名走的是 4430 而不是 443，白名单必须放行它。
  */
 
-export const HLJTV_PAGE = 'https://zmt-app.hljtv.com/'
 export const HLJTV_MEDIA_ORIGIN = 'https://idclive.hljtv.com:4430'
 
 const MEDIA_HOST = 'idclive.hljtv.com'

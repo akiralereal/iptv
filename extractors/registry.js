@@ -154,6 +154,7 @@ import shanxi from './shanxi/index.js'
 import shaanxi from './shaanxi/index.js'
 import songjiang from './songjiang/index.js'
 import sztv from './sztv/index.js'
+import tianjin from './tianjin/index.js'
 import yangshipin from './yangshipin/index.js'
 import xinjiang from './xinjiang/index.js'
 import xizang from './xizang/index.js'
@@ -203,6 +204,7 @@ const MODULES = [
   nmtv,
   shanxi,
   shaanxi,
+  tianjin,
   xinjiang,
   xizang,
   yunnan,

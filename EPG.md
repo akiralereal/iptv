@@ -70,6 +70,7 @@
 | `nmtv` | 内蒙古 | 无官方节目单 | — | — | — | broadcast/programs 只维护广播，电视频道停在 2023 年 |
 | `shanxi` | 山西 | 已接入 | 9/16 | 2 | apphhplushttps.sxrtv.com/epg/{key}.json | JSONP；7 个地市台官方文件为空；末档拉到次日早上的按下一档截断 |
 | `shaanxi` | 陕西 | 已接入 | 8/8 | 1 | qidian.sxtvs.com/api/v3/program/tv?channel={key} | 只给服务器当天、只有 HH:mm，按响应 Date 头认日期；同一时刻两条留后一条；末档 23:59 接到 24:00 |
+| `tianjin` | 天津 | 已接入 | 7/7 | 2 | jyapi2.wisetv.com.cn:8684/v3/tv/programs/show/{起}/{止}/{频道ID} | 与取流共用津云 App 内置的 ak/sk 头；区间最远到后天；明天上午起是编排计划，三小时切段与零点切段合回一条、去掉「30’」类时长批注 |
 | `xinjiang` | 新疆 | 已接入 | 6/7 | 2 | slstapi.xjtvs.com.cn/api/TVLiveV100/TVGuideList | 新疆少儿官方为空；汉语综艺、维吾尔语影视白天画面待复查 |
 | `xizang` | 西藏 | 无官方节目单 | — | — | — | 珠峰云接口只给每台「正在播出」一条（卡片 date/enddate）；频道详情 videolive 的 ifschedule=0、节目列表全空，官网没有电视直播页。开着央视频时西藏卫视与它同名，共用央视频的节目单 |
 | `yunnan` | 云南 | 已接入 | 4/7 | 2 | yntv-api.yntv.cn/index/jmd/getJmd | 防火墙要浏览器 UA + yntv.cn Referer；七彩云端三路没有节目单 |

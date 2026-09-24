@@ -29,12 +29,16 @@ export async function appendModuleEpg(playbackBakPath, channels, coveredKeys, {
   now = Date.now(),
   fetchImpl = proxyAwareFetch,
   timeoutMs = 10000,
+  // 按 ref 找模块；测试注入假模块用
+  resolveModule = resolverFor,
 } = {}) {
   const keysByProvider = new Map()
-  const queued = new Set()
-  const jobs = []
+  // 同名频道在播放器里是同一个 tvg-id，只写一份节目单。但同名的可能来自不同模块：
+  // 按播放列表顺序逐个试，前一个官方没发或没取到才轮到下一个
+  //（央视频的国学频道没有节目单文件，河南模块的有）
+  const groups = new Map()
   for (const { ref, name } of channels) {
-    const module = resolverFor(ref)
+    const module = resolveModule(ref)
     const provider = module?.epg
     if (!provider) continue
     let keys = keysByProvider.get(provider)
@@ -44,15 +48,33 @@ export async function appendModuleEpg(playbackBakPath, channels, coveredKeys, {
     }
     const key = keys.get(ref)
     const normKey = normalizeKey(name)
-    // 同名频道（换过分组的、多个档共用的）只取一次
-    if (key == null || !normKey || coveredKeys.has(normKey) || queued.has(normKey)) continue
-    queued.add(normKey)
-    jobs.push({ module, provider, key, name, normKey })
+    if (key == null || !normKey || coveredKeys.has(normKey)) continue
+    let group = groups.get(normKey)
+    if (!group) {
+      group = { name, normKey, candidates: [] }
+      groups.set(normKey, group)
+    }
+    // 换过分组、多个档共用的同一频道只取一次
+    if (!group.candidates.some(c => c.provider === provider && c.key === key)) {
+      group.candidates.push({ module, provider, key })
+    }
   }
+  const jobs = [...groups.values()]
   if (!jobs.length) return { appended: 0, failed: 0 }
 
-  const results = await mapSettled(jobs, CONCURRENCY,
-    job => providerProgrammes(job.provider, job.key, { now, fetchImpl, timeoutMs }))
+  const results = await mapSettled(jobs, CONCURRENCY, async job => {
+    let lastFailure = null
+    for (const candidate of job.candidates) {
+      try {
+        const programmes = await providerProgrammes(candidate.provider, candidate.key, { now, fetchImpl, timeoutMs })
+        if (programmes.length) return { module: candidate.module, programmes }
+      } catch (error) {
+        lastFailure = error
+      }
+    }
+    if (lastFailure) throw lastFailure
+    return null
+  })
 
   let appended = 0
   let failed = 0
@@ -67,12 +89,12 @@ export async function appendModuleEpg(playbackBakPath, channels, coveredKeys, {
         : (result.reason?.message || String(result.reason))
       return
     }
-    // 官方当天没发节目单的频道（央视频的国学频道）留给外部源
-    if (!result.value.length) return
-    appendFileSync(playbackBakPath, channelXml(epgChannelId(job.name), result.value))
+    // 官方当天都没发节目单的留给外部源
+    if (!result.value) return
+    appendFileSync(playbackBakPath, channelXml(epgChannelId(job.name), result.value.programmes))
     coveredKeys.add(job.normKey)
     appended++
-    perModule.set(job.module, (perModule.get(job.module) || 0) + 1)
+    perModule.set(result.value.module, (perModule.get(result.value.module) || 0) + 1)
   })
 
   for (const [module, count] of perModule) printGreen(`模块节目单「${module.name}」补充 ${count} 个频道`)

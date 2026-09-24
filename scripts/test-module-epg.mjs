@@ -125,7 +125,7 @@ await checkAsync('咪咕已覆盖的跳过，同名只取一次，写成的记�
       { ref: 'ysp-shanxiws2', name: '山西卫视' },
       { ref: 'ysp-shanxiws2', name: '山西卫视' },         // 同名第二次出现
       { ref: 'ysp-hnws', name: '湖南卫视' },              // 取失败
-      { ref: 'shanxi-satellite', name: '山西卫视' },      // 模块没有节目单
+      { ref: 'gansu-1', name: '甘肃卫视' },               // 模块没有节目单
       { ref: 'nobody', name: '无主频道' },
     ], covered, { now: Date.parse('2026-09-25T02:00:00Z'), fetchImpl })
     assert.deepEqual(result, { appended: 1, failed: 1 })
@@ -136,6 +136,45 @@ await checkAsync('咪咕已覆盖的跳过，同名只取一次，写成的记�
     const xml = readFileSync(bak, 'utf8')
     assert.equal((xml.match(/<channel id=/g) || []).length, 1)
     assert.match(xml, new RegExp(`<channel id="${epgChannelId('山西卫视')}">`))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+await checkAsync('同名频道来自不同模块时，前一个官方没发或取失败就换下一个', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'iptv-module-epg-'))
+  const bak = join(dir, 'playback.xml.bak')
+  writeFileSync(bak, '')
+  try {
+    const provider = (id, behaviour) => ({
+      name: id,
+      epg: {
+        days: 1,
+        channels: () => [{ ref: `${id}-gx`, name: '国学频道', key: id }, { ref: `${id}-news`, name: '新闻', key: `${id}-news` }],
+        async programmes(key) {
+          const mode = behaviour[key]
+          if (mode === 'throw') throw new Error(`${key} 挂了`)
+          return mode === 'empty' ? [] : [{ title: `${key} 的节目`, start: NEWS.st * 1000, stop: NEWS.et * 1000 }]
+        },
+      },
+    })
+    const modules = {
+      a: provider('a', { a: 'empty', 'a-news': 'throw' }),
+      b: provider('b', { b: 'ok', 'b-news': 'ok' }),
+    }
+    const covered = new Set()
+    const result = await appendModuleEpg(bak, [
+      { ref: 'a-gx', name: '国学频道' },
+      { ref: 'b-gx', name: '国学频道' },
+      { ref: 'a-news', name: '新闻' },
+      { ref: 'b-news', name: '新闻' },
+    ], covered, { resolveModule: ref => modules[ref.split('-')[0]] })
+    assert.deepEqual(result, { appended: 2, failed: 0 })
+    const xml = readFileSync(bak, 'utf8')
+    assert.match(xml, /b 的节目/)
+    assert.match(xml, /b-news 的节目/)
+    assert.doesNotMatch(xml, /a 的节目|a-news 的节目/)
+    assert.equal((xml.match(/<channel id=/g) || []).length, 2, '同名只写一份')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

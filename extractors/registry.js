@@ -95,6 +95,7 @@
  *       模糊配对；直链频道没有 ref，按本模块内频道名精确对应 channels() 里的 name。提供者只用注入的 fetchImpl，不 import 项目内部模块——配合零依赖的
  *       utils/epgXmltv.js 与 scripts/build-epg.mjs，整套能拆出去单独产出节目单。
  *       programmes() 抛错只让该频道本轮没有节目单；官方当天没发的返回空数组。
+ *       来源、清理约定与各模块状态的整套规则见仓库根目录 EPG.md，新增模块要在那里登记。
  *
  * 频道对象（dataList 的元素）字段：
  *   name       必需，显示名，也是去重键的一半

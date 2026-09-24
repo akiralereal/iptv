@@ -9,6 +9,8 @@
 //   - 只为「播放列表里实际存在、且咪咕没给到 EPG」的频道补节目单 —— 不整份塞进来，playback.xml 保持精简。
 //   - 频道配对复用 issue #39 的归一逻辑（normalizeKey / normalizeTvgName），与播放列表 tvg-id 对齐。
 //   - 多源冲突按 priority「每个频道选一个源」：先到先得，咪咕与模块官方节目单最先（它们有的频道不会被外部覆盖）。
+//     例外：勾了「优先于官方节目单」（overrideOfficial）的源，对它此刻还有节目的频道，
+//     咪咕与模块节目单让出来（loadOverrideKeys），由它来写。
 //   - 坏源/超时自动跳过并沿用上次缓存，绝不拖垮基础节目单。
 
 import fetch from 'node-fetch'
@@ -17,7 +19,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from '
 import { appendFileSync, writeJsonFileSync } from './fileUtil.js'
 import { dataPath } from './paths.js'
 import { normalizeKey, normalizeTvgName } from './channelNormalize.js'
-import { parseProgrammes, rewriteChannel, stripNoticeDesc, escapeXml } from './epgParse.js'
+import { channelsWithCurrentProgrammes, parseProgrammes, rewriteChannel, stripNoticeDesc, escapeXml } from './epgParse.js'
 import { enableEpgAggregation, enableTvgNormalize } from '../config.js'
 import { printGreen, printRed, printYellow, printBlue } from './colorOut.js'
 
@@ -123,6 +125,15 @@ function readCachedXml(cachePath) {
 }
 
 // 是否到刷新时间：无缓存/无 lastUpdated → 需要；否则按 refreshInterval 判断
+// 外部源的处理顺序：勾了「优先于官方节目单」的在前，其余按 priority（数字小的先）。
+// 缓存文件名带这个顺序里的序号，覆盖预取（loadOverrideKeys）与正式聚合必须共用这一个顺序。
+function orderedSources(config) {
+  return (config.sources || [])
+    .filter(s => s && s.enabled !== false && s.url)
+    .sort((a, b) => (Number(b.overrideOfficial === true) - Number(a.overrideOfficial === true))
+      || ((a.priority ?? 100) - (b.priority ?? 100)))
+}
+
 function isDue(source) {
   if (!source.lastUpdated) return true
   const last = new Date(source.lastUpdated).getTime()
@@ -189,7 +200,7 @@ async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, cover
   const config = loadEpgConfig()
   if (config.enabled === false) return { appended: 0, skipped: 'disabled' }
 
-  const sources = (config.sources || []).filter(s => s && s.enabled !== false && s.url)
+  const sources = orderedSources(config)
   if (sources.length === 0) return { appended: 0 }
 
   // 待补频道：播放列表中尚无 EPG 的频道，归一 key → 输出用频道 id。
@@ -206,7 +217,6 @@ async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, cover
   }
 
   ensureCacheDir()
-  sources.sort((a, b) => (a.priority ?? 100) - (b.priority ?? 100))
 
   let appended = 0
   for (let i = 0; i < sources.length; i++) {
@@ -250,6 +260,44 @@ async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, cover
   return { appended, unmatched: pending.size }
 }
 
+/**
+ * 勾了「优先于官方节目单」的外部源此刻真能出节目单的频道（归一 key）。
+ *
+ * 在生成节目单之前调用：咪咕与模块节目单跳过这些频道，留给随后的外部聚合用这些源来写
+ * （orderedSources 让它们排在最前）。只认还有没播完节目的频道——源停更只剩旧缓存时，
+ * 自动让回内置节目单，不会像当年的 erw 那样拿过期缓存占着频道。
+ * 顺带完成这些源的下载与缓存，正式聚合时不再重复下载。
+ *
+ * @returns {Promise<Set<string>>}
+ */
+async function loadOverrideKeys({ now = Date.now() } = {}) {
+  const keys = new Set()
+  if (!enableEpgAggregation) return keys
+  const config = loadEpgConfig()
+  if (config.enabled === false) return keys
+  const sources = orderedSources(config)
+  if (!sources.some(s => s.overrideOfficial === true)) return keys
+
+  ensureCacheDir()
+  let channelCount = 0
+  for (let i = 0; i < sources.length; i++) {
+    const source = sources[i]
+    if (source.overrideOfficial !== true) continue
+    const cachePath = cacheFileFor(source, i)
+    if (!(await ensureRawXml(source, cachePath))) continue
+    try {
+      const channels = channelsWithCurrentProgrammes(readCachedXml(cachePath), now)
+      channelCount += channels.size
+      for (const channelKeys of channels.values()) for (const k of channelKeys) keys.add(k)
+    } catch (e) {
+      source.lastStatus = `缓存读取失败: ${e.message}`
+    }
+  }
+  saveRunStates(config)
+  if (channelCount) printBlue(`EPG：「优先于官方节目单」的外部源当前有 ${channelCount} 个频道的节目，播放列表里的这些频道改用它们`)
+  return keys
+}
+
 // 聚合收尾保存：不整份写回进入时的旧配置——聚合窗口长达分钟级（逐源下载，单源超时 60s），
 // 期间配置可能已被后台「EPG 源管理」编辑或配置导入（issue #99）改写，整份写回会把新配置
 // 静默还原。改为重读磁盘最新配置，按源 url 对齐、只合并本轮产生的运行状态字段再保存；
@@ -267,4 +315,4 @@ function saveRunStates(runConfig) {
   saveEpgConfig(fresh)
 }
 
-export { aggregateExternalEpg, loadEpgConfig, saveEpgConfig, BUILT_IN_EPG_SOURCES, LEGACY_EPG_SOURCE_URLS }
+export { aggregateExternalEpg, loadOverrideKeys, loadEpgConfig, saveEpgConfig, BUILT_IN_EPG_SOURCES, LEGACY_EPG_SOURCE_URLS }

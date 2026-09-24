@@ -2,7 +2,7 @@ import { getAllChannels, updateExternalSources, updateBuiltInSources, updateExtr
 import { getExtractorManager, getModuleConfig } from "./extractorManager.js"
 import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile, writeFileSync } from "./fileUtil.js"
 import { updatePlaybackData } from "./playback.js"
-import { aggregateExternalEpg } from "./epgAggregator.js"
+import { aggregateExternalEpg, loadOverrideKeys } from "./epgAggregator.js"
 import { appendModuleEpg } from "./moduleEpg.js"
 import { normalizeKey, logoMatchName } from "./channelNormalize.js"
 import { ensureLogoIndex, resolveLibraryLogo } from "./logoLibrary.js"
@@ -300,6 +300,15 @@ async function updateTV(hours, options = {}) {
   const epgCoveredKeys = new Set()
   // 带自有节目单的模块频道（extractors/<id>/epg.js），在咪咕之后、外部聚合之前补
   const moduleEpgChannels = []
+  // 用户勾了「优先于官方节目单」的外部源此刻有节目的频道：咪咕与模块节目单让出来，由外部聚合写
+  let epgOverrideKeys = new Set()
+  if (!regenerateOnly) {
+    try {
+      epgOverrideKeys = await loadOverrideKeys()
+    } catch (e) {
+      printYellow(`「优先于官方节目单」的外部源读取失败，这些频道照常用官方节目单: ${e.message}`)
+    }
+  }
   // 因依赖请求头而未写进 txt 的频道数。静默跳过会让用户「莫名少台」且日志里毫无线索，
   // 排查成本从「看一眼日志」变成「提 issue」。
   let txtSkipped = 0
@@ -386,7 +395,7 @@ async function updateTV(hours, options = {}) {
         || (!isExternal && !isBuiltIn && !isExtractor)
 
       // regenerateOnly模式下跳过playback更新（仅更新播放列表）
-      if (wantsPlayback && !regenerateOnly) {
+      if (wantsPlayback && !regenerateOnly && !epgOverrideKeys.has(normalizeKey(channelItem.name))) {
         // 单个频道的节目单抓不到，不该让整轮更新崩掉——这条链上（getPlaybackData →
         // updatePlaybackData → 这里）原本一个 try 都没有，节目单接口一次瞬时故障就会
         // 在第一个频道处抛出，其余一百多个频道的节目单一个都抓不到，本轮所有源的
@@ -442,7 +451,7 @@ async function updateTV(hours, options = {}) {
   if (!regenerateOnly) {
     // 模块自带的官方节目单：补咪咕没覆盖的模块频道。失败不影响基础节目单。
     try {
-      await appendModuleEpg(playbackFile, moduleEpgChannels, epgCoveredKeys)
+      await appendModuleEpg(playbackFile, moduleEpgChannels, epgCoveredKeys, { skipKeys: epgOverrideKeys })
     } catch (e) {
       printYellow(`模块节目单失败（不影响基础节目单）: ${e.message}`)
     }

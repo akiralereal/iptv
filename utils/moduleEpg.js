@@ -1,7 +1,8 @@
 // 模块自带的官方节目单（extractors/<id>/epg.js，契约见 extractors/registry.js 的 epg）。
 //
 // 顺序：咪咕（playback.js）→ 这里 → 外部 XMLTV 聚合（epgAggregator.js）。咪咕已覆盖的频道
-// 不再取；这里写成的频道记进 coveredKeys，外部源不会重复补。
+// 不再取；这里写成的频道记进 coveredKeys，外部源不会重复补。用户勾了「优先于官方节目单」
+// 的外部源此刻有节目的频道（skipKeys）也让出来，交给外部聚合。
 //
 // 频道按 ref 找到自己的模块，再由模块的频道表换成平台内部 key，不按名字模糊配对。
 // 直链频道（黑龙江这类不走延迟解析的）没有 ref，按来源模块 + 频道名精确对上该模块登记的频道。
@@ -30,6 +31,8 @@ export async function appendModuleEpg(playbackBakPath, channels, coveredKeys, {
   now = Date.now(),
   fetchImpl = proxyAwareFetch,
   timeoutMs = 10000,
+  // 让给「优先于官方节目单」外部源的频道归一 key
+  skipKeys = new Set(),
   // 按 ref / 来源找模块；测试注入假模块用
   resolveModule = resolverFor,
   moduleForSource = sourceId => listModules().find(module => sourceIdOf(module.id) === sourceId),
@@ -54,7 +57,7 @@ export async function appendModuleEpg(playbackBakPath, channels, coveredKeys, {
     }
     const key = ref != null ? keys.byRef.get(ref) : keys.byName.get(name)
     const normKey = normalizeKey(name)
-    if (key == null || !normKey || coveredKeys.has(normKey)) continue
+    if (key == null || !normKey || coveredKeys.has(normKey) || skipKeys.has(normKey)) continue
     let group = groups.get(normKey)
     if (!group) {
       group = { normKey, names: new Set(), candidates: [] }

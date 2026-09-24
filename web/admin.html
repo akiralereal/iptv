@@ -3839,7 +3839,7 @@
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                         <div>
                             <div style="font-size:16px; font-weight:600; color:#333;">📅 EPG 节目单源（聚合）</div>
-                            <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕和各模块官方节目单都没覆盖的频道补节目单。默认已开启，但不带内置外部源，需要更广覆盖时在下面自己加。改动即时保存、无需重启，下次更新生效（或点「立即刷新」）。</div>
+                            <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕和各模块官方节目单都没覆盖的频道补节目单。默认已开启，但不带内置外部源，需要更广覆盖时在下面自己加。勾了「优先于官方节目单」的源，对它当前有节目的频道会覆盖咪咕和各模块的官方节目单（源停更只剩旧数据时自动让回官方）。改动即时保存、无需重启，下次更新生效（或点「立即刷新」）。</div>
                         </div>
                         <label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
                             <input type="checkbox" id="epgEnabled" onchange="setEpgEnabled(this.checked)">
@@ -3866,12 +3866,15 @@
                             <label style="display:block; font-size:12px; color:#888;">优先级</label>
                             <input type="number" id="epgNewPriority" value="10" style="width:100%;">
                         </div>
+                        <label title="勾上后，这个源当前有节目的频道优先用它，咪咕和各模块的官方节目单让出来" style="display:flex; align-items:center; gap:4px; font-size:12px; color:#888; padding-bottom:6px;">
+                            <input type="checkbox" id="epgNewOverride"> 优先于官方节目单
+                        </label>
                         <button class="btn btn-sm btn-success" onclick="addEpgSource()">➕ 添加源</button>
                     </div>
 
                     <div style="margin-top:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                         <button class="btn btn-sm" onclick="refreshEpgNow()">🔄 立即刷新并应用</button>
-                        <span class="system-config-hint" style="margin:0;">优先级数字小者优先；多源命中同一频道取高优先级。咪咕已有的频道始终优先，外部不会覆盖。</span>
+                        <span class="system-config-hint" style="margin:0;">优先级数字小者优先；多源命中同一频道取高优先级，勾了「优先于官方节目单」的排在最前。没勾的源只补咪咕与各模块官方节目单都没有的频道。</span>
                     </div>
                 </div>
                 </div>
@@ -5148,6 +5151,9 @@
                     <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; font-size:12px; color:#888;">
                         <span>间隔(分钟) <input type="number" value="${s.refreshInterval || 720}" style="width:84px;" onchange="updateEpgSource(${i}, { refreshInterval: this.value })"></span>
                         <span>优先级 <input type="number" value="${s.priority != null ? s.priority : 10}" style="width:64px;" onchange="updateEpgSource(${i}, { priority: this.value })"></span>
+                        <label title="勾上后，这个源当前有节目的频道优先用它，咪咕和各模块的官方节目单让出来；源停更只剩旧数据时自动让回官方" style="display:flex; align-items:center; gap:4px;">
+                            <input type="checkbox" ${s.overrideOfficial === true ? 'checked' : ''} onchange="updateEpgSource(${i}, { overrideOfficial: this.checked })"> 优先于官方节目单
+                        </label>
                     </div>
                 </div>`).join('');
         }
@@ -5172,13 +5178,15 @@
                 name: document.getElementById('epgNewName').value,
                 url: document.getElementById('epgNewUrl').value,
                 refreshInterval: document.getElementById('epgNewInterval').value,
-                priority: document.getElementById('epgNewPriority').value
+                priority: document.getElementById('epgNewPriority').value,
+                overrideOfficial: document.getElementById('epgNewOverride').checked
             };
             const r = await epgPost({ action: 'add', source });
             if (r.success) {
                 epgConfig = r.data; renderEpgSources();
                 document.getElementById('epgNewName').value = '';
                 document.getElementById('epgNewUrl').value = '';
+                document.getElementById('epgNewOverride').checked = false;
                 showStatus('已添加 EPG 源，下次更新生效（或点「立即刷新」）', 'success');
             } else {
                 showStatus(r.message || '添加失败', 'error');

@@ -1,5 +1,6 @@
 /** 新疆广播电视台：官网页面签名发现、公开频道接口与实时 HLS 清单。 */
 import { proxyAwareFetch } from '../../utils/systemProxy.js'
+import { CHANNELS } from './channels.js'
 import {
   createSignedParams,
   extractSigningMaterial,
@@ -23,33 +24,7 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
 
-export const CHANNELS = Object.freeze([
-  Object.freeze({
-    ref: 'xjtv-1', channelId: '1', callSign: 'XJTV-1', name: '新疆卫视',
-    path: '/xjtv1/xjtv1stream.m3u8',
-    logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_2024090610562817*$*1.000',
-  }),
-  Object.freeze({
-    ref: 'xjtv-2', channelId: '3', callSign: 'XJTV-2', name: '维吾尔语新闻综合',
-    path: '/xjtv2/xjtv2stream.m3u8',
-    logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105701646*$*1.000',
-  }),
-  Object.freeze({
-    ref: 'xjtv-3', channelId: '4', callSign: 'XJTV-3', name: '哈萨克语新闻综合',
-    path: '/xjtv3/xjtv3stream.m3u8',
-    logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105720257*$*1.000',
-  }),
-  Object.freeze({
-    ref: 'xjtv-7', channelId: '21', callSign: 'XJTV-7', name: '新疆体育健康',
-    path: '/xjtv10/xjtv10stream.m3u8',
-    logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105823916*$*1.000',
-  }),
-  Object.freeze({
-    ref: 'xjtv-8', channelId: '23', callSign: 'XJTV-8', name: '新疆少儿',
-    path: '/xjtv12/xjtv12stream.m3u8',
-    logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105836950*$*1.000',
-  }),
-])
+export { CHANNELS }
 
 export const UNAVAILABLE_CHANNELS = Object.freeze([
   Object.freeze({ callSign: 'XJTV-4', name: '汉语综艺频道', reason: '官网标记禁播且 CDN 返回 404' }),

@@ -5,12 +5,13 @@ import {
   clearCache,
   resolveChannel,
 } from './api.js'
+import epg from './epg.js'
 
 export default {
   id: 'xinjiang',
   name: '新疆',
   description: '新疆广播电视台官网 5 路公开频道；无需登录，播放时解析当天签名配置并获取短效 HLS。',
-  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   catalogVersion: 1,
   outputGroupName: '新疆',
   channelHlsMode: 'relay',
@@ -20,6 +21,8 @@ export default {
   refreshDescription: '自动管理：固定频道表随模块版本更新；播放时从官网签发约一小时有效的入口并实时刷新清单。',
 
   configSchema: [],
+  // 官网节目单，按频道接口 Id 取；与取流链路互不依赖（见 epg.js）
+  epg,
 
   async fetch() {
     return {

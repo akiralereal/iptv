@@ -9,6 +9,7 @@
 //   现改为先建立 id → display-name 映射，用 display-name（并保留 id 本身）归一后比对。
 
 import { normalizeKey } from './channelNormalize.js'
+import { escapeXml } from './epgXmltv.js'
 
 const PROG_RE = /<programme\b([^>]*)>[\s\S]*?<\/programme>/g
 const CH_ATTR_RE = /channel="([^"]*)"/
@@ -23,12 +24,8 @@ export function decodeXml(s) {
     .replaceAll('&quot;', '"').replaceAll('&apos;', "'")
 }
 
-// XML 实体转义（写出 channel id / display-name 时用）
-export function escapeXml(s) {
-  return String(s)
-    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;').replaceAll("'", '&apos;')
-}
+// XML 实体转义放在零依赖的 epgXmltv.js，模块节目单与外部聚合共用同一份
+export { escapeXml }
 
 // 解析 <channel> 元素，建立「EPG 频道 id → 归一 key 集合」映射。
 // key 集合 = 该频道每个 <display-name> 的归一 key + id 本身的归一 key（兼容「id 即频道名」的源）。

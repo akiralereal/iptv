@@ -47,6 +47,12 @@ const BUILT_IN_EPG_SOURCES = [
   }
 ]
 
+// 节目单里的频道 id 与播放列表 tvg-id 取同一变换（开启归一时取规范名，否则原名），
+// 播放器才对得上。外部聚合与模块节目单（moduleEpg.js）共用。
+export function epgChannelId(name) {
+  return enableTvgNormalize ? (normalizeTvgName(name) || name) : name
+}
+
 // 老的内置默认源。epg.51zmt.top 现在对 e.xml.gz / difang.xml.gz / cc.xml.gz 返回同一份文件，
 // 只剩 101 个频道（央视 + 卫视）、2 天节目，而这些频道咪咕本来就有 EPG——实测它只补到 6 个
 // 4K 变体，地方台一个都没有。换成 e.erw.cc（521 频道、9 天节目、大陆探针 10/10 直连可达）后，
@@ -200,12 +206,11 @@ async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, cover
   if (sources.length === 0) return { appended: 0 }
 
   // 待补频道：播放列表中尚无 EPG 的频道，归一 key → 输出用频道 id。
-  // 输出 id 与播放列表 tvg-id 取同一变换（开启归一时取规范名，否则原名），保证播放器能对上。
   const pending = new Map()
   for (const name of playlistChannelNames) {
     const k = normalizeKey(name)
     if (!k || coveredKeys.has(k) || pending.has(k)) continue
-    const outputId = enableTvgNormalize ? (normalizeTvgName(name) || name) : name
+    const outputId = epgChannelId(name)
     pending.set(k, outputId)
   }
   if (pending.size === 0) {

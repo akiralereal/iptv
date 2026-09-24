@@ -1,5 +1,6 @@
 /** 央视频：63 个公开频道匿名取流，10 个会员频道由官网浏览器解扰。 */
 import { buildChannels, claimsRef } from './channels.js'
+import epg from './epg.js'
 import { clearCache, resolveChannel } from './resolver.js'
 import { browserLoginFlow, claimsLocalPath, handleLocalRequest, shutdown } from './runtime.js'
 
@@ -10,7 +11,7 @@ export default {
   category: 'account',
   // catchup: false —— 只做直播。官方接口虽有 playbacktime 时移，但按频道/时段受版权门控
   //（CCTV13 全时段拒、CCTV1 部分时段拒），回看需求交给同台的咪咕源承担（issue #119）。
-  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   // v2：在原有 63 个公开频道之外加入 10 个官网会员频道。递增后会让存量部署
   // 在启动生成播放列表前重建缓存，不必等待默认 24 小时刷新周期。
   // v3：频道表逐条标 catchup:'none'，收回订阅头全局回看声明对央视频的误导（issue #119）。
@@ -26,6 +27,8 @@ export default {
   refreshDescription: '自动管理：公开频道播放时刷新短效地址并让分片直连 CDN；VIP 频道由本机官网浏览器持续解扰并输出兼容 HLS。',
   helper: 'yangshipin-login',
   configSchema: [],
+  // 官网节目单，按频道表里的 livePid 取；与取流链路互不依赖（见 epg.js）
+  epg,
 
   async fetch() {
     return { groups: [{ name: '央视频', dataList: buildChannels() }], meta: { skipped: [], warnings: [] } }

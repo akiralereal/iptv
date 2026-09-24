@@ -3,6 +3,7 @@ import { getExtractorManager, getModuleConfig } from "./extractorManager.js"
 import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile, writeFileSync } from "./fileUtil.js"
 import { updatePlaybackData } from "./playback.js"
 import { aggregateExternalEpg } from "./epgAggregator.js"
+import { appendModuleEpg } from "./moduleEpg.js"
 import { normalizeKey, logoMatchName } from "./channelNormalize.js"
 import { ensureLogoIndex, resolveLibraryLogo } from "./logoLibrary.js"
 import { renderOpts, needsOpts } from "./channelOpts.js"
@@ -297,6 +298,8 @@ async function updateTV(hours, options = {}) {
   // EPG 聚合（issue #38）用：本次写入播放列表的频道原始名 + 已由咪咕给到 EPG 的频道归一 key
   const playlistChannelNames = []
   const epgCoveredKeys = new Set()
+  // 带自有节目单的模块频道（extractors/<id>/epg.js），在咪咕之后、外部聚合之前补
+  const moduleEpgChannels = []
   // 因依赖请求头而未写进 txt 的频道数。静默跳过会让用户「莫名少台」且日志里毫无线索，
   // 排查成本从「看一眼日志」变成「提 issue」。
   let txtSkipped = 0
@@ -371,6 +374,9 @@ async function updateTV(hours, options = {}) {
 
       // 记录实际进入播放列表的频道名，供 EPG 聚合配对
       playlistChannelNames.push(channelItem.name)
+      if (isExtractor && channelItem.deferredRef != null) {
+        moduleEpgChannels.push({ ref: channelItem.deferredRef, name: channelItem.name })
+      }
 
       // 要不要为这个频道抓节目单，按**能力**判定而不是按源类型：
       // 默认只有咪咕（既不是外部也不是内置也不是模块）需要；但模块可以在频道上
@@ -434,7 +440,13 @@ async function updateTV(hours, options = {}) {
 
   // regenerateOnly模式下跳过playback文件生成
   if (!regenerateOnly) {
-    // EPG 聚合（issue #38）：为咪咕未覆盖的频道，从外部 XMLTV 源补节目单。失败不影响基础节目单。
+    // 模块自带的官方节目单：补咪咕没覆盖的模块频道。失败不影响基础节目单。
+    try {
+      await appendModuleEpg(playbackFile, moduleEpgChannels, epgCoveredKeys)
+    } catch (e) {
+      printYellow(`模块节目单失败（不影响基础节目单）: ${e.message}`)
+    }
+    // EPG 聚合（issue #38）：为仍未覆盖的频道，从外部 XMLTV 源补节目单。失败不影响基础节目单。
     try {
       await aggregateExternalEpg(playbackFile, playlistChannelNames, epgCoveredKeys)
     } catch (e) {

@@ -84,8 +84,17 @@
  *   async shutdown()
  *       可选。关闭模块持有的浏览器/页面等资源；服务重启与 SIGTERM 时调用。
  *
- *   async epg(channels, ctx) → XMLTV 片段
- *       可选，capabilities.epg 为真时必需。槽位先留着，本轮无人实现。
+ *   epg                   object  可选；模块自带的官方节目单，放在 extractors/<id>/epg.js：
+ *       {
+ *         days: number                         从今天起取几天（上海日期）
+ *         channels() → [{ ref, name, key }]    哪些频道有节目单：频道 ref → 平台内部 key
+ *         async programmes(key, day, { fetchImpl, timeoutMs }) → [{ title, start, stop }]
+ *                                              day 为 YYYYMMDD，start / stop 为毫秒时间戳
+ *       }
+ *       由 utils/moduleEpg.js 在咪咕之后、外部 XMLTV 聚合之前调用，按 ref 找频道、不按名字
+ *       配对。提供者只用注入的 fetchImpl，不 import 项目内部模块——配合零依赖的
+ *       utils/epgXmltv.js 与 scripts/build-epg.mjs，整套能拆出去单独产出节目单。
+ *       programmes() 抛错只让该频道本轮没有节目单；官方当天没发的返回空数组。
  *
  * 频道对象（dataList 的元素）字段：
  *   name       必需，显示名，也是去重键的一半
@@ -236,6 +245,9 @@ export function validateModule(module) {
     if ((field.type === 'select' || field.type === 'multiselect') && !(field.options || []).length) {
       throw new Error(`抓取模块 ${module.id} 的字段 ${field.key} 声明了 ${field.type} 但没有 options`)
     }
+  }
+  if (module.epg != null && (typeof module.epg.channels !== 'function' || typeof module.epg.programmes !== 'function')) {
+    throw new Error(`抓取模块 ${module.id} 的 epg 必须提供 channels() 与 programmes()`)
   }
   if (module.streamType != null && !['hls', 'flv'].includes(module.streamType)) {
     throw new Error(`抓取模块 ${module.id} 的 streamType 非法`)

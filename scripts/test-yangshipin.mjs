@@ -80,7 +80,21 @@ check('模块只做直播：能力声明关闭回看，73 条频道逐条标 cat
   assert.equal(channels.length, 73)
   assert.ok(channels.every(channel => channel.catchup === 'none'))
   // 频道表字段变化要靠 catalogVersion 递增让存量磁盘缓存在启动时重建
-  assert.equal(yangshipin.catalogVersion, 3)
+  assert.equal(yangshipin.catalogVersion, 4)
+})
+
+check('台标用官网电视页的频道图标，按 livePid 对应；官网没有的国学频道留空', () => {
+  const channels = buildChannels()
+  const byName = new Map(channels.map(channel => [channel.name, channel.logo]))
+  assert.equal(byName.get('CCTV1综合'),
+    'https://resources.yangshipin.cn/assets/oms/image/202306/d57905b93540bd15f0c48230dbbbff7ee0d645ff539e38866e2d15c8b9f7dfcd.png')
+  assert.match(byName.get('CCTV风云足球'), /^https:\/\/resources\.yangshipin\.cn\/assets\/oms\/image\/\d{6}\/[0-9a-f]{64}\.png$/)
+  assert.equal(byName.get('国学频道'), '')
+  assert.equal(channels.filter(channel => channel.logo).length, 72)
+  // 同一台的高清与 4K 两路官网本来就共用一张图，其余各不相同
+  const logos = channels.map(channel => channel.logo).filter(Boolean)
+  assert.equal(new Set(logos).size, 71)
+  assert.equal(byName.get('CCTV16奥林匹克'), byName.get('CCTV16 4K'))
 })
 
 check('引用严格受频道白名单约束', () => {

@@ -1,5 +1,6 @@
 /** 海南网络广播电视台的频道列表、播放签名接口与短效地址缓存。 */
 import fetch from 'node-fetch'
+import { CHANNELS } from './channels.js'
 
 export const CHANNEL_LIST_URL = 'https://www.hnntv.cn/api/channel?type=1'
 export const LIVE_PLAY_URL = 'https://ps.hnntv.cn/ps/livePlayUrl'
@@ -11,18 +12,6 @@ const STREAM_RETRY_MS = 60 * 1000
 const EXPIRY_SKEW_MS = 5 * 60 * 1000
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-
-// 固定七套电视的身份与顺序。ID、名称、频道代码必须同时吻合，避免接口将来混入
-// 广播、临时直播，或复用 ID 后把已有频道静默换成别的内容。
-const CHANNELS = [
-  { id: '13', rawName: '海南卫视', name: '海南卫视', code: 'STHaiNan_channel_lywsgq' },
-  { id: '5', rawName: '三沙卫视', name: '三沙卫视', code: 'STHaiNan_channel_ssws' },
-  { id: '1', rawName: '海南自贸', name: '海南自贸', code: 'jjpd' },
-  { id: '3', rawName: '海南新闻', name: '海南新闻', code: 'STHaiNan_channel_xwpd' },
-  { id: '4', rawName: '海南社会与法', name: '海南社会与法', code: 'ggpd' },
-  { id: '6', rawName: '海南文旅', name: '海南文旅', code: 'wlpd' },
-  { id: '7', rawName: '海南少儿', name: '海南少儿', code: 'sepd' },
-]
 
 const CHANNEL_BY_ID = new Map(CHANNELS.map(channel => [channel.id, channel]))
 let channelCache = null

@@ -16,7 +16,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { appendFileSync, writeJsonFileSync } from './fileUtil.js'
 import { dataPath } from './paths.js'
 import { normalizeKey, normalizeTvgName } from './channelNormalize.js'
-import { parseProgrammes, rewriteChannel, escapeXml } from './epgParse.js'
+import { parseProgrammes, rewriteChannel, stripNoticeDesc, escapeXml } from './epgParse.js'
 import { enableEpgAggregation, enableTvgNormalize } from '../config.js'
 import { printGreen, printRed, printYellow, printBlue } from './colorOut.js'
 
@@ -243,7 +243,7 @@ async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, cover
       let out = `    <channel id="${escapeXml(outputId)}">\n` +
         `        <display-name lang="zh">${escapeXml(outputId)}</display-name>\n` +
         `    </channel>\n`
-      for (const b of blocks) out += rewriteChannel(b, outputId) + '\n'
+      for (const b of blocks) out += rewriteChannel(stripNoticeDesc(b), outputId) + '\n'
       appendFileSync(playbackBakPath, out)
       pending.delete(k) // 该频道已补齐，后续低优先级源不再覆盖
       matched++

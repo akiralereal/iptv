@@ -8,7 +8,7 @@
  * 运行： node scripts/test-epg-match.mjs   （或 npm test）
  */
 import assert from 'node:assert/strict'
-import { parseProgrammes, buildChannelKeyMap } from '../utils/epgParse.js'
+import { parseProgrammes, buildChannelKeyMap, stripNoticeDesc } from '../utils/epgParse.js'
 import { normalizeKey } from '../utils/channelNormalize.js'
 
 let passed = 0
@@ -84,4 +84,12 @@ check('凤凰长短名（凤凰卫视中文台 ↔ 凤凰中文）：命中', ()
   assert.equal(byKey.get(normalizeKey('凤凰卫视资讯台'))?.length, 2)
 })
 
-console.log(`\n全部通过：${passed}/5 ✅`)
+check('上游站务公告式简介整条去掉，真正的节目简介不动', () => {
+  // erw 实际下发的样子：每条节目的 desc 都是同一句关站通知
+  const notice = '<programme start="20260918010800 +0800" stop="20260918015200 +0800" channel="1">\n<title lang="zh">生活圈</title>\n<desc lang="zh">10月1日e域名头关闭，vip域名头不在支持xml下载请大家提前调整</desc>\n</programme>'
+  assert.equal(stripNoticeDesc(notice), '<programme start="20260918010800 +0800" stop="20260918015200 +0800" channel="1">\n<title lang="zh">生活圈</title>\n</programme>')
+  const real = '<programme channel="1" start="1"><title>新闻联播</title><desc lang="zh">国内外要闻。</desc></programme>'
+  assert.equal(stripNoticeDesc(real), real)
+})
+
+console.log(`\n全部通过：${passed}/6 ✅`)

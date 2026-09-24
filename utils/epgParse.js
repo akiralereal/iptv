@@ -83,6 +83,14 @@ export function parseProgrammes(xml, wantedKeys) {
   return byKey
 }
 
+// 上游塞进 <desc> 的站务公告不是节目简介：erw 2026-09 起把每条节目的简介都换成同一句
+// 关站通知，播放器里点开哪个节目都是它。只认这几个字眼，真正的节目简介一律不碰。
+const NOTICE_DESC_RE = /<desc\b[^>]*>[^<]*(?:域名头关闭|不在支持xml下载)[^<]*<\/desc>\s*/g
+
+export function stripNoticeDesc(block) {
+  return block.replace(NOTICE_DESC_RE, '')
+}
+
 // 把 programme 块里的 channel 属性改写为合并后输出用的频道 id
 export function rewriteChannel(block, outputId) {
   return block.replace(CH_ATTR_RE, `channel="${escapeXml(outputId)}"`)

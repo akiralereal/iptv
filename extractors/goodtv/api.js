@@ -17,6 +17,9 @@
  * upstreamHeaders / upstreamUrlTransform，把回源锁在官方分发目录内。
  */
 import { proxyAwareFetch } from '../../utils/systemProxy.js'
+import { CHANNELS } from './channels.js'
+
+export { CHANNELS }
 
 export const GOODTV_ORIGIN = 'https://www.goodtv.tv'
 
@@ -40,21 +43,6 @@ const MAX_MANIFEST_CHARS = 512 * 1024
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-
-export const CHANNELS = Object.freeze([
-  Object.freeze({
-    ref: 'goodtv-main',
-    name: 'GOODTV',
-    page: `${GOODTV_ORIGIN}/tv-channel?ch=1`,
-    stream: 'live-ch1',
-  }),
-  Object.freeze({
-    ref: 'goodtv-truth',
-    name: 'GOODTV2',
-    page: `${GOODTV_ORIGIN}/tv-channel?ch=2`,
-    stream: 'live-ch2',
-  }),
-])
 
 const CHANNEL_BY_REF = new Map(CHANNELS.map(channel => [channel.ref, channel]))
 

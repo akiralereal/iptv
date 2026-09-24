@@ -1,0 +1,81 @@
+# 节目单（EPG）接入记录
+
+各抓取模块的节目单接到哪一步、来源是什么、踩过哪些坑，都记在这里。**新增或改动子模块时顺手更新下面的状态表**——`npm test` 里的 `scripts/test-epg-doc.mjs` 会检查：每个注册的模块都在表里，且标「已接入」的恰好是代码里挂了 `epg` 的那些。
+
+## 工作方式
+
+- **来源顺序**：咪咕自带 → 各模块从官方接口取（模块节目单）→ 用户在后台「EPG 聚合」自己加的 XMLTV 源。前面给了的频道后面不再覆盖。
+- **不内置第三方源**：先后内置过的 51zmt 退化到只剩央视卫视、erw 于 2026-10-01 起停止免费下载，默认源的可用性不该系在个人站点上。只收各台官方来源，不用 tvmao、epg.pw 一类聚合站。
+- **代码位置**：每个模块的节目单放在 `extractors/<id>/epg.js`，与取流代码分开，契约见 `extractors/registry.js` 里的 `epg` 一节；零依赖公共件在 `utils/epgXmltv.js`；iptv 这一侧的衔接在 `utils/moduleEpg.js`。
+- **频道配对**：有 `deferredRef` 的按 ref 对；直链频道（没有 ref，如南京、福州）按「所属模块 + 频道名精确一致」对；同名频道来自不同模块时按播放列表顺序逐个试，前一个官方没发才轮到下一个。
+- **单独产出 / 核对**：`node scripts/build-epg.mjs <模块 id> [-o 文件]` 只用模块节目单产出一份 XMLTV，不经过播放列表。`epg.js` 只 import 模块目录内的纯文件，连同这个脚本和 `utils/epgXmltv.js` 就能拆出去独立维护。
+
+## 给新模块接节目单
+
+1. **先找官方来源**：官网直播页的 JS（搜 `epg`、`program`、`playbill`、`schedule`、`节目单`）、模块取流已经在用的接口家族、App 分享页。用真实请求确认能取到哪几天、未来日期是真编排还是占位 / 模板。大陆才能访问的用 Globalping 大陆探针确认。**别猛刷猜路径**：江西今视频的阿里云 WAF 猜了约 60 次就把本机 IP 封了半小时以上。
+2. **写 `extractors/<id>/epg.js`**：`days`（从今天起取几天）、`channels()`（同步返回 `{ ref, name, key }`）、`programmes(key, day, { fetchImpl, timeoutMs })`（`day` 是上海日期 YYYYMMDD，返回按开始时间排好的 `{ title, start, stop }` 毫秒时间戳）。官方当天没发返回 `[]`，接口出错才抛。时间一律显式按 +08:00（境外台按当地时区）换算，不依赖运行机器的时区。只 import 模块目录内的东西；签名、频道表这类共用的纯逻辑拆成模块内的 `sign.js` / `channels.js`，取流那边也改用它，行为不变。
+3. **挂上模块**：`index.js` 里加 `epg` 字段、`capabilities.epg: true`。
+4. **测试**：`scripts/test-<id>-epg.mjs`，夹具按真实响应裁剪、全程离线，核对提供者的频道与模块实际输出一一对应，分别在本机时区、`TZ=UTC`、`TZ=America/Los_Angeles` 下跑；加进 `package.json` 的测试链。
+5. **实测**：`node scripts/build-epg.mjs <id>`，抽查两三个节目的播出时间（央视《新闻联播》转播应在 19:00）。
+6. **更新下面的状态表**。
+
+## 各模块状态
+
+状态只用这几种：**已接入**（模块挂了 `epg`）、**咪咕自带**、**无官方节目单**（调研过，官方没有可用的）、**不适用**（直播间、景观机位这类本来就没有节目单）、**未调研**。
+
+截至 2026-09-25，本地一轮完整更新：模块节目单补上 146 个频道，全部频道中有节目单的 223 个。
+
+<!-- epg-status:start -->
+| 模块 | 名称 | 状态 | 覆盖 | 天数 | 官方来源 | 备注 |
+|---|---|---|---|---|---|---|
+| `migu` | 咪咕视频 | 咪咕自带 | 自有频道 | 今天 | program-sc.miguvideo.com；部分央视走 CNTV epginfo3 | 旧通道（utils/playback.js），优先级最高 |
+| `yangshipin` | 央视频 | 已接入 | 73/73 | 2 | capi.yangshipin.cn/api/yspepg/program/{livePid}/{日期} | 对象存储上的静态 protobuf；国学频道官方无文件（与河南国学频道同一个台，由河南补） |
+| `fengshows` | 凤凰卫视 | 已接入 | 3/3 | 2 | api.fengshows.cn/live/{id}/resources | 开始时间是 UTC 时间戳 |
+| `hkstv` | 香港卫视 | 已接入 | 1/1 | 2 | hkstv.tv/services/live/epg | 接口不带频道参数，给的是官网当前默认的那一路 |
+| `daai` | 大爱电视 | 已接入 | 2/2 | 2 | daai.tv/api/live/json/v1.1/{ch1,ch3}/{日期} | Cloudflare 挡 curl 类 UA；被广告切开的同一集会合并 |
+| `goodtv` | GOOD TV | 已接入 | 2/2 | 2 | api.goodtv.tv/Channel/Live/{GOODTV1,GOODTV2} | 一次约 5 周、300 KB，模块内缓存 10 分钟 |
+| `asian-live` | 亚洲与国际直播 | 已接入 | YTN、NHK World | 2 | NHK：masterpl.hls.nhkworld.jp/epg/w/{日期}.json；YTN：m.ytn.co.kr/schedule.php | UTC+9，上海的一天对应当地 01:00–次日 01:00；YTN 是网页抓取 |
+| `bilibili-live` | 哔哩哔哩直播 | 不适用 | — | — | — | 直播间 |
+| `huya-live` | 虎牙直播 | 不适用 | — | — | — | 直播间 |
+| `douyu-live` | 斗鱼直播 | 不适用 | — | — | — | 直播间 |
+| `anhui` | 安徽 | 无官方节目单 | — | — | — | 官网频道页已改跳新闻；安徽视讯 App 接口在 WAF 后或验签不过，再往下要拆 APK |
+| `beidou` | 辽宁 | 无官方节目单 | — | — | — | getProgram 只列已开播的回看、没有预告；当前输出的 5 路在里面全空 |
+| `beijing` | 北京广播电视台 | 未调研 | — | — | — | 公开部分是慢直播（不适用）；9 个电视频道要部署者的官网 Cookie 才出现，节目单还没查 |
+| `chongqing` | 重庆 | 无官方节目单 | — | — | — | 频道详情的 playbillid / billcontent 为空，其余路径 404 |
+| `sichuan` | 四川 | 未调研 | — | — | — | 电视频道要部署者的官网登录 Token 才出现，节目单还没查 |
+| `dalian` | 大连 | 已接入 | 3/3 | 2 | wan-dlrm.dlrm.cn/app/tv/programs | 与取流共用匿名 SM2 令牌 |
+| `gansu` | 甘肃 | 无官方节目单 | — | — | — | getTvProgramList 全空，且本身不是带时间的节目表 |
+| `gdtv` | 广东 | 已接入 | 14/17 | 2 | gdtv-api.gdtv.cn/api/tv/v2/tvMenu | HMAC-SHA256 签名，key/secret 取自官网 WASM 签名模块（别直接跑官网签名脚本，里面有反 Node 陷阱）；经典剧、纪录片、健康官方为空 |
+| `gztv` | 广州 | 无官方节目单 | — | — | — | 广视网直播页没有节目单，频道数据里的节目字段为空；旧节目单域名已失效 |
+| `gzstv` | 贵州 | 无官方节目单 | — | — | — | 官网接口只给标题与流地址；动静 App 的签名在 App 内部 |
+| `gxtv` | 广西 | 已接入 | 6/7 | 2 | api2019.gxtv.cn/memberApi/programList/selectListByChannelId | POST，实际按频道名查；只给开始时间与时长；广西移动官方不展示节目单 |
+| `fjtv` | 福建 | 已接入 | 9 路 | 2 | 省级 mapi-plus.fjtv.net 云直播 program/list；厦门 mapi1.kxm.xmtv.cn/api/v1/program.php；福州 app.zohi.tv/video/player/playbill | 东南卫视、厦视三套、海博地市只有占位；福州只列自办栏目、只有今天，少儿不收 |
+| `jlntv` | 吉林 | 无官方节目单 | — | — | — | broadcast/programs 只维护广播，电视频道全空 |
+| `jxntv` | 江西 | 无官方节目单 | — | — | — | 官网与今视频 App 后端都没有；App 接口有阿里云 WAF |
+| `hebtv` | 河北 | 已接入 | 6 路电视 | 2 | api.cmc.hebrts.cn/spidercrms/api/live/liveShowSet/findNoPage | POST，公开 tenantId；频道号与取流无关；美丽河北慢直播不适用 |
+| `hbtv` | 湖北 | 已接入 | 6/6 | 2 | cjy-iptv.hbtv.com.cn/wxcms3/remote-wx/api/cj-cloud/play/{账号}/show | 长江云 TV 遥控页接口，固定公开 Authorization、账号段传 null（2026-09-25 确认保留） |
+| `heilongjiang` | 黑龙江 | 无官方节目单 | — | — | — | 极光新闻 H5 只有流地址；旧节目单域名已解析不到；只剩原生 App |
+| `hnntv` | 海南 | 已接入 | 7/7 | 1 | www.hnntv.cn/api/schedule/byDay | 一次给今天加过去 6 天，没有明天 |
+| `hntv` | 河南 | 已接入 | 13/13 | 1 | pubmod.hntv.tv/program/getAuth/vod/originStream/program/{cid}/{零点秒} | sha256 签名；明天以后是冻结的周模板，按没发处理 |
+| `cztv` | 浙江 | 已接入 | 9/9 | 2 | p.cztv.com/api/paas/program/{台号}/{日期} | 播出日志粒度，剔除广告、宣传片碎片；未来日期是「精彩节目」占位 |
+| `jstv` | 江苏 | 已接入 | 10/10 | 1 | live-lizhi.jstv.com/api/Channel/Epg | 匿名 JWT；频道要用导航里的 extraId |
+| `iqilu` | 山东 | 已接入 | 9/9 | 2 | sdxw.iqilu.com/v1/app/play/program/qilu | 闪电新闻后端，频道号 24–32（不是 _pdCid） |
+| `sztv` | 深圳 | 已接入 | 6/7 | 1 | hls-api.sztv.com.cn/api/getEpgs | 深圳少儿官方为空 |
+| `njtv` | 南京 | 已接入 | 4 路电视 | 2 | apigateway.nbs.cn/Liveprogram/getEPGByTaskId | 直链频道，按名对上；13 路机位不适用 |
+| `nmtv` | 内蒙古 | 无官方节目单 | — | — | — | broadcast/programs 只维护广播，电视频道停在 2023 年 |
+| `shanxi` | 山西 | 已接入 | 9/16 | 2 | apphhplushttps.sxrtv.com/epg/{key}.json | JSONP；7 个地市台官方文件为空；末档拉到次日早上的按下一档截断 |
+| `xinjiang` | 新疆 | 已接入 | 6/7 | 2 | slstapi.xjtvs.com.cn/api/TVLiveV100/TVGuideList | 新疆少儿官方为空；汉语综艺、维吾尔语影视白天画面待复查 |
+| `yunnan` | 云南 | 已接入 | 4/7 | 2 | yntv-api.yntv.cn/index/jmd/getJmd | 防火墙要浏览器 UA + yntv.cn Referer；七彩云端三路没有节目单 |
+| `qtv` | 青岛 | 不适用 | — | — | — | 城市景观机位 |
+| `kankanews` | 上海 | 已接入 | 6/13 | 2 | kapi.kankanews.com/content/pc/tv/programs | MD5 签名头；魔都眼、新纪实官方没有；5 路景观不适用 |
+| `songjiang` | 上海松江 | 不适用 | — | — | — | 慢直播 |
+| `livechina` | 央视直播中国 | 不适用 | — | — | — | 景观直播 |
+| `ipanda` | iPanda 官方直播 | 不适用 | — | — | — | 熊猫机位 |
+| `mgtv` | 湖南 | 无官方节目单 | — | — | — | 芒果各接口只给 2010→2050 的占位；getLivePlayBill 要机顶盒参数且没有数据 |
+<!-- epg-status:end -->
+
+## 已知短板与后续
+
+- **零点后的空档**：多数省台官方只发当天的节目单，零点后到下一轮更新（默认 8 小时）前，这些频道没有新一天的节目单。可考虑零点后单独刷一次节目单。
+- **未调研**：北京、四川的电视频道（要部署者登录后才出现）。
+- **待复查**：新疆汉语综艺、维吾尔语影视已重新收录，只在夜间停播时段验到测试卡，白天画面还没确认。

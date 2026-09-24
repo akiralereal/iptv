@@ -1,15 +1,12 @@
 /** 南京广电官网电视直播与 Live 南京景观直播解析。 */
 import fetch from 'node-fetch'
 
+import { TV_CHANNELS } from './channels.js'
+
+export { TV_CHANNELS }
+
 export const TV_SCRIPT_URL = 'https://www.nbs.cn/js/tv.js?v=18'
 export const SCENIC_PAGE_URL = 'https://m2.nbs.cn/eventlive/280714.html'
-
-export const TV_CHANNELS = [
-  { name: '南京新闻综合', fallbackUrl: 'https://nklive.nbs.cn/hls/d511bc9d-a694-4453-b3a2-4fc842cc97a1/index.m3u8' },
-  { name: '南京教育科技', fallbackUrl: 'https://nklive.nbs.cn/hls/75b3c462-b831-4de7-a34b-5d3221db2069/index.m3u8' },
-  { name: '南京十八·生活', fallbackUrl: 'https://nklive.nbs.cn/hls/1173a815-bfdb-4c3c-9f73-89ec37ae7716/index.m3u8' },
-  { name: '南京文旅纪录', fallbackUrl: 'https://nklive.nbs.cn/hls/9b2005c4-046c-422f-ba45-e6adc4f4de07/index.m3u8' },
-]
 
 export const SCENIC_CHANNELS = [
   { name: '长江大桥', fallbackUrl: 'https://nklive2.nbs.cn/hls/292e69b9-9ca1-4908-bba0-32438dd7c464/index.m3u8' },

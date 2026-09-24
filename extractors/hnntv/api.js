@@ -64,7 +64,7 @@ export function buildChannels(rows) {
   return normalizeRows(rows).map(row => ({
     name: row.name,
     deferredRef: `hnntv-${row.id}`,
-    logo: '',
+    logo: CHANNEL_BY_ID.get(row.id).logo,
   }))
 }
 

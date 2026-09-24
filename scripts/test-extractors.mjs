@@ -2522,6 +2522,12 @@ check('海南：只输出固定七套电视，保持官网顺序并拒绝身份�
     'hnntv-13', 'hnntv-5', 'hnntv-1', 'hnntv-3', 'hnntv-4', 'hnntv-6', 'hnntv-7',
   ])
   assert.ok(channels.every(channel => !channel.proxyHls && !channel.relayHls))
+  // 台标是视听海南 App 频道列表的圆标，按 App 图片基址拼成完整 https 地址，七套各不相同
+  assert.equal(channels[0].logo,
+    'https://img-app.hnntv.cn/resource/upload/image/media/2023-09-03/94fb34ba-3474-4b48-aa32-0a4a61721af3.png')
+  assert.ok(channels.every(channel =>
+    /^https:\/\/img-app\.hnntv\.cn\/resource\/upload\/image\/media\/\d{4}-\d{2}-\d{2}\/[0-9a-f-]{36}\.png$/.test(channel.logo)))
+  assert.equal(new Set(channels.map(channel => channel.logo)).size, 7)
 })
 
 await checkAsync('海南：抓取七套频道，播放时签名并在有效期内复用地址', async () => {

@@ -156,7 +156,8 @@ export function sm2Decrypt(privateKey, ciphertext) {
   if (privateScalar <= 0n || privateScalar >= N) throw new Error('SM2 private key is malformed')
   const hex = String(ciphertext || '').replace(/^04/i, '')
   if (!/^[0-9a-f]+$/i.test(hex) || hex.length < 192 || hex.length % 2) throw new Error('SM2 ciphertext is malformed')
-  const c1 = parsePoint(hex.slice(0, 128))
+  // 前缀上面已剥掉；parsePoint 会再剥一次开头的 04，C1.x 恰好以 04 开头（1/256）时就剥错，补回去再解析
+  const c1 = parsePoint(`04${hex.slice(0, 128)}`)
   const c2 = Buffer.from(hex.slice(128, -64), 'hex')
   const c3 = hex.slice(-64).toLowerCase()
   const shared = scalarMultiply(privateScalar, c1)

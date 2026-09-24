@@ -24,6 +24,10 @@ await check('SM2 使用客户端所需 C1C2C3 格式并通过完整性校验', (
   assert.match(cipher, /^[0-9a-f]+$/)
   assert.equal(sm2Decrypt(pair.privateKey, cipher).toString('utf8'), '大连云')
   assert.throws(() => sm2Decrypt(pair.privateKey, `${cipher.slice(0, -1)}0`), /integrity check/)
+  // 服务端下发的密文带 04 前缀；C1.x 恰好也以 04 开头（1/256）时不能被再剥一次
+  const tricky = sm2Encrypt(pair.publicKey, '大连云', { randomBytesImpl: fixedScalar(11n) })
+  assert.ok(tricky.startsWith('04'))
+  assert.equal(sm2Decrypt(pair.privateKey, `04${tricky}`).toString('utf8'), '大连云')
 })
 
 await check('匿名媒体令牌交换加密四个参数并解密服务端响应', async () => {

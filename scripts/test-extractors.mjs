@@ -2585,7 +2585,21 @@ check('河南：只输出固定正式频道、规范名称并排除购物与 ID/
   assert.deepEqual(channels.map(channel => channel.name), ['河南卫视', '河南新闻'])
   assert.deepEqual(channels.map(channel => channel.deferredRef), ['hntv-145', 'hntv-149'])
   assert.ok(channels.every(channel => !channel.proxyHls && !channel.relayHls))
-  assert.equal(channels[0].logo, 'https://static.hntv.tv/a.png')
+})
+
+check('河南：接口 image 相对路径按官网图床拼完整，缺图留空', () => {
+  const expiry = Math.floor(Date.now() / 1000) + 14400
+  const stream = id => `http://tvcdn.stream3.hndt.com/tv/${id}/playlist.m3u8?wsSecret=x&wsTime=${expiry}`
+  const channels = buildHntvChannels([
+    { cid: 145, name: '河南卫视', image: '/anonymous/2020/9/18/1306760236945772544.png', logo: '', video_streams: [stream('ws')] },
+    { cid: 149, name: '新闻频道', image: '', logo: '', video_streams: [stream('news')] },
+    { cid: 141, name: '都市频道', image: 'javascript:alert(1)', video_streams: [stream('ds')] },
+  ])
+  assert.deepEqual(channels.map(channel => channel.logo), [
+    'https://cmsres.dianzhenkeji.com/anonymous/2020/9/18/1306760236945772544.png',
+    '',
+    '',
+  ])
 })
 
 await checkAsync('河南：模块用签名频道接口取流，缓存后播放不重复联网', async () => {

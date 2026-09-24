@@ -13,6 +13,10 @@ const EXPIRY_SKEW_MS = 5 * 60 * 1000
 const FALLBACK_STREAM_TTL_MS = 3 * 60 * 60 * 1000
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+// 频道接口的 image 是 /anonymous/… 相对路径（logo 字段一直为空）。官网 www.hntv.tv 页面里
+// 同一图床的 /anonymous/ 图片都拼这个域名；拼 static.hntv.tv 全是 404。2026-09-25 核对：
+// 13 套频道图标都能取到，大陆 10 个探针全部 200。
+const LOGO_BASE = 'https://cmsres.dianzhenkeji.com'
 
 const CHANNEL_BY_ID = new Map(CHANNELS.map(channel => [channel.id, channel]))
 let channelCache = null
@@ -34,8 +38,11 @@ function validStreamUrl(raw) {
 }
 
 function normalizeLogo(raw) {
+  const text = String(raw || '').trim()
+  if (!text) return ''
   try {
-    return new URL(String(raw || ''), 'https://static.hntv.tv').href
+    const url = new URL(text, LOGO_BASE)
+    return /^https?:$/.test(url.protocol) ? url.href : ''
   } catch {
     return ''
   }

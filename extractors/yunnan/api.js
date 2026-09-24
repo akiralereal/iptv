@@ -18,6 +18,7 @@
  * 来源头发给另一家。
  */
 import { proxyAwareFetch } from '../../utils/systemProxy.js'
+import { CHANNELS } from './channels.js'
 
 export const YNTV_PAGE = 'https://www.yntv.cn/live.html'
 export const YNTV_ORIGIN = 'https://www.yntv.cn'
@@ -37,25 +38,8 @@ const WEB_NAME_RE = /^[a-z]{1,32}$/
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
 
-export const CHANNELS = Object.freeze([
-  Object.freeze({ ref: 'yunnan-satellite', name: '云南卫视', kind: 'yntv', webName: 'yunnanweishi', logo: '' }),
-  Object.freeze({ ref: 'yunnan-urban', name: '云南都市', kind: 'yntv', webName: 'yunnandushi', logo: '' }),
-  Object.freeze({ ref: 'yunnan-travel', name: '云南康旅', kind: 'yntv', webName: 'yunnangonggong', logo: '' }),
-  Object.freeze({ ref: 'yunnan-lancang', name: '澜湄国际', kind: 'yntv', webName: 'yunnanguoji', logo: '' }),
-  // 地方三台公共台标库没有收，用七彩云端下发的官方频道卡
-  Object.freeze({
-    ref: 'yunnan-lincang', name: '临沧综合', kind: 'qicai', room: '临沧综合',
-    logo: 'https://cdnproduce.yntv.cn/ysxw/HDZB_FABU/8805AF7347544A9C8ECCC6789DB4A2C2/A5E97376B5E04AC58072C0B0039ACD61.png',
-  }),
-  Object.freeze({
-    ref: 'yunnan-nujiang', name: '怒江综合', kind: 'qicai', room: '怒江综合',
-    logo: 'https://cdnproduce.yntv.cn/ysxw/HDZB_FABU/8805AF7347544A9C8ECCC6789DB4A2C2/702F785952DD4829BB0DB63CE6A8B0EE.png',
-  }),
-  Object.freeze({
-    ref: 'yunnan-zhaotong', name: '昭通综合', kind: 'qicai', room: '昭通综合',
-    logo: 'https://cdnproduce.yntv.cn/ysxw/HDZB_FABU/E1951D62616149C4A00E5BCB34643EE9/7DC1772170DC41C5BFBE73F27C43522D.png',
-  }),
-])
+// 频道表在 channels.js，与节目单（epg.js）共用；这里照旧导出
+export { CHANNELS }
 
 const CHANNEL_BY_REF = new Map(CHANNELS.map(channel => [channel.ref, channel]))
 

@@ -7,7 +7,7 @@ export default {
   name: '云南',
   description: '云视网云南卫视、都市、康旅、澜湄国际，以及七彩云端临沧、怒江、昭通共 7 路公开频道；无需登录，播放时动态取当前地址，清单和媒体全代理。',
   capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
-  catalogVersion: 1,
+  catalogVersion: 2,
   outputGroupName: '云南',
   channelHlsMode: 'proxy',
   defaultRefreshMinutes: 1440,

@@ -46,7 +46,7 @@ check('模块注册为免账号的云南全代理模块', () => {
   assert.equal(yunnan.outputGroupName, '云南')
   assert.equal(yunnan.channelHlsMode, 'proxy')
   assert.equal(yunnan.capabilities.catchup, false)
-  assert.equal(yunnan.catalogVersion, 1)
+  assert.equal(yunnan.catalogVersion, 2)
   assert.deepEqual(yunnan.configSchema, [])
   assert.equal(resolverFor('yunnan-satellite'), yunnan)
   assert.equal(resolverFor('yunnan-satellite/extra'), null)
@@ -59,9 +59,11 @@ await checkAsync('省级四套与地方三套并入唯一的云南分组', async
   ])
   const channels = buildChannels()
   assert.ok(channels.every(channel => channel.groupTitle === '云南' && channel.catchup === 'none'))
-  // 省级四套留空走公共台标库（库里有云南卫视/都市/康旅/澜湄国际），地方三套库里没有，用官方频道卡
-  assert.ok(channels.slice(0, 4).every(channel => channel.logo === ''))
-  assert.ok(channels.slice(4).every(channel => channel.logo.startsWith('https://cdnproduce.yntv.cn/')))
+  // 都用七彩云端的官方频道卡、各不相同；澜湄国际官方没有可用台标，留空
+  const withLogo = channels.filter(channel => channel.logo)
+  assert.deepEqual(channels.filter(channel => !channel.logo).map(channel => channel.name), ['澜湄国际'])
+  assert.ok(withLogo.every(channel => /^https:\/\/cdnproduce\.yntv\.cn\/ysxw\/HDZB_FABU\/[0-9A-F]{32}\/[0-9A-F]{32}\.png$/.test(channel.logo)))
+  assert.equal(new Set(withLogo.map(channel => channel.logo)).size, withLogo.length)
   assert.deepEqual(await yunnan.fetch(), {
     groups: [{ name: '云南', dataList: channels }],
     meta: { skipped: [], warnings: [] },

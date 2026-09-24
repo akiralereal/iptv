@@ -74,7 +74,7 @@ await checkAsync('模块挂上节目单提供者，频道表每一路都有节�
   assert.equal(module, shanxi)
   assert.equal(shanxi.epg, shanxiEpg)
   assert.equal(shanxi.capabilities.epg, true)
-  assert.equal(shanxi.catalogVersion, 1)
+  assert.equal(shanxi.catalogVersion, 2)
   assert.equal(shanxiEpg.days, 2)
   assert.doesNotThrow(() => validateModule(shanxi))
 

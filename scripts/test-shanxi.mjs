@@ -57,7 +57,7 @@ check('模块注册为免账号的山西 relay 模块', () => {
   assert.equal(shanxi.channelHlsMode, 'relay')
   assert.equal(shanxi.relayProxyCompatible, true)
   assert.equal(shanxi.capabilities.catchup, false)
-  assert.equal(shanxi.catalogVersion, 1)
+  assert.equal(shanxi.catalogVersion, 2)
   assert.deepEqual(shanxi.configSchema, [])
   assert.equal(resolverFor('shanxi-satellite'), shanxi)
   assert.equal(resolverFor('shanxi-satellite/extra'), null)
@@ -73,11 +73,9 @@ await checkAsync('省级六套与地市十套并入唯一的山西分组', async
   assert.equal(new Set(CHANNELS.map(channel => channel.ref)).size, CHANNELS.length)
   const channels = buildChannels()
   assert.ok(channels.every(channel => channel.groupTitle === '山西' && channel.catchup === 'none'))
-  // 公共台标库收了的留空按台名匹配，库里没有的用官网台标
-  const withLogo = channels.filter(channel => channel.logo).map(channel => channel.name)
-  assert.equal(withLogo.length, 10)
-  assert.ok(!withLogo.includes('山西卫视') && !withLogo.includes('晋中综合') && withLogo.includes('黄河电视台'))
-  assert.ok(channels.every(channel => !channel.logo || channel.logo.startsWith('https://imagehhsitehttps.sxrtv.com/images/')))
+  // 每套都带官网直播页的台标，且各不相同：默认没有台标库兜底
+  assert.ok(channels.every(channel => /^https:\/\/imagehhsitehttps\.sxrtv\.com\/images\/\d{4}\/\d{1,2}\/\d{1,2}\/\d+_\w+\.(?:png|jpg)$/.test(channel.logo)))
+  assert.equal(new Set(channels.map(channel => channel.logo)).size, channels.length)
   assert.deepEqual(await shanxi.fetch(), {
     groups: [{ name: '山西', dataList: channels }],
     meta: { skipped: [], warnings: [] },

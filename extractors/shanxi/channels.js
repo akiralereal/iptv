@@ -8,24 +8,24 @@
 
 const LOGO_BASE = 'https://imagehhsitehttps.sxrtv.com/images/'
 
-const province = (ref, name, channelCode, epgKey, logo = '') => Object.freeze({ ref, name, kind: 'province', channelCode, epgKey, logo })
-const city = (ref, name, itemId, epgKey, logo = '') => Object.freeze({ ref, name, kind: 'city', itemId, epgKey, logo })
+const province = (ref, name, channelCode, epgKey, logo) => Object.freeze({ ref, name, kind: 'province', channelCode, epgKey, logo })
+const city = (ref, name, itemId, epgKey, logo) => Object.freeze({ ref, name, kind: 'city', itemId, epgKey, logo })
 
 // 台名照官网直播页原样收：地市几路台标上打的就是「太原1」「吕梁-1」这种编号，不另起名。
-// 公共台标库收了的留空按台名匹配（省级五套与晋中综合），其余用官网直播页下发的台标。
+// 台标全部取官网直播页频道列表里的图：省级六套是各自的频道卡（1035×582），地市是各台台标。
 export const CHANNELS = Object.freeze([
-  province('shanxi-satellite', '山西卫视', 'q8RVWgs', 'SXTV1'),
+  province('shanxi-satellite', '山西卫视', 'q8RVWgs', 'SXTV1', `${LOGO_BASE}2023/4/27/20234271682583861470_33_s.png`),
   province('shanxi-huanghe', '黄河电视台', 'lce1mC4', 'SXTV2', `${LOGO_BASE}2023/4/27/20234271682583913963_33_s.png`),
-  province('shanxi-economy-tech', '山西经济与科技', '4j01KWX', 'SXTV3'),
-  province('shanxi-film', '山西影视', 'Md571Kv', 'SXTV4'),
-  province('shanxi-society-law', '山西社会与法治', 'p4y5do9', 'SXTV5'),
-  province('shanxi-culture-sports-life', '山西文体生活', 'agmpyEk', 'SXTV6'),
+  province('shanxi-economy-tech', '山西经济与科技', '4j01KWX', 'SXTV3', `${LOGO_BASE}2023/4/27/20234271682584103769_33_s.png`),
+  province('shanxi-film', '山西影视', 'Md571Kv', 'SXTV4', `${LOGO_BASE}2023/4/27/20234271682583954980_33_s.png`),
+  province('shanxi-society-law', '山西社会与法治', 'p4y5do9', 'SXTV5', `${LOGO_BASE}2023/4/27/20234271682584068915_33_s.png`),
+  province('shanxi-culture-sports-life', '山西文体生活', 'agmpyEk', 'SXTV6', `${LOGO_BASE}2023/4/27/20234271682585551524_33_s.png`),
   city('shanxi-taiyuan-1', '太原-1', 11, 'taiyuan', `${LOGO_BASE}2024/12/31/202412311735638644669_600.jpg`),
   city('shanxi-shuozhou-1', '朔州-1', 6, 'shuozhou', `${LOGO_BASE}2024/12/31/202412311735638665329_600.jpg`),
   city('shanxi-xinzhou-general', '忻州综合', 3, 'xinzhou', `${LOGO_BASE}2024/12/31/202412311735638682362_600.jpg`),
   city('shanxi-yangquan-news', '阳泉新闻综合', 9, 'yangquan', `${LOGO_BASE}2024/12/31/202412311735638693017_600.jpg`),
   city('shanxi-lvliang-1', '吕梁-1', 1, 'lvliang', `${LOGO_BASE}2024/12/31/202412311735638703220_600.jpg`),
-  city('shanxi-jinzhong-general', '晋中综合', 5, 'jinzhong'),
+  city('shanxi-jinzhong-general', '晋中综合', 5, 'jinzhong', `${LOGO_BASE}2024/12/31/202412311735637532806_601.jpg`),
   city('shanxi-changzhi-1', '长治-1', 8, 'changzhi', `${LOGO_BASE}2024/12/31/202412311735638720104_600.jpg`),
   city('shanxi-jincheng-news', '晋城新闻综合', 7, 'jincheng', `${LOGO_BASE}2024/12/31/202412311735637570027_601.jpg`),
   city('shanxi-linfen-1', '临汾-1', 2, 'linfen', `${LOGO_BASE}2024/12/31/202412311735638731479_600.jpg`),

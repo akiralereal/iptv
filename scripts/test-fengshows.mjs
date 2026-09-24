@@ -40,7 +40,8 @@ test('注册名、香港分组和频道范围固定，未引入回看或点播',
   assert.equal(getModule('fengshows'), module)
   assert.equal(module.name, '凤凰卫视')
   assert.equal(module.streamType, 'flv')
-  assert.equal(module.capabilities.epg, false)
+  // 官网节目表走独立的 epg.js（见 test-fengshows-epg.mjs）；回看仍未引入
+  assert.equal(module.capabilities.epg, true)
   assert.equal(module.capabilities.catchup, false)
   assert.match(module.description, /无需付费会员/)
   const {groups} = await module.fetch({})

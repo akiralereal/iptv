@@ -40,7 +40,7 @@ check('模块注册为免账号的内蒙古全代理模块', () => {
   assert.equal(nmtv.outputGroupName, '内蒙古')
   assert.equal(nmtv.channelHlsMode, 'proxy')
   assert.equal(nmtv.capabilities.catchup, false)
-  assert.equal(nmtv.catalogVersion, 1)
+  assert.equal(nmtv.catalogVersion, 2)
   assert.deepEqual(nmtv.configSchema, [])
   assert.equal(resolverFor('nmtv-satellite'), nmtv)
   assert.equal(resolverFor('nmtv-satellite/extra'), null)
@@ -59,10 +59,47 @@ await checkAsync('官网当前 20 路频道全部归入唯一的内蒙古分组'
   const channels = buildChannels()
   assert.deepEqual(channels.map(channel => channel.deferredRef), CHANNELS.map(channel => channel.ref))
   assert.ok(channels.every(channel => channel.catchup === 'none'))
-  const result = await nmtv.fetch()
+  clearCache()
+  const result = await nmtv.fetch({}, { fetchImpl: async () => response({ code: 0, data: [] }) })
   assert.deepEqual(result.groups, [{ name: '内蒙古', dataList: channels }])
   assert.equal(claimsRef('nmtv-alxa'), true)
   assert.equal(claimsRef('nmtv-unknown'), false)
+})
+
+await checkAsync('台标取官网频道列表里的频道图标，带签名原样透传；列表取不到这一轮算失败、沿用上一轮', async () => {
+  const icon = id => `https://cdn-bt.nmtv.cn/saas/image/2025-05/${id}.png?sign=1790278209-zn8vivtg-0-6cdae3a53fa9fb727012761ff0376bc9`
+  const entries = CHANNELS.map(channel => ({ id: channel.upstreamId, title: channel.name, image: icon(channel.upstreamId) }))
+  const channels = buildChannels(entries)
+  assert.deepEqual(channels.map(channel => channel.logo), CHANNELS.map(channel => icon(channel.upstreamId)))
+
+  // 按频道 ID 与台名同时认；图床以外、非 https、非图片路径的一律不收
+  const picked = buildChannels([
+    { id: 2316, title: '新闻综合', image: icon('news') },
+    { id: 2317, title: '改了名的频道', image: icon('economy') },
+    { id: 2318, title: '少儿频道', image: 'https://evil.test/saas/image/2025-05/kids.png' },
+    { id: 2319, title: '文体娱乐', image: 'http://cdn-bt.nmtv.cn/saas/image/2025-05/sport.png' },
+    { id: 2320, title: '农牧频道', image: 'https://cdn-bt.nmtv.cn/saas/video/2025-05/farm.mp4' },
+  ])
+  const logoOf = name => picked.find(channel => channel.name === name).logo
+  assert.equal(logoOf('新闻综合'), icon('news'))
+  for (const name of ['经济生活', '少儿频道', '文体娱乐', '农牧频道', '内蒙古卫视']) assert.equal(logoOf(name), '', name)
+
+  clearCache()
+  const fetched = await nmtv.fetch({}, {
+    fetchImpl: async () => response(JSON.stringify(encryptBase64(JSON.stringify({ code: 0, data: entries }), NMTV_API_KEY))),
+  })
+  assert.deepEqual(fetched.groups, [{ name: '内蒙古', dataList: channels }])
+  assert.deepEqual(fetched.meta.warnings, [])
+
+  // 官网改版认不到的照常出频道，但留一条提示
+  clearCache()
+  const partial = await nmtv.fetch({}, { fetchImpl: async () => response({ code: 0, data: entries.slice(2) }) })
+  assert.equal(partial.groups[0].dataList.filter(channel => channel.logo).length, 18)
+  assert.match(partial.meta.warnings[0], /有 2 路没认到台标/)
+
+  // 取不到就抛给抓取框架：它会沿用上一轮的频道和台标并很快重试，而不是清空台标一整天
+  clearCache()
+  await assert.rejects(() => nmtv.fetch({}, { fetchImpl: async () => response('busy', 503) }), /HTTP 503/)
 })
 
 check('XXTEA 与官网加密响应格式兼容', () => {

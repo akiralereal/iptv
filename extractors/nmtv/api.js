@@ -9,6 +9,7 @@ export const NMTV_API_KEY = '5b28bae827e651b3'
 const MAX_API_BYTES = 2 * 1024 * 1024
 const CHANNEL_LIST_TTL_MS = 30 * 1000
 const MEDIA_HOSTS = new Set(['play1-qk.nmtv.cn', 'livestream-bt.nmtv.cn'])
+const IMAGE_HOST = 'cdn-bt.nmtv.cn'
 
 function channel(ref, upstreamId, name, fallbackUrl = '') {
   return Object.freeze({ ref, upstreamId, name, fallbackUrl })
@@ -63,6 +64,23 @@ export function officialHlsUrl(raw) {
 export function upstreamHeadersFor(raw) {
   officialAssetUrl(raw)
   return { Referer: 'https://www.nmtv.cn/' }
+}
+
+/**
+ * 频道图标：频道接口每项的 image 就是官网直播页的频道图标（方图，盟市台是各台台标）。
+ * 图床带 CDN 鉴权，sign 每次请求都重签、去掉就 403，所以只能原样用接口当下给的地址，不能写死。
+ */
+export function officialLogoUrl(raw) {
+  try {
+    const url = new URL(String(raw || '').trim())
+    return url.protocol === 'https:' && url.hostname === IMAGE_HOST
+      && !url.username && !url.password && !url.port
+      && /^\/saas\/image\/[\w./-]+\.(?:png|jpe?g|webp)$/i.test(url.pathname)
+      ? url.href
+      : ''
+  } catch {
+    return ''
+  }
 }
 
 export function parsePortalResponse(text) {
@@ -145,9 +163,13 @@ async function cachedPortalChannels(options = {}) {
   return pending
 }
 
-function streamFor(channel, entries) {
-  const entry = entries.find(item => Number(item?.id) === channel.upstreamId
+function entryFor(channel, entries) {
+  return entries.find(item => Number(item?.id) === channel.upstreamId
     && String(item?.title || '').trim() === channel.name)
+}
+
+function streamFor(channel, entries) {
+  const entry = entryFor(channel, entries)
   const stream = entry && portalStream(entry)
   if (!stream) throw new Error(`官网当前没有返回${channel.name}直播地址`)
   const url = new URL(officialHlsUrl(stream))
@@ -158,14 +180,41 @@ function streamFor(channel, entries) {
   return url.href
 }
 
-export function buildChannels() {
+/** 频道表固定；台标按频道 ID 与台名从官网频道列表里认，没认到的留空。 */
+export function buildChannels(entries = []) {
   return CHANNELS.map(channel => ({
     name: channel.name,
     deferredRef: channel.ref,
-    logo: '',
+    logo: officialLogoUrl(entryFor(channel, entries)?.image),
     opts: ['network-caching=3000'],
     catchup: 'none',
   }))
+}
+
+/**
+ * 更新时取一次官网频道列表只为拿台标（签名地址见 officialLogoUrl）；取流仍在播放时做。
+ * 列表取不到就让这一轮失败：上一轮的频道和台标原样沿用、几分钟后重试。照常出频道反而会把
+ * 已有台标清空一整天——开机时网络还没通就是这样。
+ */
+export async function fetchChannels(ctx = {}) {
+  const timeoutMs = ctx.timeoutMs || 15000
+  let entries
+  try {
+    entries = await cachedPortalChannels({
+      fetchImpl: ctx.fetchImpl || proxyAwareFetch,
+      timeoutMs,
+      now: ctx.now,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error(`内蒙古广电频道接口超时 ${timeoutMs}ms`)
+    throw error
+  }
+  const channels = buildChannels(entries)
+  const missing = channels.filter(item => !item.logo).length
+  const warnings = missing
+    ? [`官网频道列表里有 ${missing} 路没认到台标（官网可能改了频道 ID、台名或图床）`]
+    : []
+  return { channels, warnings }
 }
 
 export function claimsRef(ref) {

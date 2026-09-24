@@ -167,14 +167,18 @@ await checkAsync('同名频道来自不同模块时，前一个官方没发或�
       { ref: 'a-gx', name: '国学频道' },
       { ref: 'b-gx', name: '国学频道' },
       { ref: 'a-news', name: '新闻' },
-      { ref: 'b-news', name: '新闻' },
+      { ref: 'b-news', name: '新闻HD' },
     ], covered, { resolveModule: ref => modules[ref.split('-')[0]] })
     assert.deepEqual(result, { appended: 2, failed: 0 })
     const xml = readFileSync(bak, 'utf8')
     assert.match(xml, /b 的节目/)
     assert.match(xml, /b-news 的节目/)
     assert.doesNotMatch(xml, /a 的节目|a-news 的节目/)
-    assert.equal((xml.match(/<channel id=/g) || []).length, 2, '同名只写一份')
+    // 同组名字的输出 id 各写一份（开着归一时收敛成一个），播放列表里哪个 tvg-id 都对得上
+    const ids = [...xml.matchAll(/<channel id="([^"]+)">/g)].map(m => m[1])
+    const expected = new Set(['国学频道', ...new Set(['新闻', '新闻HD'].map(epgChannelId))].map(epgChannelId))
+    assert.deepEqual(new Set(ids), expected)
+    assert.equal(ids.length, expected.size, '同一个 id 只写一份')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

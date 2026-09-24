@@ -51,9 +51,10 @@ export async function appendModuleEpg(playbackBakPath, channels, coveredKeys, {
     if (key == null || !normKey || coveredKeys.has(normKey)) continue
     let group = groups.get(normKey)
     if (!group) {
-      group = { name, normKey, candidates: [] }
+      group = { normKey, names: new Set(), candidates: [] }
       groups.set(normKey, group)
     }
+    group.names.add(name)
     // 换过分组、多个档共用的同一频道只取一次
     if (!group.candidates.some(c => c.provider === provider && c.key === key)) {
       group.candidates.push({ module, provider, key })
@@ -91,7 +92,10 @@ export async function appendModuleEpg(playbackBakPath, channels, coveredKeys, {
     }
     // 官方当天都没发节目单的留给外部源
     if (!result.value) return
-    appendFileSync(playbackBakPath, channelXml(epgChannelId(job.name), result.value.programmes))
+    // 同组各名字的 tvg-id 一般归一成同一个；关了归一时（江苏卫视 / 江苏卫视4K）各写一份，都对得上
+    for (const id of new Set([...job.names].map(epgChannelId))) {
+      appendFileSync(playbackBakPath, channelXml(id, result.value.programmes))
+    }
     coveredKeys.add(job.normKey)
     appended++
     perModule.set(result.value.module, (perModule.get(result.value.module) || 0) + 1)

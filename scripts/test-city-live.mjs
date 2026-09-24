@@ -128,6 +128,10 @@ check('南京：电视脚本去掉首路重复项后按固定顺序生成四套�
   assert.deepEqual(rows.map(row => row.name), TV_CHANNELS.map(channel => channel.name))
   assert.equal(new Set(rows.map(row => row.url)).size, 4)
   assert.ok(rows.every(row => row.url.startsWith('https://nklive.nbs.cn/')))
+  // 台标是牛咔内容详情的 thumb 频道卡，四套各不相同
+  assert.deepEqual(rows.map(row => row.logo), TV_CHANNELS.map(channel => channel.logo))
+  assert.ok(rows.every(row => /^https:\/\/oss\.nbs\.cn\/M00\/[0-9A-F]{2}\/[0-9A-F]{2}\/[\w-]+\.jpg$/.test(row.logo)))
+  assert.equal(new Set(rows.map(row => row.logo)).size, 4)
 })
 
 check('南京：景观页面收齐 13 路，排除 5G Live 电视重复流与非官方主机', () => {
@@ -156,6 +160,9 @@ await checkAsync('南京：页面失败时两组各自回退已核验地址，�
   assert.deepEqual(result.groups.map(group => group.dataList.length), [4, 13])
   assert.equal(result.warnings.length, 2)
   assert.ok(result.groups.flatMap(group => group.dataList).every(channel => channel.url.startsWith('https://')))
+  // 回退时电视频道仍带台标，景观机位照旧留空
+  assert.deepEqual(result.groups[0].dataList.map(channel => channel.logo), TV_CHANNELS.map(channel => channel.logo))
+  assert.ok(result.groups[1].dataList.every(channel => channel.logo === ''))
 })
 
 check('青岛：页面解析只接受 video10.qtv.com.cn 的 manifest.m3u8', () => {

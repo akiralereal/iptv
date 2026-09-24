@@ -63,7 +63,7 @@ export function parseTvScript(script) {
   if (urls.length !== TV_CHANNELS.length) {
     throw new Error(`电视脚本只找到 ${urls.length}/${TV_CHANNELS.length} 个唯一直播地址`)
   }
-  return TV_CHANNELS.map((channel, index) => ({ name: channel.name, url: urls[index], logo: '' }))
+  return TV_CHANNELS.map((channel, index) => ({ name: channel.name, url: urls[index], logo: channel.logo }))
 }
 
 export function parseScenicPage(html) {
@@ -98,10 +98,11 @@ async function requestText(url, { timeoutMs = 10000, fetchImpl = fetch } = {}) {
   }
 }
 
+// 景观机位不是电视台，没有台标
 const fallbackRows = definitions => definitions.map(channel => ({
   name: channel.name,
   url: normalizeStreamUrl(channel.fallbackUrl),
-  logo: '',
+  logo: channel.logo || '',
 }))
 
 export function buildChannels(rows) {

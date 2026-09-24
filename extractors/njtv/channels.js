@@ -4,10 +4,19 @@
  * 顺序与官网电视脚本里四个直播地址的顺序一致，取流按下标对应。contentId 是牛咔内容号
  * （官网 live/?id= 与 m2.nbs.cn/tv/<id>.html），epgTaskId 是该内容详情 stream_api 里的
  * 节目单任务号，2026-09-25 对照 apigateway.nbs.cn/content/detail 核实。
+ *
+ * logo 是同一份内容详情的 thumb（也是牛咔频道页的分享图）：各台带 NBS 标的 1920×1080 频道卡。
+ * 取流只读官网电视脚本、不问这个接口，所以写死在这里。
  */
+const LOGO_BASE = 'https://oss.nbs.cn/M00/4D/8B/'
+
 export const TV_CHANNELS = [
-  { name: '南京新闻综合', contentId: '109152', epgTaskId: '39', fallbackUrl: 'https://nklive.nbs.cn/hls/d511bc9d-a694-4453-b3a2-4fc842cc97a1/index.m3u8' },
-  { name: '南京教育科技', contentId: '109153', epgTaskId: '40', fallbackUrl: 'https://nklive.nbs.cn/hls/75b3c462-b831-4de7-a34b-5d3221db2069/index.m3u8' },
-  { name: '南京十八·生活', contentId: '110094', epgTaskId: '42', fallbackUrl: 'https://nklive.nbs.cn/hls/1173a815-bfdb-4c3c-9f73-89ec37ae7716/index.m3u8' },
-  { name: '南京文旅纪录', contentId: '110093', epgTaskId: '43', fallbackUrl: 'https://nklive.nbs.cn/hls/9b2005c4-046c-422f-ba45-e6adc4f4de07/index.m3u8' },
+  { name: '南京新闻综合', contentId: '109152', epgTaskId: '39', fallbackUrl: 'https://nklive.nbs.cn/hls/d511bc9d-a694-4453-b3a2-4fc842cc97a1/index.m3u8',
+    logo: `${LOGO_BASE}wKhkDmadNJyAfCZPAAIDlrOrmFo525.jpg` },
+  { name: '南京教育科技', contentId: '109153', epgTaskId: '40', fallbackUrl: 'https://nklive.nbs.cn/hls/75b3c462-b831-4de7-a34b-5d3221db2069/index.m3u8',
+    logo: `${LOGO_BASE}wKhkDmadNRCABOelAAOLTMxA1uo653.jpg` },
+  { name: '南京十八·生活', contentId: '110094', epgTaskId: '42', fallbackUrl: 'https://nklive.nbs.cn/hls/1173a815-bfdb-4c3c-9f73-89ec37ae7716/index.m3u8',
+    logo: `${LOGO_BASE}wKhkDmadNeCALu0dAAULRgje_Kk925.jpg` },
+  { name: '南京文旅纪录', contentId: '110093', epgTaskId: '43', fallbackUrl: 'https://nklive.nbs.cn/hls/9b2005c4-046c-422f-ba45-e6adc4f4de07/index.m3u8',
+    logo: `${LOGO_BASE}wKhkDmadODyAVhHlAAJEmdOGzv4556.jpg` },
 ]

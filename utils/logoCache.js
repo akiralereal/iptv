@@ -91,7 +91,26 @@ export function hostableUrl(raw) {
   return true
 }
 
-const fileNameFor = (url, ext) => `${createHash('sha1').update(url).digest('hex').slice(0, 20)}.${ext}`
+// 有的官方图床（腾讯云 CDN 的 TypeA 鉴权，内蒙古、吉林就是）每次下发的地址都带新签的
+// sign=<10 位时间戳>-<随机串>-<uid>-<32 位 md5>，图还是那张。按去掉签名的地址记账：不然模块每刷新
+// 一次就当新图重下一遍、旧图要堆一个月才清；重取时用这一轮拿到的新签名地址去取。
+const TYPE_A_SIGN = /^\d{10}-[0-9a-z]+-\d+-[0-9a-f]{32}$/i
+
+/** 索引里记账用的地址：去掉 CDN 每次重签的鉴权参数，其它原样。 */
+export function logoCacheKey(raw) {
+  const value = String(raw || '')
+  if (!value.includes('sign=')) return value
+  try {
+    const url = new URL(value)
+    if (!TYPE_A_SIGN.test(url.searchParams.get('sign') || '')) return value
+    url.searchParams.delete('sign')
+    return url.href
+  } catch {
+    return value
+  }
+}
+
+const fileNameFor = (key, ext) => `${createHash('sha1').update(key).digest('hex').slice(0, 20)}.${ext}`
 
 /** 这一轮需要下载的：没下过、已托管但该重取了、坏掉的到了重试时间、上次网络出错。 */
 function needsFetch(entry, now) {
@@ -145,7 +164,14 @@ export async function prefetchLogos(urls, {
   budgetMs = BUDGET_MS,
 } = {}) {
   const entries = loadIndex().entries
-  const queue = [...new Set(urls)].filter(url => hostableUrl(url) && needsFetch(entries[url], now))
+  // 记账地址相同的（同一张图、签名不同）一轮只取一次，用先出现的地址
+  const byKey = new Map()
+  for (const url of urls) {
+    if (!hostableUrl(url)) continue
+    const key = logoCacheKey(url)
+    if (!byKey.has(key) && needsFetch(entries[key], now)) byKey.set(key, url)
+  }
+  const queue = [...byKey]
   if (!queue.length) return { fetched: 0, dead: 0, errors: 0, pending: 0 }
   mkdirSync(CACHE_DIR, { recursive: true })
 
@@ -154,23 +180,23 @@ export async function prefetchLogos(urls, {
   const stats = { fetched: 0, dead: 0, errors: 0 }
   async function worker() {
     while (next < queue.length && Date.now() < deadline) {
-      const url = queue[next++]
-      const previous = entries[url]
+      const [key, url] = queue[next++]
+      const previous = entries[key]
       const result = await download(url, { fetchImpl, timeoutMs })
       if (result.status === 'ok') {
-        const file = fileNameFor(url, result.ext)
+        const file = fileNameFor(key, result.ext)
         writeFileSync(dataPath(`logo-cache/${file}`), result.buf)
         if (previous?.file && previous.file !== file) {
           try { unlinkSync(dataPath(`logo-cache/${previous.file}`)) } catch { /* 已不在 */ }
         }
-        entries[url] = { ...previous, status: 'ok', file, fetchedAt: now, checkedAt: now, reason: undefined }
+        entries[key] = { ...previous, status: 'ok', file, fetchedAt: now, checkedAt: now, reason: undefined }
         stats.fetched++
       } else if (previous?.status === 'ok' && existsSync(dataPath(`logo-cache/${previous.file}`))) {
         // 重取失败：旧图还能用，先不动，下一轮再试
-        entries[url] = { ...previous, checkedAt: now, lastError: result.reason }
+        entries[key] = { ...previous, checkedAt: now, lastError: result.reason }
         stats.errors++
       } else {
-        entries[url] = { ...previous, status: result.status, checkedAt: now, reason: result.reason }
+        entries[key] = { ...previous, status: result.status, checkedAt: now, reason: result.reason }
         if (result.status === 'dead') stats.dead++
         else stats.errors++
       }
@@ -200,7 +226,7 @@ export function hostedLogoUrl(candidates, { now = Date.now() } = {}) {
     if (!url) continue
     // 不归托管管的地址（相对地址、局域网地址）照原样用
     if (!hostableUrl(url)) return url
-    const entry = entries[url]
+    const entry = entries[logoCacheKey(url)]
     if (entry?.status === 'ok' && existsSync(dataPath(`logo-cache/${entry.file}`))) {
       entry.usedAt = now
       return `\${replace}/logo-cache/${entry.file}?v=${Math.floor(entry.fetchedAt || 0)}&from=${from}`

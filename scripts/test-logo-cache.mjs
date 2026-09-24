@@ -8,7 +8,8 @@
  * 3. 没托管上但不确定坏掉的（网络出错、还没下过）沿用原地址——与托管前一样，不会凭空变空；
  * 4. 全部确认坏掉才留空；
  * 5. 已托管的到期重取，失败保留旧图；坏掉的隔一天再试；一轮下载有时长上限；
- * 6. 一个月没用到的清掉；后台按地址里的 from 区分「源自带 / 库兜底」。
+ * 6. 一个月没用到的清掉；后台按地址里的 from 区分「源自带 / 库兜底」；
+ * 7. 图床每次重签的 CDN 鉴权参数（sign=时间戳-随机串-uid-md5）不算新图，一张图只托管一份。
  *
  * 全程离线：注入假 fetch。
  *
@@ -24,7 +25,7 @@ process.env.mdataDir = DATA_DIR
 process.env.mblank = 'true'
 
 const {
-  cachedLogoFile, detectImage, finishLogoCache, hostableUrl, hostedLogoUrl, prefetchLogos, resetLogoCacheForTest,
+  cachedLogoFile, detectImage, finishLogoCache, hostableUrl, hostedLogoUrl, logoCacheKey, prefetchLogos, resetLogoCacheForTest,
 } = await import('../utils/logoCache.js')
 const { classifyLogo } = await import('../utils/playlistConfig.js')
 
@@ -146,6 +147,36 @@ await checkAsync('已托管的一周后重取，失败保留旧图；坏掉的�
   reset()
   const big = fakeFetch({ [OWN]: { body: png(), headers: { 'content-length': String(3 * 1024 * 1024) } } })
   assert.equal((await prefetchLogos([OWN], { now: T0, fetchImpl: big })).dead, 1)
+})
+
+await checkAsync('图床每次重签的 CDN 鉴权不算新图：一张图只托管一份，重取用当轮的新签名地址', async () => {
+  reset()
+  const base = 'https://cdn-bt.example.cn/saas/image/2025-05/a.png'
+  const signed = ts => `${base}?sign=${ts}-abc123-0-0123456789abcdef0123456789abcdef`
+  const [day1, day2, day9] = [signed(1790278209), signed(1790364609), signed(1790969409)]
+  const fetchImpl = fakeFetch({ [day1]: { body: png('a') }, [day9]: { body: png('b') } })
+  await prefetchLogos([day1, day2], { now: T0, fetchImpl })
+  assert.deepEqual(fetchImpl.calls, [day1], '同一张图一轮只取一次')
+  const first = hostedLogoUrl([{ url: day1, from: 'source' }], { now: T0 })
+
+  // 第二天模块给了新签名：不重下，还是同一个托管文件
+  fetchImpl.calls.length = 0
+  await prefetchLogos([day2], { now: T0 + DAY, fetchImpl })
+  assert.deepEqual(fetchImpl.calls, [])
+  assert.equal(hostedLogoUrl([{ url: day2, from: 'source' }], { now: T0 + DAY }), first)
+
+  // 一周后重取，用的是当轮拿到的地址；文件名不变，版本号跟着重取时间走
+  await prefetchLogos([day9], { now: T0 + 8 * DAY, fetchImpl })
+  assert.deepEqual(fetchImpl.calls, [day9])
+  const refreshed = hostedLogoUrl([{ url: day9, from: 'source' }], { now: T0 + 8 * DAY })
+  assert.equal(refreshed.split('?')[0], first.split('?')[0])
+  assert.notEqual(refreshed, first)
+  assert.equal(readdirSync(join(DATA_DIR, 'logo-cache')).filter(name => name.endsWith('.png')).length, 1)
+
+  // 只认这种签名格式，别的查询参数照常区分
+  assert.equal(logoCacheKey(day1), base)
+  assert.equal(logoCacheKey(`${base}?w=100&sign=1790278209-abc123-0-0123456789abcdef0123456789abcdef`), `${base}?w=100`)
+  for (const other of [`${base}?sign=abc`, `${base}?v=2`, OWN, '${replace}/logos/a.png']) assert.equal(logoCacheKey(other), other)
 })
 
 await checkAsync('一轮下载有时长上限，没轮到的下一轮接着下；局域网地址不下', async () => {

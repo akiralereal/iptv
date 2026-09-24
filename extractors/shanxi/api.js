@@ -18,6 +18,7 @@
  */
 import { createHash } from 'node:crypto'
 import { proxyAwareFetch } from '../../utils/systemProxy.js'
+import { CHANNELS } from './channels.js'
 
 export const SXRTV_PAGE = 'https://www.sxrtv.com/tv/index.shtml'
 export const SXRTV_ORIGIN = 'https://www.sxrtv.com'
@@ -38,31 +39,8 @@ const MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 const CHANNEL_CODE_RE = /^[A-Za-z0-9]{7}$/
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
-const LOGO_BASE = 'https://imagehhsitehttps.sxrtv.com/images/'
 
-const province = (ref, name, channelCode, logo = '') => Object.freeze({ ref, name, kind: 'province', channelCode, logo })
-const city = (ref, name, itemId, logo = '') => Object.freeze({ ref, name, kind: 'city', itemId, logo })
-
-// 台名照官网直播页原样收：地市几路台标上打的就是「太原1」「吕梁-1」这种编号，不另起名。
-// 公共台标库收了的留空按台名匹配（省级五套与晋中综合），其余用官网直播页下发的台标。
-export const CHANNELS = Object.freeze([
-  province('shanxi-satellite', '山西卫视', 'q8RVWgs'),
-  province('shanxi-huanghe', '黄河电视台', 'lce1mC4', `${LOGO_BASE}2023/4/27/20234271682583913963_33_s.png`),
-  province('shanxi-economy-tech', '山西经济与科技', '4j01KWX'),
-  province('shanxi-film', '山西影视', 'Md571Kv'),
-  province('shanxi-society-law', '山西社会与法治', 'p4y5do9'),
-  province('shanxi-culture-sports-life', '山西文体生活', 'agmpyEk'),
-  city('shanxi-taiyuan-1', '太原-1', 11, `${LOGO_BASE}2024/12/31/202412311735638644669_600.jpg`),
-  city('shanxi-shuozhou-1', '朔州-1', 6, `${LOGO_BASE}2024/12/31/202412311735638665329_600.jpg`),
-  city('shanxi-xinzhou-general', '忻州综合', 3, `${LOGO_BASE}2024/12/31/202412311735638682362_600.jpg`),
-  city('shanxi-yangquan-news', '阳泉新闻综合', 9, `${LOGO_BASE}2024/12/31/202412311735638693017_600.jpg`),
-  city('shanxi-lvliang-1', '吕梁-1', 1, `${LOGO_BASE}2024/12/31/202412311735638703220_600.jpg`),
-  city('shanxi-jinzhong-general', '晋中综合', 5),
-  city('shanxi-changzhi-1', '长治-1', 8, `${LOGO_BASE}2024/12/31/202412311735638720104_600.jpg`),
-  city('shanxi-jincheng-news', '晋城新闻综合', 7, `${LOGO_BASE}2024/12/31/202412311735637570027_601.jpg`),
-  city('shanxi-linfen-1', '临汾-1', 2, `${LOGO_BASE}2024/12/31/202412311735638731479_600.jpg`),
-  city('shanxi-yuncheng-1', '运城-1', 4, `${LOGO_BASE}2024/12/31/202412311735638742704_600.jpg`),
-])
+export { CHANNELS }
 
 const CHANNEL_BY_REF = new Map(CHANNELS.map(channel => [channel.ref, channel]))
 

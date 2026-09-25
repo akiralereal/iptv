@@ -1,11 +1,12 @@
 /** 吉林广电：15 路电视与 13 路慢直播，动态签名在播放时自动刷新。 */
 import { claimsRef, clearCache, fetchGroups, resolveChannel } from './api.js'
+import epg from './epg.js'
 
 export default {
   id: 'jlntv',
   name: '吉林',
   description: '吉林广电官网 15 路电视和 13 路慢直播；无需登录，动态签名自动刷新，清单和媒体全代理。',
-  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   catalogVersion: 2,
   outputGroupName: '吉林',
   preserveGroupSuffixes: ['风景'],
@@ -21,6 +22,8 @@ export default {
     return { groups, meta: { skipped: [], warnings } }
   },
 
+  // 延边卫视的节目单取自央视网（见 epg.js）；其余电视频道官方没有
+  epg,
   claimsRef,
   resolve: resolveChannel,
   clearResolveCache: clearCache,

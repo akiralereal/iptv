@@ -125,7 +125,7 @@ await checkAsync('咪咕已覆盖的跳过，同名只取一次，写成的记�
       { ref: 'ysp-shanxiws2', name: '山西卫视' },
       { ref: 'ysp-shanxiws2', name: '山西卫视' },         // 同名第二次出现
       { ref: 'ysp-hnws', name: '湖南卫视' },              // 取失败
-      { ref: 'gansu-1', name: '甘肃卫视' },               // 模块没有节目单
+      { ref: 'nmtv-satellite', name: '内蒙古卫视' },      // 模块没有节目单
       { ref: 'nobody', name: '无主频道' },
     ], covered, { now: Date.parse('2026-09-25T02:00:00Z'), fetchImpl })
     assert.deepEqual(result, { appended: 1, failed: 1 })

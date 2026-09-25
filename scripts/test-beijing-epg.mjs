@@ -70,7 +70,7 @@ await checkAsync('按代号与日期请求一次，时间戳换毫秒、停播�
 await checkAsync('当天列表为空、没有这个代号的数据得空数组；不认识的代号照实报错', async () => {
   assert.deepEqual(await beijingEpg.programmes('btv6', '20260925', { fetchImpl: serve(EMPTY) }), [])
   assert.deepEqual(await beijingEpg.programmes('btv2', '20260925', { fetchImpl: serve({ data: {} }) }), [])
-  await assert.rejects(beijingEpg.programmes('btv10', '20260925', { fetchImpl: serve(UNKNOWN) }), /params error/)
+  await assert.rejects(beijingEpg.programmes('btv6', '20260925', { fetchImpl: serve(UNKNOWN) }), /params error/)
 })
 
 check('跨零点的只留当天那段；结束盖住下一条的截到下一条开始；同一时刻开始的只留第一条', () => {
@@ -104,7 +104,8 @@ await checkAsync('超时中止请求，参数非法时不发请求', async () =>
   })
   await assert.rejects(beijingEpg.programmes('btv9', '20260925', { fetchImpl: hang, timeoutMs: 20 }), { name: 'AbortError' })
   const never = async () => { throw new Error('不应请求') }
-  for (const [key, date] of [['btv9&c=x', '20260925'], ['', '20260925'], ['cctv1', '20260925'], ['btv123', '20260925'],
+  // 没声明过的代号（cctv1、btv10）也不发请求
+  for (const [key, date] of [['btv9&c=x', '20260925'], ['', '20260925'], ['cctv1', '20260925'], ['btv10', '20260925'],
     ['btv9', '2026-09-25'], ['btv9', '20260931']]) {
     await assert.rejects(beijingEpg.programmes(key, date, { fetchImpl: never }), /参数非法/)
   }

@@ -7,7 +7,7 @@
 1. **只用各台官方来源**：官网、官方 App、官方 CDN 上的节目单。不用 tvmao、epg.pw、51zmt、erw 这类聚合站，也不内置任何第三方 XMLTV 源——先后内置过的 51zmt 退化到只剩央视卫视、erw 于 2026-10-01 起停止免费下载，默认源的可用性不该系在个人站点上。找不到官方来源，就在状态表标「无官方节目单」，写明查过哪些地方。
 2. **来源顺序**：咪咕自带 → 模块官方节目单 → 用户在后台「设置 → EPG 聚合」自己加的外部源。每个频道只取一家，前面给了的后面不再覆盖。
 3. **用户可以让外部源优先**：外部源勾了「优先于官方节目单」（`epg-sources.json` 里的 `overrideOfficial: true`），它**当前还有没播完节目**的频道就改用它，咪咕与模块官方节目单让出来；源停更只剩过期数据时，自动让回官方。外部源之间，勾了的排在最前，其余按优先级数字从小到大。模块节目单不需要为此做任何事，流水线统一处理。
-4. **节目单代码与取流代码分开**：每个模块的节目单放在 `extractors/<id>/epg.js`，契约见 `extractors/registry.js` 里的 `epg` 一节。`epg.js` 只 import 模块目录内的纯文件（签名、频道表这类共用逻辑拆成模块内的 `sign.js` / `auth.js` / `channels.js`，取流那边也改用它，行为不变），只用注入的 `fetchImpl`。连同零依赖的 `utils/epgXmltv.js` 与 `scripts/build-epg.mjs`，整套能拆出去独立维护。
+4. **节目单代码与取流代码分开**：每个模块的节目单放在 `extractors/<id>/epg.js`，契约见 `extractors/registry.js` 里的 `epg` 一节。`epg.js` 只 import 模块目录内的纯文件（签名、频道表这类共用逻辑拆成模块内的 `sign.js` / `auth.js` / `channels.js`，取流那边也改用它，行为不变）和下面这几个零依赖工具，只用注入的 `fetchImpl`。连同零依赖的 `utils/epgXmltv.js`、`utils/cntvEpg.js`（央视网通用提供者：北京、甘肃卫视、延边卫视共用，只需给「ref → 代号」表）与 `scripts/build-epg.mjs`，整套能拆出去独立维护。
 5. **频道配对**：有 `deferredRef` 的按 ref 对；直链频道（没有 ref，如南京、福州）按「所属模块 + 频道名精确一致」对；同名频道来自不同模块时按播放列表顺序逐个试，前一个官方没发才轮到下一个。不按名字模糊猜。
 6. **数据清理约定**：占位（「精彩节目」之类）、冻结模板、只有已播出内容的回看列表，都当「官方没发」返回 `[]`；不到一分钟的碎片和宣传片、片头片尾这类串联包装按需剔除，空档保留；同一时刻只留一条，重叠的截到下一条开始；时间一律显式按来源时区换算（大陆 +08:00，日韩 +09:00），不依赖运行机器的时区。
 7. **每个模块都登记在状态表**：接上了、官方没有、不适用、还没查，都要写一行（测试强制）。
@@ -49,13 +49,13 @@
 | `chongqing` | 重庆 | 无官方节目单 | — | — | — | 频道详情的 playbillid / billcontent 为空，其余路径 404 |
 | `sichuan` | 四川 | 无官方节目单 | — | — | — | 官网直播页与四川观察 App（9.11.2 拆包核对）都没有电视节目单；programs/{id}/dates 是栏目往期视频不是节目单；四川卫视由咪咕 / 央视频覆盖，康巴卫视央视网也没收 |
 | `dalian` | 大连 | 已接入 | 3/3 | 2 | wan-dlrm.dlrm.cn/app/tv/programs | 与取流共用匿名 SM2 令牌 |
-| `gansu` | 甘肃 | 无官方节目单 | — | — | — | getTvProgramList 全空，且本身不是带时间的节目表 |
+| `gansu` | 甘肃 | 已接入 | 1/6 | 2 | api.cntv.cn/epg/getEpgInfoByChannelNew?c=gansu | 甘肃台自己的 getTvProgramList 全空、也不是带时间的节目表；甘肃卫视取央视网（央视频也有），五个地面频道央视网、央视频都没收 |
 | `gdtv` | 广东 | 已接入 | 14/17 | 2 | gdtv-api.gdtv.cn/api/tv/v2/tvMenu | HMAC-SHA256 签名，key/secret 取自官网 WASM 签名模块（别直接跑官网签名脚本，里面有反 Node 陷阱）；经典剧、纪录片、健康官方为空 |
 | `gztv` | 广州 | 无官方节目单 | — | — | — | 广视网直播页没有节目单，频道数据里的节目字段为空；旧节目单域名已失效 |
 | `gzstv` | 贵州 | 无官方节目单 | — | — | — | 官网接口只给标题与流地址；动静 App 的签名在 App 内部 |
 | `gxtv` | 广西 | 已接入 | 6/7 | 2 | api2019.gxtv.cn/memberApi/programList/selectListByChannelId | POST，实际按频道名查；只给开始时间与时长；广西移动官方不展示节目单 |
 | `fjtv` | 福建 | 已接入 | 9 路 | 2 | 省级 mapi-plus.fjtv.net 云直播 program/list；厦门 mapi1.kxm.xmtv.cn/api/v1/program.php；福州 app.zohi.tv/video/player/playbill | 东南卫视、厦视三套、海博地市只有占位；福州只列自办栏目、只有今天，少儿不收 |
-| `jlntv` | 吉林 | 无官方节目单 | — | — | — | broadcast/programs 只维护广播，电视频道全空 |
+| `jlntv` | 吉林 | 已接入 | 1/15 | 2 | api.cntv.cn/epg/getEpgInfoByChannelNew?c=yanbian | broadcast/programs 只维护广播，电视频道全空；延边卫视取央视网，节目名是朝鲜语（官方原样）；吉林卫视由咪咕 / 央视频覆盖，其余央视网没收 |
 | `jxntv` | 江西 | 无官方节目单 | — | — | — | 官网与今视频 App 后端都没有；App 接口有阿里云 WAF |
 | `hebtv` | 河北 | 已接入 | 6 路电视 | 2 | api.cmc.hebrts.cn/spidercrms/api/live/liveShowSet/findNoPage | POST，公开 tenantId；频道号与取流无关；美丽河北慢直播不适用 |
 | `hbtv` | 湖北 | 已接入 | 6/6 | 2 | cjy-iptv.hbtv.com.cn/wxcms3/remote-wx/api/cj-cloud/play/{账号}/show | 长江云 TV 遥控页接口，固定公开 Authorization、账号段传 null（2026-09-25 确认保留） |
@@ -67,7 +67,7 @@
 | `iqilu` | 山东 | 已接入 | 9/9 | 2 | sdxw.iqilu.com/v1/app/play/program/qilu | 闪电新闻后端，频道号 24–32（不是 _pdCid） |
 | `sztv` | 深圳 | 已接入 | 6/7 | 1 | hls-api.sztv.com.cn/api/getEpgs | 深圳少儿官方为空 |
 | `njtv` | 南京 | 已接入 | 4 路电视 | 2 | apigateway.nbs.cn/Liveprogram/getEPGByTaskId | 直链频道，按名对上；13 路机位不适用 |
-| `nmtv` | 内蒙古 | 无官方节目单 | — | — | — | broadcast/programs 只维护广播，电视频道停在 2023 年 |
+| `nmtv` | 内蒙古 | 无官方节目单 | — | — | — | broadcast/programs 只维护广播，电视频道停在 2023 年；央视网有蒙语台（代号 neimenggu2）但连日为空，内蒙古卫视由咪咕 / 央视频覆盖 |
 | `shanxi` | 山西 | 已接入 | 9/16 | 2 | apphhplushttps.sxrtv.com/epg/{key}.json | JSONP；7 个地市台官方文件为空；末档拉到次日早上的按下一档截断 |
 | `shaanxi` | 陕西 | 已接入 | 8/8 | 1 | qidian.sxtvs.com/api/v3/program/tv?channel={key} | 只给服务器当天、只有 HH:mm，按响应 Date 头认日期；同一时刻两条留后一条；末档 23:59 接到 24:00 |
 | `tianjin` | 天津 | 已接入 | 7/7 | 2 | jyapi2.wisetv.com.cn:8684/v3/tv/programs/show/{起}/{止}/{频道ID} | 与取流共用津云 App 内置的 ak/sk 头；区间最远到后天；明天上午起是编排计划，三小时切段与零点切段合回一条、去掉「30’」类时长批注 |

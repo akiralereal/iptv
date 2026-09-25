@@ -5,12 +5,13 @@ import {
   clearCache,
   resolveChannel,
 } from './api.js'
+import epg from './epg.js'
 
 export default {
   id: 'gansu',
   name: '甘肃',
   description: '甘肃广电官网 6 路公开频道；无需登录，播放时动态获取当前 HLS，并由本机中继实时清单。',
-  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   catalogVersion: 1,
   outputGroupName: '甘肃',
   channelHlsMode: 'relay',
@@ -28,6 +29,8 @@ export default {
     }
   },
 
+  // 甘肃卫视的节目单取自央视网（见 epg.js）；地面频道官方没有
+  epg,
   claimsRef,
   resolve: resolveChannel,
   clearResolveCache: clearCache,

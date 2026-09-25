@@ -7,7 +7,12 @@
  */
 import assert from 'node:assert/strict'
 
-import { SCAN_GUARD_DEFAULTS, createClientScanGuard } from '../utils/clientScanGuard.js'
+import {
+  SCAN_GUARD_DEFAULTS,
+  checkModuleBurst,
+  createClientScanGuard,
+  resetModuleBurstGuard,
+} from '../utils/clientScanGuard.js'
 
 let passed = 0
 const check = (name, fn) => { fn(); passed++; console.log(`  ✅ ${name}`) }
@@ -167,6 +172,46 @@ check('表有上限、闲置客户端会被忘掉', () => {
   g2.check('old', 'x', 0)
   for (let i = 0; i < 300; i++) g2.check(`fresh${i % 5}`, 'x', 11 * 60 * S)
   assert.equal(g2.size, 5, '10 分钟没请求的客户端在清理时被删掉')
+})
+
+check('exempt：照常记账、扫描期间也放行且不计入拒绝数', () => {
+  const guard = createClientScanGuard()
+  // exempt 的请求同样算碰新台：5 个普通 + 1 个 exempt 就触发判定
+  for (let i = 0; i < 5; i++) guard.check(C, `p${i}`, i * 300)
+  const live = guard.check(C, 'vip-live', 1500, { exempt: true })
+  assert.deepEqual(live, { allowed: true, scanning: true })
+  const next = guard.check(C, 'p9', 1800)
+  assert.equal(next.allowed, false)
+  assert.equal(next.blocked, 1, 'exempt 那次不算拒绝')
+  // 扫描期间 exempt 的台反复请求都放行
+  for (let t = 2000; t < 4000; t += 500) assert.equal(guard.check(C, 'vip-live', t, { exempt: true }).allowed, true)
+  // 同一个台不 exempt 时照样拦（它是扫描开始时才碰的）
+  assert.equal(guard.check(C, 'vip-live', 4100).allowed, false)
+})
+
+check('checkModuleBurst：同模块不同路由共用一本账，模块之间、客户端之间隔离', () => {
+  resetModuleBurstGuard()
+  const client = { key: '9.9.9.9|okhttp', tag: '9.9.9.9 UA:okhttp' }
+  const ask = (moduleId, channelKey, now, extra = {}) => checkModuleBurst({ moduleId, moduleName: '央视频', client, channelKey, now, ...extra })
+  // 5 个公开频道（resolve 路由）+ 1 个会员频道（本地媒体路由），同一个 moduleId → 第 6 个被拒
+  for (let i = 0; i < 5; i++) assert.equal(ask('yangshipin', `ysp-cctv${i + 1}`, i * 300).allowed, true)
+  const refused = ask('yangshipin', 'ysp-vip-cctvfyzq', 1500)
+  assert.equal(refused.allowed, false)
+  assert.match(refused.desc, /^央视频：短时间内连续请求了 6 个不同频道，疑似播放器批量探测/)
+  assert.equal(refused.retryAfterSeconds, 5)
+  assert.equal(refused.logLine, '', '触发那次不重复提示')
+  // 别的模块、别的客户端不受影响
+  assert.equal(ask('hbtv', 'hbtv-1', 1600).allowed, true)
+  assert.equal(checkModuleBurst({ moduleId: 'yangshipin', client: { key: 'other', tag: 'other' }, channelKey: 'ysp-vip-a', now: 1600 }).allowed, true)
+  // 没有客户端身份 / 没有模块 id：不计不拦
+  assert.equal(checkModuleBurst({ moduleId: 'yangshipin', channelKey: 'x', now: 1700 }).allowed, true)
+  assert.equal(checkModuleBurst({ client, channelKey: 'x', now: 1700 }).allowed, true)
+  // 10 秒后下一次拒绝带上日志行
+  for (const t of [3, 5, 7, 9]) ask('yangshipin', `ysp-cctv${10 + t}`, t * S)
+  const later = ask('yangshipin', 'ysp-cctv30', 11.5 * S)
+  assert.equal(later.allowed, false)
+  assert.match(later.logLine, /^央视频：9\.9\.9\.9 UA:okhttp 10 秒内连续请求了 \d+ 个不同频道，疑似播放器批量探测，已本地拒绝 \d+ 次/)
+  resetModuleBurstGuard()
 })
 
 check('畸形入参一律放行、绝不抛', () => {

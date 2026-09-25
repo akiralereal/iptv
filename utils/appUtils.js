@@ -9,7 +9,7 @@ import { resolverFor, listModules } from "../extractors/registry.js";
 import { getExtractorManager, getModuleConfig } from "./extractorManager.js";
 import { omitPlayerOnlyOpts } from "./channelOpts.js";
 import { fetchUpstreamResponse } from "./hlsProxy.js";
-import { createClientScanGuard } from "./clientScanGuard.js";
+import { checkModuleBurst } from "./clientScanGuard.js";
 
 /**
  * 清空各模块的解析缓存。
@@ -307,16 +307,14 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix, 
   return result
 }
 
-// 播放请求的客户端批量探测防护。只对声明了 resolveBurstGuard 的模块生效，按「模块｜客户端」
-// 分开计数，模块之间互不影响；没声明的模块连账都不记。规则与依据见 utils/clientScanGuard.js。
-const scanGuard = createClientScanGuard()
-
 /**
  * 播放请求的解析外壳。
  *
  * 平台知识（签名、缓存、画质档位）已搬进 extractors/<id>/；这里只剩三件事：
  * 解析地址里的 ref 与回看参数、按 ref 路由到模块、把模块结果拼成 HTTP 响应。
- * 外加一道客户端批量探测防护（scanGuard），在路由到模块之后、调 resolve 之前。
+ * 外加一道客户端批量探测防护（checkModuleBurst），在路由到模块之后、调 resolve 之前：只对声明了
+ * resolveBurstGuard 的模块生效，按「模块｜客户端」计数，没声明的模块连账都不记。规则与依据见
+ * utils/clientScanGuard.js；同一模块的本地媒体入口（handleLocalRequest）与这里共用一本账。
  *
  * 失败一律 code=200 + 中文正文（app.js:881-888 直接用 result.code 写响应头），
  * 不改 4xx/5xx——那是存量播放器依赖的行为。
@@ -358,13 +356,10 @@ async function channel(url, urlUserId, urlToken, client) {
   // 拒绝也走 code=200 + 中文正文，播放器看到的与普通解析失败无异。红字由 app.js 按 silent
   // 跳过，这里按客户端每 10 秒归并成一行黄字，免得一次扫描刷出几十行。
   if (module.resolveBurstGuard === true && client?.key) {
-    const verdict = scanGuard.check(`${module.id}|${client.key}`, pid)
+    const verdict = checkModuleBurst({ moduleId: module.id, moduleName: module.name, client, channelKey: pid })
     if (!verdict.allowed) {
-      const { windowMs, idleMs } = scanGuard.config
-      if (verdict.announce) {
-        printYellow(`${module.name}：${client.tag} ${windowMs / 1000} 秒内连续请求了 ${verdict.distinct} 个不同频道，疑似播放器批量探测，已本地拒绝 ${verdict.blocked} 次（停止探测 ${idleMs / 1000} 秒后自动恢复；探测前正在看的频道不受影响）`)
-      }
-      result.desc = `${module.name}：短时间内连续请求了 ${verdict.distinct} 个不同频道，疑似播放器批量探测，已暂停解析；停止探测约 ${idleMs / 1000} 秒后自动恢复`
+      if (verdict.logLine) printYellow(verdict.logLine)
+      result.desc = verdict.desc
       result.silent = true
       return result
     }

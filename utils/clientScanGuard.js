@@ -57,9 +57,12 @@ export function createClientScanGuard(options = {}) {
    * @param {string} clientKey 客户端标识（调用方决定粒度，通常 `模块|IP|UA`）
    * @param {string} channelKey 频道标识
    * @param {number} [now]
+   * @param {{ exempt?: boolean }} [options] exempt：这次请求照常记账（算不算碰新台、续不续
+   *        「在看」），但无论如何都放行、不计入拒绝数。给「这次放行不花上游代价」的请求用，
+   *        例如已经在跑的本地媒体会话——扫描碰到它仍算扫描的一步，只是没必要拒它。
    * @returns {{ allowed: boolean, scanning: boolean, distinct?: number, blocked?: number, announce?: boolean }}
    */
-  function check(clientKey, channelKey, now = Date.now()) {
+  function check(clientKey, channelKey, now = Date.now(), { exempt = false } = {}) {
     if (typeof clientKey !== 'string' || !clientKey || typeof channelKey !== 'string' || !channelKey) return ALLOW
     if (!Number.isFinite(now)) now = Date.now()
     if (++calls % 256 === 0 || clients.size > cfg.maxClients) prune(now)
@@ -101,7 +104,7 @@ export function createClientScanGuard(options = {}) {
     if (!client.scanning) return ALLOW
 
     // 扫描开始前就在看、中途没断过的频道照常放行（runs 里断过 runGapMs 的 since 已被重置）
-    if (run.since <= client.episodeStart - cfg.settleLeadMs) return { allowed: true, scanning: true }
+    if (exempt || run.since <= client.episodeStart - cfg.settleLeadMs) return { allowed: true, scanning: true }
 
     client.blocked++
     const announce = now - client.announcedAt >= cfg.announceEveryMs
@@ -109,9 +112,9 @@ export function createClientScanGuard(options = {}) {
     return { allowed: false, scanning: true, distinct: client.touches.length, blocked: client.blocked, announce }
   }
 
-  function safeCheck(clientKey, channelKey, now) {
+  function safeCheck(clientKey, channelKey, now, options) {
     try {
-      return check(clientKey, channelKey, now)
+      return check(clientKey, channelKey, now, options)
     } catch {
       return ALLOW
     }
@@ -123,4 +126,39 @@ export function createClientScanGuard(options = {}) {
     get size() { return clients.size },
     config: Object.freeze({ ...cfg }),
   }
+}
+
+// 进程内共用一本账：同一模块的延迟解析（utils/appUtils.js 的 channel()）和本地媒体入口
+// （模块自己的 handleLocalRequest）按同一个「模块｜客户端」键计数——一次扫描从公开频道一路
+// 扫进会员频道，算的是同一次扫描，不会因为换了条路由就重新数起。
+const moduleGuard = createClientScanGuard()
+
+/**
+ * 模块播放请求过批量探测防护，拒绝时顺带给出客户端看的原因和该打的日志。
+ *
+ * @param {{ moduleId: string, moduleName: string, client?: { key: string, tag: string },
+ *           channelKey: string, exempt?: boolean, now?: number }} request
+ *        client 来自 app.js 的 clientOf(req)；没有就不计不拦。
+ * @returns {{ allowed: boolean, scanning: boolean, desc?: string, logLine?: string, retryAfterSeconds?: number }}
+ *        logLine 非空时由调用方用自己的日志函数打出（每客户端每 10 秒至多一行）。
+ */
+export function checkModuleBurst({ moduleId, moduleName, client, channelKey, exempt = false, now } = {}) {
+  if (!moduleId || typeof client?.key !== 'string' || !client.key) return ALLOW
+  const verdict = moduleGuard.check(`${moduleId}|${client.key}`, channelKey, now, { exempt })
+  if (verdict.allowed) return verdict
+  const { windowMs, idleMs } = moduleGuard.config
+  const name = moduleName || moduleId
+  return {
+    ...verdict,
+    desc: `${name}：短时间内连续请求了 ${verdict.distinct} 个不同频道，疑似播放器批量探测，已暂停解析；停止探测约 ${idleMs / 1000} 秒后自动恢复`,
+    logLine: verdict.announce
+      ? `${name}：${client.tag || client.key} ${windowMs / 1000} 秒内连续请求了 ${verdict.distinct} 个不同频道，疑似播放器批量探测，已本地拒绝 ${verdict.blocked} 次（停止探测 ${idleMs / 1000} 秒后自动恢复；探测前正在看的频道不受影响）`
+      : '',
+    retryAfterSeconds: idleMs / 1000,
+  }
+}
+
+/** 仅供测试：清空共用账本。 */
+export function resetModuleBurstGuard() {
+  moduleGuard.clear()
 }

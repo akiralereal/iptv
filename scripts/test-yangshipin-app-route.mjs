@@ -297,6 +297,52 @@ try {
     }
   })
 
+  await check('会员频道批量探测：未在跑的台第 6 个起回 429、不启动解扰桥；已在跑的台照常给；别的客户端不受影响', async () => {
+    const scanner = { 'User-Agent': 'vip-scan/1.0' }
+    const idle = ['cctvsjdl', 'cctvfyyl', 'cctvbqkj', 'cctvgfew', 'cctvnxss', 'cctvwhjp', 'cctvtq', 'cctvdszn', 'cctvwsjk']
+    const statuses = []
+    for (const id of idle) {
+      const response = await request(`/${PASS}/relay/ysp-vip-${id}.m3u8`, { headers: scanner })
+      statuses.push(response.status)
+      if (response.status === 429) {
+        assert.equal(response.headers['retry-after'], '5')
+        assert.match(response.body.toString(), /批量探测/)
+      } else {
+        assert.match(response.body.toString(), /^#EXTM3U/, '入口主清单是本地文本，放行不启动桥')
+      }
+    }
+    assert.deepEqual(statuses, [200, 200, 200, 200, 200, 429, 429, 429, 429])
+    // 扫描中：未在跑的台，子清单也拒——子清单才是真正启动解扰桥的请求
+    const idleChild = await request(`/${PASS}/ysp-vip/cctvsjdl/video.m3u8`, { headers: scanner })
+    assert.equal(idleChild.status, 429)
+    // 扫描中：已在跑的台（测试预置的风云足球）入口和子清单照常给
+    const liveMaster = await request(`/${PASS}/relay/ysp-vip-cctvfyzq.m3u8`, { headers: scanner })
+    assert.equal(liveMaster.status, 200)
+    const liveChild = await request(`/${PASS}/ysp-vip/cctvfyzq/video.m3u8`, { headers: scanner })
+    assert.equal(liveChild.status, 200)
+    assert.match(liveChild.body.toString(), /#EXT-X-MAP/)
+    // 别的客户端照常
+    const other = await request(`/${PASS}/relay/ysp-vip-cctvsjdl.m3u8`, { headers: { 'User-Agent': 'vip-viewer/1.0' } })
+    assert.equal(other.status, 200)
+  })
+
+  await check('公开频道一路扫进会员频道算同一次扫描：5 个公开台之后第一个会员台就被拒', async () => {
+    const realFetch = globalThis.fetch
+    globalThis.fetch = async () => new Response('denied', { status: 403 })
+    try {
+      const mixed = { 'User-Agent': 'mixed-scan/1.0' }
+      for (const ref of ['cctv9', 'cctv10', 'cctv11', 'cctv12', 'cctv13']) {
+        const response = await request(`/${PASS}/relay/ysp-${ref}.m3u8`, { headers: mixed })
+        assert.equal(response.body.toString().includes('批量探测'), false)
+      }
+      const vip = await request(`/${PASS}/relay/ysp-vip-cctvwsjk.m3u8`, { headers: mixed })
+      assert.equal(vip.status, 429)
+      assert.match(vip.body.toString(), /6 个不同频道/)
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
   assert.equal(chromiumStarts, 0, '测试不应尝试启动 Chromium')
   assert.equal(runtime.browserSession.running, false)
   console.log(`\n全部通过 (${passed} 项，Chromium 启动 0 次)`)

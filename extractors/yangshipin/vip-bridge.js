@@ -132,6 +132,13 @@ export class VipMseBridge {
     return this.streams.size === 0 && this.starts.size === 0 && !this.warming && this.inFlight.size === 0
   }
 
+  /** 该频道的解扰桥已在跑或正在启动：再给它请求不会多开浏览器页。 */
+  isActive(channelId) {
+    if (this.starts.has(channelId)) return true
+    const state = this.streams.get(channelId)
+    return Boolean(state && !state.page?.isClosed?.())
+  }
+
   trackTask(task) {
     const promise = Promise.resolve(task)
     this.inFlight.add(promise)

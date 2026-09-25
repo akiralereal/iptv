@@ -83,8 +83,11 @@
  *
  *   claimsLocalPath(path) → boolean + async handleLocalRequest(ctx) → response
  *       可选成对实现。供需要把进程内媒体 Buffer 作为 HLS 输出的模块使用；普通
- *       上游 HLS 不要走这里。ctx: { path, method, headers, accessPrefix }，response:
+ *       上游 HLS 不要走这里。ctx: { path, method, headers, accessPrefix, client }，response:
  *       { status, headers, body }。app.js 仍统一负责访问鉴权与 HTTP 写出。
+ *       client 是 { key, tag } 形式的客户端身份。这条路由不经 resolve，resolveBurstGuard
+ *       管不到；要启动高成本本地会话（浏览器页等）的模块应自己在启动前调
+ *       utils/clientScanGuard.js 的 checkModuleBurst，与 resolve 路径共用一本账。
  *
  *   async shutdown()
  *       可选。关闭模块持有的浏览器/页面等资源；服务重启与 SIGTERM 时调用。

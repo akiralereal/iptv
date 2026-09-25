@@ -1168,6 +1168,8 @@ async function handleRequest(req, res) {
       method,
       headers,
       accessPrefix,
+      // 客户端身份：模块在「要启动高成本本地会话」前过批量探测防护用，见 utils/clientScanGuard.js
+      client: clientOf(req),
     })
     if (local) {
       res.writeHead(local.status || 200, {

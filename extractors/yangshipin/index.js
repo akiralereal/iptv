@@ -26,7 +26,8 @@ export default {
   // 播放器「刷新预览图 / 检测可用性 / 失败自动换台」会在几十秒内把 63 个公开频道逐一 GET 一遍，
   // 每台一张票加一两次清单，全从本机出口打官方，正好撞按 IP 的限频（共享实例两天 1487 次 403，
   // 一被限连正在看的人也一起 403）。HEAD 探活 app.js 已本地应答，GET 这一半交给客户端批量探测
-  // 防护本地拒绝，见 utils/clientScanGuard.js。
+  // 防护本地拒绝，见 utils/clientScanGuard.js。这只管公开频道（走 resolve）；10 个会员频道走本地
+  // 媒体路由，由 runtime.js 的 vipBurstRefusal 接上同一本账。
   resolveBurstGuard: true,
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,

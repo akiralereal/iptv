@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 
+import { checkModuleBurst } from '../../utils/clientScanGuard.js'
 import { printBlue, printRed, printYellow } from '../../utils/colorOut.js'
 import { dataPath } from '../../utils/paths.js'
 import { AUTH_CHANNEL_BY_ID, AUTH_CHANNEL_BY_REF } from './channels.js'
@@ -273,8 +274,32 @@ function rangeResponse(body, rangeHeader) {
   })
 }
 
+/**
+ * 会员频道的批量探测防护。公开频道经 channel() → resolve 已有 resolveBurstGuard，会员频道走本地
+ * 媒体路由、不经 resolve，得在这里自己接上，并与公开频道共用「央视频｜客户端」一本账：一次扫描
+ * 从 63 个公开台一路扫进会员台，是同一次扫描。
+ *
+ * 真正花钱的是启动解扰桥：开一个浏览器页、用会员账号打开官网点进频道、最多等 25 秒片段，
+ * 启动还是排队串行的，客户端断开也不取消，同时最多 3 路、第 4 路会挤掉最久没用的一路。
+ * 入口主清单本身是本地写死的文本，但放行它播放器就会接着拉子清单、触发启动，所以两处都卡。
+ * 该频道的桥已在跑或正在启动时照常放行（exempt）：再给它请求不多开页，也不会误伤重拉主清单的观众。
+ * 分片只读已在跑的桥、HEAD/OPTIONS 本地应答，都不会启动任何东西，不过防护。
+ */
+function vipBurstRefusal(channel, client) {
+  const verdict = checkModuleBurst({
+    moduleId: 'yangshipin',       // 与 index.js 的 id 一致，公开/会员两条路由才落到同一本账
+    moduleName: '央视频',
+    client,
+    channelKey: `ysp-vip-${channel.id}`,
+    exempt: vipBridge.isActive(channel.id),
+  })
+  if (verdict.allowed) return null
+  if (verdict.logLine) printYellow(verdict.logLine)
+  return response(429, 'text/plain;charset=UTF-8', verdict.desc, { 'Retry-After': String(verdict.retryAfterSeconds) })
+}
+
 /** 模块本地媒体路由；app.js 只负责鉴权、选择模块及写 HTTP 响应。 */
-export async function handleLocalRequest({ path, method = 'GET', headers = {}, accessPrefix = '' } = {}) {
+export async function handleLocalRequest({ path, method = 'GET', headers = {}, accessPrefix = '', client } = {}) {
   const value = String(path || '')
   const playlistMatch = value.match(/^\/ysp-vip\/([a-z0-9]+)\/(video|audio)\.m3u8$/i)
   const assetMatch = value.match(/^\/ysp-vip\/([a-z0-9]+)\/(video|audio)\/(init|\d+)\.(?:mp4|m4s)$/i)
@@ -305,6 +330,10 @@ export async function handleLocalRequest({ path, method = 'GET', headers = {}, a
   }
   if (browserLogin.active()) {
     return response(409, 'text/plain;charset=UTF-8', '央视频正在完成登录关联，请稍后重试')
+  }
+  if (topRef || playlistMatch) {
+    const refused = vipBurstRefusal(channel, client)
+    if (refused) return refused
   }
 
   try {

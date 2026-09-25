@@ -20,6 +20,9 @@ export const UPSTREAM_HEADERS = {
 }
 
 // 只收录官网“电视台”栏目里的固定频道。快乐购是购物频道，固定排除。
+// 台标取频道表的 channel_image；芒果给快乐垂钓和长沙两台的是空的。长沙两台改用长沙广电官网
+// 「旗下媒体」列表（prd-csgd-service.zhcs.csbtv.com …/info/queryInfoList?infoClass=10）的频道图标，
+// 优先于芒果的图。快乐垂钓留空：芒果频道表与频道详情都没有图，原官网 happyfishing.com.cn 已改挂影视站。
 const CHANNELS = [
   { id: '287', name: '金鹰卡通' },
   { id: '280', name: '湖南经视' },
@@ -31,8 +34,8 @@ const CHANNELS = [
   { id: '261', name: '湖南爱晚' },
   { id: '229', name: '湖南国际' },
   { id: '218', name: '快乐垂钓' },
-  { id: '269', name: '长沙新闻综合' },
-  { id: '254', name: '长沙政法' },
+  { id: '269', name: '长沙新闻综合', logo: 'https://cdn-fuse-oss.csbtv.com/images/65f7ea404b8c490001598c61.png' },
+  { id: '254', name: '长沙政法', logo: 'https://cdn-oss.zhcs.csbtv.com/zhcs-prd/images/776123021898420224.png' },
 ]
 
 const CHANNEL_BY_ID = new Map(CHANNELS.map(channel => [channel.id, channel]))
@@ -81,7 +84,7 @@ export function buildChannels(rows) {
       deferredRef: `mgtv-${definition.id}`,
       // 官网 CDN 对清单和分片都校验 Origin/Referer，必须经本机全代理。
       proxyHls: true,
-      logo: normalizeLogo(row?.channel_image),
+      logo: definition.logo || normalizeLogo(row?.channel_image),
     }]
   })
 }

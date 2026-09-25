@@ -3104,12 +3104,21 @@ check('芒果：固定排除快乐购，官网分类重复频道只输出一次�
     { id: '280', name: '湖南经视', channel_image: 'https://2img.hitv.com/hnjs.jpg' },
     { id: '287', name: '金鹰卡通', channel_image: 'https://2img.hitv.com/duplicate.jpg' },
     { id: '999', name: '临时活动直播', channel_image: '' },
+    // 芒果给这三台的 channel_image 是空的
+    { id: '218', name: '快乐垂钓', channel_image: '' },
+    { id: '269', name: '长沙新闻综合', channel_image: '' },
+    { id: '254', name: '长沙政法', channel_image: 'http://0img.hitv.com/generic.jpg' },
   ]
   const channels = buildMgtvChannels(rows)
-  assert.deepEqual(channels.map(channel => channel.name), ['金鹰卡通', '湖南经视'])
+  assert.deepEqual(channels.map(channel => channel.name), ['金鹰卡通', '湖南经视', '快乐垂钓', '长沙新闻综合', '长沙政法'])
   assert.equal(channels[0].deferredRef, 'mgtv-287')
   assert.equal(channels[0].logo, 'https://0img.hitv.com/jykt.jpg')
   assert.ok(channels.every(channel => channel.proxyHls === true))
+  // 长沙两台用长沙广电官网的频道图标，芒果以后给了图也不顶替；快乐垂钓官方没有，留空
+  const logoOf = name => channels.find(channel => channel.name === name).logo
+  assert.equal(logoOf('快乐垂钓'), '')
+  assert.match(logoOf('长沙新闻综合'), /^https:\/\/cdn-fuse-oss\.csbtv\.com\/images\/[0-9a-f]{24}\.png$/)
+  assert.match(logoOf('长沙政法'), /^https:\/\/cdn-oss\.zhcs\.csbtv\.com\/zhcs-prd\/images\/\d+\.png$/)
 })
 
 check('芒果：播放签名与官网固定样本一致，且最高 definition 同档优先 H.264', () => {

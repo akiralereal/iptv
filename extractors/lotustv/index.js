@@ -1,11 +1,12 @@
 /** 澳门莲花卫视：官网单路公开直播，播放时解析签名 HLS。 */
 import { buildChannels, claimsRef, clearResolveCache, resolveChannel } from './api.js'
+import epg from './epg.js'
 
 export default {
   id: 'lotustv',
   name: '澳门莲花卫视',
   description: '从莲花卫视官网播放器动态获取带签名的直播入口，实时转发清单，媒体分片由播放器直连官方 CDN。',
-  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   catalogVersion: 1,
   outputGroupName: '澳门',
   channelHlsMode: 'relay',
@@ -22,6 +23,8 @@ export default {
     }
   },
 
+  // 官网「節目單」页，一页一周（见 epg.js）；与取流链路互不依赖
+  epg,
   claimsRef,
   resolve: resolveChannel,
   clearResolveCache,

@@ -34,7 +34,7 @@ check('模块注册为免账号、归入澳门的单路清单中继模块', () =
   assert.equal(lotustv.channelHlsMode, 'relay')
   assert.equal(lotustv.relayProxyCompatible, true)
   assert.equal(lotustv.capabilities.resolve, true)
-  assert.equal(lotustv.capabilities.epg, false)
+  assert.equal(lotustv.capabilities.epg, true)
   assert.equal(lotustv.capabilities.catchup, false)
   assert.equal(lotustv.catalogVersion, 1)
   assert.deepEqual(lotustv.configSchema, [])

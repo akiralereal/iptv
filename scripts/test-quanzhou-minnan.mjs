@@ -32,7 +32,7 @@ check('模块注册为免账号、归入福建的全代理模块', () => {
   assert.equal(quanzhou.channelHlsMode, 'proxy')
   assert.equal(quanzhou.relayProxyCompatible, undefined)
   assert.equal(quanzhou.capabilities.resolve, true)
-  assert.equal(quanzhou.capabilities.epg, false)
+  assert.equal(quanzhou.capabilities.epg, true)
   assert.equal(quanzhou.capabilities.catchup, false)
   assert.equal(quanzhou.catalogVersion, 1)
   assert.deepEqual(quanzhou.configSchema, [])

@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>播放器 - IPTV</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dplayer@1.27.1/dist/DPlayer.min.css">
     <style>
         * {
             margin: 0;
@@ -162,8 +161,9 @@
         <div class="error-message" id="errorMessage"></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/dplayer@1.27.1/dist/DPlayer.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- 播放器库本机提供（web/vendor/），DPlayer 的样式已打包在 JS 里 -->
+    <script src="/player-assets/DPlayer.min.js"></script>
+    <script src="/player-assets/hls.min.js"></script>
     <script src="/player-assets/mpegts.js"></script>
     <script>
         // 从URL参数获取播放信息

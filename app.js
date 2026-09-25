@@ -154,6 +154,13 @@ var hours = 0
 // 本地台标文件夹：用户把 <频道名>.png 放进数据目录的 logos/，优先于频道自带的与台标库兜底的。
 // 放 mdataDir 下随数据卷持久化；启动时建好，方便用户找到位置。
 const LOGOS_DIR = dataPath('logos')
+
+// 网页播放器用的库：/player-assets/<名> → web/vendor/<文件>，只认这几个
+const PLAYER_ASSETS = Object.freeze({
+  '/player-assets/mpegts.js': 'mpegts.js',
+  '/player-assets/hls.min.js': 'hls.min.js',
+  '/player-assets/DPlayer.min.js': 'DPlayer.min.js',
+})
 try { mkdirSync(LOGOS_DIR, { recursive: true }) } catch (e) { /* 已存在或无法创建，读写时再报 */ }
 
 // 读取请求体（Promise 化，避免回调式写法导致的释放/死锁问题）
@@ -260,10 +267,14 @@ async function handleRequest(req, res) {
     return
   }
 
-  // Public, fixed player library asset; no user content or credentials.
-  if (urlPath === '/player-assets/mpegts.js') {
+  // Public, fixed player library assets; no user content or credentials.
+  // 网页播放器用的库随仓库发布、本机提供（web/vendor/），不从 cdn.jsdelivr.net 现取：
+  // 大陆探针实测只有一半到七成取得到，播放器一加载失败预览就整个不能用。
+  // 版本：mpegts.js 1.8.0、hls.js 1.7.3、DPlayer 1.27.1（样式已打包在 JS 里）。
+  const playerAsset = PLAYER_ASSETS[urlPath]
+  if (playerAsset) {
     if (!['GET', 'HEAD'].includes(method)) { res.writeHead(405); res.end(); return }
-    const library = readFileSync(new URL('./web/vendor/mpegts.js', import.meta.url))
+    const library = readFileSync(new URL(`./web/vendor/${playerAsset}`, import.meta.url))
     res.writeHead(200, { 'Content-Type': 'text/javascript;charset=UTF-8', 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' })
     res.end(method === 'HEAD' ? undefined : library)
     return

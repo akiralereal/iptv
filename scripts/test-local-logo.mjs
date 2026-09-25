@@ -11,7 +11,7 @@
  */
 import assert from 'node:assert/strict'
 import http from 'node:http'
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -212,6 +212,22 @@ try {
       assert.equal((await request(`/${PASS}/logo-pack/${bad}`)).status, 404, bad)
     }
     assert.equal((await request(`/logo-pack/${encoded}.png`)).status, 403)
+  })
+
+  await check('网页播放器的库本机提供，不再从外部 CDN 现取', async () => {
+    for (const [asset, global] of [['mpegts.js', 'mpegts'], ['hls.min.js', 'Hls'], ['DPlayer.min.js', 'DPlayer']]) {
+      const response = await request(`/player-assets/${asset}`)
+      assert.equal(response.status, 200, asset)
+      assert.match(response.headers['content-type'], /^text\/javascript/)
+      assert.ok(response.body.length > 100_000 && response.body.includes(global), asset)
+    }
+    for (const bad of ['hls.js', '..%2Fplayer.html', 'mpegts-LICENSE.txt']) {
+      assert.notEqual((await request(`/player-assets/${bad}`)).status, 200, bad)
+    }
+    for (const page of ['admin.html', 'player.html']) {
+      const html = readFileSync(new URL(`../web/${page}`, import.meta.url), 'utf8')
+      assert.doesNotMatch(html, /cdn\.jsdelivr\.net|unpkg\.com|cdnjs\./, page)
+    }
   })
 
   console.log(`\n全部通过 (${passed} 项)`)

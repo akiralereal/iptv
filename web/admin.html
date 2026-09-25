@@ -10611,7 +10611,7 @@ if(success){
                     const looksHls = !looksDirectMedia && (/\.m3u8(?:[?#]|$)/i.test(url) || sameOrigin);
                     let hlsReady = false;
                     if (looksHls) {
-                        try { await loadScriptOnce('https://cdn.jsdelivr.net/npm/hls.js@1', () => window.Hls); hlsReady = !!(window.Hls && Hls.isSupported()); } catch (e) {}
+                        try { await loadScriptOnce('/player-assets/hls.min.js', () => window.Hls); hlsReady = !!(window.Hls && Hls.isSupported()); } catch (e) {}
                     }
                     if (hlsReady) {
                         const hls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 90 });

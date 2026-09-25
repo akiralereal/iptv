@@ -200,6 +200,14 @@ try {
       assert.equal((await request(`/${PASS}/logo-cache/${bad}`)).status, 400, bad)
     }
     assert.equal((await request('/logo-cache/0123456789abcdef0123.png')).status, 403)
+    assert.equal(response.headers['x-content-type-options'], 'nosniff')
+    assert.equal(response.headers['content-security-policy'], undefined)
+    // 第三方 SVG 与后台同源：沙箱化，直接在浏览器里打开也跑不了脚本
+    writeFileSync(join(CACHE_DIR, 'abcdef0123456789abcd.svg'), '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(2)</script></svg>')
+    const svg = await request(`/${PASS}/logo-cache/abcdef0123456789abcd.svg`)
+    assert.equal(svg.status, 200)
+    assert.equal(svg.headers['content-type'], 'image/svg+xml')
+    assert.match(svg.headers['content-security-policy'], /default-src 'none'.*sandbox/)
   })
 
   await check('内置台标 /logo-pack/：只给 index.json 登记过的文件，带缓存头，同样在鉴权之后', async () => {
@@ -224,6 +232,13 @@ try {
     for (const bad of ['hls.js', '..%2Fplayer.html', 'mpegts-LICENSE.txt']) {
       assert.notEqual((await request(`/player-assets/${bad}`)).status, 200, bad)
     }
+    // 页面按相对路径引用：带密码前缀（或挂在反向代理子路径下）时库文件跟着页面走
+    for (const asset of ['mpegts.js', 'hls.min.js', 'DPlayer.min.js']) {
+      assert.equal((await request(`/${PASS}/player-assets/${asset}`)).status, 200, `/${PASS}/player-assets/${asset}`)
+    }
+    const player = (await request(`/${PASS}/player`)).body.toString('utf8')
+    assert.match(player, /<script src="player-assets\/DPlayer\.min\.js">/)
+    assert.doesNotMatch(player, /src="\/player-assets\//)
     for (const page of ['admin.html', 'player.html']) {
       const html = readFileSync(new URL(`../web/${page}`, import.meta.url), 'utf8')
       assert.doesNotMatch(html, /cdn\.jsdelivr\.net|unpkg\.com|cdnjs\./, page)

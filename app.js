@@ -271,7 +271,9 @@ async function handleRequest(req, res) {
   // 网页播放器用的库随仓库发布、本机提供（web/vendor/），不从 cdn.jsdelivr.net 现取：
   // 大陆探针实测只有一半到七成取得到，播放器一加载失败预览就整个不能用。
   // 版本：mpegts.js 1.8.0、hls.js 1.7.3、DPlayer 1.27.1（样式已打包在 JS 里）。
-  const playerAsset = PLAYER_ASSETS[urlPath]
+  // 页面用相对路径引用（player-assets/…），所以也认去掉密码 / 令牌前缀后的路径：
+  // 挂在反向代理子路径下、或带密码访问时，库文件都跟着页面走
+  const playerAsset = PLAYER_ASSETS[urlPath] || PLAYER_ASSETS[routePath]
   if (playerAsset) {
     if (!['GET', 'HEAD'].includes(method)) { res.writeHead(405); res.end(); return }
     const library = readFileSync(new URL(`./web/vendor/${playerAsset}`, import.meta.url))

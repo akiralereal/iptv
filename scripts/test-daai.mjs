@@ -26,7 +26,8 @@ check('模块注册为免账号的台湾全代理模块', () => {
   assert.equal(daai.outputGroupName, '台湾')
   assert.equal(daai.channelHlsMode, 'proxy')
   assert.equal(daai.capabilities.catchup, false)
-  assert.equal(daai.catalogVersion, 1)
+  // 2：两台补上官方频道卡台标，老部署启动时要重建频道表缓存
+  assert.equal(daai.catalogVersion, 2)
   assert.deepEqual(daai.configSchema, [])
   assert.equal(resolverFor('daai-tv1'), daai)
   assert.equal(resolverFor('daai-tv1/extra'), null)
@@ -39,8 +40,12 @@ await checkAsync('两路固定频道归入台湾分组且不继承回看', async
   ])
   const channels = buildChannels()
   assert.deepEqual(channels.map(channel => channel.deferredRef), CHANNELS.map(channel => channel.ref))
-  // 台标留空交给公共台标库按名兜底：库里收的是「大爱一 / 大爱二」，官网那两张是节目海报不是台标
-  assert.ok(channels.every(channel => channel.logo === '' && channel.groupTitle === '台湾'))
+  // 台标用官方频道配置里的分台频道卡，两台各一张、不共用
+  assert.deepEqual(channels.map(channel => channel.logo), [
+    'https://s3.hicloud.net.tw/daaiapp/images/ch1.jpg',
+    'https://s3.hicloud.net.tw/daaiapp/images/ch3.jpg',
+  ])
+  assert.ok(channels.every(channel => channel.groupTitle === '台湾'))
   assert.ok(channels.every(channel => channel.catchup === 'none'))
   assert.deepEqual(await daai.fetch(), {
     groups: [{ name: '台湾', dataList: channels }],

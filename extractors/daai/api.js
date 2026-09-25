@@ -51,7 +51,7 @@ export function buildChannels() {
   return CHANNELS.map(channel => ({
     name: channel.name,
     deferredRef: channel.ref,
-    logo: '',
+    logo: channel.logo,
     groupTitle: '台湾',
     opts: ['network-caching=3000'],
     catchup: 'none',

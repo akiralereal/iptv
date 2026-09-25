@@ -131,7 +131,7 @@ function mediaSegments(text, base) {
 
 async function fetchManifest(url, fetchImpl, signal) {
   const response = await fetchImpl(url, { redirect: 'follow', signal, headers: UPSTREAM_HEADERS })
-  if (!response.ok) throw new Error(`清单 HTTP ${response.status}`)
+  if (!response.ok) throw Object.assign(new Error(`清单 HTTP ${response.status}`), { status: response.status })
   const text = await response.text()
   if (!text.trimStart().startsWith('#EXTM3U')) throw new Error('响应不是 HLS 清单')
   return { text, url: response.url || url }
@@ -148,6 +148,7 @@ async function fetchManifest(url, fetchImpl, signal) {
 export async function selectWorkingManifest(urls, options = {}) {
   const fetchImpl = options.fetchImpl || fetch
   const errors = []
+  let forbidden = 0
   for (const url of urls) {
     const timeout = withTimeout(Number(options.timeoutMs || 10_000))
     try {
@@ -158,6 +159,7 @@ export async function selectWorkingManifest(urls, options = {}) {
       if (!segments.length) throw new Error('媒体清单没有分片')
       return { ...manifest, sourceUrl: url }
     } catch (error) {
+      if (error?.status === 403) forbidden++
       let host = '未知节点'
       try { host = new URL(url).hostname } catch { /* 保留默认文案 */ }
       errors.push(`${host}: ${error?.name === 'AbortError' ? '超时' : error?.message || error}`)
@@ -165,5 +167,8 @@ export async function selectWorkingManifest(urls, options = {}) {
       timeout.done()
     }
   }
-  throw new Error(`主、备用 CDN 均不可用（${errors.join('；')}）`)
+  // allForbidden：主备全是 403，即本机出口被 CDN 限流的特征，由解析层据此冷却
+  throw Object.assign(new Error(`主、备用 CDN 均不可用（${errors.join('；')}）`), {
+    allForbidden: urls.length > 0 && forbidden === urls.length,
+  })
 }

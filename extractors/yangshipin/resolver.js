@@ -15,9 +15,22 @@ import { requestPlayUrls, selectWorkingManifest, UPSTREAM_HEADERS } from './api.
  */
 export const CACHE_MS = 5 * 60 * 1000
 
+/**
+ * 换票后主备 CDN 仍全部 403 = 本机出口正被官方限流。此后该频道 30 秒内直接回失败、
+ * 不再打官方：播放器失败后是毫秒级连环重试，每次重试在这里要打 6~8 枪（缓存入口 +
+ * 两轮换票 × 主备），只会把限流越拖越久。
+ *
+ * 30 秒取自共享实例的真实日志（两天 1487 次 403）：同频道相邻两次失败 54% 间隔不到
+ * 1 秒，30~60 秒的只占 1%。按日志回放，冷却 5/15/30/60/120 秒分别挡掉 54/59/65/65/66%
+ * 的上游请求——30 秒之后再加长几乎不再多挡，只会让官方恢复后观众白等。
+ * 只认「全部 403」：超时、版权停播等失败照旧每次实打，不因一次抖动封掉一个台。
+ */
+export const FORBIDDEN_COOLDOWN_MS = 30 * 1000
+
 export function createResolver({ request = requestPlayUrls, select = selectWorkingManifest } = {}) {
   const cache = new Map()
   const pending = new Map()
+  const cooling = new Map()
 
   function remember(ref, urls, manifest, expiresAt) {
     // 保存取票接口给的入口；CDN 重定向后的临时媒体地址可能很快失效，不能
@@ -68,6 +81,13 @@ export function createResolver({ request = requestPlayUrls, select = selectWorki
     const key = String(ref || '')
     const channel = CHANNEL_BY_REF.get(key)
     if (!channel) return { url: '', desc: '央视频频道引用格式错误' }
+    const now = Number(ctx.now ?? Date.now())
+    const cooled = cooling.get(key)
+    if (cooled && now < cooled.until) {
+      const seconds = Math.ceil((cooled.until - now) / 1000)
+      return { url: '', desc: `${channel.name}链接请求失败：官方 CDN 刚回 403（疑似限流），冷却中，${seconds} 秒后再向官方请求` }
+    }
+    cooling.delete(key)
     try {
       const manifest = await acquire(key, channel, ctx)
       // 只返回本次请求刚取回的正文；缓存条目里没有正文，下次轮询会重新拉取。
@@ -81,6 +101,10 @@ export function createResolver({ request = requestPlayUrls, select = selectWorki
     } catch (error) {
       // AbortError 的原生文案是英文的 This operation was aborted，直接抛进日志没人看得懂
       const reason = error?.name === 'AbortError' ? '请求超时' : (error?.message || String(error))
+      if (error?.allForbidden) {
+        cooling.set(key, { until: now + FORBIDDEN_COOLDOWN_MS })
+        return { url: '', desc: `${channel.name}链接请求失败：${reason}，${FORBIDDEN_COOLDOWN_MS / 1000} 秒内暂停向官方请求` }
+      }
       return { url: '', desc: `${channel.name}链接请求失败：${reason}` }
     }
   }
@@ -88,9 +112,10 @@ export function createResolver({ request = requestPlayUrls, select = selectWorki
   function clear() {
     cache.clear()
     pending.clear()
+    cooling.clear()
   }
 
-  return { resolve, clear, cache, pending }
+  return { resolve, clear, cache, pending, cooling }
 }
 
 const resolver = createResolver()

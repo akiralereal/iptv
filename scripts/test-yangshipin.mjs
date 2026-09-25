@@ -528,4 +528,60 @@ await checkAsync('解析失败也绝不抛异常，只回空 url 与原因', asy
   assert.equal(noCtx.url, '')
 })
 
+await checkAsync('主备全部 403 才标记限流，混有超时或其他状态码不算', async () => {
+  const pick = statuses => selectWorkingManifest(
+    statuses.map((_, i) => `https://n${i}.ysp.cctv.cn/live.m3u8`),
+    { fetchImpl: async url => new Response('denied', { status: statuses[Number(new URL(url).hostname[1])] }) },
+  ).then(() => { throw new Error('不应成功') }, error => error)
+  assert.equal((await pick([403, 403])).allForbidden, true)
+  assert.equal((await pick([403, 404])).allForbidden, false)
+  assert.equal((await pick([502])).allForbidden, false)
+})
+
+await checkAsync('换票后仍全部 403 时同频道冷却 30 秒，期间不打官方，到期再试', async () => {
+  let requests = 0
+  let selects = 0
+  let blocked = true
+  const forbidden = () => Object.assign(new Error('主、备用 CDN 均不可用（a: 清单 HTTP 403）'), { allForbidden: true })
+  const resolver = createResolver({
+    request: async channel => { requests++; return { urls: [`https://good.ysp.cctv.cn/${channel.id}.m3u8`] } },
+    select: async urls => {
+      selects++
+      if (blocked) throw forbidden()
+      return { url: urls[0], text: '#EXTM3U\n#EXTINF:6,\npart.ts\n' }
+    },
+  })
+  const first = await resolver.resolve('ysp-cctv1', { now: 0 })
+  assert.equal(first.url, '')
+  assert.match(first.desc, /30 秒内暂停向官方请求/)
+  const upstream = [requests, selects]
+  // 播放器毫秒级连环重试：冷却期内一枪都不能打到官方
+  for (const now of [100, 500, 2000, 29_999]) {
+    const retry = await resolver.resolve('ysp-cctv1', { now })
+    assert.equal(retry.url, '')
+    assert.match(retry.desc, /冷却中/)
+  }
+  assert.deepEqual([requests, selects], upstream, '冷却期内不得换票或拉清单')
+  // 冷却按频道记，别的台照常实打
+  await resolver.resolve('ysp-cctv2', { now: 1000 })
+  assert.ok(requests > upstream[0])
+  blocked = false
+  const recovered = await resolver.resolve('ysp-cctv1', { now: 30_000 })
+  assert.match(recovered.desc, /H\.264/, '冷却到期后应重新向官方请求')
+})
+
+await checkAsync('超时、接口报错等非 403 失败不冷却，下一次请求照常实打', async () => {
+  let requests = 0
+  const resolver = createResolver({
+    request: async () => { requests++; throw new Error('应版权方要求，暂停提供直播信号') },
+    select: async () => ({}),
+  })
+  await resolver.resolve('ysp-cctv10', { now: 0 })
+  const before = requests
+  const again = await resolver.resolve('ysp-cctv10', { now: 100 })
+  assert.match(again.desc, /版权方要求/)
+  assert.ok(requests > before)
+  assert.equal(resolver.cooling.size, 0)
+})
+
 console.log(`\n全部通过：${passed} 项`)

@@ -50,7 +50,7 @@
 
 - `scripts/test-<id>.mjs`；有节目单的再加 `scripts/test-<id>-epg.mjs`。都用按真实响应裁剪的离线夹具，都加进 `package.json` 的测试链。
 - `scripts/test-extractors.mjs` 的地区名表里加上这个模块。
-- README：「频道覆盖」「内容来源与抓取能力」两处表格，以及「未发布」日志。
+- README：「频道覆盖」「内容来源与抓取能力」两处表格、「常见问题 → 台标或节目单缺了一些」里的节目单模块清单，以及「未发布」日志。
 - `npm test` 全部通过。
 
 ### 5. 实跑验收

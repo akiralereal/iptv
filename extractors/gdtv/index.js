@@ -9,6 +9,9 @@ export default {
   description: '广东卫视及地面频道官方直播。自动排除购物频道，播放时无感续签官网短效地址。',
   capabilities: { cache: 'disk', resolve: true, epg: true },
   outputGroupName: '广东',
+  // 频道表写在代码里、一天才刷新一次：改了频道或台标就递增，存量缓存在启动时重建
+  // v1：经典剧、纪录片、健康三路补上广东台台标
+  catalogVersion: 1,
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,
   refreshDescription: '自动管理：频道表随模块版本维护；播放地址在约 45 秒后后台换新，90 秒前强制续签，失败后 10 秒重试。',

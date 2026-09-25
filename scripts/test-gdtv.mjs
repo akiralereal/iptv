@@ -27,18 +27,19 @@ check('频道表固定排除购物频道，同时保留广东移动与 4K', () =
   assert.ok(channels.every(channel => channel.deferredRef.startsWith('gdtv-')))
 })
 
-check('台标用官网频道卡的缩放版，各台互不相同；目录里只有总台标的四路留空', () => {
+check('台标用官网频道卡的缩放版；只有总台标的经典剧、纪录片、健康用广东台台标，岭南戏曲留给内置台标', () => {
   const channels = buildChannels()
   const withLogo = channels.filter(channel => channel.logo)
-  assert.equal(withLogo.length, 13)
+  assert.equal(withLogo.length, 16)
   assert.ok(withLogo.every(channel =>
     /^https:\/\/img\.gdtv\.cn\/image\/\d{6}\/[^?]+\?x-oss-process=image\/resize,w_400$/.test(channel.logo)))
+  // 广东台台标那三路是各自目录里的图（同一设计、文件不同），其余各台互不相同
   assert.equal(new Set(withLogo.map(channel => channel.logo)).size, withLogo.length)
+  assert.match(channels.find(channel => channel.name === '广东健康').logo, /202202\/0\.1019544028130241553993b094d68a93bdOSS1645085168\.png/)
   assert.equal(channels.find(channel => channel.name === '广东卫视').logo,
     'https://img.gdtv.cn/image/202212/0.341152693165587748d6fc1c271c6514dOSS1670410407.jpg?x-oss-process=image/resize,w_400')
-  for (const name of ['岭南戏曲', '广东台经典剧', '广东纪录片', '广东健康']) {
-    assert.equal(channels.find(channel => channel.name === name).logo, '', `${name}官方只有总台标，应留空`)
-  }
+  assert.equal(channels.find(channel => channel.name === '岭南戏曲').logo, '', '岭南戏曲由内置台标补')
+  assert.equal(gdtv.catalogVersion, 1, '改了台标，存量缓存要在启动时重建')
 })
 
 check('频道引用和官网页面范围严格受模块白名单约束', () => {

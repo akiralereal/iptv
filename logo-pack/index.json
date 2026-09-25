@@ -1761,6 +1761,17 @@
    "updated": "2026-09-25",
    "width": 144
   },
+  "宁夏文旅": {
+   "file": "宁夏文旅.png",
+   "hash": "7b887a2d8d",
+   "height": 61,
+   "kind": "official",
+   "note": "宁夏文旅官方没有单独的频道台标，按维护者要求用宁夏广播电视台的台标；原图文字是白色，铺深色底",
+   "origin": "manual",
+   "source": "https://www.nxtv.com.cn/（宁夏网络广播电视台官网页头站标，截取左侧台标与台名）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "农林卫视": {
    "file": "农林卫视.png",
    "hash": "ebf9a03294",

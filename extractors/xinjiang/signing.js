@@ -61,8 +61,9 @@ export function extractSigningMaterial(bundle, date = shanghaiDate()) {
   for (const match of bundle.matchAll(ARRAY_FUNCTION_RE)) {
     let values
     try { values = JSON.parse(match[3]) } catch { continue }
+    // 当天日期不一定在字符串表里：官网约四成日子把日期直接写成字面量，不能按表里有没有日期预筛。
     if (!Array.isArray(values) || !values.includes('random_string')
-      || !values.includes('random_number') || !values.includes('date') || !values.includes(date)) continue
+      || !values.includes('random_number') || !values.includes('date')) continue
     const decoder = decoderFor(bundle, match[1])
     if (!decoder) continue
     const keyAt = bundle.indexOf('-----BEGIN PUBLIC KEY-----', match.index)

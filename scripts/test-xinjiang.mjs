@@ -58,7 +58,8 @@ function Seeds(){const t=["noise","random_string","2029-01-01","date","abcdefghi
 function decode(x,y){return x=x-400,Seeds()[x]}
 const T=decode;
 const row={};row[T(403)]=T(402);row[T(401)]=T(404);row[T(405)]=4;
-const rows=[row],endpoint="TVChannelList",key=\`${pem}\`;
+const inline={};inline[T(403)]="2029-01-03",inline.random_string=T(404),inline[T(405)]=7;
+const rows=[row,inline],endpoint="TVChannelList",key=\`${pem}\`;
 `
 
 console.log('新疆广电模块测试')
@@ -108,6 +109,13 @@ check('静态解析当天签名配置，不执行官网脚本', () => {
   assert.equal(material.random_number, 4)
   assert.equal(material.publicKey, pem)
   assert.throws(() => extractSigningMaterial(signingBundle, '2029-01-02'), /没有 2029-01-02/)
+})
+
+check('当天日期直接写成字面量、不在字符串表里时也能解析', () => {
+  const material = extractSigningMaterial(signingBundle, '2029-01-03')
+  assert.equal(material.date, '2029-01-03')
+  assert.equal(material.random_string, 'abcdefghijklmnopqrstuvwxyzABCDEFGH')
+  assert.equal(material.random_number, 7)
 })
 
 check('接口签名、上海日期和 Nuxt 脚本发现均受严格约束', () => {
@@ -263,4 +271,4 @@ await checkAsync('当前节目被标禁播时说明是这档节目限播，不�
   assert.notEqual((await resolver.resolve('xjtv-4', { now })).url, '')
 })
 
-console.log(`\n全部通过：${passed}/9 ✅`)
+console.log(`\n全部通过：${passed}/10 ✅`)

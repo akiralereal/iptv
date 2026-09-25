@@ -1,11 +1,12 @@
 import { buildGroups, claimsRef, clearCache, fetchCatalog, resolveChannel } from './api.js'
+import epg from './epg.js'
 
 export default {
   id: 'beijing',
   name: '北京广播电视台',
   description: '北京时间官网 9 个电视频道与当前公开活动/慢直播；公开直播免登录，配置本人官网 Cookie 后自动加入电视台。',
   category: 'account',
-  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   channelHlsMode: 'proxy',
   defaultRefreshMinutes: 60,
   minRefreshMinutes: 30,
@@ -29,6 +30,8 @@ export default {
       meta: { skipped: [], warnings: catalog.warnings },
     }
   },
+  // 北京台自己没有节目单，电视频道的取自央视网（见 epg.js）；与取流链路互不依赖
+  epg,
   claimsRef,
   resolve: resolveChannel,
   clearResolveCache: clearCache,

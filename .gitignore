@@ -33,6 +33,9 @@ epg-cache/
 
 # 公共台标库索引缓存（issue #124）
 logo-index.json
+# 不设 mdataDir 时数据目录就是当前目录：用户上传的台标与托管下载的台标（仓库内置台标在 logo-pack/）
+/logos/
+/logo-cache/
 
 # 持久化数据目录（mdataDir 指向时）
 data/

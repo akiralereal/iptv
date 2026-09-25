@@ -12,6 +12,7 @@ import { channel, interfaceStr, fetchManifestDirect, rewriteManifest, inlineReso
 import { toProxyManifest, lookup as lookupProxyTarget, pipeUpstream, probeUpstream, fetchNested, manifestCooling, markManifestResult } from "./utils/hlsProxy.js";
 import { dataPath } from "./utils/paths.js";
 import { cachedLogoFile } from "./utils/logoCache.js";
+import { packLogoFile } from "./utils/logoPack.js";
 import { getExtractorManager, getModuleConfig } from "./utils/extractorManager.js";
 import { getExtractorsAPI, startModuleLoginAPI, pollModuleLoginAPI, setExtractorEnabledAPI,
   updateExtractorConfigAPI, runExtractorNowAPI, setContentFlagAPI, startBrowserLoginAPI,
@@ -995,7 +996,8 @@ async function handleRequest(req, res) {
   }
 
   // 本地台标：/logos/<文件名>（也兼容前面带 /userId/token 段的情况），从数据目录 logos/ 读取；
-  // 托管台标：/logo-cache/<哈希>.<扩展名>（utils/logoCache.js 下载校验过的），从数据目录 logo-cache/ 读取。
+  // 托管台标：/logo-cache/<哈希>.<扩展名>（utils/logoCache.js 下载校验过的），从数据目录 logo-cache/ 读取；
+  // 内置台标：/logo-pack/<台标名>.png（utils/logoPack.js），从仓库 logo-pack/ 读取，只认 index.json 登记过的文件。
   // 必须放在下方「用户段解析」之前，否则 /logos/x.png 会被当成 /userId/token 拆掉。
   const logosIdx = routePath.indexOf('/logos/')
   if (logosIdx !== -1) {
@@ -1023,6 +1025,16 @@ async function handleRequest(req, res) {
     const cached = cachedLogoFile(routePath.slice(cachedIdx + '/logo-cache/'.length))
     if (!cached) { res.writeHead(400); res.end(); return }
     serveDataImage(res, method, headers, cached.path, cached.mime)
+    return
+  }
+  const packIdx = routePath.indexOf('/logo-pack/')
+  if (packIdx !== -1) {
+    let packed = null
+    try {
+      packed = packLogoFile(decodeURIComponent(routePath.slice(packIdx + '/logo-pack/'.length)))
+    } catch { /* 畸形百分号编码，按找不到处理 */ }
+    if (!packed) { res.writeHead(404); res.end(); return }
+    serveDataImage(res, method, headers, packed.path, packed.mime)
     return
   }
 

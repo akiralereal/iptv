@@ -9,6 +9,7 @@ import { ensureLogoIndex, resolveLibraryLogo } from "./logoLibrary.js"
 import { renderOpts, needsOpts } from "./channelOpts.js"
 import { refreshToken as enableTokenRefresh, host, pass, enableMigu, externalLogoBase, enableLogoCache } from "../config.js"
 import { finishLogoCache, hostedLogoUrl, prefetchLogos } from "./logoCache.js"
+import { packLogoUrl } from "./logoPack.js"
 import refreshToken from "./refreshToken.js"
 import { printGreen, printRed, printYellow, printBlue } from "./colorOut.js"
 import { getDateString } from "./time.js"
@@ -54,13 +55,16 @@ function localLogo(name) {
 }
 
 /**
- * 频道自己的台标（咪咕 pics / 模块官方 / m3u 手写）与台标库兜底，按优先级排好的候选。
- * 本地上传的不在这里：它最优先，也不需要托管。库兜底只给外部 / 内置 / 抓取模块频道。
+ * 频道自己的台标（咪咕 pics / 模块官方 / m3u 手写）、仓库内置台标与台标库兜底，按优先级排好的候选。
+ * 本地上传的不在这里：它最优先，也不需要托管。内置台标本机直接提供、不经托管：自带的确认坏了，
+ * 或还没下载成功（比如海外服务器连不上大陆图床）时就用它。库兜底只给外部 / 内置 / 抓取模块频道。
  */
 function logoCandidates(channelItem, groupName, libraryAllowed) {
   const candidates = []
   const own = channelItem.pics?.highResolutionH || channelItem.logo || ''
   if (own) candidates.push({ url: own, from: 'source' })
+  const packed = packLogoUrl(channelItem, groupName)
+  if (packed) candidates.push({ url: packed, from: 'pack' })
   if (libraryAllowed && externalLogoBase) {
     // 有索引就只写库里真实存在的图（issue #124）：查不到就不给这个候选，让播放器出自己的占位图，
     // 而不是一个必定 404 的地址（裂图）。景观/慢直播这类「频道名不是台名」的伪频道
@@ -377,7 +381,8 @@ async function updateTV(hours, options = {}) {
       const isExtractor = channelItem.source === 'extractor'
       const isExternal = !isExtractor && (channelItem.source === 'external' || !!channelItem.url)
       // 台标优先级：本地 logos/<频道名>.<ext>（用户后台上传或手动放，最高、仅查本地不联网）
-      //   > 源自带台标（咪咕 pics / 模块官方 / m3u 手写）> 台标库兜底（用户自己配了才有，仅外部/内置/模块）> 空。
+      //   > 源自带台标（咪咕 pics / 模块官方 / m3u 手写）> 仓库内置台标（logo-pack/）
+      //   > 台标库兜底（用户自己配了才有，仅外部/内置/模块）> 空。
       // 取图用「台标匹配名」做 key（issue #40），让特殊命名的常见频道也能命中本地/公共库；频道显示名不变。
       // 开着托管时，后两级从已下载校验过的图里挑：源自带的坏了（404、不是图片）自动换库里的，
       // 都没托管上时沿用原地址（与托管前一样），全都确认坏了就留空。

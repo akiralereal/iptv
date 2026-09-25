@@ -181,20 +181,34 @@ function candidateNames(name, group) {
   return out
 }
 
+function resolveIn(index, name, group) {
+  if (!name) return ''
+  for (const cand of candidateNames(name, group)) {
+    const hit = index.exact.get(cand)
+      || index.loose.get(logoMatchName(cand) || cand)
+      || index.ascii.get(asciiKey(cand))
+    if (hit) return hit
+  }
+  return ''
+}
+
+/**
+ * 按同一套规则在任意一组台标名里找频道：内置台标（utils/logoPack.js）也用它。
+ * @param {string[]} names 台标名（不含扩展名）
+ * @returns {(name: string, group?: string) => string} 命中的台标名，没命中返回 ''
+ */
+export function createLogoNameMatcher(names) {
+  const index = buildIndex(names)
+  return (name, group) => resolveIn(index, name, group)
+}
+
 /**
  * 在台标库里找这个频道的图片名。
  * @returns {string|null} 库里的文件名（不含扩展名）；'' = 索引里确实没有（应留空）；null = 无索引，调用方自行盲拼
  */
 export function resolveLibraryLogo(name, group) {
   if (!_index) return null
-  if (!name) return ''
-  for (const cand of candidateNames(name, group)) {
-    const hit = _index.exact.get(cand)
-      || _index.loose.get(logoMatchName(cand) || cand)
-      || _index.ascii.get(asciiKey(cand))
-    if (hit) return hit
-  }
-  return ''
+  return resolveIn(_index, name, group)
 }
 
 export function logoIndexSize() {

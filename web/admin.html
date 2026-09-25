@@ -8384,7 +8384,7 @@ if(success){
             const src = channel.logo ? String(channel.logo).replace(/\$\{replace\}/g, base) : '';
             const epgOk = !!channel.epgMatched;
             const epgTip = epgOk ? ('节目单：已匹配' + (channel.epgName ? ' · ' + channel.epgName : '')) : '节目单：未匹配';
-            const logoTip = '台标：' + ({ local: '本地上传', source: '源自带', auto: '公共库', none: '无' }[channel.logoStatus] || '未知');
+            const logoTip = '台标：' + ({ local: '本地上传', source: '源自带', pack: '内置', auto: '公共库', none: '无' }[channel.logoStatus] || '未知');
             let logoDot;
             if (src) {
                 // 先按已匹配渲染绿点，再用隐藏 img 实测；加载失败则把点转红
@@ -9867,7 +9867,7 @@ if(success){
                         ${channel.epgMatched
                             ? `<span style="display:inline-flex;align-items:center;gap:4px;background:#f6ffed;color:#52a30d;border:1px solid #d6f0bd;border-radius:4px;padding:2px 9px;font-size:12px;margin-right:6px;">📅 节目单已匹配${channel.epgName ? ' · ' + channel.epgName : ''}</span>`
                             : `<span style="display:inline-flex;align-items:center;gap:4px;background:#fafafa;color:#999;border:1px solid #eee;border-radius:4px;padding:2px 9px;font-size:12px;margin-right:6px;">📅 未匹配节目单</span>`}
-                        <span style="display:inline-flex;align-items:center;gap:4px;background:#e6f2ff;color:#1166c7;border:1px solid #cfe5ff;border-radius:4px;padding:2px 9px;font-size:12px;">🖼️ 台标 · ${({ local: '本地上传', source: '源自带', auto: '公共库', none: '无' })[channel.logoStatus] || '—'}</span>
+                        <span style="display:inline-flex;align-items:center;gap:4px;background:#e6f2ff;color:#1166c7;border:1px solid #cfe5ff;border-radius:4px;padding:2px 9px;font-size:12px;">🖼️ 台标 · ${({ local: '本地上传', source: '源自带', pack: '内置', auto: '公共库', none: '无' })[channel.logoStatus] || '—'}</span>
                         ${(channel.epgName && channel.epgName !== channel.name)
                             ? `<div style="color:#999;font-size:12px;margin-top:6px;line-height:1.6;">显示名「${channel.name}」已自动归一到「${channel.epgName}」匹配节目单，显示名本身不变。</div>`
                             : ''}

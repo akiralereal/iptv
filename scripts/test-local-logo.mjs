@@ -42,6 +42,13 @@ process.env.mbuiltInSourcesUrl = ''
 process.env.NO_PROXY = process.env.no_proxy = '127.0.0.1,localhost'
 
 mkdirSync(LOGO_DIR, { recursive: true })
+// 内置台标（logo-pack/）指到临时目录，只登记一张
+const PACK_DIR = join(DATA_DIR, 'pack')
+process.env.mlogoPackDir = PACK_DIR
+mkdirSync(PACK_DIR, { recursive: true })
+writeFileSync(join(PACK_DIR, `${NAME}.png`), Buffer.from('89504e470d0a1a0a-packed-image', 'utf8'))
+writeFileSync(join(PACK_DIR, 'unlisted.png'), Buffer.from('89504e470d0a1a0a-unlisted', 'utf8'))
+writeFileSync(join(PACK_DIR, 'index.json'), JSON.stringify({ version: 1, logos: { [NAME]: { file: `${NAME}.png`, hash: 'abc' } }, refs: {} }))
 writeFileSync(join(DATA_DIR, 'external-sources.json'), JSON.stringify({ enabled: false, updateOnStartup: false, sources: [] }))
 
 const FIRST = Buffer.from('89504e470d0a1a0a-first-image', 'utf8')
@@ -193,6 +200,18 @@ try {
       assert.equal((await request(`/${PASS}/logo-cache/${bad}`)).status, 400, bad)
     }
     assert.equal((await request('/logo-cache/0123456789abcdef0123.png')).status, 403)
+  })
+
+  await check('内置台标 /logo-pack/：只给 index.json 登记过的文件，带缓存头，同样在鉴权之后', async () => {
+    const response = await request(`/${PASS}/logo-pack/${encoded}.png?v=abc`)
+    assert.equal(response.status, 200)
+    assert.equal(response.headers['content-type'], 'image/png')
+    assert.equal(response.body.toString('utf8'), '89504e470d0a1a0a-packed-image')
+    assert.match(response.headers.etag, /^"[0-9a-f]+-[0-9a-f]+"$/)
+    for (const bad of ['unlisted.png', 'index.json', '..%2Findex.json', '%E0%A4%A']) {
+      assert.equal((await request(`/${PASS}/logo-pack/${bad}`)).status, 404, bad)
+    }
+    assert.equal((await request(`/logo-pack/${encoded}.png`)).status, 403)
   })
 
   console.log(`\n全部通过 (${passed} 项)`)

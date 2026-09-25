@@ -31,7 +31,8 @@ check('模块注册为免账号的台湾全代理模块', () => {
   assert.equal(goodtv.outputGroupName, '台湾')
   assert.equal(goodtv.channelHlsMode, 'proxy')
   assert.equal(goodtv.capabilities.catchup, false)
-  assert.equal(goodtv.catalogVersion, 1)
+  // 2：两台补上官方频道卡台标，老部署启动时要重建频道表缓存
+  assert.equal(goodtv.catalogVersion, 2)
   assert.deepEqual(goodtv.configSchema, [])
   assert.equal(resolverFor('goodtv-main'), goodtv)
   assert.equal(resolverFor('goodtv-main/extra'), null)
@@ -44,9 +45,13 @@ await checkAsync('综合台与真理台归入台湾分组且不继承回看', as
   ])
   const channels = buildChannels()
   assert.deepEqual(channels.map(channel => channel.deferredRef), CHANNELS.map(channel => channel.ref))
-  // 台标留空交给公共台标库按名兜底：官网只有一张站点 logo，两台共用分不出来；
-  // 库里恰好收了 GOODTV / GOODTV2 两张，频道名按台名写才能命中
-  assert.ok(channels.every(channel => channel.logo === '' && channel.groupTitle === '台湾'))
+  // 台标用两台直播页各自的分享图（频道卡），两台各一张、不共用；
+  // 走 upload.goodtv.tv 背后的 CloudFront 分发域名，大陆也取得到
+  assert.deepEqual(channels.map(channel => channel.logo), [
+    'https://d1zx2ha9m044be.cloudfront.net/file/channel/ch1.jpeg',
+    'https://d1zx2ha9m044be.cloudfront.net/file/channel/ch2.jpeg',
+  ])
+  assert.ok(channels.every(channel => channel.groupTitle === '台湾'))
   assert.ok(channels.every(channel => channel.catchup === 'none'))
   assert.deepEqual(await goodtv.fetch(), {
     groups: [{ name: '台湾', dataList: channels }],

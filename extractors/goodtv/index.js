@@ -7,7 +7,8 @@ export default {
   name: 'GOOD TV',
   description: 'GOOD TV 好消息电视台官网公开的综合台、真理台（1080p），归入台湾分组；无需登录，官网的两条线路自动择优、出错即换线，清单和媒体全代理。',
   capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
-  catalogVersion: 1,
+  // v2：两台补上官方频道卡台标
+  catalogVersion: 2,
   outputGroupName: '台湾',
   channelHlsMode: 'proxy',
   defaultRefreshMinutes: 1440,

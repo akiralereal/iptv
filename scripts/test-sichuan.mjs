@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import sichuan from '../extractors/sichuan/index.js'
 import {
   SICHUAN_AUTH_API,
+  SICHUAN_IMAGE_BASE,
   SICHUAN_LIVE_API,
   SICHUAN_LIVE_DETAIL_API,
   SICHUAN_LIVE_MEDIA_HEADERS,
@@ -16,6 +17,7 @@ import {
   claimsRef,
   clearCache,
   officialAssetUrl,
+  officialLogoUrl,
   parseChannelList,
   parseCredential,
   parseLiveList,
@@ -34,14 +36,40 @@ const response = (body, status = 200) => new Response(
 )
 
 const rows = [
-  { id: '1016553', name: '四川卫视', rawUrl: 'https://tvshowf.scgczm.com/live/sctv1.m3u8' },
-  { id: '1970689144638746626', name: '四川卫视4K超高清SDR', rawUrl: 'https://hmmslivef.scgczm.com/live/4ksctv1.m3u8' },
+  {
+    id: '1016553',
+    name: '四川卫视',
+    rawUrl: 'https://tvshowf.scgczm.com/live/sctv1.m3u8',
+    logo: 'https://kscgc.scgchc.com/sctv/1/image/public/202107/sctv1.png',
+  },
+  {
+    id: '1970689144638746626',
+    name: '四川卫视4K超高清SDR',
+    rawUrl: 'https://hmmslivef.scgczm.com/live/4ksctv1.m3u8',
+    logo: 'https://kscgc.scgchc.com/layout/image/2025/09/24/4k.png',
+  },
 ]
-const fixtureHtml = `before${rows.map(row => JSON.stringify({
+// 与官网目录同形：老频道 squareImg 是相对路径，新频道是完整地址；对象里还嵌着 dept 等子对象。
+const catalogObject = (row, extra = {}) => ({
   id: row.id,
   name: row.name,
   playAddress: row.rawUrl,
-})).join('')}after`
+  createTime: '2024-06-18 10:46:37',
+  ...extra,
+  allowPlay: 1,
+  dept: [{ id: '2100187697667940353', itemId: row.id, itemType: 4, deptName: row.name }],
+  itemType: 4,
+})
+const fixtureHtml = `before${JSON.stringify([
+  catalogObject(rows[0], {
+    squareImg: '/sctv/1/image/public/202107/sctv1.png',
+    pcover: '/sctv/1/image/public/201801/sctv1-cover.jpg',
+  }),
+  catalogObject(rows[1], {
+    squareImg: rows[1].logo,
+    pcover: 'https://kscgc.scgchc.com/layout/image/2025/09/24/4k-cover.png',
+  }),
+])}after`
 const liveEvent = {
   id: '2096229462308356097',
   title: '跟着赛事去旅行',
@@ -88,7 +116,33 @@ check('频道目录排除购物并生成稳定的延迟引用', () => {
     'sichuan-1016553',
     'sichuan-1970689144638746626',
   ])
+  assert.deepEqual(buildChannels(parsed).map(channel => channel.logo), rows.map(row => row.logo))
   assert.equal(claimsRef('sichuan-text'), false)
+})
+
+check('频道图标取官网目录 squareImg，相对路径按官网图床补全，缺字段不借下一台', () => {
+  assert.equal(SICHUAN_IMAGE_BASE, 'https://kscgc.scgchc.com/')
+  assert.equal(officialLogoUrl('/sctv/1/image/a.png'), 'https://kscgc.scgchc.com/sctv/1/image/a.png')
+  assert.equal(officialLogoUrl('https://kscgc.sctv-tf.com/sctv/b.png'), 'https://kscgc.sctv-tf.com/sctv/b.png')
+  assert.equal(officialLogoUrl(''), '')
+  assert.equal(officialLogoUrl('javascript:alert(1)'), '')
+  const noSquare = { id: '1016554', name: '经济频道', rawUrl: 'https://tvshowf.scgczm.com/live/sctv2.m3u8' }
+  const bare = { id: '1016555', name: '文化旅游', rawUrl: 'https://tvshowf.scgczm.com/live/sctv3.m3u8' }
+  const html = JSON.stringify({
+    tv: [
+      catalogObject(noSquare, { pcover: '/sctv/1/image/public/201809/economy.png' }),
+      catalogObject(bare),
+      catalogObject(rows[0], { squareImg: '/sctv/1/image/public/202107/sctv1.png' }),
+    ],
+  })
+  assert.deepEqual(parseChannelList(html).map(row => row.logo), [
+    'https://kscgc.scgchc.com/sctv/1/image/public/201809/economy.png',
+    '',
+    rows[0].logo,
+  ])
+  // 官网 RSC 负载里的 JSON 是转义过的，解析前会还原。
+  const escaped = JSON.stringify(JSON.stringify([catalogObject(rows[0], { squareImg: '/sctv/1/image/public/202107/sctv1.png' })]))
+  assert.equal(parseChannelList(escaped)[0].logo, rows[0].logo)
 })
 
 check('活动目录生成同一四川分组使用的动态引用', () => {
@@ -127,6 +181,7 @@ await checkAsync('配置 Token 后抓取频道，并在播放时动态换签', a
         id: String(1016553 + index),
         name: `四川频道${index + 1}`,
         playAddress: `https://tvshowf.scgczm.com/live/sctv${index + 1}.m3u8`,
+        squareImg: `/sctv/1/image/public/202107/sctv${index + 1}.png`,
       })).map(JSON.stringify).join('')
       return response(eight)
     }
@@ -145,7 +200,9 @@ await checkAsync('配置 Token 后抓取频道，并在播放时动态换签', a
   const fetched = await sichuan.fetch({ accessToken }, { fetchImpl, now: 1788666000000 })
   assert.equal(fetched.groups[0].name, '四川')
   assert.equal(fetched.groups[0].dataList.length, 9)
+  assert.equal(fetched.groups[0].dataList[0].logo, 'https://kscgc.scgchc.com/sctv/1/image/public/202107/sctv1.png')
   assert.equal(fetched.groups[0].dataList.at(-1).deferredRef, `sichuan-live-${liveEvent.id}`)
+  assert.equal(fetched.groups[0].dataList.at(-1).logo, liveEvent.cover)
   const resolved = await resolveChannel('sichuan-1016553', {
     config: { accessToken }, fetchImpl, now: 1788666001000,
   })

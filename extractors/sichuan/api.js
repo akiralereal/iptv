@@ -87,16 +87,48 @@ export function applySichuanSecret(rawUrl, secret) {
   return url.href
 }
 
+/**
+ * 频道图标：官网直播页目录每个频道自带两张官方图，和播放地址同一次请求拿到。
+ * squareImg 是 320×320 白底方图（同一个台标 + 各频道名，9 个频道都能区分；4K 是横版台标），
+ * pcover 是直播页列表用的横版图，几个频道是透明底白字，浅色播放器里看不见，只在 squareImg 缺失时兜底。
+ * 老频道给的是 /sctv/1/image/... 相对路径，按官网前端的 staticPrefixUrl（kscgc.scgchc.com）拼完整。
+ */
+export const SICHUAN_IMAGE_BASE = 'https://kscgc.scgchc.com/'
+
+export function officialLogoUrl(raw) {
+  const text = String(raw || '').trim()
+  if (!text) return ''
+  try {
+    const url = new URL(text, SICHUAN_IMAGE_BASE)
+    return /^https?:$/.test(url.protocol) && !url.username && !url.password ? url.href : ''
+  } catch {
+    return ''
+  }
+}
+
+function fieldIn(segment, key) {
+  return segment.match(new RegExp(`"${key}":"([^"]*)"`))?.[1] || ''
+}
+
 export function parseChannelList(html) {
   const decoded = String(html || '').replaceAll('\\"', '"').replaceAll('\\/', '/')
   const pattern = /\{"id":"([^"]+)","name":"([^"]+)","playAddress":"(https:[^"]+\.m3u8[^"]*)"/g
+  const matches = [...decoded.matchAll(pattern)]
   const found = new Map()
-  for (const match of decoded.matchAll(pattern)) {
+  for (const [index, match] of matches.entries()) {
     const id = String(match[1])
     const name = String(match[2]).replace(/\s+/g, ' ').trim()
     if (!/^\d{1,20}$/.test(id) || !name || name.includes('购物') || found.has(id)) continue
+    // 图标字段在同一个频道对象里、播放地址之后；截到下一个频道对象为止，缺字段时不会借用下一台的图。
+    const end = Math.min(matches[index + 1]?.index ?? decoded.length, match.index + 4000)
+    const segment = decoded.slice(match.index + match[0].length, end)
     try {
-      found.set(id, { id, name, rawUrl: officialHlsUrl(match[3]) })
+      found.set(id, {
+        id,
+        name,
+        rawUrl: officialHlsUrl(match[3]),
+        logo: officialLogoUrl(fieldIn(segment, 'squareImg')) || officialLogoUrl(fieldIn(segment, 'pcover')),
+      })
     } catch {}
   }
   return [...found.values()]
@@ -167,7 +199,7 @@ export function buildChannels(rows) {
   return (Array.isArray(rows) ? rows : []).map(row => ({
     name: row.name,
     deferredRef: `sichuan-${row.id}`,
-    logo: '',
+    logo: row.logo || '',
     opts: ['network-caching=3000'],
     catchup: 'none',
   }))

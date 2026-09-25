@@ -3,10 +3,12 @@
  * 维护仓库内置台标（logo-pack/）。规则见 LOGO.md。
  *
  * 用法：
- *   node scripts/build-logo-pack.mjs [--data <数据目录>]
+ *   node scripts/build-logo-pack.mjs [--data <数据目录>] [--update]
  *       用一轮完整更新的结果刷新：各模块频道的官方台标（extractor-cache.json）与咪咕频道台标
  *       （interface.txt）。图优先取本机托管已下载校验过的（logo-cache/），没有再现下。
  *       数据目录默认 mdataDir，没设就是当前目录。
+ *       默认只补内置库里还没有的、以及用官方图替换手工图；已有的官方图不动——同一张图重新下载、
+ *       重新转码后字节会有细微差别，全量覆盖只会让仓库白白长大。官方真换了台标时加 --update。
  *   node scripts/build-logo-pack.mjs --add <台标名> <图片文件或地址> --source <出处> [--kind official|platform|library] [--trim]
  *       手工收一张：官方没有、模块取不到的频道（精选频道这类 m3u、官方确实没图的台）。
  *       --trim 裁掉四周与角落同色（透明或纯色底）的空白，图里留白太多时用。
@@ -251,7 +253,7 @@ async function collectFromData(dataDir) {
   return items
 }
 
-async function refresh(dataDir) {
+async function refresh(dataDir, { update = false } = {}) {
   const index = loadIndex()
   const items = await collectFromData(dataDir)
   if (!items.length) throw new Error(`${dataDir} 里没有一轮完整更新的结果（extractor-cache.json / interface.txt）`)
@@ -263,6 +265,12 @@ async function refresh(dataDir) {
     // 同名的已经由另一个来源收过（咪咕和央视频的 CCTV1综合）：一个名字一张图，先到先得
     const first = seen.get(item.name)
     if (first) continue
+    const existing = index.logos[item.name]
+    if (!update && existing && existing.origin !== 'manual') {
+      seen.set(item.name, item.origin)
+      stats.same++
+      continue
+    }
     try {
       const buf = item.file ? readFileSync(item.file) : await download(item.url)
       const before = index.logos[item.name]
@@ -338,7 +346,7 @@ async function main() {
       console.log(`已删除 ${args.remove}`)
     } else {
       const dataDir = args.data || process.env.mdataDir || process.cwd()
-      await refresh(path.resolve(dataDir))
+      await refresh(path.resolve(dataDir), { update: args.update === true })
     }
   } finally {
     await browser?.close()

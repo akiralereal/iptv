@@ -459,6 +459,24 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "广东纪录片": {
+   "file": "广东纪录片.png",
+   "hash": "0e6cb18944",
+   "height": 144,
+   "origin": "gdtv",
+   "source": "https://img.gdtv.cn/image/202206/0.367634788058647733993b094d68a93bdOSS1655194314.png?x-oss-process=image/resize,w_400",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "广东健康": {
+   "file": "广东健康.png",
+   "hash": "0e6cb18944",
+   "height": 144,
+   "origin": "gdtv",
+   "source": "https://img.gdtv.cn/image/202202/0.1019544028130241553993b094d68a93bdOSS1645085168.png?x-oss-process=image/resize,w_400",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "广东民生": {
    "file": "广东民生.png",
    "hash": "e573418873",
@@ -474,6 +492,15 @@
    "height": 144,
    "origin": "gdtv",
    "source": "https://img.gdtv.cn/image/202010/0.2857784718212295132fd948cad573007dOSS1603782706.jpg?x-oss-process=image/resize,w_400",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "广东台经典剧": {
+   "file": "广东台经典剧.png",
+   "hash": "957fcc6155",
+   "height": 144,
+   "origin": "gdtv",
+   "source": "https://img.gdtv.cn/image/202202/0.582396664652134435a5f3bf6e4dd9722OSS1645519665.png?x-oss-process=image/resize,w_400",
    "updated": "2026-09-25",
    "width": 256
   },
@@ -1516,6 +1543,15 @@
    "height": 256,
    "origin": "hntv",
    "source": "https://cmsres.dianzhenkeji.com/anonymous/2020/9/18/1306760520484917248.png",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "辽宁都市": {
+   "file": "辽宁都市.png",
+   "hash": "b81b74db48",
+   "height": 144,
+   "origin": "beidou",
+   "source": "https://zbhk-new.lnyun.com.cn/www/bdrm/images/202512/860608292634760754.jpg",
    "updated": "2026-09-25",
    "width": 256
   },
@@ -3370,14 +3406,12 @@
   },
   "CQTV新闻": {
    "file": "CQTV新闻.png",
-   "hash": "014bb9d2f1",
-   "height": 69,
-   "kind": "official",
-   "note": "重庆广电官方频道接口里 CQTV新闻 这一条的 thumb_mob 字段（模块现在读 pic/thumb/image，都是空的，所以没拿到）。图是重庆广电 CQTV 的渐变台标本身，不带「新闻」字样，120x120 JPG 白底，偏小。播出台角是同一个标加「重庆 HD 新闻频道」白字，taksssss 有截屏版「重庆新闻」（library，290x120，白字）；fanmingming 的「重庆新闻」是 2020 年改版前的旧标。",
-   "origin": "manual",
-   "source": "https://rmtapi.cbg.cn/list/4918/1.html?pagesize=100",
+   "hash": "5a29b5590e",
+   "height": 120,
+   "origin": "chongqing",
+   "source": "https://cmsimg.cbg.cn/2020/07/01/b39ff90b-5f21-405e-907c-1447824d3bec.jpg",
    "updated": "2026-09-25",
-   "width": 86
+   "width": 120
   },
   "Documentary+": {
    "file": "Documentary+.png",
@@ -3830,6 +3864,7 @@
   "anhui/anhui-zytytv": "安徽综艺体育",
   "asian-live/asian-live-nhk-world": "NHK World",
   "asian-live/asian-live-ytn": "YTN News",
+  "beidou/beidou-liaoning-10d3de0d03c62e85a1a281bbde8b6952": "辽宁都市",
   "beidou/beidou-liaoning-7e29bde4f41ca08642b7fc3ce4eb1ae4": "家庭理财",
   "beidou/beidou-liaoning-918510749a0f319ec12ff695b1c95230": "辽宁影视剧",
   "beidou/beidou-liaoning-e0bb9a7fd9afa954658bc50d0681cd49": "辽宁体育休闲",

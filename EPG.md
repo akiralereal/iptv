@@ -76,6 +76,7 @@
 | `shaanxi` | 陕西 | 已接入 | 8/8 | 1 | qidian.sxtvs.com/api/v3/program/tv?channel={key} | 只给服务器当天、只有 HH:mm，按响应 Date 头认日期；同一时刻两条留后一条；末档 23:59 接到 24:00 |
 | `tianjin` | 天津 | 已接入 | 7/7 | 2 | jyapi2.wisetv.com.cn:8684/v3/tv/programs/show/{起}/{止}/{频道ID} | 与取流共用津云 App 内置的 ak/sk 头；区间最远到后天；明天上午起是编排计划，三小时切段与零点切段合回一条、去掉「30’」类时长批注 |
 | `qinghai` | 青海 | 无官方节目单 | — | — | — | 官网云直播 program/list 对任何日期（未来、频道建立之前）都即时生成 24 条整点「精彩节目」占位，每次请求 id 都是新的；与福建东南卫视同一平台同一情况 |
+| `ningxia` | 宁夏 | 已接入 | 3/3 | 1 | api.ningxiahuangheyun.com/?mod=get_appdata&appid=nxtv-tv | 黄河云 App 页面配置，一次给三套（menu[].ename = nxws / nxgg / nxwl），秒级起止时间；只有今天，日期参数都不认；约 500KB，模块内缓存 10 分钟三套共用；宁夏卫视咪咕已有节目单，实际由咪咕给，黄河云补公共、文旅；每档带的官方回看地址没用 |
 | `xinjiang` | 新疆 | 已接入 | 6/7 | 2 | slstapi.xjtvs.com.cn/api/TVLiveV100/TVGuideList | 新疆少儿官方为空 |
 | `xizang` | 西藏 | 无官方节目单 | — | — | — | 珠峰云接口只给每台「正在播出」一条（卡片 date/enddate）；频道详情 videolive 的 ifschedule=0、节目列表全空，官网没有电视直播页。开着央视频时西藏卫视与它同名，共用央视频的节目单 |
 | `yunnan` | 云南 | 已接入 | 4/7 | 2 | yntv-api.yntv.cn/index/jmd/getJmd | 防火墙要浏览器 UA + yntv.cn Referer；七彩云端三路没有节目单 |

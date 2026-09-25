@@ -155,6 +155,7 @@ import lotustv from './lotustv/index.js'
 import meizhouHakka from './meizhou-hakka/index.js'
 import mgtv from './mgtv/index.js'
 import migu from './migu/index.js'
+import ningxia from './ningxia/index.js'
 import njtv from './njtv/index.js'
 import nmtv from './nmtv/index.js'
 import qtv from './qtv/index.js'
@@ -220,6 +221,7 @@ const MODULES = [
   shaanxi,
   tianjin,
   qinghai,
+  ningxia,
   xinjiang,
   xizang,
   yunnan,

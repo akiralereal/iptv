@@ -1392,7 +1392,18 @@ function serveDataImage(res, method, headers, file, mime) {
       res.writeHead(304, cacheHeaders); res.end(); return
     }
     const buf = readFileSync(file)
-    res.writeHead(200, { 'Content-Type': mime, 'Content-Length': buf.length, ...cacheHeaders })
+    // 托管的台标里有第三方的 SVG，和管理后台同源：直接在浏览器里打开时脚本会带着访问前缀跑，
+    // 所以 SVG 一律沙箱化、不许执行脚本或加载外部资源；<img> 里显示不受影响
+    const svgHeaders = mime === 'image/svg+xml'
+      ? { 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox" }
+      : {}
+    res.writeHead(200, {
+      'Content-Type': mime,
+      'Content-Length': buf.length,
+      'X-Content-Type-Options': 'nosniff',
+      ...svgHeaders,
+      ...cacheHeaders,
+    })
     res.end(method === 'HEAD' ? undefined : buf)
   } catch (e) {
     res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('logo not found')

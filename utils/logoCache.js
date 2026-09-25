@@ -11,6 +11,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { isIP } from 'node:net'
+import { lookup as dnsLookup } from 'node:dns/promises'
 import { dataPath } from './paths.js'
 import { writeJsonFileSync } from './fileUtil.js'
 import { proxyAwareFetch } from './systemProxy.js'
@@ -70,10 +71,94 @@ export function detectImage(buf) {
   if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpg'
   if (buf.subarray(0, 4).toString('latin1') === 'GIF8') return 'gif'
   if (buf.subarray(0, 4).toString('latin1') === 'RIFF' && buf.subarray(8, 12).toString('latin1') === 'WEBP') return 'webp'
-  // Illustrator 导出的 SVG 常带 DOCTYPE 和一段 [内部声明]；根元素仍必须是 <svg>，内嵌 SVG 图标的网页不算
-  const head = buf.subarray(0, 4096).toString('utf8').replace(/^\uFEFF/, '').trimStart()
-  if (/^(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*(<!DOCTYPE[^[>]*(\[[\s\S]*?\])?\s*>\s*)?(<!--[\s\S]*?-->\s*)*<svg[\s>]/i.test(head)) return 'svg'
+  if (svgRootAfterProlog(buf.subarray(0, 4096).toString('utf8'))) return 'svg'
   return null
+}
+
+// 跳过 XML 声明、注释和一个 DOCTYPE 后，根元素是不是 <svg>。Illustrator 导出的 SVG 常带 DOCTYPE 和一段
+// [内部声明]；内嵌 SVG 图标的网页不算。逐段 indexOf 往前走，不用带嵌套量词的正则：那种写法遇到几十段
+// 注释后面不跟 <svg> 的内容会指数级回溯，一张第三方「台标」就能把整个进程卡死。
+function svgRootAfterProlog(text) {
+  let rest = text.replace(/^﻿/, '').trimStart()
+  if (rest.startsWith('<?xml')) {
+    const end = rest.indexOf('?>')
+    if (end === -1) return false
+    rest = rest.slice(end + 2).trimStart()
+  }
+  let doctypeSeen = false
+  for (;;) {
+    if (rest.startsWith('<!--')) {
+      const end = rest.indexOf('-->', 4)
+      if (end === -1) return false
+      rest = rest.slice(end + 3).trimStart()
+    } else if (!doctypeSeen && /^<!DOCTYPE/i.test(rest)) {
+      const gt = rest.indexOf('>')
+      const bracket = rest.indexOf('[')
+      let end = gt
+      if (bracket !== -1 && (gt === -1 || bracket < gt)) {
+        const close = rest.slice(bracket).search(/\]\s*>/)
+        end = close === -1 ? -1 : rest.indexOf('>', bracket + close)
+      }
+      if (end === -1) return false
+      rest = rest.slice(end + 1).trimStart()
+      doctypeSeen = true
+    } else {
+      return /^<svg[\s>]/i.test(rest)
+    }
+  }
+}
+
+// 私网 / 本机 / 保留地址。198.18.0.0/15 不算：OpenClash 等 fake-ip 模式的 DNS 把所有域名都解析到这段，
+// 挡了的话这类部署一张台标都托管不了。
+function isPrivateIPv4(host) {
+  const [a, b] = host.split('.').map(Number)
+  return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127)
+}
+
+// IPv6 展开成 8 个 16 位整数（支持 :: 缩写与末尾点分 IPv4），解析不了返回 null
+function ipv6Words(host) {
+  let text = String(host).toLowerCase().replace(/%.*$/, '')
+  const dotted = /^(.*:)(\d+\.\d+\.\d+\.\d+)$/.exec(text)
+  if (dotted) {
+    if (isIP(dotted[2]) !== 4) return null
+    const [a, b, c, d] = dotted[2].split('.').map(Number)
+    text = `${dotted[1]}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`
+  }
+  const halves = text.split('::')
+  if (halves.length > 2) return null
+  const parse = part => (part ? part.split(':') : []).map(word => (/^[0-9a-f]{1,4}$/.test(word) ? parseInt(word, 16) : NaN))
+  const head = parse(halves[0])
+  const tail = halves.length === 2 ? parse(halves[1]) : []
+  const fill = halves.length === 2 ? 8 - head.length - tail.length : 0
+  if (fill < 0) return null
+  const words = [...head, ...new Array(fill).fill(0), ...tail]
+  return words.length === 8 && words.every(Number.isInteger) ? words : null
+}
+
+function isPrivateIPv6(host) {
+  const w = ipv6Words(host)
+  if (!w) return true
+  const embedded = `${w[6] >> 8}.${w[6] & 255}.${w[7] >> 8}.${w[7] & 255}`
+  if (w.slice(0, 5).every(x => x === 0)) {
+    // ::、::1，以及 IPv4 映射（::ffff:a.b.c.d）/ 兼容（::a.b.c.d）地址按里面那个 IPv4 判
+    if (w[5] === 0xffff) return isPrivateIPv4(embedded)
+    if (w[5] === 0) return (w[6] === 0 && w[7] <= 1) || isPrivateIPv4(embedded)
+  }
+  if (w[0] === 0x64 && w[1] === 0xff9b && w.slice(2, 6).every(x => x === 0)) return isPrivateIPv4(embedded) // NAT64
+  return (w[0] & 0xfe00) === 0xfc00 || (w[0] & 0xffc0) === 0xfe80 || (w[0] & 0xff00) === 0xff00
+}
+
+/** 字面 IP 是否落在私网 / 本机 / 保留段；不是 IP 的也按不可托管算。 */
+export function isPrivateAddress(address) {
+  const family = isIP(String(address || ''))
+  if (family === 4) return isPrivateIPv4(address)
+  if (family === 6) return isPrivateIPv6(address)
+  return true
+}
+
+function hostOf(url) {
+  return url.hostname.replace(/^\[|\]$/g, '').toLowerCase().replace(/\.$/, '')
 }
 
 /** 只托管公网上的 http(s) 图片：局域网、本机地址一律不代取（订阅里的台标地址是第三方写的）。 */
@@ -85,16 +170,55 @@ export function hostableUrl(raw) {
     return false
   }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return false
-  const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase()
+  const host = hostOf(url)
   if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return false
-  if (isIP(host) === 4) {
-    const [a, b] = host.split('.').map(Number)
-    if (a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31)
-        || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127)) return false
-  }
-  if (isIP(host) === 6 && (host === '::1' || /^f[cd]/.test(host) || host.startsWith('fe80'))) return false
+  if (isIP(host) && isPrivateAddress(host)) return false
   return true
 }
+
+const MAX_REDIRECTS = 3
+
+/**
+ * 下载台标用的 fetch：只看地址字面不够——域名可以解析到局域网，公网地址也可以 302 到本机。
+ * 所以每一跳（含跳转）都先解析域名，任一地址落在私网 / 本机就不取；跳转改为手动跟，逐跳重查。
+ * 解析失败按网络问题处理（下一轮再试，先用原地址），和托管前一样由播放器自己去取。
+ */
+export function createGuardedFetch({
+  fetchImpl = proxyAwareFetch,
+  lookupImpl = host => dnsLookup(host, { all: true, verbatim: true }),
+} = {}) {
+  async function assertPublic(raw, signal) {
+    if (!hostableUrl(raw)) throw new Error('不是公网地址，不代取')
+    const host = hostOf(new URL(raw))
+    if (isIP(host)) return
+    // 解析本身不吃 fetch 的超时；跟着同一个 signal 放弃，免得一个卡住的 DNS 占着下载协程
+    const result = await new Promise((resolve, reject) => {
+      if (signal?.aborted) return reject(signal.reason ?? new Error('aborted'))
+      const onAbort = () => reject(signal.reason ?? new Error('aborted'))
+      signal?.addEventListener?.('abort', onAbort, { once: true })
+      Promise.resolve(lookupImpl(host)).then(resolve, reject)
+        .finally(() => signal?.removeEventListener?.('abort', onAbort))
+    })
+    const addresses = (Array.isArray(result) ? result : [result]).map(item => item?.address ?? item).filter(Boolean)
+    if (!addresses.length || addresses.some(address => isPrivateAddress(String(address)))) {
+      throw new Error('域名解析到局域网 / 本机地址，不代取')
+    }
+  }
+  return async function guardedFetch(url, options = {}) {
+    let current = String(url)
+    for (let hop = 0; ; hop++) {
+      await assertPublic(current, options.signal)
+      const response = await fetchImpl(current, { ...options, redirect: 'manual' })
+      const location = response.status >= 300 && response.status < 400 ? response.headers?.get?.('location') : null
+      if (!location) return response
+      await response.body?.cancel?.().catch(() => {})
+      if (hop >= MAX_REDIRECTS) throw new Error(`跳转超过 ${MAX_REDIRECTS} 次`)
+      current = new URL(location, current).href
+    }
+  }
+}
+
+const guardedFetch = createGuardedFetch()
 
 // 有的官方图床（腾讯云 CDN 的 TypeA 鉴权，内蒙古、吉林就是）每次下发的地址都带新签的
 // sign=<10 位时间戳>-<随机串>-<uid>-<32 位 md5>，图还是那张。按去掉签名的地址记账：不然模块每刷新
@@ -164,7 +288,7 @@ async function download(url, { fetchImpl, timeoutMs }) {
  */
 export async function prefetchLogos(urls, {
   now = Date.now(),
-  fetchImpl = proxyAwareFetch,
+  fetchImpl = guardedFetch,
   timeoutMs = TIMEOUT_MS,
   budgetMs = BUDGET_MS,
 } = {}) {

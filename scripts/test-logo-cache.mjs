@@ -25,7 +25,7 @@ process.env.mdataDir = DATA_DIR
 process.env.mblank = 'true'
 
 const {
-  cachedLogoFile, detectImage, finishLogoCache, hostableUrl, hostedLogoUrl, logoCacheKey, prefetchLogos, resetLogoCacheForTest,
+  cachedLogoFile, createGuardedFetch, detectImage, finishLogoCache, hostableUrl, hostedLogoUrl, logoCacheKey, prefetchLogos, resetLogoCacheForTest,
 } = await import('../utils/logoCache.js')
 const { classifyLogo } = await import('../utils/playlistConfig.js')
 
@@ -85,6 +85,58 @@ check('只代取公网 http(s)，局域网与本机地址不碰', () => {
     'http://172.20.0.1/a.png', 'http://100.64.1.1/a.png', 'http://[::1]/a.png', 'http://nas.local/a.png',
     'https://user:pw@example.com/a.png', 'ftp://example.com/a.png', '${replace}/logos/a.png', '',
   ]) assert.equal(hostableUrl(bad), false, bad)
+})
+
+check('几十段注释后面不跟 <svg> 的内容线性判完，不会回溯卡死进程', () => {
+  const started = Date.now()
+  assert.equal(detectImage(Buffer.from(`${'<!---->'.repeat(500)}<html>${'x'.repeat(64)}`)), null)
+  assert.equal(detectImage(Buffer.from(`<?xml version="1.0"?>\n${'<!-- generated -->\n'.repeat(200)}<html><body>`)), null)
+  assert.ok(Date.now() - started < 200, `用了 ${Date.now() - started}ms`)
+  assert.equal(detectImage(Buffer.from(`${'<!-- a -->'.repeat(40)}<svg viewBox="0 0 1 1">${' '.repeat(40)}</svg>`)), 'svg')
+  assert.equal(detectImage(Buffer.from(`<!DOCTYPE svg [ <!ENTITY a "x"> ]><!-- after --><svg>${' '.repeat(60)}</svg>`)), 'svg')
+  assert.equal(detectImage(Buffer.from(`<!DOCTYPE svg><!DOCTYPE svg><svg>${' '.repeat(60)}</svg>`)), null, '只认一个 DOCTYPE')
+  assert.equal(detectImage(Buffer.from(`<!-- 没闭合的注释 <svg>${' '.repeat(60)}`)), null)
+})
+
+check('IPv4 映射 / 兼容 / NAT64 的 IPv6、结尾带点的 localhost、组播地址都不代取；fake-ip 段照常', () => {
+  for (const bad of [
+    'http://[::ffff:127.0.0.1]/a.png', 'http://[::ffff:c0a8:101]/a.png', 'http://[::]/a.png', 'http://[::7f00:1]/a.png',
+    'http://[64:ff9b::a00:1]/a.png', 'http://[fe90::1]/a.png', 'http://[ff02::1]/a.png', 'http://localhost./a.png',
+    'http://nas.local./a.png', 'http://224.0.0.251/a.png', 'http://0.0.0.0/a.png',
+  ]) assert.equal(hostableUrl(bad), false, bad)
+  for (const good of ['http://198.18.0.5/a.png', 'http://[2400:3200::1]/a.png', 'http://[::ffff:8.8.8.8]/a.png', 'https://example.com./a.png']) {
+    assert.equal(hostableUrl(good), true, good)
+  }
+})
+
+await checkAsync('下载前逐跳解析域名：解析到局域网、跳转到本机的都不取，公网跳转照常跟', async () => {
+  const dns = { 'img.example.cn': ['203.0.113.7'], 'rebind.example.cn': ['203.0.113.8', '192.168.1.10'], 'cdn.example.cn': ['2400:3200::1'] }
+  const lookupImpl = async host => (dns[host] || []).map(address => ({ address }))
+  const requested = []
+  const routes = {
+    'http://img.example.cn/a.png': () => new Response(png()),
+    'http://img.example.cn/to-local.png': () => new Response(null, { status: 302, headers: { location: 'http://127.0.0.1:5000/secret.png' } }),
+    'http://img.example.cn/to-cdn.png': () => new Response(null, { status: 301, headers: { location: '//cdn.example.cn/b.png' } }),
+    'http://cdn.example.cn/b.png': () => new Response(png()),
+    'http://img.example.cn/loop.png': () => new Response(null, { status: 302, headers: { location: '/loop.png' } }),
+  }
+  const fetchImpl = async (url, init) => {
+    requested.push(url)
+    assert.equal(init.redirect, 'manual')
+    return routes[url]()
+  }
+  const guarded = createGuardedFetch({ fetchImpl, lookupImpl })
+  assert.equal((await guarded('http://img.example.cn/a.png')).status, 200)
+  await assert.rejects(guarded('http://rebind.example.cn/a.png'), /局域网/)
+  await assert.rejects(guarded('http://nowhere.example.cn/a.png'), /局域网/)
+  await assert.rejects(guarded('http://img.example.cn/to-local.png'), /不是公网地址/)
+  assert.equal((await guarded('http://img.example.cn/to-cdn.png')).status, 200)
+  await assert.rejects(guarded('http://img.example.cn/loop.png'), /跳转超过/)
+  assert.ok(!requested.some(url => url.includes('127.0.0.1')), requested.join(' '))
+  const hang = createGuardedFetch({ fetchImpl, lookupImpl: () => new Promise(() => {}) })
+  const controller = new AbortController()
+  setTimeout(() => controller.abort(), 20)
+  await assert.rejects(hang('http://img.example.cn/a.png', { signal: controller.signal }), error => error?.name === 'AbortError')
 })
 
 await checkAsync('源自带的坏了自动换台标库的；写进订阅的是本机地址并带来源标记', async () => {

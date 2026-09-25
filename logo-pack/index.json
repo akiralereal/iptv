@@ -1460,6 +1460,17 @@
    "updated": "2026-09-25",
    "width": 250
   },
+  "卡酷少儿": {
+   "file": "卡酷少儿.png",
+   "hash": "f7d8970031",
+   "height": 46,
+   "kind": "library",
+   "note": "节目画面左上角的台标（BRTV + 频道名）；北京时间官网只有直播截图，没有台标",
+   "origin": "manual",
+   "source": "iptv-org 频道数据库 https://iptv-org.github.io/api/logos.json（BRTVKakuChildrensChannel.cn，图在 i.imgur.com/t8X4wPZ.png）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "康巴卫视": {
    "file": "康巴卫视.png",
    "hash": "d2f73e73c5",
@@ -2781,6 +2792,83 @@
    "note": "Arirang 官网前端资源（asset-manifest.json 里的 static/media/arirang_logo.png），2872x740 透明底红色 arirang 字标",
    "origin": "manual",
    "source": "https://www.arirang.com/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "BRTV i生活": {
+   "file": "BRTV i生活.png",
+   "hash": "a65255541b",
+   "height": 51,
+   "kind": "library",
+   "note": "节目画面左上角的台标（BRTV + 频道名）；北京时间官网只有直播截图，没有台标",
+   "origin": "manual",
+   "source": "iptv-org 频道数据库 https://iptv-org.github.io/api/logos.json（BRTVLifeChannel.cn，图在 i.imgur.com/Bg05fxY.png）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "BRTV财经": {
+   "file": "BRTV财经.png",
+   "hash": "8077ccb9cd",
+   "height": 54,
+   "kind": "library",
+   "note": "节目画面左上角的台标（BRTV + 频道名）；北京时间官网只有直播截图，没有台标",
+   "origin": "manual",
+   "source": "iptv-org 频道数据库 https://iptv-org.github.io/api/logos.json（BRTVFinancialChannel.cn，图在 i.imgur.com/Ry0JHYW.png）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "BRTV纪实科教": {
+   "file": "BRTV纪实科教.png",
+   "hash": "8eecd7a0f2",
+   "height": 46,
+   "kind": "library",
+   "note": "iptv-org 只有改名前的「科教」；原图频道名是半透明白字，铺深色底",
+   "origin": "manual",
+   "source": "taksssss/tv 台标库 https://github.com/taksssss/tv/blob/main/icon/北京纪实科教.png",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "BRTV体育休闲": {
+   "file": "BRTV体育休闲.png",
+   "hash": "177c37bf36",
+   "height": 46,
+   "kind": "library",
+   "note": "iptv-org 没有；原图频道名是半透明白字，铺深色底",
+   "origin": "manual",
+   "source": "taksssss/tv 台标库 https://github.com/taksssss/tv/blob/main/icon/北京体育休闲.png",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "BRTV文艺": {
+   "file": "BRTV文艺.png",
+   "hash": "17b135a527",
+   "height": 54,
+   "kind": "library",
+   "note": "节目画面左上角的台标（BRTV + 频道名）；北京时间官网只有直播截图，没有台标",
+   "origin": "manual",
+   "source": "iptv-org 频道数据库 https://iptv-org.github.io/api/logos.json（BRTVArtsChannel.cn，图在 i.imgur.com/5nimp0q.png）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "BRTV新闻": {
+   "file": "BRTV新闻.png",
+   "hash": "affd3e041f",
+   "height": 50,
+   "kind": "library",
+   "note": "节目画面左上角的台标（BRTV + 频道名）；北京时间官网只有直播截图，没有台标",
+   "origin": "manual",
+   "source": "iptv-org 频道数据库 https://iptv-org.github.io/api/logos.json（BRTVNewsChannel.cn，图在 i.imgur.com/QwORUF9.png）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "BRTV影视": {
+   "file": "BRTV影视.png",
+   "hash": "27edb72845",
+   "height": 54,
+   "kind": "library",
+   "note": "节目画面左上角的台标（BRTV + 频道名）；北京时间官网只有直播截图，没有台标",
+   "origin": "manual",
+   "source": "iptv-org 频道数据库 https://iptv-org.github.io/api/logos.json（BRTVFilmTelevisionChannel.cn，图在 i.imgur.com/S6XVVbH.png）",
    "updated": "2026-09-25",
    "width": 256
   },

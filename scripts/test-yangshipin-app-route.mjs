@@ -273,6 +273,30 @@ try {
     assert.deepEqual(await runLoginKeepalive(), { skipped: 'unlinked' })
   })
 
+  await check('客户端批量探测：同一客户端连续 GET 多个公开频道，第 6 个起本地拒绝、不再打上游；别的客户端不受影响', async () => {
+    // 央视频取票走全局 fetch，这里桩成 403：前几路会真的进解析链（并失败），拒绝的一路不该碰它
+    const realFetch = globalThis.fetch
+    let upstream = 0
+    globalThis.fetch = async () => { upstream++; return new Response('denied', { status: 403 }) }
+    try {
+      const outcomes = []
+      for (const ref of ['cctv1', 'cctv2', 'cctv3', 'cctv4', 'cctv5', 'cctv6', 'cctv7', 'cctv8']) {
+        const before = upstream
+        const response = await request(`/${PASS}/relay/ysp-${ref}.m3u8`, { headers: { 'User-Agent': 'scan-test/1.0' } })
+        outcomes.push({ status: response.status, body: response.body.toString(), hit: upstream > before })
+      }
+      assert.ok(outcomes.slice(0, 5).every(o => o.hit), '前 5 个台正常进解析链')
+      assert.ok(outcomes.slice(5).every(o => !o.hit), '第 6 个起一枪都不打上游')
+      assert.ok(outcomes.slice(5).every(o => o.status === 200 && o.body.includes('批量探测')), '拒绝仍是 code 200 + 中文原因')
+      const before = upstream
+      const other = await request(`/${PASS}/relay/ysp-cctv1.m3u8`, { headers: { 'User-Agent': 'viewer-test/1.0' } })
+      assert.equal(other.body.toString().includes('批量探测'), false, '另一个客户端不受影响')
+      assert.ok(upstream > before, '另一个客户端照常进解析链')
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
   assert.equal(chromiumStarts, 0, '测试不应尝试启动 Chromium')
   assert.equal(runtime.browserSession.running, false)
   console.log(`\n全部通过 (${passed} 项，Chromium 启动 0 次)`)

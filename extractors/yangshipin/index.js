@@ -23,6 +23,11 @@ export default {
   // 播放器直连带着 TLS 会话复用与 keep-alive，本机代理则是每片一次裸请求，后者会被判成异常流量。
   // 用 relay 而非 302：清单仍由本机下发，不跟随跳转的播放器（issue #98 的极影视）照样能播。
   channelHlsMode: 'relay',
+  // 播放器「刷新预览图 / 检测可用性 / 失败自动换台」会在几十秒内把 63 个公开频道逐一 GET 一遍，
+  // 每台一张票加一两次清单，全从本机出口打官方，正好撞按 IP 的限频（共享实例两天 1487 次 403，
+  // 一被限连正在看的人也一起 403）。HEAD 探活 app.js 已本地应答，GET 这一半交给客户端批量探测
+  // 防护本地拒绝，见 utils/clientScanGuard.js。
+  resolveBurstGuard: true,
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,
   refreshDescription: '自动管理：公开频道播放时刷新短效地址并让分片直连 CDN；VIP 频道由本机官网浏览器持续解扰并输出兼容 HLS。',

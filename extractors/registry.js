@@ -34,6 +34,11 @@
  *                                 HLS 路由标记，适合整个平台统一要求代理的模块
  *   relayProxyCompatible boolean 可选；true 表示模块的 relay 频道可被 `?relay=2`
  *                                 安全升级为全代理；默认不升级，避免破坏拒绝服务端分片的 CDN
+ *   resolveBurstGuard     boolean 可选；true 表示播放请求经 utils/clientScanGuard.js 的客户端
+ *                                 批量探测防护：同一客户端短时间连续请求多个不同频道（播放器
+ *                                 刷新预览图 / 检测可用性 / 失败自动换台）时本地拒绝、不打上游。
+ *                                 给「服务端代所有观众向官方取票」且官方按 IP 限频的模块用；
+ *                                 直链或分片播放器直连的模块不需要
  *   streamType            string  可选；默认 hls，flv 由本机流式代理且不转码。
  *                                 FLV resolve 须返回 validateMediaUrl 校验官方调度跳转。
  *   capabilities.catchup boolean 可选；false 表示纯直播，不透传回看查询参数。
@@ -252,6 +257,9 @@ export function validateModule(module) {
   }
   if (module.relayProxyCompatible != null && typeof module.relayProxyCompatible !== 'boolean') {
     throw new Error(`抓取模块 ${module.id} 的 relayProxyCompatible 必须是布尔值`)
+  }
+  if (module.resolveBurstGuard != null && typeof module.resolveBurstGuard !== 'boolean') {
+    throw new Error(`抓取模块 ${module.id} 的 resolveBurstGuard 必须是布尔值`)
   }
   const hasLocalClaim = typeof module.claimsLocalPath === 'function'
   const hasLocalHandler = typeof module.handleLocalRequest === 'function'

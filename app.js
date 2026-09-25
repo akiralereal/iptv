@@ -1291,12 +1291,13 @@ async function handleRequest(req, res) {
 
   // 频道（relayMode = 清单直出兼容模式，issue #98：极影视等播放器不跟随 302 跳转；
   // relay 段已在「/userId/token」解析前剥离，此处 routeUrl 即普通频道地址）
-  const result = await channel(routeUrl, urlUserId, urlToken)
+  const result = await channel(routeUrl, urlUserId, urlToken, clientOf(req))
 
   // 结果异常
   if (result.code != 302) {
 
-    printRed(result.desc)
+    // silent：批量探测被本地拒绝，appUtils 已按客户端归并打过黄字，不再逐条刷红
+    if (!result.silent) printRed(result.desc)
     res.writeHead(result.code, {
       'Content-Type': 'application/json;charset=UTF-8',
     });

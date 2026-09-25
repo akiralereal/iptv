@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ensureSourceIds, inheritExistingSourceIds } from '../utils/externalSources.js'
+import { BUILT_IN_SUBSCRIPTIONS, ExternalSourceManager, ensureSourceIds, inheritExistingSourceIds } from '../utils/externalSources.js'
 import {
   consolidateLocalEducationChannels,
   consolidateLocalKidsChannels,
@@ -213,9 +213,9 @@ check('体育组里外部订阅的频道排在地方官方体育频道之后，�
     { name: '体育', dataList: [
       { name: 'CCTV5体育', pID: 'm1' },
       { name: '纬来体育', sourceId: 'bi:vl-sports' },
-      { name: '纬来体育', sourceId: 'ext:iptv', source: 'external' },
-      { name: 'World Poker Tour', sourceId: 'ext:iptv', source: 'external' },
-      { name: 'UFC 24/7', sourceId: 'ext:iptv' },
+      { name: '纬来体育', sourceId: 'ext:iptv', source: 'external', builtInSubscription: true },
+      { name: 'World Poker Tour', sourceId: 'ext:iptv', source: 'external', builtInSubscription: true },
+      { name: 'UFC 24/7', sourceId: 'ext:iptv', builtInSubscription: true },
     ] },
     { name: '江苏', dataList: [{ name: '江苏体育休闲', sourceId: 'xt:jstv' }] },
     { name: '上海', dataList: [{ name: '五星体育', sourceId: 'xt:kankanews' }] },
@@ -225,6 +225,103 @@ check('体育组里外部订阅的频道排在地方官方体育频道之后，�
     '江苏体育休闲|xt:jstv', '五星体育|xt:kankanews',
     '纬来体育|ext:iptv', 'World Poker Tour|ext:iptv', 'UFC 24/7|ext:iptv',
   ])
+})
+
+// 用户自配线路（自建订阅、本地文件/粘贴、直连、「复制到分组」副本）不被地方官方同台线路替换或删除。
+// 精选订阅的频道由 getValidChannels 打 builtInSubscription，仍按原规则去重。
+const labels = (output, name) => (output.find(group => group.name === name)?.dataList || [])
+  .map(channel => `${channel.name}|${channel.sourceId || 'migu'}`)
+const userLine = (name, sourceId, url = `http://user.example/${encodeURIComponent(name)}`) =>
+  ({ name, url, sourceId, source: 'external' })
+const curatedLine = name =>
+  ({ name, url: `http://curated.example/${encodeURIComponent(name)}`, sourceId: 'ext:jx', source: 'external', builtInSubscription: true })
+
+check('少儿组里粘贴的同台组播线路紧跟官方线路保留，不再被顶掉（邮件反馈）', () => {
+  const rtp = (name, addr) => userLine(name, 'ext:runyuan', `http://192.168.1.1:4022/rtp/${addr}`)
+  const input = [
+    { name: '少儿', dataList: [
+      { name: '嘉佳卡通', pID: 'm1' },
+      { name: '优漫卡通频道', pID: 'm2' },
+      rtp('优漫卡通', '239.49.8.119:8000'),
+      rtp('动漫秀场', '239.49.8.43:8028'),
+      rtp('金鹰卡通', '239.49.8.33:8000'),
+      rtp('卡酷少儿', '239.49.0.148:8000'),
+      userLine('浙江少儿', 'ext:runyuan', 'http://ali-xwl.cztv.com/live/channel081080Plxw.m3u8'),
+    ] },
+    { name: '江苏', dataList: [{ name: '优漫卡通', sourceId: 'xt:jstv' }] },
+    { name: '湖南', dataList: [{ name: '金鹰卡通', sourceId: 'xt:mgtv' }] },
+    { name: '北京', dataList: [{ name: '卡酷少儿', sourceId: 'xt:beijing' }] },
+    { name: '浙江', dataList: [{ name: '浙江少儿', sourceId: 'xt:cztv' }] },
+  ]
+  const before = JSON.stringify(input)
+  const output = consolidateLocalKidsChannels(input)
+  const expected = [
+    '嘉佳卡通|migu',
+    '优漫卡通|xt:jstv', '优漫卡通|ext:runyuan',      // 咪咕「优漫卡通频道」被官方原地替换，用户线路紧随
+    '金鹰卡通|xt:mgtv', '金鹰卡通|ext:runyuan',
+    '卡酷少儿|xt:beijing', '卡酷少儿|ext:runyuan',
+    '浙江少儿|xt:cztv', '浙江少儿|ext:runyuan',
+    '动漫秀场|ext:runyuan',
+  ]
+  assert.deepEqual(labels(output, '少儿'), expected)
+  // 地址不同，组内去重不会再合掉任何一条
+  dedupeAllChannels(output)
+  assert.deepEqual(labels(output, '少儿'), expected)
+  assert.deepEqual(labels(output, '湖南'), ['金鹰卡通|xt:mgtv'])
+  assert.equal(JSON.stringify(input), before, '不应修改输入分组')
+})
+
+check('其它分组里的用户同台线路原地保留；咪咕、精选的同台条目照旧去重', () => {
+  const output = consolidateLocalSportsChannels([
+    { name: '体育', dataList: [
+      { name: 'CCTV5体育', pID: 'm1' },
+      { name: '五星体育', pID: 'm2' },
+      curatedLine('Red Bull TV'),
+      curatedLine('广东体育'),
+      userLine('五星体育频道', 'ext:big'),
+      userLine('广东体育', 'ext:big'),
+    ] },
+    { name: '文旅', dataList: [{ name: '广东体育', pID: 'm3' }, curatedLine('五星体育')] },
+    { name: 'IPTV组播', dataList: [userLine('五星体育', 'ext:mc'), userLine('CCTV1', 'ext:mc')] },
+    { name: '我的收藏', dataList: [userLine('广东体育', 'ext:copy')] },  // issue #37「复制到分组」副本
+    { name: '未分组', dataList: [userLine('五星体育', 'ext:ign')] },     // 勾了「忽略源自带分组」（#110）的源
+    { name: '上海', dataList: [{ name: '五星体育', sourceId: 'xt:kankanews' }] },
+    { name: '广东', dataList: [{ name: '广东体育', sourceId: 'xt:gdtv' }] },
+  ])
+  assert.deepEqual(labels(output, '体育'), [
+    'CCTV5体育|migu',
+    '五星体育|xt:kankanews', '五星体育频道|ext:big',
+    '广东体育|xt:gdtv', '广东体育|ext:big',       // 精选的广东体育丢掉；官方线路排在精选之前
+    'Red Bull TV|ext:jx',
+  ])
+  assert.equal(output.some(group => group.name === '文旅'), false, '咪咕、精选的同台条目删光后空组照旧消失')
+  assert.deepEqual(labels(output, 'IPTV组播'), ['五星体育|ext:mc', 'CCTV1|ext:mc'])
+  assert.deepEqual(labels(output, '我的收藏'), ['广东体育|ext:copy'])
+  assert.deepEqual(labels(output, '未分组'), ['五星体育|ext:ign'])
+})
+
+check('用户线路放在别的地方组里时，内容组仍以官方线路为代表', () => {
+  const output = consolidateLocalKidsChannels([
+    { name: '北京', dataList: [userLine('金鹰卡通', 'ext:mine')] },
+    { name: '湖南', dataList: [{ name: '金鹰卡通', sourceId: 'xt:mgtv' }] },
+  ])
+  assert.deepEqual(labels(output, '少儿'), ['金鹰卡通|xt:mgtv'])
+  assert.deepEqual(labels(output, '北京'), ['金鹰卡通|ext:mine'])
+})
+
+check('getValidChannels：只有内置「精选频道」订阅的频道带 builtInSubscription', () => {
+  const manager = Object.create(ExternalSourceManager.prototype)
+  manager.sources = { enabled: true, sources: [
+    { id: 'cur', enabled: true, mode: 'subscription', group: '未分组',
+      subscriptionUrl: BUILT_IN_SUBSCRIPTIONS[0].subscriptionUrl,
+      parsedChannels: [{ name: '五星体育', group: '体育', url: 'http://curated.example/wx' }] },
+    { id: 'mine', enabled: true, mode: 'subscription', group: '少儿', subscriptionUrl: '', localImport: true,
+      parsedChannels: [{ name: '优漫卡通', group: '', url: 'http://user.example/ym' }] },
+    { id: 'copy', enabled: true, name: '广东体育', group: '我的收藏', m3u8Url: 'http://user.example/gd' },
+  ] }
+  const flags = manager.getValidChannels()
+    .flatMap(group => group.dataList.map(channel => `${channel.sourceId}:${channel.builtInSubscription === true}`))
+  assert.deepEqual(flags, ['ext:cur:true', 'ext:mine:false', 'ext:copy:false'])
 })
 
 // 3) applyConfig disabledSources 语义

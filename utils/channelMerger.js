@@ -89,9 +89,17 @@ function isExternalChannel(channel) {
   return channel?.source === 'external' || String(channel?.sourceId || '').startsWith('ext:')
 }
 
+// 用户自己配的线路：外部源里除去内置「精选频道」订阅（getValidChannels 给它打 builtInSubscription）
+// 的全部——自建订阅、本地文件/粘贴、直连、「复制到分组」副本。常见是本地 IPTV 组播，
+// 与地方官方同台时只能并排当备用线路，不能被替换或删掉。
+function isUserConfiguredChannel(channel) {
+  return isExternalChannel(channel) && channel.builtInSubscription !== true
+}
+
 /**
  * 把符合条件的地方频道复制到内容分组，地方组仍保留完整频道；
- * 如果其它内容分组已有同台条目，用地方官方源替换并去掉重复。
+ * 如果其它内容分组已有同台条目，用地方官方源替换并去掉重复（咪咕、内置源、精选订阅）。
+ * 用户自配的同台线路不替换不删除：内容组里的紧跟在官方线路后面，其它分组里的原地保留。
  * 返回新分组，不修改输入。
  */
 function consolidateLocalChannels(groups, { targetGroup, matches, keyOf }) {
@@ -112,15 +120,21 @@ function consolidateLocalChannels(groups, { targetGroup, matches, keyOf }) {
   const preferred = new Map()
   for (const channel of localChannels) {
     const key = keyOf(channel)
-    if (key && !preferred.has(key)) preferred.set(key, channel)
+    if (!key) continue
+    const current = preferred.get(key)
+    // 用户把自配线路放在某个地方组里时，同台官方线路仍优先当代表
+    if (!current || (isUserConfiguredChannel(current) && !isUserConfiguredChannel(channel))) {
+      preferred.set(key, channel)
+    }
   }
 
   // 同台可能被平台放在其它分类（如「南京教科频道」在纪实），
   // 不能只查目标组，否则重复源会换个分组继续存在；
-  // 地方组是用户需要的完整省份入口，不参与此处删重。
+  // 地方组是用户需要的完整省份入口，不参与此处删重；用户自配线路也不删。
   for (const group of output) {
     if (group.name === targetGroup || isLocalGroup(group.name)) continue
-    group.dataList = group.dataList.filter(channel => !preferred.has(keyOf(channel)))
+    group.dataList = group.dataList.filter(channel =>
+      isUserConfiguredChannel(channel) || !preferred.has(keyOf(channel)))
   }
 
   let contentGroup = output.find(group => group.name === targetGroup)
@@ -129,6 +143,17 @@ function consolidateLocalChannels(groups, { targetGroup, matches, keyOf }) {
     const firstLocal = output.findIndex(group => isLocalGroup(group.name))
     output.splice(firstLocal >= 0 ? firstLocal : output.length, 0, contentGroup)
   }
+
+  // 内容组里与官方同台的用户线路：跟着官方线路一起放、紧贴其后，
+  // 播放器按「同组同名」聚成线路1（官方）/线路2（用户）。
+  const userLines = new Map()
+  for (const channel of contentGroup.dataList) {
+    const key = keyOf(channel)
+    if (!preferred.has(key) || !isUserConfiguredChannel(channel)) continue
+    if (!userLines.has(key)) userLines.set(key, [])
+    userLines.get(key).push(channel)
+  }
+  const gluedUserLines = new Set([...userLines.values()].flat())
 
   const placedPreferred = new Set()
   const merged = []
@@ -139,8 +164,11 @@ function consolidateLocalChannels(groups, { targetGroup, matches, keyOf }) {
       merged.push(channel)
       continue
     }
+    // 外部源的同台条目不当官方线路的落点：精选的丢掉，用户的随官方线路走；
+    // 官方线路只在替换咪咕 / 内置源条目时原地放，否则与其它地方频道一起插到外部订阅之前。
+    if (isExternalChannel(channel)) continue
     if (!placedPreferred.has(key)) {
-      merged.push(local)
+      merged.push(local, ...(userLines.get(key) || []))
       placedPreferred.add(key)
     }
   }
@@ -148,13 +176,13 @@ function consolidateLocalChannels(groups, { targetGroup, matches, keyOf }) {
   for (const channel of localChannels) {
     const key = keyOf(channel)
     if (placedPreferred.has(key)) continue
-    appended.push(preferred.get(key) || channel)
+    appended.push(preferred.get(key) || channel, ...(userLines.get(key) || []))
     placedPreferred.add(key)
   }
   // 合并优先级是「抓取模块 → 内置源 → 外部订阅」：地方官方频道插在第一个外部订阅频道之前，
   // 不追加到组尾——否则精选列表里起播慢的海外台（World Poker Tour、UFC 24/7 等）会夹在
-  // 咪咕与各地体育频道中间。组里没有外部订阅频道时仍排在最后。
-  const firstExternal = merged.findIndex(isExternalChannel)
+  // 咪咕与各地体育频道中间。组里没有外部订阅频道时仍排在最后。紧贴官方线路的用户线路不算。
+  const firstExternal = merged.findIndex(channel => isExternalChannel(channel) && !gluedUserLines.has(channel))
   merged.splice(firstExternal >= 0 ? firstExternal : merged.length, 0, ...appended)
   contentGroup.dataList = merged
 

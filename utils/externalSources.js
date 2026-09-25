@@ -957,6 +957,9 @@ class ExternalSourceManager {
 
       // 订阅模式：展开 parsedChannels
       if (source.mode === 'subscription' && Array.isArray(source.parsedChannels)) {
+        // 内置「精选频道」与地方官方同台时可被去重；其余外部源都是用户自己配的，
+        // channelMerger 的内容组归并据此不替换、不删除（邮件反馈：粘贴的少儿组播被顶掉）
+        const builtInSubscription = isBuiltInSubscriptionSource(source)
         source.parsedChannels.forEach(ch => {
           const group = resolveSubscriptionGroup(ch, source)
           if (!groupMap.has(group)) {
@@ -971,6 +974,7 @@ class ExternalSourceManager {
             logo: ch.logo || "",
             groupTitle: group,
             sourceId: source.id ? `ext:${source.id}` : undefined,  // 源归属（issue #29/#68）
+            ...(builtInSubscription ? { builtInSubscription: true } : {}),
             ...(ch.opts && ch.opts.length ? { opts: ch.opts } : {})
           })
         })

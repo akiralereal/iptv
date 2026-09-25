@@ -134,6 +134,8 @@ check('频道接口逐路校验：标禁播、缺席或台号对不上的只跳�
   const partial = parseChannelList(forbidden, { now })
   assert.equal(partial.urls.size, 6)
   assert.equal(partial.urls.has('16'), false, '重新标禁播的一路不连累其余六路')
+  assert.deepEqual([...partial.forbidden], ['16'], '按节目禁播的记下来，播放时单独说明')
+  assert.equal(parsed.forbidden.size, 0)
   const incomplete = apiPayload()
   incomplete.data = incomplete.data.filter(item => String(item.Id) !== '23')
   assert.equal(parseChannelList(incomplete, { now }).urls.has('23'), false)
@@ -239,4 +241,26 @@ await checkAsync('清缓存后会重新发现官网当天脚本和短效入口',
   assert.equal(pageRequests, 2)
 })
 
-console.log(`\n全部通过：${passed}/8 ✅`)
+await checkAsync('当前节目被标禁播时说明是这档节目限播，不说不在直播列表', async () => {
+  const payload = apiPayload()
+  Object.assign(payload.data.find(item => String(item.Id) === '17'), { IsForbidden: true, PlayStreamUrl: null })
+  payload.data = payload.data.filter(item => String(item.Id) !== '23')
+  const fetchImpl = async raw => {
+    const url = new URL(raw)
+    if (url.href === XINJIANG_PAGE) return response('<script src="/_nuxt/live_A-1.js"></script>')
+    if (url.pathname === '/_nuxt/live_A-1.js') return response(signingBundle)
+    if (url.href === XINJIANG_TIMESTAMP_URL) return response({ data: '1861920000000' })
+    if (url.pathname === XINJIANG_CHANNEL_ENDPOINT) return response(payload)
+    if (url.hostname === 'slstplay.xjtvs.com.cn') return response(`#EXTM3U\n#EXTINF:6,\nsegment.ts?auth_key=${authFor(7)}\n`)
+    throw new Error(`unexpected URL: ${url.href}`)
+  }
+  const resolver = createResolver({ fetchImpl })
+  const blocked = await resolver.resolve('xjtv-5', { now })
+  assert.equal(blocked.url, '')
+  assert.match(blocked.desc, /维吾尔语影视 当前这档节目官网不提供网络直播，换档后自动恢复/)
+  const missing = await resolver.resolve('xjtv-8', { now })
+  assert.match(missing.desc, /新疆少儿 当前不在官网有效直播列表中/)
+  assert.notEqual((await resolver.resolve('xjtv-4', { now })).url, '')
+})
+
+console.log(`\n全部通过：${passed}/9 ✅`)

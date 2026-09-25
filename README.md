@@ -488,6 +488,7 @@ node app.js
 
 ### 未发布
 
+- **「体育」组里海外台排到最后**：各地官方体育频道（江苏、安徽、辽宁、广东、福建、河北、山东、天津、新疆、五星体育等）并入「体育」组时，以前追加在组尾，排到了精选列表的海外台后面；现在按「抓取模块 → 内置源 → 外部订阅」的既定优先级，插在外部订阅的频道之前。起播慢的 World Poker Tour、Red Bull TV、NHL FAST、UFC 24/7 因此落到「体育」组最后。「少儿」「教育」两组同样按这个顺序，默认没有外部订阅频道，不受影响
 - **移除大爱电视模块**：大爱一台、大爱二台连同它们的官方节目单一起下线，「台湾」分组里不再有这两台；源管理里也不再有「大爱电视」这张卡。升级后老部署缓存里的大爱频道会被忽略，不用手动清理
 - **精选列表移除 34 个境外频道**：体育组的 FUEL TV、World of Freesports、FloRacing、SportsGrid、ACCDN、Pac-12 Insider、Tennis Channel International、MTRSPT1、Sky Racing 1、Sky Racing 2、Trace Sport Stars、beIN Sports Xtra、FIFA+，文旅组的 History Hit、InTravel、Terra Mater WILD、Court TV、Documentary+，国际组的 NEWS1、France 24 Español，香港组的港台电视31，韩国组的 Arirang，以及娱乐时尚组的 Wipeout Xtra、Graham Norton、Mystery TV、Rai Italia、Rai World Premium、Mediaset Italia、FashionTV Paris L'Original、Global Fashion Channel、Qello Concerts、Totalmusic Concerts、Estrella TV、MovieSphere（娱乐时尚组只留面包台），从 `IPTV.m3u` 的实验台直连区块删除，区块从 50 个减到 16 个。精选列表由各实例直接从仓库拉取，不用升级镜像，下一轮刷新精选频道后生效
 - **宁夏三台改由独立模块提供，并接入官方节目单**：宁夏卫视、宁夏公共、宁夏文旅原先写在精选列表 `IPTV.m3u` 里，现在改由新的「宁夏」模块提供，归入「宁夏」，免登录、零配置、默认开启，可在源管理单独关闭。取流不变：仍是黄河云公开的固定官方入口，上游不校验来源也不挑播放器标识，播放器直连官方 CDN，本机不转发媒体。新增的是节目单：宁夏公共、宁夏文旅今天的节目取自黄河云官方接口（各约 22、29 档），官方只发当天的，零点后要等下一轮更新；宁夏卫视咪咕本来就有节目单，按「咪咕 → 模块」的顺序照旧用咪咕的，关掉咪咕时才改用黄河云。台标沿用内置库里已有的三张（官方接口给的频道图是带背景的宣传图，不用）。精选列表里的这三条同时删掉；精选列表由各实例直接从仓库拉取，还没升级镜像的部署在升级前暂时没有「宁夏」分组。由独立实验台移植，宁夏经济、宁夏少儿两路实验台核对过只循环测试卡，不收

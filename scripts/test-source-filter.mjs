@@ -208,6 +208,25 @@ check('地方体育频道同时归入体育组，地方组仍保留且同台优�
   assert.equal(JSON.stringify(input), before, '不应修改输入分组')
 })
 
+check('体育组里外部订阅的频道排在地方官方体育频道之后，内置源与咪咕位置不变', () => {
+  const output = consolidateLocalSportsChannels([
+    { name: '体育', dataList: [
+      { name: 'CCTV5体育', pID: 'm1' },
+      { name: '纬来体育', sourceId: 'bi:vl-sports' },
+      { name: '纬来体育', sourceId: 'ext:iptv', source: 'external' },
+      { name: 'World Poker Tour', sourceId: 'ext:iptv', source: 'external' },
+      { name: 'UFC 24/7', sourceId: 'ext:iptv' },
+    ] },
+    { name: '江苏', dataList: [{ name: '江苏体育休闲', sourceId: 'xt:jstv' }] },
+    { name: '上海', dataList: [{ name: '五星体育', sourceId: 'xt:kankanews' }] },
+  ])
+  assert.deepEqual(output.find(group => group.name === '体育').dataList.map(channel => `${channel.name}|${channel.sourceId || 'migu'}`), [
+    'CCTV5体育|migu', '纬来体育|bi:vl-sports',
+    '江苏体育休闲|xt:jstv', '五星体育|xt:kankanews',
+    '纬来体育|ext:iptv', 'World Poker Tour|ext:iptv', 'UFC 24/7|ext:iptv',
+  ])
+})
+
 // 3) applyConfig disabledSources 语义
 const mk = (sourceIds) => sourceIds === undefined
   ? { id: 'x1', name: 'X' }

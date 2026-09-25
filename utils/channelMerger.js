@@ -83,6 +83,12 @@ function kidsChannelKey(channel) {
     .replace(/频道$/, '')
 }
 
+// 外部订阅（含内置的「精选频道」订阅）进来的频道：getAllChannels 里打 source:'external'，
+// sourceId 是 ext:<id>；纯函数测试只给 sourceId。
+function isExternalChannel(channel) {
+  return channel?.source === 'external' || String(channel?.sourceId || '').startsWith('ext:')
+}
+
 /**
  * 把符合条件的地方频道复制到内容分组，地方组仍保留完整频道；
  * 如果其它内容分组已有同台条目，用地方官方源替换并去掉重复。
@@ -138,12 +144,18 @@ function consolidateLocalChannels(groups, { targetGroup, matches, keyOf }) {
       placedPreferred.add(key)
     }
   }
+  const appended = []
   for (const channel of localChannels) {
     const key = keyOf(channel)
     if (placedPreferred.has(key)) continue
-    merged.push(preferred.get(key) || channel)
+    appended.push(preferred.get(key) || channel)
     placedPreferred.add(key)
   }
+  // 合并优先级是「抓取模块 → 内置源 → 外部订阅」：地方官方频道插在第一个外部订阅频道之前，
+  // 不追加到组尾——否则精选列表里起播慢的海外台（World Poker Tour、UFC 24/7 等）会夹在
+  // 咪咕与各地体育频道中间。组里没有外部订阅频道时仍排在最后。
+  const firstExternal = merged.findIndex(isExternalChannel)
+  merged.splice(firstExternal >= 0 ? firstExternal : merged.length, 0, ...appended)
   contentGroup.dataList = merged
 
   return output.filter(group => group.dataList.length > 0)

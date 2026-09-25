@@ -43,7 +43,7 @@
 | `bilibili-live` | 哔哩哔哩直播 | 不适用 | — | — | — | 直播间 |
 | `huya-live` | 虎牙直播 | 不适用 | — | — | — | 直播间 |
 | `douyu-live` | 斗鱼直播 | 不适用 | — | — | — | 直播间 |
-| `anhui` | 安徽 | 无官方节目单 | — | — | — | 官网频道页已改跳新闻；安徽视讯 App 接口在 WAF 后或验签不过，再往下要拆 APK |
+| `anhui` | 安徽 | 无官方节目单 | — | — | — | 官网频道页已改跳新闻；安徽视讯 App 1.0.174（2026-09-25 拆包）是爱加密整包壳，桩 dex 13 KB、载荷在 assets/ijiami.dat，不脱壳、到此为止；公开网页端只有微直播活动接口 |
 | `beidou` | 辽宁 | 无官方节目单 | — | — | — | getProgram 只列已开播的回看、没有预告；当前输出的 5 路在里面全空 |
 | `beijing` | 北京广播电视台 | 已接入 | 7/9 电视 | 2 | api.cntv.cn/epg/getEpgInfoByChannelNew?c=btv{n} | 北京时间官网没有节目单，取央视网（代号 btv1 卫视…btv9 新闻，逐个试出来的）；体育休闲 btv6 官方为空，卡酷少儿试不出代号（咪咕、央视频也没有这两台）；北京时间 App 有节目单页面，但包是 360 加固、在模拟器里启动即自杀，正式版也不信任用户证书，接口拿不到，不再往下（不绕过 App 的防护）；电视频道要部署者 Cookie 才出现，公开部分是慢直播 |
 | `chongqing` | 重庆 | 无官方节目单 | — | — | — | 频道详情的 playbillid / billcontent 为空，其余路径 404 |
@@ -52,14 +52,14 @@
 | `gansu` | 甘肃 | 已接入 | 1/6 | 2 | api.cntv.cn/epg/getEpgInfoByChannelNew?c=gansu | 甘肃台自己的 getTvProgramList 全空、也不是带时间的节目表；甘肃卫视取央视网（央视频也有），五个地面频道央视网、央视频都没收 |
 | `gdtv` | 广东 | 已接入 | 14/17 | 2 | gdtv-api.gdtv.cn/api/tv/v2/tvMenu | HMAC-SHA256 签名，key/secret 取自官网 WASM 签名模块（别直接跑官网签名脚本，里面有反 Node 陷阱）；经典剧、纪录片、健康官方为空 |
 | `gztv` | 广州 | 无官方节目单 | — | — | — | 广视网直播页没有节目单，频道数据里的节目字段为空；旧节目单域名已失效 |
-| `gzstv` | 贵州 | 无官方节目单 | — | — | — | 官网接口只给标题与流地址；动静 App 的签名在 App 内部 |
+| `gzstv` | 贵州 | 无官方节目单 | — | — | — | 官网接口只给标题与流地址；动静 App（2026-09-25 拆包，官网直链 120 MB）是梆梆 DexHelper + zxprotect 加固，单个 137 MB 的假 dex，不脱壳、到此为止 |
 | `gxtv` | 广西 | 已接入 | 6/7 | 2 | api2019.gxtv.cn/memberApi/programList/selectListByChannelId | POST，实际按频道名查；只给开始时间与时长；广西移动官方不展示节目单 |
 | `fjtv` | 福建 | 已接入 | 9 路 | 2 | 省级 mapi-plus.fjtv.net 云直播 program/list；厦门 mapi1.kxm.xmtv.cn/api/v1/program.php；福州 app.zohi.tv/video/player/playbill | 东南卫视、厦视三套、海博地市只有占位；福州只列自办栏目、只有今天，少儿不收 |
 | `jlntv` | 吉林 | 已接入 | 1/15 | 2 | api.cntv.cn/epg/getEpgInfoByChannelNew?c=yanbian | broadcast/programs 只维护广播，电视频道全空；延边卫视取央视网，节目名是朝鲜语（官方原样）；吉林卫视由咪咕 / 央视频覆盖，其余央视网没收 |
-| `jxntv` | 江西 | 无官方节目单 | — | — | — | 官网与今视频 App 后端都没有；App 接口有阿里云 WAF |
+| `jxntv` | 江西 | 无官方节目单 | — | — | — | 官网与今视频 App 后端都没有；App 接口有阿里云 WAF；今视频 6.2.6（2026-09-25 拆包，官网只指向应用宝）是爱加密壳，桩 dex 13 KB，不脱壳、到此为止 |
 | `hebtv` | 河北 | 已接入 | 6 路电视 | 2 | api.cmc.hebrts.cn/spidercrms/api/live/liveShowSet/findNoPage | POST，公开 tenantId；频道号与取流无关；美丽河北慢直播不适用 |
 | `hbtv` | 湖北 | 已接入 | 6/6 | 2 | cjy-iptv.hbtv.com.cn/wxcms3/remote-wx/api/cj-cloud/play/{账号}/show | 长江云 TV 遥控页接口，固定公开 Authorization、账号段传 null（2026-09-25 确认保留） |
-| `heilongjiang` | 黑龙江 | 无官方节目单 | — | — | — | 极光新闻 H5 只有流地址；旧节目单域名已解析不到；只剩原生 App |
+| `heilongjiang` | 黑龙江 | 无官方节目单 | — | — | — | 极光新闻 H5 只有流地址；旧节目单域名已解析不到；极光新闻 8.8.3（2026-09-25 拆包，业务 dex 明文）没有任何节目单接口、数据模型或界面文案，live/getTVInfo 只给台标与流地址，按日期的只有新闻联播回看，App 里也没有 |
 | `hnntv` | 海南 | 已接入 | 7/7 | 1 | www.hnntv.cn/api/schedule/byDay | 一次给今天加过去 6 天，没有明天 |
 | `hntv` | 河南 | 已接入 | 13/13 | 1 | pubmod.hntv.tv/program/getAuth/vod/originStream/program/{cid}/{零点秒} | sha256 签名；明天以后是冻结的周模板，按没发处理 |
 | `cztv` | 浙江 | 已接入 | 9/9 | 2 | p.cztv.com/api/paas/program/{台号}/{日期} | 播出日志粒度，剔除广告、宣传片碎片；未来日期是「精彩节目」占位 |

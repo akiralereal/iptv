@@ -103,8 +103,8 @@ check('模块注册为免账号的西藏 relay 模块', () => {
 await checkAsync('三路固定频道并入唯一的西藏分组，各带官方频道卡片的台标', async () => {
   assert.deepEqual(CHANNELS.map(channel => [channel.ref, channel.name]), [
     ['xizang-satellite', '西藏卫视'],
-    ['xizang-tibetan', '西藏藏语卫视'],
-    ['xizang-film-culture', '西藏影视文化'],
+    ['xizang-tibetan', '藏语卫视'],
+    ['xizang-film-culture', '影视文化'],
   ])
   const channels = buildChannels()
   assert.ok(channels.every(channel => channel.groupTitle === '西藏' && channel.catchup === 'none'))
@@ -360,7 +360,7 @@ await checkAsync('resolve 只返回说明，不向请求处理器抛异常', asy
   missing.cardgroups[1].cards = missing.cardgroups[1].cards.filter(card => card.id !== CHANNELS[1].cardId)
   const absent = await resolveChannel('xizang-tibetan', { fetchImpl: async () => json(missing), now: NOW })
   assert.equal(absent.url, '')
-  assert.match(absent.desc, /西藏藏语卫视当前不在珠峰云直播列表中/)
+  assert.match(absent.desc, /藏语卫视当前不在珠峰云直播列表中/)
 
   clearCache()
   const html = await resolveChannel('xizang-satellite', {

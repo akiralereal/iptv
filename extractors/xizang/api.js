@@ -49,8 +49,8 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
 const LOGO_BASE = 'https://pic.vtibet.cn/cms/vrupload/img/'
 
 // cardId 是直播分组里频道卡片的固定 ID，也是分享页 app://<cardId> 那一段；流名不写死，以接口为准。
-// App 里标的是「西藏卫视」「藏语卫视」「影视文化」，后两个补「西藏」前缀：离开「西藏」分组也不会
-// 和别家的影视、文化频道混，也与常见台标库、节目单源的叫法一致。西藏卫视与央视频模块同名：
+// 台名照 App 原样收：「西藏卫视」「藏语卫视」「影视文化」。三路都在「西藏」分组里，不再补省名前缀。
+// 西藏卫视与央视频模块同名：
 // 跨源同台按设计不合并、各自作备份，同名也让两边共用节目单。
 // 台标是同一接口里各频道卡片的 photo.thumb（220×160，XZTV 标 + 台名，三路各不相同），去掉了
 // 防缓存的 ?r= 参数；频道详情 videolive 的 headpic 是「中国西藏广播电视台」整台台标，分不出频道，不用。
@@ -60,11 +60,11 @@ export const CHANNELS = Object.freeze([
     logo: `${LOGO_BASE}2021/10/15/1634292405536_979_220x160.png`,
   }),
   Object.freeze({
-    ref: 'xizang-tibetan', name: '西藏藏语卫视', cardId: 'OlyL20211126142400000CH00000012',
+    ref: 'xizang-tibetan', name: '藏语卫视', cardId: 'OlyL20211126142400000CH00000012',
     logo: `${LOGO_BASE}2021/11/26/1637908504567_224_220x160.jpg`,
   }),
   Object.freeze({
-    ref: 'xizang-film-culture', name: '西藏影视文化', cardId: 'OlyL20211012175000000CH00000031',
+    ref: 'xizang-film-culture', name: '影视文化', cardId: 'OlyL20211012175000000CH00000031',
     logo: `${LOGO_BASE}2021/10/15/1634292378543_831_220x160.png`,
   }),
 ])

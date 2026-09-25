@@ -54,21 +54,9 @@ https://wildearth-plex.amagi.tv/masterR1080p.m3u8
 # 实验台备注：英语自然纪实频道，单档 2160p / 29.97fps HEVC
 #EXTINF:-1 tvg-logo="https://images.sr.roku.com/idType/roku-trc/context/trc/id/479fe0d11f3f5132a3f36b617547da3b/https%3A%2F%2Fimage.roku.com%2Fbh-uploads%2Fproduction%2FinfoHUDLogo%2F1738776545554_LoveNature_logos_HUB_Centered.png" group-title="文旅",Love Nature 4K
 https://pb-ehs1glsha1juy.akamaized.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/pb-ehs1glsha1juy/f2141f37-1f48-475b-ba54-b9efb62346db/0.m3u8
-# 实验台备注：Stingray 为 Samsung TV Plus 提供的演唱会频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Qello Concerts
-https://lotus.stingray.com/manifest/qello-qello001-montreal/samsungtvplus/master.m3u8
-# 实验台备注：40media 官方演唱会频道，1080p
-#EXTINF:-1 group-title="娱乐时尚",Totalmusic Concerts
-https://cdn.40mediagroup.com/live/c7eds/Totalmusic_Concerts/SA_LIVE_hls_enc/master.m3u8
 # 实验台备注：香港粤语综合娱乐网络频道，单档直播
 #EXTINF:-1 group-title="娱乐时尚",面包台
 https://video.bread-tv.com:8091/hls-live24/online/index.m3u8
-# 实验台备注：西班牙语综合娱乐频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Estrella TV
-https://estrellatv-oando.amagi.tv/playlist.m3u8
-# 实验台备注：Lionsgate 英语电影 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",MovieSphere
-https://amg00353-lionsgatefilmsi-moviesphereaus-samsungau-7qzhf.amagi.tv/playlist/amg00353-lionsgatefilmsi-moviesphereaus-samsungau/playlist.m3u8
 # 实验台备注：CGTN 英语纪录频道，最高 1080p
 #EXTINF:-1 group-title="文旅",CGTN Documentary
 https://english-livebkali.cgtn.com/live/doccgtn.m3u8

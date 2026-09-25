@@ -91,6 +91,15 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "澳门莲花卫视": {
+   "file": "澳门莲花卫视.png",
+   "hash": "06905a02ff",
+   "height": 57,
+   "origin": "lotustv",
+   "source": "https://www.lotustv.mo/view/assets/image/logo.png",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "巴彦淖尔": {
    "file": "巴彦淖尔.png",
    "hash": "93eb774a74",
@@ -1262,6 +1271,36 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "嘉兴公共频道": {
+   "file": "嘉兴公共频道.png",
+   "hash": "27a59f1120",
+   "height": 102,
+   "kind": "official",
+   "origin": "manual",
+   "source": "https://jyq.jiaxingren.com/dstv/tv",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "嘉兴文化影视": {
+   "file": "嘉兴文化影视.png",
+   "hash": "a9c033c34d",
+   "height": 102,
+   "kind": "official",
+   "origin": "manual",
+   "source": "https://jyq.jiaxingren.com/dstv/tv",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "嘉兴新闻综合": {
+   "file": "嘉兴新闻综合.png",
+   "hash": "db6dc44bc6",
+   "height": 102,
+   "kind": "official",
+   "origin": "manual",
+   "source": "https://jyq.jiaxingren.com/dstv/tv",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "建党105周年巡礼": {
    "file": "建党105周年巡礼.png",
    "hash": "9cc7f65e7a",
@@ -1546,12 +1585,30 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "辽宁北方": {
+   "file": "辽宁北方.png",
+   "hash": "a0a11fc5af",
+   "height": 144,
+   "origin": "beidou",
+   "source": "https://zbhk-new.lnyun.com.cn/www/bdrm/images/202512/860609541505553970.jpg",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "辽宁都市": {
    "file": "辽宁都市.png",
    "hash": "b81b74db48",
    "height": 144,
    "origin": "beidou",
    "source": "https://zbhk-new.lnyun.com.cn/www/bdrm/images/202512/860608292634760754.jpg",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "辽宁生活": {
+   "file": "辽宁生活.png",
+   "hash": "5fc205efdc",
+   "height": 144,
+   "origin": "beidou",
+   "source": "https://zbhk-new.lnyun.com.cn/www/bdrm/images/202512/860609644773512754.jpg",
    "updated": "2026-09-25",
    "width": 256
   },
@@ -1628,6 +1685,16 @@
    "source": "https://imagehhsitehttps.sxrtv.com/images/2024/12/31/202412311735638703220_600.jpg",
    "updated": "2026-09-25",
    "width": 248
+  },
+  "梅州客家生活": {
+   "file": "梅州客家生活.png",
+   "hash": "2ed13751fb",
+   "height": 254,
+   "kind": "library",
+   "origin": "manual",
+   "source": "https://epg.112114.xyz/logo/客家生活.png",
+   "updated": "2026-09-25",
+   "width": 256
   },
   "面包台": {
    "file": "面包台.png",
@@ -1852,6 +1919,15 @@
    "source": "https://resources.yangshipin.cn/assets/oms/image/202411/182e779878c85642049514a6e033f6be41aa8bf5f489fadc6f63dfc50863c36d.png",
    "updated": "2026-09-25",
    "width": 144
+  },
+  "泉州闽南语": {
+   "file": "泉州闽南语.png",
+   "hash": "55073c267d",
+   "height": 106,
+   "origin": "quanzhou-minnan",
+   "source": "https://www.qztv.cn/index/images/home/crad-02.jpg",
+   "updated": "2026-09-25",
+   "width": 256
   },
   "赛事最经典": {
    "file": "赛事最经典.png",
@@ -3864,8 +3940,10 @@
   "anhui/anhui-zytytv": "安徽综艺体育",
   "asian-live/asian-live-nhk-world": "NHK World",
   "asian-live/asian-live-ytn": "YTN News",
+  "beidou/beidou-liaoning-078ce87dcf5384d51e4655cb962fda18": "辽宁生活",
   "beidou/beidou-liaoning-10d3de0d03c62e85a1a281bbde8b6952": "辽宁都市",
   "beidou/beidou-liaoning-7e29bde4f41ca08642b7fc3ce4eb1ae4": "家庭理财",
+  "beidou/beidou-liaoning-8e95535378bd3e5f7494bc23ab1cb117": "辽宁北方",
   "beidou/beidou-liaoning-918510749a0f319ec12ff695b1c95230": "辽宁影视剧",
   "beidou/beidou-liaoning-e0bb9a7fd9afa954658bc50d0681cd49": "辽宁体育休闲",
   "beidou/beidou-shenyang-acb1a5713531ac7feb7836b1b4db442c": "沈阳公共",
@@ -3990,6 +4068,9 @@
   "iqilu/iqilu-typd": "山东体育休闲",
   "iqilu/iqilu-yspd": "山东文旅",
   "iqilu/iqilu-zypd": "山东综艺",
+  "jiaxing/jiaxing-culture": "嘉兴文化影视",
+  "jiaxing/jiaxing-news": "嘉兴新闻综合",
+  "jiaxing/jiaxing-public": "嘉兴公共频道",
   "jlntv/jlntv-baicheng": "白城新闻综合",
   "jlntv/jlntv-baishan": "白山新闻综合",
   "jlntv/jlntv-changchun": "长春综合",
@@ -4031,6 +4112,8 @@
   "kankanews/kankanews-4": "上海都市",
   "kankanews/kankanews-5": "第一财经",
   "kankanews/kankanews-9": "哈哈炫动",
+  "lotustv/lotustv-live": "澳门莲花卫视",
+  "meizhou-hakka/#梅州客家生活": "梅州客家生活",
   "mgtv/mgtv-218": "快乐垂钓",
   "mgtv/mgtv-221": "湖南电影",
   "mgtv/mgtv-229": "湖南国际",
@@ -4068,6 +4151,7 @@
   "nmtv/nmtv-wuhai": "乌海",
   "nmtv/nmtv-xilingol": "锡林郭勒",
   "qinghai/qinghai-amdo": "安多卫视",
+  "quanzhou-minnan/quanzhou-minnan-tv": "泉州闽南语",
   "shaanxi/shaanxi-mobile": "陕西移动电视",
   "shaanxi/shaanxi-news": "陕西新闻资讯频道",
   "shaanxi/shaanxi-nonglin": "农林卫视",

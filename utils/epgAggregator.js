@@ -192,10 +192,10 @@ async function ensureRawXml(source, cachePath) {
  * @param {string} playbackBakPath  - 正在写入的 playback.xml.bak 路径
  * @param {string[]} playlistChannelNames - 播放列表中实际写入的频道原始名（含咪咕/外部/内置）
  * @param {Set<string>} coveredKeys - 已由咪咕给到 EPG 的频道归一 key（这些频道不再被外部覆盖）
- * @param {{now?: number}} [opts]
+ * @param {{now?: number, overrideKeys?: Set<string>}} [opts] overrideKeys：loadOverrideKeys 让官方节目单让出来的频道
  * @returns {Promise<{appended:number, unmatched?:number, skipped?:string}>}
  */
-async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, coveredKeys, { now = Date.now() } = {}) {
+async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, coveredKeys, { now = Date.now(), overrideKeys = null } = {}) {
   if (!enableEpgAggregation) return { appended: 0, skipped: 'disabled-config' }
 
   const config = loadEpgConfig()
@@ -238,8 +238,9 @@ async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, cover
 
     const byKey = parseProgrammes(xml, new Set(pending.keys()))
     source.channelCount = (xml.match(/<channel\b/g) || []).length
-    // 勾了「优先于官方节目单」的源排在最前，只写它此刻还有没播完节目的频道——和 loadOverrideKeys
-    // 让官方让出频道的依据一致；某个频道停更的，留给后面的源补，不拿过期节目单占着
+    // 官方为勾了「优先于官方节目单」的源让出来的频道，只让此刻还有没播完节目的那个源写——和
+    // loadOverrideKeys 让出频道的依据一致；某个勾了的源对它停更了，留给后面的源补，不拿过期节目单占着。
+    // 官方本来就没有的频道不受影响，勾不勾都照常补（节目没写 stop 的源也一样）
     const currentKeys = source.overrideOfficial === true
       ? new Set([...channelsWithCurrentProgrammes(xml, now).values()].flat())
       : null
@@ -248,7 +249,7 @@ async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, cover
     for (const [k, outputId] of pending) {
       const blocks = byKey.get(k)
       if (!blocks || blocks.length === 0) continue
-      if (currentKeys && !currentKeys.has(k)) continue
+      if (currentKeys && overrideKeys?.has(k) && !currentKeys.has(k)) continue
       let out = `    <channel id="${escapeXml(outputId)}">\n` +
         `        <display-name lang="zh">${escapeXml(outputId)}</display-name>\n` +
         `    </channel>\n`

@@ -8,7 +8,7 @@
  * 3. 外部源之间，勾了的排在最前，哪怕它的 priority 数字更大；
  * 4. 模块节目单把这些频道让出来；
  * 5. 后台接口能存取这个开关，默认关；
- * 6. 勾了的源只写它此刻还有节目的频道，某频道停更的留给后面的源补。
+ * 6. 官方让出来的频道只由此刻还有节目的勾选源写，某个勾选源停更的留给后面的源补；官方本来没有的频道勾不勾都照常补。
  *
  * 全程离线：源不到期只读缓存。
  *
@@ -127,12 +127,24 @@ await checkAsync('两个勾了的源：排前面的对某频道停更了，由�
   assert.ok(keys.has(normalizeKey('甘肃卫视')), '在更源让官方让出甘肃卫视')
   const bak = join(DATA_DIR, 'playback.xml.bak')
   writeFileSync(bak, '<tv>\n')
-  const result = await aggregateExternalEpg(bak, ['甘肃卫视', '宁夏卫视'], new Set(), { now: NOW })
+  const result = await aggregateExternalEpg(bak, ['甘肃卫视', '宁夏卫视'], new Set(), { now: NOW, overrideKeys: keys })
   assert.equal(result.appended, 2)
   const out = readFileSync(bak, 'utf-8')
   assert.match(out, /在更源·甘肃/)
   assert.doesNotMatch(out, /停更源·甘肃/)
   assert.match(out, /停更源·宁夏/, '停更源还在更的频道照常由它写')
+})
+
+await checkAsync('勾了的源节目没写 stop：官方没有的频道照常由它补，不因为勾了反而一个不写', async () => {
+  writeSources([source({ name: '无止源', overrideOfficial: true })])
+  seedCache('无止源', 0, `<?xml version="1.0"?>\n<tv>\n  <channel id="hz"><display-name lang="zh">杭州综合</display-name></channel>\n  <programme channel="hz" start="20260925190000 +0800"><title lang="zh">无止源·杭州</title></programme>\n</tv>`)
+  const keys = await loadOverrideKeys({ now: NOW })
+  assert.equal(keys.size, 0, '没有 stop 判断不了在播，不让官方让出')
+  const bak = join(DATA_DIR, 'playback.xml.bak')
+  writeFileSync(bak, '<tv>\n')
+  const result = await aggregateExternalEpg(bak, ['杭州综合'], new Set(), { now: NOW, overrideKeys: keys })
+  assert.equal(result.appended, 1)
+  assert.match(readFileSync(bak, 'utf-8'), /无止源·杭州/)
 })
 
 await checkAsync('模块节目单把让出来的频道跳过', async () => {

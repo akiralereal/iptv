@@ -497,7 +497,7 @@ async function updateTV(hours, options = {}) {
     }
     // EPG 聚合（issue #38）：为仍未覆盖的频道，从外部 XMLTV 源补节目单。失败不影响基础节目单。
     try {
-      await aggregateExternalEpg(playbackFile, playlistChannelNames, epgCoveredKeys)
+      await aggregateExternalEpg(playbackFile, playlistChannelNames, epgCoveredKeys, { overrideKeys: epgOverrideKeys })
     } catch (e) {
       printYellow(`EPG 聚合失败（不影响基础节目单）: ${e.message}`)
     }

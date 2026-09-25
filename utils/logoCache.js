@@ -11,7 +11,9 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { isIP } from 'node:net'
+import { lookup as dnsLookupCallback } from 'node:dns'
 import { lookup as dnsLookup } from 'node:dns/promises'
+import { Agent } from 'undici'
 import { dataPath } from './paths.js'
 import { writeJsonFileSync } from './fileUtil.js'
 import { proxyAwareFetch } from './systemProxy.js'
@@ -145,9 +147,51 @@ function isPrivateIPv6(host) {
     if (w[5] === 0xffff) return isPrivateIPv4(embedded)
     if (w[5] === 0) return (w[6] === 0 && w[7] <= 1) || isPrivateIPv4(embedded)
   }
+  // SIIT 的 IPv4 转换地址 ::ffff:0:a.b.c.d 同理（fake-ip 的 DNS 会这样回 AAAA）
+  if (w.slice(0, 4).every(x => x === 0) && w[4] === 0xffff && w[5] === 0) return isPrivateIPv4(embedded)
   if (w[0] === 0x64 && w[1] === 0xff9b && w.slice(2, 6).every(x => x === 0)) return isPrivateIPv4(embedded) // NAT64
   return (w[0] & 0xfe00) === 0xfc00 || (w[0] & 0xffc0) === 0xfe80 || (w[0] & 0xff00) === 0xff00
 }
+
+const isFakeIpV4 = address => isIP(address) === 4 && /^198\.1[89]\./.test(address)
+const isUniqueLocalV6 = address => isIP(address) === 6 && ((ipv6Words(address)?.[0] ?? 0) & 0xfe00) === 0xfc00
+
+/**
+ * 一个域名的解析结果里有没有落在私网 / 本机的（空结果也算）。fake-ip 模式下 A 记录在 198.18.0.0/15，
+ * 开了 IPv6 的还会同时回一个 ULA 段的假 AAAA（mihomo 的 fake-ip-range6、sing-box 的 inet6_range），
+ * 这种搭配里的 ULA 不算内网；只有 ULA、没有 fake-ip A 记录的照旧挡。
+ */
+export function hasPrivateAnswer(addresses) {
+  const list = (addresses || []).map(String).filter(Boolean)
+  if (!list.length) return true
+  const fakeIp = list.some(isFakeIpV4)
+  return list.some(address => isPrivateAddress(address) && !(fakeIp && isUniqueLocalV6(address)))
+}
+
+/** 下载被拒是因为地址落在局域网 / 本机（不是网络问题）：error.code 或 fetch 包的 cause.code 为此值 */
+export const NOT_PUBLIC = 'LOGO_NOT_PUBLIC'
+const notPublic = message => Object.assign(new Error(message), { code: NOT_PUBLIC })
+
+/**
+ * 连接时用的 DNS 查询：解析出的地址落在私网 / 本机就不连。和下载前的检查分开做，是因为那次检查和
+ * 真正连接各解析一次，短 TTL 的域名可以第一次回公网、第二次回 127.0.0.1（DNS 重绑定）；在这里挡，
+ * 查过的就是要连的。走系统代理时由代理解析，本机管不到，只剩下载前那道检查。
+ */
+export function createGuardedLookup(lookupFn = dnsLookupCallback) {
+  return (hostname, options, callback) => {
+    if (typeof options === 'function') { callback = options; options = {} }
+    lookupFn(hostname, { ...options, all: true }, (error, addresses) => {
+      if (error) return callback(error)
+      const list = Array.isArray(addresses) ? addresses : []
+      if (hasPrivateAnswer(list.map(item => item?.address))) return callback(notPublic('域名解析到局域网 / 本机地址，不代取'))
+      if (options?.all) return callback(null, list)
+      return callback(null, list[0].address, list[0].family)
+    })
+  }
+}
+
+let guardedAgent
+const guardedDispatcher = () => (guardedAgent ??= new Agent({ connect: { lookup: createGuardedLookup() } }))
 
 /** 字面 IP 是否落在私网 / 本机 / 保留段；不是 IP 的也按不可托管算。 */
 export function isPrivateAddress(address) {
@@ -180,15 +224,19 @@ const MAX_REDIRECTS = 3
 
 /**
  * 下载台标用的 fetch：只看地址字面不够——域名可以解析到局域网，公网地址也可以 302 到本机。
- * 所以每一跳（含跳转）都先解析域名，任一地址落在私网 / 本机就不取；跳转改为手动跟，逐跳重查。
+ * 所以每一跳（含跳转）都先解析域名，任一地址落在私网 / 本机就不取（错误带 NOT_PUBLIC），跳转改为手动跟、
+ * 逐跳重查；真正连接时再由 createGuardedLookup 按连接用的那次解析挡一遍。
  * 解析失败按网络问题处理（下一轮再试，先用原地址），和托管前一样由播放器自己去取。
+ *
+ * dispatcher 默认只在用真实网络（proxyAwareFetch）时挂上；有系统代理时 proxyAwareFetch 会换成代理的。
  */
 export function createGuardedFetch({
   fetchImpl = proxyAwareFetch,
   lookupImpl = host => dnsLookup(host, { all: true, verbatim: true }),
+  dispatcher = fetchImpl === proxyAwareFetch ? guardedDispatcher : null,
 } = {}) {
   async function assertPublic(raw, signal) {
-    if (!hostableUrl(raw)) throw new Error('不是公网地址，不代取')
+    if (!hostableUrl(raw)) throw notPublic('不是公网地址，不代取')
     const host = hostOf(new URL(raw))
     if (isIP(host)) return
     // 解析本身不吃 fetch 的超时；跟着同一个 signal 放弃，免得一个卡住的 DNS 占着下载协程
@@ -200,15 +248,14 @@ export function createGuardedFetch({
         .finally(() => signal?.removeEventListener?.('abort', onAbort))
     })
     const addresses = (Array.isArray(result) ? result : [result]).map(item => item?.address ?? item).filter(Boolean)
-    if (!addresses.length || addresses.some(address => isPrivateAddress(String(address)))) {
-      throw new Error('域名解析到局域网 / 本机地址，不代取')
-    }
+    if (hasPrivateAnswer(addresses)) throw notPublic('域名解析到局域网 / 本机地址，不代取')
   }
   return async function guardedFetch(url, options = {}) {
     let current = String(url)
     for (let hop = 0; ; hop++) {
       await assertPublic(current, options.signal)
-      const response = await fetchImpl(current, { ...options, redirect: 'manual' })
+      const agent = typeof dispatcher === 'function' ? dispatcher() : dispatcher
+      const response = await fetchImpl(current, { ...options, redirect: 'manual', ...(agent ? { dispatcher: agent } : {}) })
       const location = response.status >= 300 && response.status < 400 ? response.headers?.get?.('location') : null
       if (!location) return response
       await response.body?.cancel?.().catch(() => {})
@@ -241,11 +288,11 @@ export function logoCacheKey(raw) {
 
 const fileNameFor = (key, ext) => `${createHash('sha1').update(key).digest('hex').slice(0, 20)}.${ext}`
 
-/** 这一轮需要下载的：没下过、已托管但该重取了、坏掉的到了重试时间、上次网络出错。 */
+/** 这一轮需要下载的：没下过、已托管但该重取了、坏掉的 / 局域网的到了重查时间、上次网络出错。 */
 function needsFetch(entry, now) {
   if (!entry) return true
   if (entry.status === 'ok') return now - (entry.fetchedAt || 0) >= REFRESH_MS || !existsSync(dataPath(`logo-cache/${entry.file}`))
-  if (entry.status === 'dead') return now - (entry.checkedAt || 0) >= RETRY_DEAD_MS
+  if (entry.status === 'dead' || entry.status === 'local') return now - (entry.checkedAt || 0) >= RETRY_DEAD_MS
   return true
 }
 
@@ -270,16 +317,41 @@ async function download(url, { fetchImpl, timeoutMs }) {
       await response.body?.cancel?.().catch(() => {})
       return { status: 'dead', reason: '图片过大' }
     }
-    const buf = Buffer.from(await response.arrayBuffer())
-    if (buf.length > MAX_BYTES) return { status: 'dead', reason: '图片过大' }
+    // 边读边数：Content-Length 是压缩后的大小，gzip / br 解开后可以大上千倍，读完整个 body 再判就晚了
+    const buf = await readCapped(response, MAX_BYTES)
+    if (!buf) return { status: 'dead', reason: '图片过大' }
     const ext = detectImage(buf)
     if (!ext) return { status: 'dead', reason: '不是图片' }
     return { status: 'ok', buf, ext }
   } catch (error) {
+    const refused = [error, error?.cause].find(item => item?.code === NOT_PUBLIC)
+    if (refused) return { status: 'local', reason: refused.message }
     return { status: 'error', reason: error?.name === 'AbortError' ? `超时 ${timeoutMs}ms` : (error?.message || String(error)) }
   } finally {
     clearTimeout(timer)
   }
+}
+
+/** 读完响应体，超过 limit 字节就中止并返回 null。 */
+async function readCapped(response, limit) {
+  const reader = response.body?.getReader?.()
+  if (!reader) {
+    const whole = Buffer.from(await response.arrayBuffer())
+    return whole.length > limit ? null : whole
+  }
+  const chunks = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > limit) {
+      await reader.cancel().catch(() => {})
+      return null
+    }
+    chunks.push(Buffer.from(value.buffer, value.byteOffset, value.byteLength))
+  }
+  return Buffer.concat(chunks, total)
 }
 
 /**
@@ -307,6 +379,7 @@ export async function prefetchLogos(urls, {
   const deadline = Date.now() + budgetMs
   let next = 0
   const stats = { fetched: 0, dead: 0, errors: 0 }
+  let localCount = 0
   async function worker() {
     while (next < queue.length && Date.now() < deadline) {
       const [key, url] = queue[next++]
@@ -320,6 +393,13 @@ export async function prefetchLogos(urls, {
         }
         entries[key] = { ...previous, status: 'ok', file, fetchedAt: now, checkedAt: now, reason: undefined }
         stats.fetched++
+      } else if (result.status === 'local') {
+        // 落在局域网 / 本机的不托管：订阅里照原样写原地址，播放器在局域网里自己取得到；隔天再查一次
+        if (previous?.file) {
+          try { unlinkSync(dataPath(`logo-cache/${previous.file}`)) } catch { /* 已不在 */ }
+        }
+        entries[key] = { ...previous, status: 'local', file: undefined, checkedAt: now, reason: result.reason }
+        localCount++
       } else if (previous?.status === 'ok' && existsSync(dataPath(`logo-cache/${previous.file}`))) {
         // 重取失败：旧图还能用，先不动，下一轮再试
         entries[key] = { ...previous, checkedAt: now, lastError: result.reason }
@@ -338,8 +418,9 @@ export async function prefetchLogos(urls, {
   if (stats.dead) parts.push(`${stats.dead} 张地址已失效或不是图片（会换用下一个来源）`)
   if (stats.errors) parts.push(`${stats.errors} 张这轮没取到（下一轮再试，先用原地址）`)
   if (pending) parts.push(`${pending} 张没来得及，下一轮接着下`)
+  if (localCount) parts.push(`${localCount} 张在局域网 / 本机地址上，不托管、照原样用`)
   ;(stats.dead || stats.errors || pending ? printYellow : printGreen)(`台标托管：${parts.join('，')}`)
-  return { ...stats, pending }
+  return { ...stats, pending, ...(localCount ? { local: localCount } : {}) }
 }
 
 /**
@@ -353,9 +434,10 @@ export function hostedLogoUrl(candidates, { now = Date.now() } = {}) {
   let fallback = ''
   for (const { url, from } of candidates) {
     if (!url) continue
-    // 不归托管管的地址（相对地址、局域网地址）照原样用
+    // 不归托管管的地址（相对地址、局域网地址，以及解析 / 跳转到局域网的域名）照原样用
     if (!hostableUrl(url)) return url
     const entry = entries[logoCacheKey(url)]
+    if (entry?.status === 'local') return url
     if (entry?.status === 'ok' && existsSync(dataPath(`logo-cache/${entry.file}`))) {
       entry.usedAt = now
       return `\${replace}/logo-cache/${entry.file}?v=${Math.floor(entry.fetchedAt || 0)}&from=${from}`

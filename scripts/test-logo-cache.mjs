@@ -25,7 +25,7 @@ process.env.mdataDir = DATA_DIR
 process.env.mblank = 'true'
 
 const {
-  cachedLogoFile, createGuardedFetch, detectImage, finishLogoCache, hostableUrl, hostedLogoUrl, logoCacheKey, prefetchLogos, resetLogoCacheForTest,
+  NOT_PUBLIC, cachedLogoFile, createGuardedFetch, createGuardedLookup, detectImage, hasPrivateAnswer, finishLogoCache, hostableUrl, hostedLogoUrl, logoCacheKey, prefetchLogos, resetLogoCacheForTest,
 } = await import('../utils/logoCache.js')
 const { classifyLogo } = await import('../utils/playlistConfig.js')
 
@@ -137,6 +137,80 @@ await checkAsync('下载前逐跳解析域名：解析到局域网、跳转到�
   const controller = new AbortController()
   setTimeout(() => controller.abort(), 20)
   await assert.rejects(hang('http://img.example.cn/a.png', { signal: controller.signal }), error => error?.name === 'AbortError')
+})
+
+check('fake-ip 模式同时回的 IPv6 假地址（ULA）不算内网；单独的 ULA、混进来的真实内网地址照旧挡', () => {
+  assert.equal(hasPrivateAnswer(['198.18.0.73']), false)
+  assert.equal(hasPrivateAnswer(['198.18.0.73', 'fc00::49']), false)
+  assert.equal(hasPrivateAnswer(['198.19.255.1', 'fdfe:dcba:9876::49']), false)
+  assert.equal(hasPrivateAnswer(['203.0.113.7', '2400:3200::1']), false)
+  assert.equal(hasPrivateAnswer(['fc00::49']), true)
+  assert.equal(hasPrivateAnswer(['198.18.0.73', '192.168.1.10']), true)
+  assert.equal(hasPrivateAnswer(['198.18.0.73', '::1']), true)
+  assert.equal(hasPrivateAnswer([]), true)
+  assert.equal(hasPrivateAnswer(['198.18.0.186', '::ffff:0:c612:ba']), false, 'fake-ip 的 SIIT 形式 AAAA')
+  assert.equal(hasPrivateAnswer(['::ffff:0:7f00:1']), true, 'SIIT 形式的 127.0.0.1')
+})
+
+await checkAsync('连接时再查一遍解析结果：先回公网、连接时回 127.0.0.1 的域名（DNS 重绑定）连不上本机', async () => {
+  const { createServer } = await import('node:http')
+  const { Agent, fetch: undiciFetch } = await import('undici')
+  let hits = 0
+  const server = createServer((_req, res) => { hits++; res.end('secret') })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address()
+  const rebinding = (_host, _opts, callback) => callback(null, [{ address: '127.0.0.1', family: 4 }])
+  const agent = new Agent({ connect: { lookup: createGuardedLookup(rebinding) } })
+  try {
+    await assert.rejects(undiciFetch(`http://rebind.example.cn:${port}/x.png`, { dispatcher: agent }),
+      error => error?.cause?.code === NOT_PUBLIC)
+    assert.equal(hits, 0, '本机服务一个请求都没收到')
+    const guarded = createGuardedFetch({
+      fetchImpl: undiciFetch,
+      lookupImpl: async () => [{ address: '203.0.113.7' }],   // 下载前那次检查看到的是公网地址
+      dispatcher: agent,
+    })
+    const result = await prefetchLogos([`http://rebind.example.cn:${port}/x.png`], { now: T0, fetchImpl: guarded })
+    assert.equal(result.local, 1)
+    assert.equal(hits, 0)
+  } finally {
+    await agent.close()
+    server.close()
+  }
+  const lookup = createGuardedLookup((_host, _opts, callback) => callback(null, [{ address: '203.0.113.7', family: 4 }]))
+  await new Promise(resolve => lookup('img.example.cn', {}, (error, address, family) => {
+    assert.equal(error, null); assert.equal(address, '203.0.113.7'); assert.equal(family, 4); resolve()
+  }))
+  await new Promise(resolve => lookup('img.example.cn', { all: true }, (error, list) => {
+    assert.deepEqual(list, [{ address: '203.0.113.7', family: 4 }]); resolve()
+  }))
+})
+
+await checkAsync('局域网里的域名台标不托管、也不被内置台标顶替，订阅里照原样写原地址；隔天再查', async () => {
+  reset()
+  const LAN = 'http://nas.lan:8080/logos/CCTV1.png'
+  const refused = async () => { throw Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('域名解析到局域网 / 本机地址，不代取'), { code: NOT_PUBLIC }) }) }
+  const result = await prefetchLogos([LAN], { now: T0, fetchImpl: refused })
+  assert.deepEqual(result, { fetched: 0, dead: 0, errors: 0, pending: 0, local: 1 })
+  const pack = { url: '${replace}/logo-pack/CCTV1%E7%BB%BC%E5%90%88.png', from: 'pack' }
+  assert.equal(hostedLogoUrl([{ url: LAN, from: 'source' }, pack], { now: T0 }), LAN)
+  assert.equal((await prefetchLogos([LAN], { now: T0 + 60 * 60 * 1000, fetchImpl: refused })).local, undefined, '当天不再重查')
+  assert.equal((await prefetchLogos([LAN], { now: T0 + DAY, fetchImpl: refused })).local, 1)
+})
+
+await checkAsync('没有 Content-Length、解开后超过 2 MB 的响应读到上限就停，不整个读进内存', async () => {
+  reset()
+  let pulled = 0
+  const huge = () => new Response(new ReadableStream({
+    pull(controller) {
+      pulled++
+      controller.enqueue(new Uint8Array(512 * 1024))
+      if (pulled > 400) controller.close()
+    },
+  }))
+  const result = await prefetchLogos([OWN], { now: T0, fetchImpl: async () => huge() })
+  assert.equal(result.dead, 1)
+  assert.ok(pulled < 10, `读了 ${pulled} 块`)
 })
 
 await checkAsync('源自带的坏了自动换台标库的；写进订阅的是本机地址并带来源标记', async () => {

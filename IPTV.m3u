@@ -20,18 +20,6 @@ https://cdn.qd.je/163189/fhhk
 https://hlsz.yjjcfw.com/live/vl.m3u8?expire=1786948372&sign=2e4a56b89fe644db147552011f972714
 # === END 直连源 ===
 
-# === BEGIN 宁夏官方直播 ===
-# 说明：宁夏广播电视台官方公开直播，使用固定原始 HLS 地址。
-# 过渡：v4.16.0 之后的版本改由抓取模块 extractors/ningxia 提供（带官方节目单）。这三条只给还没升级镜像的部署兜底，
-#       名字与地址必须和模块一字不差，新版本里会被组内去重收掉；多数部署升级后整段删除。
-#EXTINF:-1 tvg-id="宁夏卫视" tvg-name="宁夏卫视" group-title="宁夏",宁夏卫视
-https://hls.nxhhy.cn/live/nxws1M.m3u8
-#EXTINF:-1 tvg-id="宁夏公共" tvg-name="宁夏公共" group-title="宁夏",宁夏公共
-https://hls.nxhhy.cn/live/nxgg1M.m3u8
-#EXTINF:-1 tvg-id="宁夏文旅" tvg-name="宁夏文旅" group-title="宁夏",宁夏文旅
-https://hls.nxhhy.cn/live/nxwl1M.m3u8
-# === END 宁夏官方直播 ===
-
 # === BEGIN 亚太旧源直连复核保留 ===
 # 说明：以下频道已绕过 VPN 复核根地址与实际媒体数据；不可直连、明显不稳定及旧式 RTMP 源已清理。
 #EXTINF:-1 tvg-logo="" group-title="香港",翡翠台

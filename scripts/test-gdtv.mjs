@@ -7,13 +7,19 @@ import {
   createResolver,
   STREAM_HARD_TTL_MS,
   STREAM_REFRESH_MS,
+  streamSchedule,
 } from '../extractors/gdtv/resolver.js'
-import { isOfficialStreamUrl } from '../extractors/gdtv/session.js'
+import { isOfficialStreamUrl, streamExpiresAt } from '../extractors/gdtv/session.js'
 
 let passed = 0
 const check = (name, fn) => { fn(); passed++; console.log(`  ✅ ${name}`) }
 const checkAsync = async (name, fn) => { await fn(); passed++; console.log(`  ✅ ${name}`) }
 const stream = token => `https://tcdn.itouchtv.cn/live/gdws.m3u8?t_token=${token}`
+// 纪录片的地址形态（2026-09-25 实测）：auth_key 第一段是过期时刻（秒），签发起 30 分钟
+const MINUTE = 60 * 1000
+const ISSUED = 1790331591000
+const documentary = (expiresAt = ISSUED + 30 * MINUTE) =>
+  `https://lbplay.grtn.cn/live/jilupian.m3u8?auth_key=${expiresAt / 1000}-0-0-0123456789abcdef0123456789abcdef`
 
 console.log('广东台荔枝网模块测试')
 
@@ -58,6 +64,49 @@ check('只接受广东台官方取票域名、直播路径和 t_token', () => {
   assert.equal(isOfficialStreamUrl('https://evil.example/live/gdws.m3u8?t_token=abc'), false)
   assert.equal(isOfficialStreamUrl('https://tcdn.itouchtv.cn/live/gdws.m3u8'), false)
   assert.equal(isOfficialStreamUrl('https://tcdn.itouchtv.cn/video/gdws.m3u8?t_token=abc'), false)
+})
+
+check('纪录片走 lbplay.grtn.cn + auth_key，同样只认官方域名、直播路径和完整签名', () => {
+  assert.equal(isOfficialStreamUrl(documentary()), true)
+  assert.equal(isOfficialStreamUrl(documentary().replace('https:', 'http:')), false)
+  assert.equal(isOfficialStreamUrl(documentary().replace('lbplay.grtn.cn', 'evil.example')), false)
+  assert.equal(isOfficialStreamUrl(documentary().replace('/live/', '/vod/')), false)
+  assert.equal(isOfficialStreamUrl('https://lbplay.grtn.cn/live/jilupian.m3u8'), false)
+  assert.equal(isOfficialStreamUrl('https://lbplay.grtn.cn/live/jilupian.m3u8?auth_key=abc'), false)
+  // 两套签名不能串用
+  assert.equal(isOfficialStreamUrl('https://lbplay.grtn.cn/live/jilupian.m3u8?t_token=abc'), false)
+  assert.equal(isOfficialStreamUrl(`https://tcdn.itouchtv.cn/live/gdws.m3u8?${new URL(documentary()).search.slice(1)}`), false)
+  assert.equal(streamExpiresAt(documentary()), ISSUED + 30 * MINUTE)
+  assert.equal(streamExpiresAt(stream('abc')), 0)
+})
+
+check('带过期时刻的地址按有效期换票：离过期 5 分钟换、2 分钟硬边界，最多信 30 分钟', () => {
+  assert.deepEqual(streamSchedule(documentary(), ISSUED),
+    { refreshAt: ISSUED + 25 * MINUTE, hardExpiresAt: ISSUED + 28 * MINUTE })
+  // 本机时钟慢 10 分钟：算出来 40 分钟，只信 30 分钟
+  assert.deepEqual(streamSchedule(documentary(), ISSUED - 10 * MINUTE),
+    { refreshAt: ISSUED + 15 * MINUTE, hardExpiresAt: ISSUED + 18 * MINUTE })
+  // 本机时钟快 10 分钟：只剩 20 分钟，照样提前换
+  assert.deepEqual(streamSchedule(documentary(), ISSUED + 10 * MINUTE),
+    { refreshAt: ISSUED + 25 * MINUTE, hardExpiresAt: ISSUED + 28 * MINUTE })
+  // 剩不到 10 分钟、t_token 读不出过期时刻：都按 45 秒 / 90 秒
+  for (const [url, at] of [[documentary(), ISSUED + 25 * MINUTE], [stream('abc'), ISSUED]]) {
+    assert.deepEqual(streamSchedule(url, at), { refreshAt: at + STREAM_REFRESH_MS, hardExpiresAt: at + STREAM_HARD_TTL_MS })
+  }
+})
+
+await checkAsync('纪录片取到一次地址后 25 分钟内不再开官网页', async () => {
+  let calls = 0
+  const resolver = createResolver({ capture: async () => { calls++; return documentary() }, close: () => {} })
+  assert.equal((await resolver.resolve('gdtv-94', { now: ISSUED })).url, documentary())
+  for (const at of [STREAM_REFRESH_MS, STREAM_HARD_TTL_MS, 10 * MINUTE, 25 * MINUTE - 1]) {
+    await resolver.resolve('gdtv-94', { now: ISSUED + at })
+  }
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(calls, 1)
+  await resolver.resolve('gdtv-94', { now: ISSUED + 25 * MINUTE })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(calls, 2, '离过期 5 分钟后台换票')
 })
 
 await checkAsync('首次播放并发只取一次票，固定入口自动启用清单中继', async () => {

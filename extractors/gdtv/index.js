@@ -14,7 +14,7 @@ export default {
   catalogVersion: 1,
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,
-  refreshDescription: '自动管理：频道表随模块版本维护；播放地址在约 45 秒后后台换新，90 秒前强制续签，失败后 10 秒重试。',
+  refreshDescription: '自动管理：频道表随模块版本维护；播放地址在约 45 秒后后台换新，90 秒前强制续签，失败后 10 秒重试。纪录片的地址自带 30 分钟有效期，离过期 5 分钟再换。',
 
   configSchema: [],
   // 官网节目单，按频道 id 取；纯 HMAC 签名，不走取流那套浏览器会话（见 epg.js）

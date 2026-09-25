@@ -1,10 +1,32 @@
-/** 广东台短效地址缓存：45 秒后台换票，90 秒硬边界，避免触及实测约两分钟失效点。 */
+/**
+ * 广东台短效地址缓存：45 秒后台换票，90 秒硬边界，避免触及实测约两分钟失效点。
+ * 自带过期时刻的地址（纪录片的 auth_key，30 分钟）按它自己的有效期换，不必每 45 秒开一次官网页。
+ */
 import { CHANNEL_BY_ID, channelIdFromRef } from './channels.js'
-import { browserSession, isOfficialStreamUrl } from './session.js'
+import { browserSession, isOfficialStreamUrl, streamExpiresAt } from './session.js'
 
 export const STREAM_REFRESH_MS = 45 * 1000
 export const STREAM_HARD_TTL_MS = 90 * 1000
 export const STREAM_RETRY_MS = 10 * 1000
+// 带过期时刻的地址：离过期 5 分钟后台换、2 分钟硬边界。有效期按本机时钟算，最多信 30 分钟
+// （官网签发就是 30 分钟），本机时钟慢了也不会拖过真实失效点；算下来不足 10 分钟就按短效票处理。
+const EXPIRING_MAX_LIFETIME_MS = 30 * 60 * 1000
+const EXPIRING_MIN_LIFETIME_MS = 10 * 60 * 1000
+const EXPIRING_REFRESH_LEAD_MS = 5 * 60 * 1000
+const EXPIRING_HARD_LEAD_MS = 2 * 60 * 1000
+
+/** 取到地址时刻 → 何时后台换票、何时必须等新票。 */
+export function streamSchedule(url, acquiredAt) {
+  const expiresAt = streamExpiresAt(url)
+  const lifetime = Math.min(expiresAt - acquiredAt, EXPIRING_MAX_LIFETIME_MS)
+  if (expiresAt && lifetime >= EXPIRING_MIN_LIFETIME_MS) {
+    return {
+      refreshAt: acquiredAt + lifetime - EXPIRING_REFRESH_LEAD_MS,
+      hardExpiresAt: acquiredAt + lifetime - EXPIRING_HARD_LEAD_MS,
+    }
+  }
+  return { refreshAt: acquiredAt + STREAM_REFRESH_MS, hardExpiresAt: acquiredAt + STREAM_HARD_TTL_MS }
+}
 
 export function createResolver({
   capture = (channelId, options) => browserSession.capture(channelId, options),
@@ -27,8 +49,7 @@ export function createResolver({
         const acquiredAt = Number(options.now ?? Date.now())
         const entry = {
           url,
-          refreshAt: acquiredAt + STREAM_REFRESH_MS,
-          hardExpiresAt: acquiredAt + STREAM_HARD_TTL_MS,
+          ...streamSchedule(url, acquiredAt),
           retryAt: 0,
           lastError: '',
         }

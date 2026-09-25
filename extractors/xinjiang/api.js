@@ -40,11 +40,6 @@ export const CHANNELS = Object.freeze([
     logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105720257*$*1.000',
   }),
   Object.freeze({
-    ref: 'xjtv-4', channelId: '16', callSign: 'XJTV-4', name: '汉语综艺频道',
-    path: '/xjtv4/xjtv4stream.m3u8',
-    logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105747205*$*1.000',
-  }),
-  Object.freeze({
     ref: 'xjtv-7', channelId: '21', callSign: 'XJTV-7', name: '新疆体育健康',
     path: '/xjtv10/xjtv10stream.m3u8',
     logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105823916*$*1.000',
@@ -57,6 +52,7 @@ export const CHANNELS = Object.freeze([
 ])
 
 export const UNAVAILABLE_CHANNELS = Object.freeze([
+  Object.freeze({ callSign: 'XJTV-4', name: '汉语综艺频道', reason: '官网标记禁播且 CDN 返回 404' }),
   Object.freeze({ callSign: 'XJTV-5', name: '维吾尔语影视频道', reason: '官网标记禁播且 CDN 返回 404' }),
 ])
 

@@ -93,18 +93,6 @@ https://d3k8wzt41aflvx.cloudfront.net/RAIP/Live.m3u8
 # 实验台备注：意大利语综合娱乐国际频道，最高 1080p
 #EXTINF:-1 group-title="娱乐时尚",Mediaset Italia
 https://d3k8wzt41aflvx.cloudfront.net/Mediaset_AU/Live.m3u8
-# 实验台备注：英语历史纪录片 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="文旅",History Hit
-https://lds-timeline-rakuten.amagi.tv/playlist.m3u8
-# 实验台备注：英语自然与野生动物纪录片频道，最高 1080p
-#EXTINF:-1 group-title="文旅",Terra Mater WILD
-https://amg01775-amg01775c1-amgplt0343.playout.now3.amagi.tv/playlist/amg01775-amg01775c1-amgplt0343/playlist.m3u8
-# 实验台备注：英语法庭纪实与案件报道频道，最高 1080p
-#EXTINF:-1 group-title="文旅",Court TV
-https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01438-ewscrippscompan-courttv-tablo/playlist.m3u8
-# 实验台备注：英语综合纪录片 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="文旅",Documentary+
-https://ef79b15c8c7c46c7a9de9d33001dbd07.mediatailor.us-west-2.amazonaws.com/v1/master/ba62fe743df0fe93366eba3a257d792884136c7f/LINEAR-859-DOCUMENTARYPLUS-DOCUMENTARYPLUS/mt/documentaryplus/859/hls/master/playlist.m3u8
 # 实验台备注：CGTN 英语纪录频道，最高 1080p
 #EXTINF:-1 group-title="文旅",CGTN Documentary
 https://english-livebkali.cgtn.com/live/doccgtn.m3u8

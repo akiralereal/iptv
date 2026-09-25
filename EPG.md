@@ -38,7 +38,6 @@
 | `fengshows` | 凤凰卫视 | 已接入 | 3/3 | 2 | api.fengshows.cn/live/{id}/resources | 开始时间是 UTC 时间戳 |
 | `hkstv` | 香港卫视 | 已接入 | 1/1 | 2 | hkstv.tv/services/live/epg | 接口不带频道参数，给的是官网当前默认的那一路 |
 | `lotustv` | 澳门莲花卫视 | 已接入 | 1/1 | 2 | www.lotustv.mo/zh/programme | 服务端渲染的 HTML，一页本周一到周日，标签只写日号、没有日期参数；只给开始时间，结束取下一档；周日取不到下周一；节目名繁体照原样 |
-| `daai` | 大爱电视 | 已接入 | 2/2 | 2 | daai.tv/api/live/json/v1.1/{ch1,ch3}/{日期} | Cloudflare 挡 curl 类 UA；被广告切开的同一集会合并 |
 | `goodtv` | GOOD TV | 已接入 | 2/2 | 2 | api.goodtv.tv/Channel/Live/{GOODTV1,GOODTV2} | 一次约 5 周、300 KB，模块内缓存 10 分钟 |
 | `asian-live` | 亚洲与国际直播 | 已接入 | YTN、NHK World | 2 | NHK：masterpl.hls.nhkworld.jp/epg/w/{日期}.json；YTN：m.ytn.co.kr/schedule.php | UTC+9，上海的一天对应当地 01:00–次日 01:00；YTN 是网页抓取 |
 | `bilibili-live` | 哔哩哔哩直播 | 不适用 | — | — | — | 直播间 |
@@ -93,7 +92,7 @@
 2026-09-25 评估过「像内置台标一样，把节目单公开给别人用」（GitHub Actions 定时跑 `build-epg`，推到单独分支，走 jsDelivr 对外）。结论：**不做**，口子留着。
 
 - **实测**：同一个 `scripts/probe-epg.mjs` 在本机和 GitHub Actions（美国凤凰城，微软 Azure 机房）各跑一次。245 个模块频道里，本机 230 个有当天节目、0 失败；GitHub 只有 198 个、40 个失败。
-- **海外被挡的**：山西（16 路，403 / 410）、江苏（10 路，连接失败）、新疆（7 路，403）、云南（4 路，403）、大爱（2 路，Cloudflare 拦机房 IP，403），深圳偶发 1 路。都是按地域拦截，不是临时故障。这几省的卫视央视频能补上，丢的是省内地方频道。咪咕、央视网的节目单接口在海外正常。
+- **海外被挡的**：山西（16 路，403 / 410）、江苏（10 路，连接失败）、新疆（7 路，403）、云南（4 路，403），深圳偶发 1 路。都是按地域拦截，不是临时故障。这几省的卫视央视频能补上，丢的是省内地方频道。咪咕、央视网的节目单接口在海外正常。
 - **为什么不做**：
   - iptv 用户各自的 `/playback.xml` 本来就全（本机 230 个），对外那份只服务不用 iptv 的人。
   - 放在海外 CI 上永远缺那几省，要补全就得常开一台大陆机器、存推仓库的令牌。

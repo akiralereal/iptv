@@ -128,7 +128,6 @@ import beijing from './beijing/index.js'
 import chongqing from './chongqing/index.js'
 import sichuan from './sichuan/index.js'
 import cztv from './cztv/index.js'
-import daai from './daai/index.js'
 import dalian from './dalian/index.js'
 import douyuLive from './douyu-live/index.js'
 import fjtv from './fjtv/index.js'
@@ -186,7 +185,6 @@ const MODULES = [
   fengshows,
   hkstv,
   lotustv,
-  daai,
   goodtv,
   asianLive,
   bilibiliLive,

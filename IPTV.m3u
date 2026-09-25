@@ -39,9 +39,6 @@ http://38.64.72.148/hls/modn/list/4005/playlist.m3u8
 # === BEGIN 亚洲直播实验台已处理直连源 ===
 # 说明：以下频道均由 asian-live-lab 筛选并按直连方式验证，使用固定原始 HLS 地址。
 # 维护：此区块与上方原有精选频道分开；YTN News、NHK World 属于动态源，保留在“亚洲与国际直播”模块。
-# 实验台备注：官方自适应 360p / 540p / 720p
-#EXTINF:-1 group-title="韩国",Arirang
-https://amdlive-ch01-g-ctnd-com.akamaized.net/arirang_1gch/smil:arirang_1gch.smil/playlist.m3u8
 # 实验台备注：香港粤语财经直播，单档 576p
 #EXTINF:-1 group-title="香港",耀才财经
 https://v3.mediacast.hk/webcast/bshdlive-pc/playlist.m3u8

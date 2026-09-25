@@ -11,7 +11,7 @@ const LOGO_BASE = 'http://res.cnwest.com/t/site/10001/a209bcf3e52b0593bd2c51ae47
 
 const channel = (ref, name, key, logoFile) => Object.freeze({ ref, name, key, logo: `${LOGO_BASE}${logoFile}.png` })
 
-// 台名跟咪咕同台的叫法走（陕西新闻资讯频道 …），播放列表里两路同名、节目单同一个 tvg-id；
+// 台名沿用咪咕原先在「陕西」分组里的叫法（陕西新闻资讯频道 …），咪咕这几路撤掉后老用户看到的台名不变；
 // 咪咕没有的按省台惯例加「陕西」。农林卫视是全国上星频道，照官方台名不加省名。
 // 台标是频道目录里每路下发的 logo（官网看电视页的圆形频道图标），文件名与目录一致，
 // 8 张实测都是 PNG；官网图片主机只有 HTTP，HTTPS 握手失败。

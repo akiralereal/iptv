@@ -10,7 +10,7 @@
  *
  * 规则：同一个 pID 只留在**最先出现**的分组里，CCTV5 / CCTV5+
  * 例外地同时保留在体育和央视；同时咪咕「地方」不直接输出，
- * 只把明确保留的独有频道并入上海 / 陕西 / 江苏。
+ * 只把明确保留的独有频道并入对应地区（目前只剩财富天下并入江苏）。
  *
  * 这是条纯数据整形规则，改错了**不会报错** —— 频道只是悄悄跑到别的分组、
  * 或者又开始到处重复。所以把它钉在这里。
@@ -86,7 +86,7 @@ check('空输入 / 空分组不炸', () => {
   assert.deepEqual(dedupeAcrossGroups([{ name: '体育', dataList: [] }]), [])
 })
 
-check('咪咕地方组只保留指定独有频道，并归入陕西 / 江苏', () => {
+check('咪咕地方组只保留指定独有频道，并归入江苏；陕西四路已由官方模块覆盖', () => {
   const local = {
     name: '地方',
     dataList: [
@@ -94,19 +94,18 @@ check('咪咕地方组只保留指定独有频道，并归入陕西 / 江苏', (
       { pID: '2', name: '上视东方影视' },          // 播放不了：剔除
       { pID: '3', name: '南京新闻综合频道' },      // 南京官方模块已有：丢弃
       { pID: '4', name: '盐城新闻综合' },          // 江苏地市频道：丢弃
-      { pID: '5', name: '陕西银龄频道' },          // 陕西：保留
-      { pID: '6', name: '陕西都市青春频道' },      // 陕西：保留
-      { pID: '7', name: '陕西秦腔频道' },          // 陕西：保留
-      { pID: '8', name: '陕西新闻资讯频道' },      // 陕西：保留
+      { pID: '5', name: '陕西银龄频道' },          // 陕西官方模块已有：丢弃
+      { pID: '6', name: '陕西都市青春频道' },      // 陕西官方模块已有：丢弃
+      { pID: '7', name: '陕西秦腔频道' },          // 陕西官方模块已有：丢弃
+      { pID: '8', name: '陕西新闻资讯频道' },      // 陕西官方模块已有：丢弃
       { pID: '9', name: '财富天下' },              // 江苏：保留
       { pID: '10', name: '广东珠江频道' },         // 广东官方模块已有：丢弃
     ],
   }
   const out = redistributeMiguLocalChannels([g('体育', 100), local, g('影视', 200)])
-  assert.deepEqual(out.map(group => group.name), ['体育', '陕西', '江苏', '影视'])
+  assert.deepEqual(out.map(group => group.name), ['体育', '江苏', '影视'])
   assert.deepEqual(shape(out), [
     ['体育', ['100']],
-    ['陕西', ['5', '6', '7', '8']],
     ['江苏', ['9']],
     ['影视', ['200']],
   ])
@@ -191,12 +190,12 @@ check('文旅精简会剔除专题轮播和已有地方官方源的副本', () =
 
 check('重分组会合并已有地区组，且不修改输入', () => {
   const input = [
-    { name: '陕西', dataList: [{ pID: '1', name: '旧频道' }] },
-    { name: '地方', dataList: [{ pID: '2', name: '陕西银龄频道' }] },
+    { name: '江苏', dataList: [{ pID: '1', name: '旧频道' }] },
+    { name: '地方', dataList: [{ pID: '2', name: '财富天下' }] },
   ]
   const before = JSON.stringify(input)
   const out = redistributeMiguLocalChannels(input)
-  assert.deepEqual(shape(out), [['陕西', ['1', '2']]])
+  assert.deepEqual(shape(out), [['江苏', ['1', '2']]])
   assert.equal(JSON.stringify(input), before)
 })
 

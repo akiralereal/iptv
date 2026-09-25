@@ -118,7 +118,7 @@ check('模块注册为免账号的陕西 relay 模块，与山西互不认领', 
   assert.equal(claimsRef('shaanxi-film'), false, '影视频道官网没有播放地址，不收')
 })
 
-await checkAsync('八套频道并入唯一的陕西分组，台名跟咪咕同台一致', async () => {
+await checkAsync('八套频道并入唯一的陕西分组，台名沿用咪咕原先的叫法', async () => {
   assert.deepEqual(CHANNELS.map(channel => [channel.name, channel.key]), [
     ['陕西卫视', 'star'], ['陕西新闻资讯频道', '1'], ['陕西都市青春频道', '2'], ['陕西银龄频道', '3'],
     ['陕西秦腔频道', '5'], ['陕西体育休闲频道', '7'], ['农林卫视', 'nl'], ['陕西移动电视', '11'],

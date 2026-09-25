@@ -70,6 +70,9 @@ check('按文件头认图片，网页、太小的一律不算', () => {
   assert.equal(detectImage(Buffer.concat([Buffer.from('GIF89a'), Buffer.alloc(80)])), 'gif')
   assert.equal(detectImage(Buffer.concat([Buffer.from('RIFF1234WEBPVP8 '), Buffer.alloc(80)])), 'webp')
   assert.equal(detectImage(Buffer.from(`<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg">${' '.repeat(60)}</svg>`)), 'svg')
+  const illustrator = `<?xml version="1.0"?>\n<!-- Generator: Adobe Illustrator -->\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "x.dtd" [\n\t<!ENTITY ns_ai "http://ns.adobe.com/AI/10.0/">\n]>\n<svg version="1.1">${' '.repeat(40)}</svg>`
+  assert.equal(detectImage(Buffer.from(illustrator)), 'svg', 'DOCTYPE 带内部声明')
+  assert.equal(detectImage(Buffer.from(`<!doctype html><html><body><svg viewBox="0 0 1 1"></svg>${'x'.repeat(80)}</body></html>`)), null, '内嵌 SVG 的网页')
   assert.equal(detectImage(HTML), null)
   assert.equal(detectImage(Buffer.from('89504e47', 'hex')), null)
 })

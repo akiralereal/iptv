@@ -70,8 +70,9 @@ export function detectImage(buf) {
   if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpg'
   if (buf.subarray(0, 4).toString('latin1') === 'GIF8') return 'gif'
   if (buf.subarray(0, 4).toString('latin1') === 'RIFF' && buf.subarray(8, 12).toString('latin1') === 'WEBP') return 'webp'
-  const head = buf.subarray(0, 512).toString('utf8').trimStart()
-  if (/^(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*<svg[\s>]/i.test(head)) return 'svg'
+  // Illustrator 导出的 SVG 常带 DOCTYPE 和一段 [内部声明]；根元素仍必须是 <svg>，内嵌 SVG 图标的网页不算
+  const head = buf.subarray(0, 4096).toString('utf8').replace(/^\uFEFF/, '').trimStart()
+  if (/^(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*(<!DOCTYPE[^[>]*(\[[\s\S]*?\])?\s*>\s*)?(<!--[\s\S]*?-->\s*)*<svg[\s>]/i.test(head)) return 'svg'
   return null
 }
 

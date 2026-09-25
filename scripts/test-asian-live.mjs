@@ -26,6 +26,12 @@ const groups = buildGroups()
 assert.deepEqual(groups.map(group => group.name), ['韩国', '日本'])
 assert.equal(groups.reduce((sum, group) => sum + group.dataList.length, 0), 2)
 assert.ok(groups.flatMap(group => group.dataList).every(channel => channel.deferredRef.startsWith('asian-live-')))
+// 台标取官网自有的频道标，每台一张完整地址；频道表改动要带着 catalogVersion 走，老缓存才会重建
+assert.deepEqual(groups.flatMap(group => group.dataList).map(channel => [channel.name, channel.logo]), [
+  ['YTN News', 'https://m.ytn.co.kr/img/common/ytnlogo_2024.jpg'],
+  ['NHK World', 'https://www3.nhk.or.jp/nhkworld/common/site_images/nw_logo_270x270.png'],
+])
+assert.equal(asianLive.catalogVersion, 1)
 
 assert.equal(claimsRef('asian-live-ytn'), true)
 assert.equal(claimsRef('asian-live-ytn/extra'), false)

@@ -4,6 +4,13 @@
  * 固定直连源已写入根目录 IPTV.m3u 的独立标记区块；这里只保留必须先访问
  * 官方接口才能取得当前 HLS 地址的频道，避免同一频道同时出现在模块和精选列表。
  * rules 是服务端允许访问的精确媒体边界。
+ *
+ * logo 取官网自有的频道标（取流接口都不带图标；YTN cdnurl.js 里的 thumb 是 1280×720 的
+ * 「HD LIVE」播放器封面，不是台标）：
+ * - YTN：移动版直播页（即 page）的 og:image，200×200 的方形「YTN」标，大陆直连可取。
+ * - NHK World：英文直播页 browserconfig 里的方形站标 PNG（与页面上的 logo_world.svg 同图，
+ *   SVG 不少播放器画不出来）。www3.nhk.or.jp 大陆连不上（取流的 nhkworld.jp 线路可以），
+ *   nhkworld.jp 上找不到这张图，服务端走系统代理才托管得到。
  */
 export const SOURCES = [
   {
@@ -11,6 +18,7 @@ export const SOURCES = [
     name: 'YTN News',
     group: '韩国',
     page: 'https://m.ytn.co.kr/live_view_cdn.php',
+    logo: 'https://m.ytn.co.kr/img/common/ytnlogo_2024.jpg',
     kind: 'ytn',
     rules: ['ytnlive.ytn.co.kr'],
   },
@@ -19,6 +27,7 @@ export const SOURCES = [
     name: 'NHK World',
     group: '日本',
     page: 'https://www3.nhk.or.jp/nhkworld/en/live_tv/',
+    logo: 'https://www3.nhk.or.jp/nhkworld/common/site_images/nw_logo_270x270.png',
     kind: 'nhk',
     rules: ['masterpl.hls.nhkworld.jp', /^media-[a-z0-9-]+\.hls\.nhkworld\.jp$/],
   },

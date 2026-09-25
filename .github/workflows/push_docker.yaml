@@ -31,8 +31,8 @@ jobs:
           push: true
           tags: |
             akiralereal/iptv:latest
-            akiralereal/iptv:4.17.0
-            akiralereal/iptv:4.17
+            akiralereal/iptv:4.18.0
+            akiralereal/iptv:4.18
             akiralereal/iptv:4
           cache-from: type=registry,ref=akiralereal/iptv:buildcache
           cache-to: type=registry,ref=akiralereal/iptv:buildcache,mode=max

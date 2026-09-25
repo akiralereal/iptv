@@ -75,9 +75,6 @@ https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_5000.m3u8
 # 实验台备注：西班牙语国际新闻高码率直播
 #EXTINF:-1 group-title="国际",France 24 Español
 https://live.france24.com/hls/live/2037220-b/F24_ES_HI_HLS/master_5000.m3u8
-# 实验台备注：香港电台综合旗舰频道，最高 1080p
-#EXTINF:-1 group-title="香港",港台电视31
-https://rthktv31-live.akamaized.net/hls/live/2036818/RTHKTV31/master.m3u8
 # 实验台备注：英语职业扑克赛事频道，最高 1080p
 #EXTINF:-1 group-title="体育",World Poker Tour
 https://amg00477-samsungelectron-worldpokertour-samsunguk-81igb.amagi.tv/playlist/amg00477-samsungelectron-worldpokertour-samsunguk/playlist.m3u8

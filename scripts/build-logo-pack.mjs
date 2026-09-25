@@ -10,10 +10,11 @@
  *   node scripts/build-logo-pack.mjs --add <台标名> <图片文件或地址> --source <出处> [--kind official|platform|library] [--trim]
  *       手工收一张：官方没有、模块取不到的频道（精选频道这类 m3u、官方确实没图的台）。
  *       --trim 裁掉四周与角落同色（透明或纯色底）的空白，图里留白太多时用。
+ *       --bg <#颜色> 铺一层底色：官方只有纯白字台标时用，否则浅色界面上整个看不见。
  *   node scripts/build-logo-pack.mjs --import <目录>
  *       批量手工收：目录里 <台标名>.<扩展名> 加一份 sources.json
  *       （{ "<台标名>": { "url": "...", "page": "...", "kind": "official|platform|library", "note": "...",
- *          "file": "可选，文件名与台标名不同时写", "trim": 可选 true } }）。
+ *          "file": "可选，文件名与台标名不同时写", "trim": 可选 true, "bg": "可选，#颜色" } }）。
  *   node scripts/build-logo-pack.mjs --remove <台标名>
  *
  * 所有图统一缩到长边不超过 256px 的 PNG（不放大位图），用本机 Chrome 的画布转码，不引入图片库依赖。
@@ -129,7 +130,7 @@ export function sizeSvg(text) {
 
 let browser = null
 let page = null
-async function toPng(buf, { trim = false } = {}) {
+async function toPng(buf, { trim = false, bg = '' } = {}) {
   let mime = detectMime(buf)
   if (!mime) throw new Error('不是图片')
   if (mime === 'image/svg+xml') buf = Buffer.from(sizeSvg(buf.toString('utf8')))
@@ -138,7 +139,7 @@ async function toPng(buf, { trim = false } = {}) {
     browser = await launchWithFallback({})
     page = await browser.newPage()
   }
-  const out = await page.evaluate(async (src, max, vector, trim) => {
+  const out = await page.evaluate(async (src, max, vector, trim, bg) => {
     const img = new Image()
     img.src = src
     await img.decode()
@@ -181,17 +182,21 @@ async function toPng(buf, { trim = false } = {}) {
     canvas.height = ch
     const ctx = canvas.getContext('2d')
     ctx.imageSmoothingQuality = 'high'
+    if (bg) {
+      ctx.fillStyle = bg
+      ctx.fillRect(0, 0, cw, ch)
+    }
     ctx.drawImage(full, x0, y0, cropW, cropH, 0, 0, cw, ch)
     return { data: canvas.toDataURL('image/png'), width: cw, height: ch }
-  }, `data:${mime};base64,${buf.toString('base64')}`, MAX_SIDE, mime === 'image/svg+xml', trim)
+  }, `data:${mime};base64,${buf.toString('base64')}`, MAX_SIDE, mime === 'image/svg+xml', trim, /^#[0-9a-f]{3,8}$/i.test(bg) ? bg : '')
   return { png: Buffer.from(out.data.split(',')[1], 'base64'), width: out.width, height: out.height }
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
 
 /** 写入一张台标；图没变只更新出处，返回 'added' | 'updated' | 'same' */
-async function putLogo(index, name, buf, meta, { trim = false } = {}) {
-  const { png, width, height } = await toPng(buf, { trim })
+async function putLogo(index, name, buf, meta, { trim = false, bg = '' } = {}) {
+  const { png, width, height } = await toPng(buf, { trim, bg })
   const hash = createHash('sha1').update(png).digest('hex').slice(0, 10)
   const existing = index.logos[name]
   const taken = new Set(Object.values(index.logos).filter(e => e !== existing).map(e => e.file.toLowerCase().replace(/\.png$/, '')))
@@ -275,12 +280,12 @@ async function refresh(dataDir) {
   if (stats.failed.length) console.log(`取不到的：\n  ${stats.failed.join('\n  ')}`)
 }
 
-async function addManual(index, name, src, { source, kind, note, trim }) {
+async function addManual(index, name, src, { source, kind, note, trim, bg }) {
   if (index.logos[name] && index.logos[name].origin !== 'manual') {
     return `跳过 ${name}：已有官方来源（${index.logos[name].origin}）的图`
   }
   const buf = await readSource(src)
-  const result = await putLogo(index, name, buf, { origin: 'manual', source, kind: kind || 'official', ...(note ? { note } : {}) }, { trim })
+  const result = await putLogo(index, name, buf, { origin: 'manual', source, kind: kind || 'official', ...(note ? { note } : {}) }, { trim, bg })
   return `${result === 'same' ? '未变' : result === 'added' ? '新增' : '更新'} ${name}`
 }
 
@@ -304,7 +309,7 @@ async function main() {
     if (args.add) {
       const index = loadIndex()
       if (!args._[0] || !args.source) throw new Error('用法：--add <台标名> <图片文件或地址> --source <出处> [--kind official|platform|library]')
-      console.log(await addManual(index, args.add, args._[0], { source: args.source, kind: args.kind, trim: args.trim === true }))
+      console.log(await addManual(index, args.add, args._[0], { source: args.source, kind: args.kind, trim: args.trim === true, bg: args.bg }))
       saveIndex(index)
     } else if (args.import) {
       const index = loadIndex()
@@ -316,7 +321,7 @@ async function main() {
         if (!file) { console.log(`缺文件：${name}`); continue }
         try {
           console.log(await addManual(index, name, path.join(args.import, file), {
-            source: info.page || info.url, kind: info.kind, note: info.note, trim: info.trim === true,
+            source: info.page || info.url, kind: info.kind, note: info.note, trim: info.trim === true, bg: info.bg,
           }))
         } catch (e) {
           console.log(`失败 ${name}：${e.message}`)

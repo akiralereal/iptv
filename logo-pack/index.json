@@ -199,6 +199,17 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "大立电视台": {
+   "file": "大立电视台.png",
+   "hash": "ff1a433216",
+   "height": 256,
+   "kind": "official",
+   "note": "大立电视台官网页头台标，橙色椭圆「大立 DALI」，透明 PNG，500x500。",
+   "origin": "manual",
+   "source": "http://www.dalitv.com.tw/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "大湾区卫视": {
    "file": "大湾区卫视.png",
    "hash": "3b4293d5ce",
@@ -259,6 +270,17 @@
    "height": 171,
    "origin": "migu",
    "source": "http://wapx.cmvideo.cn:8080/publish/poms/image/5500/212/893/202405081702_1715158828498_H32_1080.webp",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "翡翠台": {
+   "file": "翡翠台.png",
+   "hash": "cc061efad5",
+   "height": 63,
+   "kind": "library",
+   "note": "Wikimedia Commons 矢量版，TVB 彩虹标+黑字「翡翠台」，透明底。设计与 Astro 平台频道图（https://divign0fdw3sv.cloudfront.net/Images/ChannelLogo/contenthub/203_144.png，只有 144x80）逐项对得上。TVB 官网、programme.tvb.com、myTV SUPER 频道接口（content-api.mytvsuper.com/v1/channel/list）只有带背景的 1920x1080 频道海报，TVB 官方 YouTube 头像是吉祥物，都不是台标。",
+   "origin": "manual",
+   "source": "https://commons.wikimedia.org/wiki/File:TVB_Jade_logo.svg",
    "updated": "2026-09-25",
    "width": 256
   },
@@ -403,6 +425,28 @@
    "height": 256,
    "origin": "gansu",
    "source": "https://jiangsu-10.zos.ctyun.cn/gansu/JkJhceTS%E5%8F%B0%E6%A0%87logo%201.png",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "港台电视31": {
+   "file": "港台电视31.png",
+   "hash": "e8c834d993",
+   "height": 122,
+   "kind": "official",
+   "note": "香港电台官网节目表页的 RTHK 31 矢量台标（红圆 RTHK+31），透明底。同页还有 https://www.rthk.hk/img/logo_31.svg（方形画布、同一图形）。",
+   "origin": "manual",
+   "source": "https://www.rthk.hk/timetable/tv31",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "公视高清": {
+   "file": "公视高清.png",
+   "hash": "07beafe78f",
+   "height": 210,
+   "kind": "official",
+   "note": "公视基金会官方「公視各頻道Logo下載」页的「公視 Logo 中文－鏡面使用（鏡面-1）」ai 文件，也就是台角用的彩色版。ai 是 PDF 兼容格式，我按 2 倍渲染成透明 PNG、裁到内容边界后缩到 1000 宽。官网首页那个 logo__4_-01.png 是纯白字版，不适合。",
+   "origin": "manual",
+   "source": "https://info.pts.org.tw/%E4%B8%8B%E8%BC%89%E5%B0%88%E5%8D%80/%E5%85%AC%E8%A6%96%E5%90%84%E9%A0%BB%E9%81%93logo",
    "updated": "2026-09-25",
    "width": 256
   },
@@ -1081,6 +1125,17 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "华视高清": {
+   "file": "华视高清.png",
+   "hash": "29231863ff",
+   "height": 90,
+   "kind": "official",
+   "note": "华视官网页头台标（蓝色「華視」圆+绿色「CTS」圆），透明 PNG，162x90，偏小但够用。节目表页 cts.com.tw/schedule 的主频道也用这张。华视主 YouTube @cts 头像是默认字母；@CtsTw 是华视新闻，不是主频道。",
+   "origin": "manual",
+   "source": "https://www.cts.com.tw/",
+   "updated": "2026-09-25",
+   "width": 162
+  },
   "环球旅游": {
    "file": "环球旅游.png",
    "hash": "cef6a8daf4",
@@ -1424,6 +1479,17 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "澜湄国际": {
+   "file": "澜湄国际.png",
+   "hash": "c9ca786679",
+   "height": 158,
+   "kind": "library",
+   "note": "iptv-org 给的地址（tvchinese.net 第三方站），金色凤凰漩涡标+黑字「澜湄国际」，250x170 JPG 白底，和 taksssss 截屏版一致。官方渠道：云视网 yntv.cn/live.html 频道栏只有文字、频道 logo 位是固定图；七彩云端没有这台；澜湄视听 mekonglook.com 在本机（上海出口）和 WebFetch 都连不上；中文维基页面没有台标。",
+   "origin": "manual",
+   "source": "https://iptv-org.github.io/api/logos.json（频道 LancangMekongInternationalChannel.cn）",
+   "updated": "2026-09-25",
+   "width": 167
+  },
   "老故事": {
    "file": "老故事.png",
    "hash": "3aba6edced",
@@ -1496,6 +1562,17 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "岭南戏曲": {
+   "file": "岭南戏曲.png",
+   "hash": "c65da6602b",
+   "height": 111,
+   "kind": "official",
+   "note": "广东台 2019-12 台标全面升级的官方发布图（羊城派转载新闻稿，原图 2285x3987），从「电视频道」一栏里无损裁出「红色广字标+岭南戏曲」这一格，409x176 PNG 白底。荔枝网频道目录 gdtv-api.gdtv.cn/api/tv/v2/tvChannel 里这台的 avatarUrl/coverUrl 都只是广东台总台标。广东省广电局的台标档案库（gbdsj.gd.gov.cn）附件是 2019-01 改版前的旧标。",
+   "origin": "manual",
+   "source": "https://ycpai.ycwb.com/ycppad/content/2019-12/13/content_586537.html",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "吕梁-1": {
    "file": "吕梁-1.png",
    "hash": "bdad0a9409",
@@ -1504,6 +1581,28 @@
    "source": "https://imagehhsitehttps.sxrtv.com/images/2024/12/31/202412311735638703220_600.jpg",
    "updated": "2026-09-25",
    "width": 248
+  },
+  "面包台": {
+   "file": "面包台.png",
+   "hash": "3b7f98f150",
+   "height": 134,
+   "kind": "official",
+   "note": "面包台官网首页引用的台标图（面包收音机+「面包台 Bread-TV.com」），透明 PNG，500x262。iptv-org 也用这个地址。",
+   "origin": "manual",
+   "source": "https://bread-tv.com/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "民视高清": {
+   "file": "民视高清.png",
+   "hash": "b78ca0d72e",
+   "height": 256,
+   "kind": "official",
+   "note": "民视官网 CSS 引用的 2023 版台标 SVG（蓝色眼睛标+黑字「民視」）。官网有 Cloudflare，curl 拿到的是 403，要在浏览器里打开，内容已用 SHA-256 核对和线上一致。原 viewBox 宽 139.2、右侧大半是空的，我只把 viewBox 改成贴合内容（-1 -1 41.5 55.6）并加了宽高，路径没动；原样文件在 work/cand/ftv_logo2023_orig.svg。官网直播区的 Ch_01.png 是带灰底和「HD」角标的按钮图，没用。",
+   "origin": "manual",
+   "source": "https://www.ftv.com.tw/",
+   "updated": "2026-09-25",
+   "width": 191
   },
   "魔都眼": {
    "file": "魔都眼.png",
@@ -1628,6 +1727,17 @@
    "height": 256,
    "origin": "nmtv",
    "source": "https://cdn-bt.nmtv.cn/saas/image/2025-05/4344ac19-3054-4e5e-9323-cf98cebaa4fe.png?sign=1790302896-h5j15rrx-0-7cc3e6971aa38bcad3cc0a72c3c61286",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "宁夏公共": {
+   "file": "宁夏公共.png",
+   "hash": "47f5617fc2",
+   "height": 124,
+   "kind": "library",
+   "note": "taksssss/tv 台标库「宁夏公共」，台角截屏风格：蓝黄台标+半透明白字「宁夏HD 公共频道」，深色底才看得清。图形与官网 nxtv.com.cn 看电视页的频道卡一致。官方只找到带海浪背景的宣传图（web.ningxiahuangheyun.com/upload/column/20230725/1690271529595094.jpg），没有干净台标；黄河云视 web/m 站被 WAF 拦。",
+   "origin": "manual",
+   "source": "https://github.com/taksssss/tv/tree/main/icon",
    "updated": "2026-09-25",
    "width": 256
   },
@@ -2142,6 +2252,17 @@
    "updated": "2026-09-25",
    "width": 255
   },
+  "台视高清": {
+   "file": "台视高清.png",
+   "hash": "b184945fb1",
+   "height": 256,
+   "kind": "official",
+   "note": "「TTV 台視官方頻道」YouTube 头像，TTV 标，900x900 JPG 白底。官网 ttv.com.tw 的 TTV_logo.jpg 只有 117x115。",
+   "origin": "manual",
+   "source": "https://www.youtube.com/@TTV",
+   "updated": "2026-09-25",
+   "width": 190
+  },
   "太原-1": {
    "file": "太原-1.png",
    "hash": "a4655021e2",
@@ -2258,6 +2379,17 @@
    "source": "https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105806938*$*1.000",
    "updated": "2026-09-25",
    "width": 216
+  },
+  "纬来体育": {
+   "file": "纬来体育.png",
+   "hash": "a938e616dd",
+   "height": 256,
+   "kind": "official",
+   "note": "緯來體育台官方 YouTube 头像（已认证，86 万订阅，緯來官网 videoland.com.tw 首页也链到这个频道）。是社媒版圆形字标「緯來體育」，不是台角那个緯來标+字；官网 sport.videoland.com.tw 的 spt_logo-2.png 只有 150x23 白字，太小。900x900 JPG 白底。",
+   "origin": "manual",
+   "source": "https://www.youtube.com/@vlsports",
+   "updated": "2026-09-25",
+   "width": 256
   },
   "文物宝库": {
    "file": "文物宝库.png",
@@ -2427,6 +2559,17 @@
    "height": 256,
    "origin": "shanxi",
    "source": "https://imagehhsitehttps.sxrtv.com/images/2024/12/31/202412311735638693017_600.jpg",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "耀才财经": {
+   "file": "耀才财经.png",
+   "hash": "7ded5f734b",
+   "height": 256,
+   "kind": "official",
+   "note": "耀才財經台直播用的官方 YouTube 频道（名称「耀才證券」，搜索结果显示为 Finance Channel Bright Smart）头像，就是耀才集团的橙色天平标，900x900 JPG。原财经台站 bschannel.com 已并入 bsgroup.com.hk/channel/live，页面也只用集团标，所以这台官方就是用总标。库里（taksssss/fanmingming）的「耀才+天平」横条只有 139x43。",
+   "origin": "manual",
+   "source": "https://www.youtube.com/@bsgroup1428",
    "updated": "2026-09-25",
    "width": 256
   },
@@ -2616,6 +2759,28 @@
    "height": 171,
    "origin": "migu",
    "source": "http://wapx.cmvideo.cn:8080/publish/poms/image/5910/019/355/202405081702_1715158115119_H32_1080.webp",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "ACCDN": {
+   "file": "ACCDN.png",
+   "hash": "e89e080da6",
+   "height": 256,
+   "kind": "official",
+   "note": "官网导航里的 ACC Digital Network 标志是纯白字透明图，浅色界面上看不见；改用官方 YouTube 头像（蓝底白字）。",
+   "origin": "manual",
+   "source": "https://www.youtube.com/ACCDigitalNetwork（官方 YouTube 头像）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Arirang": {
+   "file": "Arirang.png",
+   "hash": "90c982ad41",
+   "height": 66,
+   "kind": "official",
+   "note": "Arirang 官网前端资源（asset-manifest.json 里的 static/media/arirang_logo.png），2872x740 透明底红色 arirang 字标",
+   "origin": "manual",
+   "source": "https://www.arirang.com/",
    "updated": "2026-09-25",
    "width": 256
   },
@@ -2979,6 +3144,17 @@
    "updated": "2026-09-25",
    "width": 144
   },
+  "CGTN Documentary": {
+   "file": "CGTN Documentary.png",
+   "hash": "b67dd218f3",
+   "height": 115,
+   "kind": "official",
+   "note": "CGTN Documentary 官方 YouTube 头像，金色「CGTN DOCUMENTARY」，900x900 JPG 白底。想要透明底的可以用 Commons 的 https://upload.wikimedia.org/wikipedia/commons/d/d6/CGTN_Documentary_logo.png（library，600x300，图形相同）。cgtn.com/channel/documentary 页面没有这台的单独台标。",
+   "origin": "manual",
+   "source": "https://www.youtube.com/@CGTNDocumentary",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "CGTN阿拉伯语": {
    "file": "CGTN阿拉伯语.png",
    "hash": "06eb984970",
@@ -3060,6 +3236,160 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "China Travel": {
+   "file": "China Travel.png",
+   "hash": "cce29585c0",
+   "height": 173,
+   "kind": "library",
+   "note": "iptv-org 数据库给的台标：白色「CHINA TRAVEL」+ 飞机 + CGTN 小字，透明底，688x464。纯白色，浅色背景上看不见。这是 CGTN 2025-11-06 开的 FAST 频道；查过 cctvplus.com、cgtn.com、PR Newswire 新闻稿（配图不是台标）、Samsung TV Plus/Plex/Pluto/Roku（i.mjh.nz 频道表）、LG Channels 美国区频道表，都没有这台的官方台标。",
+   "origin": "manual",
+   "source": "https://iptv-org.github.io/api/logos.json（频道 ChinaTravel.cn）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "CNA": {
+   "file": "CNA.png",
+   "hash": "b871c6752c",
+   "height": 256,
+   "kind": "official",
+   "note": "CNA 官网页头 logo SVG（红色三角 + cna 字样），透明底；cna 字样为深色，深色底上对比度偏低",
+   "origin": "manual",
+   "source": "https://www.channelnewsasia.com/",
+   "updated": "2026-09-25",
+   "width": 190
+  },
+  "Court TV": {
+   "file": "Court TV.png",
+   "hash": "37284818ff",
+   "height": 256,
+   "kind": "official",
+   "note": "Court TV 官方 YouTube 头像（246 万订阅），900x900 深色底 COURT + 红色指纹 TV；courttv.com 有 Cloudflare 挑战，拿不到页头图；Pluto/Plex 透明版是白字",
+   "origin": "manual",
+   "source": "https://www.youtube.com/@CourtTV",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "CQTV新闻": {
+   "file": "CQTV新闻.png",
+   "hash": "014bb9d2f1",
+   "height": 69,
+   "kind": "official",
+   "note": "重庆广电官方频道接口里 CQTV新闻 这一条的 thumb_mob 字段（模块现在读 pic/thumb/image，都是空的，所以没拿到）。图是重庆广电 CQTV 的渐变台标本身，不带「新闻」字样，120x120 JPG 白底，偏小。播出台角是同一个标加「重庆 HD 新闻频道」白字，taksssss 有截屏版「重庆新闻」（library，290x120，白字）；fanmingming 的「重庆新闻」是 2020 年改版前的旧标。",
+   "origin": "manual",
+   "source": "https://rmtapi.cbg.cn/list/4918/1.html?pagesize=100",
+   "updated": "2026-09-25",
+   "width": 86
+  },
+  "Documentary+": {
+   "file": "Documentary+.png",
+   "hash": "53cce5021d",
+   "height": 256,
+   "kind": "official",
+   "note": "Documentary+ 官方 YouTube 头像，900x900 黑底 DOC+（橙色加号），Samsung TV Plus 用的也是这个 DOC+ 标；docplus.com 是前端渲染，只拿到 32px favicon；Plex 的 DOCUMENTARY+ 字标是白字透明",
+   "origin": "manual",
+   "source": "https://www.youtube.com/@documentaryplus",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Estrella TV": {
+   "file": "Estrella TV.png",
+   "hash": "6be2a36749",
+   "height": 142,
+   "kind": "official",
+   "note": "EstrellaTV 母公司 MediaCo 官网品牌页用的台标，540x300 深色底，渐变星标 + ESTRELLATV；estrellatv.com 官网只有白色单色 SVG（logotipo-blanco.svg），浅色底上看不见",
+   "origin": "manual",
+   "source": "https://corp.mediaco.now/brands",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "FashionTV Paris L'Original": {
+   "file": "FashionTV Paris L'Original.png",
+   "hash": "05f2fec30d",
+   "height": 256,
+   "kind": "official",
+   "note": "FashionTV 官方 YouTube 头像（82 万订阅），900x900 蓝底钻石 f + fashiontv；官网 fashiontv.com 用的是同款蓝底台标，但只有 64px",
+   "origin": "manual",
+   "source": "https://www.youtube.com/@ftv",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "FIFA+": {
+   "file": "FIFA+.png",
+   "hash": "1300c041e4",
+   "height": 128,
+   "kind": "platform",
+   "note": "FIFA+ 2025 新版绿色胶囊标志，576x288 透明 PNG，深浅底都能看，与 Samsung 美国区（本源 samsungheadend_us）该台图一致。plus.fifa.com 已跳到 DAZN，fifa.com 页面由脚本渲染，未取到官方图；Wikimedia Commons 的 FIFA+ (2025).svg 在 alt/。",
+   "origin": "manual",
+   "source": "Pluto TV 英国区频道表（https://i.mjh.nz/PlutoTV/.channels.json.gz，频道 63d91d2560bc8f0008a225e4「FIFA+」）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "FloRacing": {
+   "file": "FloRacing.png",
+   "hash": "def6a5b2c1",
+   "height": 51,
+   "kind": "official",
+   "note": "从官网 logo 雪碧图中原样抽出 <symbol id=\"floracing-hawk\"> 另存为独立 SVG（路径未改，viewBox 2145.76x425）。与实际抓到的直播画面角标一致（画面角标为白色版）。文字为黑色，深色底上不清楚；平台上的白色「FloRacing 24/7」版（fubo，547x348）放在 alt/。",
+   "origin": "manual",
+   "source": "https://www.floracing.com/（页头 logo 引用该雪碧图的 #floracing-hawk）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "France 24 English": {
+   "file": "France 24 English.png",
+   "hash": "8ccd65dbec",
+   "height": 256,
+   "kind": "official",
+   "note": "France 24 官网 JSON-LD publisher.logo，800x800 蓝底方形台标；三个语种共用同一台标",
+   "origin": "manual",
+   "source": "https://www.france24.com/en/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "France 24 Español": {
+   "file": "France 24 Español.png",
+   "hash": "8ccd65dbec",
+   "height": 256,
+   "kind": "official",
+   "note": "France 24 官网 JSON-LD publisher.logo，800x800 蓝底方形台标；三个语种共用同一台标",
+   "origin": "manual",
+   "source": "https://www.france24.com/en/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "France 24 Français": {
+   "file": "France 24 Français.png",
+   "hash": "8ccd65dbec",
+   "height": 256,
+   "kind": "official",
+   "note": "France 24 官网 JSON-LD publisher.logo，800x800 蓝底方形台标；三个语种共用同一台标",
+   "origin": "manual",
+   "source": "https://www.france24.com/en/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "FUEL TV": {
+   "file": "FUEL TV.png",
+   "hash": "6a8a3ff7b0",
+   "height": 180,
+   "kind": "official",
+   "note": "官网红底方块 FUEL TV 标志，180x180 PNG，任意底色可用。fuel.tv 的图片直连对新客户端返回 202 空响应，需先访问首页拿 cookie 再带 Referer 取图。更大的同款（Plex 所用 Gracenote 图，1333x1000）在 alt/。Rakuten/Plex 上该台卡片是「SKATE SURF SNOW + FUEL TV」组合图，属宣传锁定版，没选。",
+   "origin": "manual",
+   "source": "https://fuel.tv/",
+   "updated": "2026-09-25",
+   "width": 180
+  },
+  "Global Fashion Channel": {
+   "file": "Global Fashion Channel.png",
+   "hash": "1bf99bd9ed",
+   "height": 192,
+   "kind": "platform",
+   "note": "Roku 频道商店里频道方自己上传的图标，290x218 黑底 GFC GLOBAL FASHION CHANNEL（下方小字 LIVE 24/7）；官网 globalfashionchannel.com 只有 448x45 的细长横版字标（GFC400r.png），高度太小",
+   "origin": "manual",
+   "source": "https://channelstore.roku.com/details/a56beee7d0f3a9e7234d0e7e40ce6890/global-fashion-channel",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "GOODTV": {
    "file": "GOODTV.png",
    "hash": "36c9db177b",
@@ -3078,6 +3408,17 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "Graham Norton": {
+   "file": "Graham Norton.png",
+   "hash": "6743fb3ef0",
+   "height": 256,
+   "kind": "platform",
+   "note": "Samsung TV Plus 频道图，476x476 紫色底金色五角星台标；Rakuten 上频道名就叫 Graham Norton。Plex 透明版星标文字在浅色底会丢，Pluto 金色字标较小；没找到 ITV Studios 官方频道图",
+   "origin": "manual",
+   "source": "https://i.mjh.nz/SamsungTVPlus/.channels.json （Samsung TV Plus 频道清单，gb 区 The Graham Norton Show；图片在 Samsung 自己的 CDN）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "GRTN生活": {
    "file": "GRTN生活.png",
    "hash": "6f4e9d8b8d",
@@ -3087,12 +3428,286 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "History Hit": {
+   "file": "History Hit.png",
+   "hash": "97c35de4dc",
+   "height": 57,
+   "kind": "official",
+   "note": "History Hit 官网页头 logo，485x108 透明底，H 标 + HISTORYHIT（深蓝 + 青色）。注意：这路 FAST 频道在 Rakuten/Plex 上叫 History Hit Channel，Rakuten 卡片是三角播放键 H 标 + HISTORYHIT CHANNEL（https://images-3.rakuten.tv/storage/global-live-channel/translation/artwork/5dbe4799-74a6-4412-8281-60c0853100f6.jpeg），需要的话可以换",
+   "origin": "manual",
+   "source": "https://www.historyhit.com/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "InTravel": {
+   "file": "InTravel.png",
+   "hash": "ef8841bec5",
+   "height": 76,
+   "kind": "official",
+   "note": "Insight TV 官网 INTRAVEL 频道页的彩色 SVG，透明底青绿渐变六边形 + INTRAVEL（673x200）",
+   "origin": "manual",
+   "source": "https://www.insight.tv/channel/intravel",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Mediaset Italia": {
+   "file": "Mediaset Italia.png",
+   "hash": "56ea8cff11",
+   "height": 73,
+   "kind": "official",
+   "note": "Mediaset Italia 官网主题图 logo-dark.png，605x173，白底（不透明）黑字 + 意大利三色条；同目录的透明版 logo.png 是白字，只适合深色底",
+   "origin": "manual",
+   "source": "https://www.mediasetitalia.com/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "MovieSphere": {
+   "file": "MovieSphere.png",
+   "hash": "93c9136db6",
+   "height": 160,
+   "kind": "official",
+   "note": "Lionsgate Channels 官网的频道卡片，220x160 紫红渐变底，MOVIE SPHERE BY LIONSGATE；同站大号透明版 movie-sphere-large-logo.png 是白字",
+   "origin": "manual",
+   "source": "https://lionsgatechannels.com/",
+   "updated": "2026-09-25",
+   "width": 220
+  },
+  "MTRSPT1": {
+   "file": "MTRSPT1.png",
+   "hash": "0787908a33",
+   "height": 256,
+   "kind": "official",
+   "note": "官网页头是 138x55 白字透明图，浅色界面上看不见且偏小；改用官方 YouTube 头像（青绿底）。",
+   "origin": "manual",
+   "source": "https://www.youtube.com/@MTRSPT1（官方 YouTube 头像）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Mystery TV": {
+   "file": "Mystery TV.png",
+   "hash": "7839a80f5d",
+   "height": 144,
+   "kind": "platform",
+   "note": "Rakuten TV 英国区的频道卡片，1920x1080 深色底 MYSTERY TV 字标；本频道流就是 Rakuten 版（aenetworks-mysterytv-rakuten）。A+E / Hearst Networks EMEA 官网只有多台拼图，各平台透明版都是白色发光字，浅色底看不见",
+   "origin": "manual",
+   "source": "https://gizmo.rakuten.tv/v3/live_channels?classification_id=18&device_identifier=web&locale=en&market_code=uk&per_page=50 （Rakuten TV 英国区直播频道接口，频道 id mystery-tv）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "NEWS1": {
+   "file": "NEWS1.png",
+   "hash": "b3d3a8e8b8",
+   "height": 75,
+   "kind": "official",
+   "note": "泰国 NEWS1 官网页头 logo（3x 版），306x90 透明底，黑字 + 红框",
+   "origin": "manual",
+   "source": "https://news1live.com/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
   "NHK World": {
    "file": "NHK World.png",
    "hash": "fefd297879",
    "height": 256,
    "origin": "asian-live",
    "source": "https://www3.nhk.or.jp/nhkworld/common/site_images/nw_logo_270x270.png",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "NHL FAST": {
+   "file": "NHL FAST.png",
+   "hash": "3a05fb1902",
+   "height": 256,
+   "kind": "official",
+   "note": "NHL 联盟盾徽（官网现行扁平版），透明 SVG（viewBox 580x580），深浅底都能看；URL 没有扩展名，实际是 image/svg+xml。没找到 NHL FAST 专用台标：NHL.com 上线新闻配图和 Amagi 新闻配图都用联盟盾徽，Roku/Pluto/Plex/Samsung 频道表里也没有这个台；抓到的直播画面是季后赛集锦，画面上没有频道角标。",
+   "origin": "manual",
+   "source": "https://www.nhl.com/（官网引用的联盟盾徽资源）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Pac-12 Insider": {
+   "file": "Pac-12 Insider.png",
+   "hash": "8b6b412d43",
+   "height": 171,
+   "kind": "platform",
+   "note": "蓝色盾徽 + INSIDER，1500x1000 透明 PNG，深浅底都能看。pac-12.com 现在只有联盟主盾徽，没有 Insider 专用标志；Pac-12 Networks 已于 2024-07 关闭，但 pac12-firetv.amagi.tv 流今天仍返回 200。",
+   "origin": "manual",
+   "source": "Plex Live TV 频道表（https://i.mjh.nz/Plex/.channels.json.gz，频道 646c0dfbfb58444e4e1e262d「Pac-12 Insider」）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Pet Club TV": {
+   "file": "Pet Club TV.png",
+   "hash": "7a54858e2c",
+   "height": 103,
+   "kind": "library",
+   "note": "510x205 透明底，与 Samsung TV Plus 澳洲官方频道表 PDF（images.samsung.com/.../Samsung-TV-Plus-Australia-Channel-List_0224.pdf，1331 台）里的台标一致，但 PDF 里只有 162x58；查过发行方 lightninginternational.net 频道页和首页（没有这个台的图）、petclub.tv / petclubtv.com（连不上）、YouTube（@PetClubTV 是无关的达拉斯账号）",
+   "origin": "manual",
+   "source": "https://iptv-org.github.io/api/logos.json （iptv-org 数据库频道 PetClubTV.hk）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Qello Concerts": {
+   "file": "Qello Concerts.png",
+   "hash": "13a4408938",
+   "height": 144,
+   "kind": "official",
+   "note": "Stingray 官网 Qello Concerts 品牌图，1092x616 渐变底圆角卡片 + 白色 Qello CONCERTS BY STINGRAY；qello.com 的透明 SVG 是白字（深色底专用）",
+   "origin": "manual",
+   "source": "https://www.stingray.com/brands/qello-concerts/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Rai Italia": {
+   "file": "Rai Italia.png",
+   "hash": "8a3c362dbf",
+   "height": 98,
+   "kind": "library",
+   "note": "Commons 2017 版矢量台标，与现行官方设计一致；官方站 raiitalia.it 页头只有文字没有台标图，raicom.rai.it/rai-italia/ 的官方图 RAI-ITALIA.jpg 是 1440 方形蓝底、台标很小，不适合用",
+   "origin": "manual",
+   "source": "https://commons.wikimedia.org/wiki/File:Rai_Italia_-_Logo_2017.svg",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Rai World Premium": {
+   "file": "Rai World Premium.png",
+   "hash": "109e997bf8",
+   "height": 77,
+   "kind": "library",
+   "origin": "manual",
+   "source": "https://commons.wikimedia.org/wiki/File:Rai_World_Premium_-_Logo_2017.svg",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Red Bull TV": {
+   "file": "Red Bull TV.png",
+   "hash": "d757b62ad4",
+   "height": 106,
+   "kind": "official",
+   "note": "Red Bull TV 现行标志（红牛 + 彩色圆弧 + 灰色 TV，不带 Red Bull 字样），透明 SVG，深浅底都能看。SVG 只写了 width=547 height=226，没有 viewBox，栅格化时按目标尺寸指定输出宽度即可。",
+   "origin": "manual",
+   "source": "https://www.redbull.tv/（redbull.com/int-en/discover 跳转到此，img alt=\"Red Bull TV Logo\"）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Sky Racing 1": {
+   "file": "Sky Racing 1.png",
+   "hash": "ce28cb70d3",
+   "height": 161,
+   "kind": "library",
+   "note": "带编号的 SKY RACING 1 台标，189x161 透明 PNG，RACING 字样为白色（浅底上看不见）。官网 skyracing.com.au 整站对非澳 IP 返回 403（含静态资源），经 Globalping 澳洲探针只拿到不带编号的 SKY 主标；官网 2017-2020 年用过带编号图标 /images/sky_racing_1.png，Wayback 存档仅 60x30，太小，放在 alt/。Foxtel 频道页不可访问。",
+   "origin": "manual",
+   "source": "iptv-org 数据库 logos（https://iptv-org.github.io/api/logos.json，频道 SkyRacing1.au；源仓库 https://github.com/iptv-org/database）",
+   "updated": "2026-09-25",
+   "width": 189
+  },
+  "Sky Racing 2": {
+   "file": "Sky Racing 2.png",
+   "hash": "eb2cd5bfde",
+   "height": 160,
+   "kind": "library",
+   "note": "带编号的 SKY RACING 2 台标，203x160 透明 PNG，与 1 台同系列（1 红色、2 蓝色，与官网旧图标配色一致）。官方来源排查同 Sky Racing 1。",
+   "origin": "manual",
+   "source": "iptv-org 数据库 logos（https://iptv-org.github.io/api/logos.json，频道 SkyRacing2.au）",
+   "updated": "2026-09-25",
+   "width": 203
+  },
+  "SportsGrid": {
+   "file": "SportsGrid.png",
+   "hash": "297ae87fe4",
+   "height": 73,
+   "kind": "official",
+   "note": "官网 SPORTS（黑）GRID»（红）标志，透明 SVG（viewBox 113x32，矢量）。黑字在深色底上不清楚。FAST 平台上该台用的是「SPORTSGRID LIVE」白字版，Plex 上的官方投放图（文件名 SG-LIVE-WHITE-ON-ALPHA，1500x1000）放在 alt/。",
+   "origin": "manual",
+   "source": "https://www.sportsgrid.com/（页头用同目录的 sportsgrid_logo.png，113x32；SVG 为同路径同名矢量版）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Terra Mater WILD": {
+   "file": "Terra Mater WILD.png",
+   "hash": "139788f640",
+   "height": 44,
+   "kind": "official",
+   "note": "频道运营方 Autentic 官网频道页，656x114 白底黑字 TERRA MATER WILD；各平台版本是青绿色或白色字",
+   "origin": "manual",
+   "source": "https://www.autentic.com/117/Channels.htm",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Totalmusic Concerts": {
+   "file": "Totalmusic Concerts.png",
+   "hash": "b6b1e7fce2",
+   "height": 79,
+   "kind": "official",
+   "note": "运营方 40media 官网频道图，4096x2304 透明底金色 totalmusic Concerts；画布四周留白较多（实际内容约 3965x1113）",
+   "origin": "manual",
+   "source": "https://www.40mediagroup.com/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Trace Sport Stars": {
+   "file": "Trace Sport Stars.png",
+   "hash": "c3d7574b0a",
+   "height": 181,
+   "kind": "platform",
+   "note": "TRACE 新版品牌（黑框 TRACE + 蓝条 SPORT STARS，与 Plex 上 TRACE UK/Urban 新版同系列），1000x1000，白色方底、不透明；URL 结尾是 .png，但实际内容是 JPEG，所以文件存为 .jpg。trace.tv 已跳转到 trace.plus App，页面由脚本渲染，拿不到图。旧版透明图（iptv-org，512x246）和官方 YouTube 头像（旧版）在 alt/。",
+   "origin": "manual",
+   "source": "Samsung TV Plus 印度区频道表（https://i.mjh.nz/SamsungTVPlus/.channels.json.gz，频道 IN8000085E「TRACE Sport Stars」）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "TVBS亚洲": {
+   "file": "TVBS亚洲.png",
+   "hash": "eb22739d40",
+   "height": 211,
+   "kind": "library",
+   "note": "中文维基的 TVBS-Asia 台标（合理使用），标注来源是 StarHub 频道页；透明 PNG，239x211，黄色「asia」方块+灰色 TVBS。StarHub 原图（starhub.com/content/dam/starhub/2015/TV/TV-Channel/800-chinese/828-tvbs-asia.png）有 Incapsula 拦截取不到；Astro 平台同款图只有 144x80、白底（divign0fdw3sv.cloudfront.net/Images/ChannelLogo/contenthub/384_144.png）。TVBS 官网家族频道页只有集团总标。",
+   "origin": "manual",
+   "source": "https://zh.wikipedia.org/wiki/File:TVBS_Asia_logo_2017.png",
+   "updated": "2026-09-25",
+   "width": 239
+  },
+  "WildEarth": {
+   "file": "WildEarth.png",
+   "hash": "8d14283538",
+   "height": 96,
+   "kind": "official",
+   "note": "WildEarth 官网页头 logo 的深色版 SVG，透明底深绿字 + 橙色圆环；同目录 WE_LOGO_LIGHT.svg 是白字版",
+   "origin": "manual",
+   "source": "https://wildearth.tv/",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "Wipeout Xtra": {
+   "file": "Wipeout Xtra.png",
+   "hash": "cd4317b252",
+   "height": 256,
+   "kind": "platform",
+   "note": "Samsung TV Plus 频道图，476x476 灰底 WIPEOUT + 红色 X；Banijay Rights 官网 FAST 页是前端渲染拿不到图；Plex 版是白字透明",
+   "origin": "manual",
+   "source": "https://i.mjh.nz/SamsungTVPlus/.channels.json （Samsung TV Plus 频道清单，us 区 Wipeout Xtra；图片在 Samsung 自己的 CDN）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "World of Freesports": {
+   "file": "World of Freesports.png",
+   "hash": "0104e15e2e",
+   "height": 145,
+   "kind": "official",
+   "note": "官网彩色 WOF 标志，透明底 SVG（viewBox 108x61，矢量），与 Samsung/Rakuten 上的频道图一致。W、F 字母为黑色，深色底上不清楚；同目录的白色版 logo-w.svg 放在 alt/。",
+   "origin": "manual",
+   "source": "https://worldoffreesports-tv.de/（官网页头；worldoffreesports-tv.com 跳转到此）",
+   "updated": "2026-09-25",
+   "width": 256
+  },
+  "World Poker Tour": {
+   "file": "World Poker Tour.png",
+   "hash": "b0f6ec45dc",
+   "height": 75,
+   "kind": "official",
+   "note": "现行扑克牌图形 + WPT 标志，483x142 透明 PNG（调色板模式）。WPT 字为黑色，深色底上不清楚；Pluto TV 的白字版（576x288）在 alt/。官网首页用 curl 访问返回 403，图片直链可以直接下载。",
+   "origin": "manual",
+   "source": "https://www.worldpokertour.com/（页头 logo，alt=WPT）",
    "updated": "2026-09-25",
    "width": 256
   },

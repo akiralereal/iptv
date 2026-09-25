@@ -128,6 +128,7 @@ check('咪咕新闻频道全部剔除，去掉空的新闻分组', () => {
       { pID: '10', name: '溧水新闻综合' },
       { pID: '11', name: '镇江新闻综合' },
       { pID: '12', name: '海南广播电视总台新闻频道' },
+      { pID: '13', name: '陕西新闻资讯频道' },       // 陕西官方模块已有；只撤并入名单时会在新闻组冒出来
     ],
   }
   assert.deepEqual(redistributeMiguLocalChannels([news]), [])

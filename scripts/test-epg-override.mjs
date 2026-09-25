@@ -7,7 +7,8 @@
  * 2. 没勾的源、总开关关着时，一个频道都不抢；
  * 3. 外部源之间，勾了的排在最前，哪怕它的 priority 数字更大；
  * 4. 模块节目单把这些频道让出来；
- * 5. 后台接口能存取这个开关，默认关。
+ * 5. 后台接口能存取这个开关，默认关；
+ * 6. 勾了的源只写它此刻还有节目的频道，某频道停更的留给后面的源补。
  *
  * 全程离线：源不到期只读缓存。
  *
@@ -105,11 +106,33 @@ await checkAsync('外部源之间：勾了的排在最前，哪怕 priority 数�
   seedCache('普通源', 1, xml([['1', '甘肃卫视', '普通源·甘肃', '20260925190000', '20260925193000']]))
   const bak = join(DATA_DIR, 'playback.xml.bak')
   writeFileSync(bak, '<tv>\n')
-  const result = await aggregateExternalEpg(bak, ['甘肃卫视'], new Set())
+  const result = await aggregateExternalEpg(bak, ['甘肃卫视'], new Set(), { now: NOW })
   assert.equal(result.appended, 1)
   const out = readFileSync(bak, 'utf-8')
   assert.match(out, /优先源·甘肃/)
   assert.doesNotMatch(out, /普通源·甘肃/)
+})
+
+await checkAsync('两个勾了的源：排前面的对某频道停更了，由后面还有节目的那个写，不写过期的', async () => {
+  writeSources([
+    source({ name: '停更源', overrideOfficial: true, priority: 10 }),
+    source({ name: '在更源', url: 'https://example.invalid/b.xml', overrideOfficial: true, priority: 20 }),
+  ])
+  seedCache('停更源', 0, xml([
+    ['1', '甘肃卫视', '停更源·甘肃（已播完）', '20260920070000', '20260920080000'],
+    ['2', '宁夏卫视', '停更源·宁夏', '20260925190000', '20260925193000'],
+  ]))
+  seedCache('在更源', 1, xml([['1', '甘肃卫视', '在更源·甘肃', '20260925170000', '20260925200000']]))
+  const keys = await loadOverrideKeys({ now: NOW })
+  assert.ok(keys.has(normalizeKey('甘肃卫视')), '在更源让官方让出甘肃卫视')
+  const bak = join(DATA_DIR, 'playback.xml.bak')
+  writeFileSync(bak, '<tv>\n')
+  const result = await aggregateExternalEpg(bak, ['甘肃卫视', '宁夏卫视'], new Set(), { now: NOW })
+  assert.equal(result.appended, 2)
+  const out = readFileSync(bak, 'utf-8')
+  assert.match(out, /在更源·甘肃/)
+  assert.doesNotMatch(out, /停更源·甘肃/)
+  assert.match(out, /停更源·宁夏/, '停更源还在更的频道照常由它写')
 })
 
 await checkAsync('模块节目单把让出来的频道跳过', async () => {

@@ -138,24 +138,6 @@ https://636ffd31f0e12.streamlock.net/RacingStream1/RacingStream1/playlist.m3u8
 # 实验台备注：澳大利亚赛马直播频道，720p
 #EXTINF:-1 group-title="体育",Sky Racing 2
 https://636ffd31f0e12.streamlock.net/RacingStream2/RacingStream2/playlist.m3u8
-# 实验台备注：英语户外与极限运动频道，最高 1080p
-#EXTINF:-1 group-title="体育",World of Freesports
-https://mainstreammedia-worldoffreesportsintl-rakuten.amagi.tv/playlist.m3u8
-# 实验台备注：英语极限运动国际频道，最高 1080p
-#EXTINF:-1 group-title="体育",FUEL TV
-https://amg01074-fueltv-fueltvemeaen-rakuten-b6j62.amagi.tv/hls/amagi_hls_data_rakutenAA-fueltvemeaen/CDN/master.m3u8
-# 实验台备注：英语赛车赛事与专题频道，最高 1080p
-#EXTINF:-1 group-title="体育",FloRacing
-https://amg02278-amg02278c1-flosports-worldwide-7592.playouts.now.amagi.tv/playlist.m3u8
-# 实验台备注：英语体育新闻与数据分析频道，最高 1080p
-#EXTINF:-1 group-title="体育",SportsGrid
-https://sportsgrid-tribal.amagi.tv/playlist.m3u8
-# 实验台备注：ACC 大学体育赛事与专题频道，最高 1080p
-#EXTINF:-1 group-title="体育",ACCDN
-https://raycom-accdn-firetv.amagi.tv/playlist.m3u8
-# 实验台备注：Pac-12 大学体育赛事与专题频道，最高 1080p
-#EXTINF:-1 group-title="体育",Pac-12 Insider
-https://pac12-firetv.amagi.tv/playlist.m3u8
 # 实验台备注：英语职业扑克赛事频道，最高 1080p
 #EXTINF:-1 group-title="体育",World Poker Tour
 https://amg00477-samsungelectron-worldpokertour-samsunguk-81igb.amagi.tv/playlist/amg00477-samsungelectron-worldpokertour-samsunguk/playlist.m3u8
@@ -174,15 +156,9 @@ https://d2w9q46ikgrcwx.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68
 # 实验台备注：NHL 官方免费内容频道，不是付费线性频道 NHL Network
 #EXTINF:-1 group-title="体育",NHL FAST
 https://nhl-firetv.amagi.tv/playlist1080p.m3u8
-# 实验台备注：Tennis Channel 官方国际版 FAST 频道，LG Channels 英国区讯源
-#EXTINF:-1 tvg-logo="https://i.ibb.co/pBBqvWSK/tennis-channel.png" group-title="体育",Tennis Channel International
-https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01444-tennischannelth-tennischnlintl-lggb/playlist.m3u8
 # 实验台备注：Xumo 官方 UFC FAST 频道，主要播放经典比赛、回放及专题，不包含当期付费赛事
 #EXTINF:-1 tvg-logo="https://d1biytugnv36sr.cloudfront.net/resize?width=400&height=200&url=https://static.frequency.com/studio/ufc/channels/ufc-domestic400x200.png" group-title="体育",UFC 24/7
 https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/194a140c-0cf5-443e-b747-08bf621d75a8/0.m3u8
-# 实验台备注：Krave Media 官方 24/7 赛车频道，Samsung TV Plus 澳大利亚区讯源，最高 1080p
-#EXTINF:-1 group-title="体育",MTRSPT1
-https://amg02873-kravemedia-mtrspt1-samsungau-2anp4.amagi.tv/playlist/amg02873-kravemedia-mtrspt1-samsungau/playlist.m3u8
 # 实验台备注：中国旅行与风光频道，最高 1080p
 #EXTINF:-1 group-title="文旅",China Travel
 https://fastlive.cctvplus.com/out/v1/ca6f9297b7314a63959435028af287fc/index.m3u8

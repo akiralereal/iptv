@@ -142,15 +142,19 @@ import ipanda from './ipanda/index.js'
 import jlntv from './jlntv/index.js'
 import jxntv from './jxntv/index.js'
 import jstv from './jstv/index.js'
+import jiaxing from './jiaxing/index.js'
 import iqilu from './iqilu/index.js'
 import kankanews from './kankanews/index.js'
 import livechina from './livechina/index.js'
+import lotustv from './lotustv/index.js'
+import meizhouHakka from './meizhou-hakka/index.js'
 import mgtv from './mgtv/index.js'
 import migu from './migu/index.js'
 import njtv from './njtv/index.js'
 import nmtv from './nmtv/index.js'
 import qtv from './qtv/index.js'
 import qinghai from './qinghai/index.js'
+import quanzhouMinnan from './quanzhou-minnan/index.js'
 import shanxi from './shanxi/index.js'
 import shaanxi from './shaanxi/index.js'
 import songjiang from './songjiang/index.js'
@@ -172,6 +176,7 @@ const MODULES = [
   yangshipin,
   fengshows,
   hkstv,
+  lotustv,
   daai,
   goodtv,
   asianLive,
@@ -190,6 +195,7 @@ const MODULES = [
   gzstv,
   gxtv,
   fjtv,
+  quanzhouMinnan,
   jlntv,
   jxntv,
   hebtv,
@@ -198,9 +204,11 @@ const MODULES = [
   hnntv,
   hntv,
   cztv,
+  jiaxing,
   jstv,
   iqilu,
   sztv,
+  meizhouHakka,
   njtv,
   nmtv,
   shanxi,

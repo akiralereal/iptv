@@ -28,8 +28,6 @@ https://cdn3.indevs.in/stream/tvb/fct/
 http://211.72.174.95:8116/0.ts
 #EXTINF:-1 tvg-name="民视" tvg-logo="" group-title="台湾",民视高清
 http://211.72.174.95:8115/0.ts
-#EXTINF:-1 tvg-name="华视" tvg-logo="" group-title="台湾",华视高清
-http://220.135.241.47:8317/0.ts
 #EXTINF:-1 tvg-name="台视" tvg-logo="" group-title="台湾",台视高清
 http://211.72.174.95:8112/0.ts
 #EXTINF:-1 group-title="台湾",TVBS亚洲

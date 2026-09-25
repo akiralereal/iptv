@@ -54,12 +54,6 @@ https://wildearth-plex.amagi.tv/masterR1080p.m3u8
 # 实验台备注：英语自然纪实频道，单档 2160p / 29.97fps HEVC
 #EXTINF:-1 tvg-logo="https://images.sr.roku.com/idType/roku-trc/context/trc/id/479fe0d11f3f5132a3f36b617547da3b/https%3A%2F%2Fimage.roku.com%2Fbh-uploads%2Fproduction%2FinfoHUDLogo%2F1738776545554_LoveNature_logos_HUB_Centered.png" group-title="文旅",Love Nature 4K
 https://pb-ehs1glsha1juy.akamaized.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/pb-ehs1glsha1juy/f2141f37-1f48-475b-ba54-b9efb62346db/0.m3u8
-# 实验台备注：FashionTV 官网直播频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",FashionTV Paris L'Original
-https://ftv1.b-cdn.net/bfdbb576-83f7-11f0-9f89-0200170e3e04_1000028043_HLS/manifest.m3u8
-# 实验台备注：频道官网嵌入的英语时尚与生活方式直播，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Global Fashion Channel
-https://pubgfc.teleosmedia.com/linear/globalfashionchannel/globalfashionchannel/playlist.m3u8
 # 实验台备注：Stingray 为 Samsung TV Plus 提供的演唱会频道，最高 1080p
 #EXTINF:-1 group-title="娱乐时尚",Qello Concerts
 https://lotus.stingray.com/manifest/qello-qello001-montreal/samsungtvplus/master.m3u8
@@ -69,30 +63,12 @@ https://cdn.40mediagroup.com/live/c7eds/Totalmusic_Concerts/SA_LIVE_hls_enc/mast
 # 实验台备注：香港粤语综合娱乐网络频道，单档直播
 #EXTINF:-1 group-title="娱乐时尚",面包台
 https://video.bread-tv.com:8091/hls-live24/online/index.m3u8
-# 实验台备注：英语闯关真人秀 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Wipeout Xtra
-https://amg00627-banijaygroup-wipeoutxtraau-samsungau-ashbl.amagi.tv/playlist/amg00627-banijaygroup-wipeoutxtraau-samsungau/playlist.m3u8
-# 实验台备注：英语脱口秀精选 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Graham Norton
-https://amg00654-itv-amg00654c35-rakuten-gb-7598.playouts.now.amagi.tv/playlist.m3u8
-# 实验台备注：英语悬疑与罪案 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Mystery TV
-https://aenetworks-mysterytv-rakuten.amagi.tv/playlist.m3u8
 # 实验台备注：西班牙语综合娱乐频道，最高 1080p
 #EXTINF:-1 group-title="娱乐时尚",Estrella TV
 https://estrellatv-oando.amagi.tv/playlist.m3u8
 # 实验台备注：Lionsgate 英语电影 FAST 频道，最高 1080p
 #EXTINF:-1 group-title="娱乐时尚",MovieSphere
 https://amg00353-lionsgatefilmsi-moviesphereaus-samsungau-7qzhf.amagi.tv/playlist/amg00353-lionsgatefilmsi-moviesphereaus-samsungau/playlist.m3u8
-# 实验台备注：意大利语综合国际频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Rai Italia
-https://d3k8wzt41aflvx.cloudfront.net/RAIHD/Live.m3u8
-# 实验台备注：意大利语影视娱乐频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Rai World Premium
-https://d3k8wzt41aflvx.cloudfront.net/RAIP/Live.m3u8
-# 实验台备注：意大利语综合娱乐国际频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Mediaset Italia
-https://d3k8wzt41aflvx.cloudfront.net/Mediaset_AU/Live.m3u8
 # 实验台备注：CGTN 英语纪录频道，最高 1080p
 #EXTINF:-1 group-title="文旅",CGTN Documentary
 https://english-livebkali.cgtn.com/live/doccgtn.m3u8
@@ -105,9 +81,6 @@ https://d2e1asnsl7br7b.cloudfront.net/7782e205e72f43aeb4a48ec97f66ebbe/index.m3u
 # 实验台备注：路透英语国际新闻直播，固定 1080p / 29.97fps
 #EXTINF:-1 tvg-logo="https://provider-static.plex.tv/epg/cms/production/8cf9c131-2d92-4d91-86b1-22ef458d703f/reuters_reutersnow_1RDX.png" group-title="国际",Reuters
 https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/e7493ea5-5c1c-4d7a-a3f7-e95516048ad8/3.m3u8
-# 实验台备注：泰国新闻频道，官方自适应直播最高约 2 Mbps
-#EXTINF:-1 group-title="国际",NEWS1
-https://server1.streamssl.com/stream/news1.m3u8
 # 实验台备注：法语国际新闻高码率直播
 #EXTINF:-1 group-title="国际",France 24 Français
 https://live.france24.com/hls/live/2037179-b/F24_FR_HI_HLS/master_5000.m3u8

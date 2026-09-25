@@ -72,9 +72,6 @@ https://amg00353-lionsgatefilmsi-moviesphereaus-samsungau-7qzhf.amagi.tv/playlis
 # 实验台备注：CGTN 英语纪录频道，最高 1080p
 #EXTINF:-1 group-title="文旅",CGTN Documentary
 https://english-livebkali.cgtn.com/live/doccgtn.m3u8
-# 实验台备注：英语国际旅行与生活方式频道，最高 1080p
-#EXTINF:-1 group-title="文旅",InTravel
-https://amg00861-amg00861c10-rakuten-uk-3152.playouts.now.amagi.tv/playlist.m3u8
 # 实验台备注：新加坡英语亚洲新闻频道，最高 1080p
 #EXTINF:-1 group-title="国际",CNA
 https://d2e1asnsl7br7b.cloudfront.net/7782e205e72f43aeb4a48ec97f66ebbe/index.m3u8
@@ -93,27 +90,12 @@ https://live.france24.com/hls/live/2037220-b/F24_ES_HI_HLS/master_5000.m3u8
 # 实验台备注：香港电台综合旗舰频道，最高 1080p
 #EXTINF:-1 group-title="香港",港台电视31
 https://rthktv31-live.akamaized.net/hls/live/2036818/RTHKTV31/master.m3u8
-# 实验台备注：澳大利亚赛马直播频道，720p
-#EXTINF:-1 group-title="体育",Sky Racing 1
-https://636ffd31f0e12.streamlock.net/RacingStream1/RacingStream1/playlist.m3u8
-# 实验台备注：澳大利亚赛马直播频道，720p
-#EXTINF:-1 group-title="体育",Sky Racing 2
-https://636ffd31f0e12.streamlock.net/RacingStream2/RacingStream2/playlist.m3u8
 # 实验台备注：英语职业扑克赛事频道，最高 1080p
 #EXTINF:-1 group-title="体育",World Poker Tour
 https://amg00477-samsungelectron-worldpokertour-samsunguk-81igb.amagi.tv/playlist/amg00477-samsungelectron-worldpokertour-samsunguk/playlist.m3u8
 # 实验台备注：极限运动、赛车及户外节目，最高 1080p
 #EXTINF:-1 group-title="体育",Red Bull TV
 https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8
-# 实验台备注：Samsung TV Plus 澳大利亚区体育明星纪实频道，最高 1080p
-#EXTINF:-1 group-title="体育",Trace Sport Stars
-https://lightning-tracesport-samsungau.amagi.tv/playlist.m3u8
-# 实验台备注：beIN 官方免费英语体育频道，最高 1080p
-#EXTINF:-1 tvg-logo="https://image.xumo.com/v1/channels/channel/99991387/168x168.png?type=color_onBlack" group-title="体育",beIN Sports Xtra
-https://bein-xtra-bein.amagi.tv/playlist.m3u8
-# 实验台备注：FIFA 官方免费 FAST 频道，精选赛事、回放及专题节目，最高 720p
-#EXTINF:-1 group-title="体育",FIFA+
-https://d2w9q46ikgrcwx.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-of5cbk3sav3w5/v1/sysdata_s_p_a_fifa_7/samsungheadend_us/latest/main/hls/playlist.m3u8
 # 实验台备注：NHL 官方免费内容频道，不是付费线性频道 NHL Network
 #EXTINF:-1 group-title="体育",NHL FAST
 https://nhl-firetv.amagi.tv/playlist1080p.m3u8

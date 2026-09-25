@@ -6,7 +6,9 @@ export const SICHUAN_PAGE = 'https://www.sctv.com/channelLive'
 export const SICHUAN_LIVE_PAGE = 'https://www.sctv.com/live/list'
 export const SICHUAN_LIVE_API = 'https://gw.scgchc.com/app/v1/lives/list'
 export const SICHUAN_LIVE_DETAIL_API = 'https://gw.scgchc.com/app/v1/lives'
-export const SICHUAN_AUTH_API = 'https://gw.scgchc.com/app/v1/anti/getLiveSecret'
+// 官网播放器 2026-09 起换签的接口（旧的 /app/v1/anti/getLiveSecret 同期随播放域名一起换掉）：
+// 参数是播放地址的路径与域名，回 auth_key 与有效期。
+export const SICHUAN_AUTH_API = 'https://gw.scgchc.com/exp/v1/anti/user/getLiveSecret'
 export const SICHUAN_MEDIA_HEADERS = Object.freeze({
   Origin: 'https://www.sctv.com',
   Referer: SICHUAN_PAGE,
@@ -16,8 +18,16 @@ export const SICHUAN_LIVE_MEDIA_HEADERS = Object.freeze({
   Referer: SICHUAN_LIVE_PAGE,
 })
 
-const MEDIA_HOSTS = new Set(['tvshowf.scgczm.com', 'hmmslivef.scgczm.com', 'mmslivef.scgchc.com'])
+// 2026-09-16 起官网目录的电视播放地址换到 sub- 开头的域名；旧域名先留着，官网回退时不至于又断。
+const MEDIA_HOSTS = new Set([
+  'sub-tvshowf.scgczm.com',
+  'sub-hmmslivef.scgczm.com',
+  'tvshowf.scgczm.com',
+  'hmmslivef.scgczm.com',
+  'mmslivef.scgchc.com',
+])
 const CATALOG_TTL_MS = 4 * 60 * 60 * 1000
+// 换签接口没给有效期时的保守值；给了就按官网播放器的节奏：到期前一分钟或用满九成时换新
 const SIGNED_REFRESH_MS = 45 * 1000
 const SIGNED_HARD_TTL_MS = 4 * 60 * 1000
 const RETRY_MS = 10 * 1000
@@ -84,6 +94,16 @@ export function applySichuanSecret(rawUrl, secret) {
   const authKey = String(secret || '').replace(/^auth_key=/, '')
   if (!authKey) throw new Error('四川播放鉴权接口没有返回 auth_key')
   url.searchParams.set('auth_key', authKey)
+  return url.href
+}
+
+/**
+ * 官网播放器给播放地址同一域名下的每一跳（子清单、分片、密钥）都挂上 auth_key，这里照做；
+ * 别的官方域名只校验、不加签。
+ */
+export function signedAssetUrl(raw, host, authKey) {
+  const url = new URL(officialAssetUrl(raw))
+  if (authKey && url.hostname.toLowerCase() === host) url.searchParams.set('auth_key', authKey)
   return url.href
 }
 
@@ -282,10 +302,11 @@ export async function fetchLiveEvents(options = {}) {
   return checked.filter(Boolean)
 }
 
-async function requestSignedUrl(row, accessToken, options = {}) {
+async function requestSigned(row, accessToken, options = {}) {
+  const raw = new URL(row.rawUrl)
   const endpoint = new URL(SICHUAN_AUTH_API)
-  endpoint.searchParams.set('streamName', new URL(row.rawUrl).pathname)
-  endpoint.searchParams.set('txTime', Math.floor(Number(options.now ?? Date.now()) / 1000))
+  endpoint.searchParams.set('streamName', raw.pathname)
+  endpoint.searchParams.set('host', raw.hostname)
   const { text } = await requestText(endpoint, {
     ...options,
     headers: {
@@ -295,33 +316,42 @@ async function requestSignedUrl(row, accessToken, options = {}) {
   })
   let payload
   try { payload = JSON.parse(text) } catch { throw new Error('四川播放鉴权接口没有返回有效 JSON') }
-  if (Number(payload?.rs) !== 200 || !payload?.data?.secret) {
+  if (Number(payload?.rs) === 401) throw new Error('四川官网登录已过期，请在后台重新关联 Token')
+  const data = payload?.data || {}
+  const authKey = String(data.auth_key || data.secret || '').replace(/^auth_key=/, '')
+  if (Number(payload?.rs) !== 200 || !authKey) {
     throw new Error(payload?.error || payload?.message || '四川播放鉴权接口返回异常')
   }
-  return applySichuanSecret(row.rawUrl, payload.data.secret)
+  const now = Number(options.now ?? Date.now())
+  const seconds = Number(data.expiresIn) > 0
+    ? Number(data.expiresIn)
+    : (Number(data.expiresAt) > 0 ? Number(data.expiresAt) - Math.floor(now / 1000) : 0)
+  return {
+    url: applySichuanSecret(row.rawUrl, authKey),
+    host: raw.hostname.toLowerCase(),
+    authKey,
+    refreshAt: now + (seconds > 0 ? Math.max((seconds - 60) * 1000, seconds * 900) : SIGNED_REFRESH_MS),
+    hardExpiresAt: now + (seconds > 0 ? seconds * 1000 : SIGNED_HARD_TTL_MS),
+  }
 }
 
 function credentialKey(accessToken) {
   return createHash('sha256').update(accessToken).digest('base64url').slice(0, 16)
 }
 
-async function cachedSignedUrl(row, accessToken, options = {}) {
+async function cachedSigned(row, accessToken, options = {}) {
   const now = Number(options.now ?? Date.now())
   const key = `${credentialKey(accessToken)}:${row.id}`
   const cached = signedCache.get(key)
-  if (cached?.refreshAt > now || (cached?.retryAt > now && cached?.hardExpiresAt > now)) return cached.url
+  if (cached?.refreshAt > now || (cached?.retryAt > now && cached?.hardExpiresAt > now)) return cached
 
   let pending = signedPending.get(key)
   if (!pending) {
-    pending = requestSignedUrl(row, accessToken, options)
-      .then(url => {
-        signedCache.set(key, {
-          url,
-          refreshAt: now + SIGNED_REFRESH_MS,
-          hardExpiresAt: now + SIGNED_HARD_TTL_MS,
-          retryAt: 0,
-        })
-        return url
+    pending = requestSigned(row, accessToken, options)
+      .then(signed => {
+        const entry = { ...signed, retryAt: 0 }
+        signedCache.set(key, entry)
+        return entry
       })
       .finally(() => {
         if (signedPending.get(key) === pending) signedPending.delete(key)
@@ -333,8 +363,39 @@ async function cachedSignedUrl(row, accessToken, options = {}) {
   } catch (error) {
     if (!cached || cached.hardExpiresAt <= now) throw error
     cached.retryAt = now + RETRY_MS
-    return cached.url
+    return cached
   }
+}
+
+function forgetSigned(row, accessToken) {
+  signedCache.delete(`${credentialKey(accessToken)}:${row.id}`)
+}
+
+function firstVariantUrl(text, base) {
+  const lines = String(text).split('\n')
+  const index = lines.findIndex(line => line.trim().startsWith('#EXT-X-STREAM-INF'))
+  if (index === -1) return ''
+  const next = lines.slice(index + 1).find(line => line.trim() && !line.trim().startsWith('#'))
+  return next ? new URL(next.trim(), base).href : ''
+}
+
+async function requestManifest(url, options = {}) {
+  const response = await request(url, { ...options, headers: upstreamHeadersFor(url) })
+  const text = await response.text()
+  if (!response.ok) throw new Error(`官方清单 HTTP ${response.status}`)
+  if (!text.trimStart().startsWith('#EXTM3U')) throw new Error('官方清单不是 HLS')
+  return { text, url: response.url || url }
+}
+
+/**
+ * 取电视频道的媒体清单。多码率主清单在这里拍平：子清单同样要挂 auth_key，
+ * 平台通用的拍平那一跳不会加签，交给它会拿到 403。
+ */
+async function requestTvManifest(signed, options = {}) {
+  const master = await requestManifest(signed.url, options)
+  const variant = firstVariantUrl(master.text, master.url)
+  if (!variant) return master
+  return requestManifest(signedAssetUrl(variant, signed.host, signed.authKey), options)
 }
 
 export function claimsRef(ref) {
@@ -369,16 +430,25 @@ export async function resolveChannel(ref, ctx = {}) {
     })
     const row = rows.find(item => item.id === match[1])
     if (!row) return { url: '', desc: `四川频道 ${match[1]} 当前不在官网公开列表中` }
-    const url = await cachedSignedUrl(row, accessToken, {
-      timeoutMs: ctx.timeoutMs,
-      fetchImpl: ctx.fetchImpl,
-      now: ctx.now,
-    })
+    const options = { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now }
+    let signed = await cachedSigned(row, accessToken, options)
+    let manifest
+    try {
+      manifest = await requestTvManifest(signed, options)
+    } catch (error) {
+      // 签名被提前作废时丢掉缓存重签一次，再失败才放弃
+      if (error?.name === 'AbortError') throw error
+      forgetSigned(row, accessToken)
+      signed = await cachedSigned(row, accessToken, options)
+      manifest = await requestTvManifest(signed, options)
+    }
     return {
-      url,
+      url: signed.url,
       desc: `${row.name}短效播放地址获取成功`,
+      manifestText: manifest.text,
+      manifestUrl: manifest.url,
       upstreamHeaders: upstreamHeadersFor,
-      upstreamUrlTransform: officialAssetUrl,
+      upstreamUrlTransform: raw => signedAssetUrl(raw, signed.host, signed.authKey),
     }
   } catch (error) {
     const message = error?.name === 'AbortError'

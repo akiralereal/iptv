@@ -195,7 +195,17 @@
             errorDiv.classList.add('show');
             document.getElementById('loading').style.display = 'none';
         }
-        
+
+        // 频道入口拿不到地址时回 HTTP 200 + 一行中文原因（#131 定的兼容行为），hls.js 只会报
+        // manifestParsingError。把这行原因取出来直接显示（issue #140）；开头的频道 ID 对用户没意义，去掉。
+        function hlsServerReason(data) {
+            const body = data && data.response && data.response.data;
+            if (typeof body !== 'string') return '';
+            const text = body.trim();
+            if (!text || text.length > 300 || text.startsWith('#EXTM3U') || text.startsWith('<')) return '';
+            return text.replace(/^\d+\s+/, '');
+        }
+
         // 初始化播放器
         function initPlayer() {
             if (!videoUrl) {
@@ -273,7 +283,10 @@
                                         fatal: data.fatal,
                                         status: data.response && data.response.code
                                     }));
-                                    if (data.fatal) {
+                                    const reason = data.fatal ? hlsServerReason(data) : '';
+                                    if (reason) {
+                                        showError('❌ 播放失败：' + reason);
+                                    } else if (data.fatal) {
                                         switch(data.type) {
                                             case Hls.ErrorTypes.NETWORK_ERROR:
                                                 showError('❌ 网络错误：无法加载视频流，请检查网络连接');

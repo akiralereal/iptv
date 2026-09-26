@@ -10574,6 +10574,15 @@ if(success){
             el.textContent = text || '';
             el.classList.toggle('bad', !!bad);
         }
+        // 频道入口拿不到地址时回 HTTP 200 + 一行中文原因（#131 定的兼容行为），hls.js 只会报
+        // manifestParsingError。把这行原因取出来直接显示（issue #140）；开头的频道 ID 对用户没意义，去掉。
+        function hlsServerReason(data) {
+            const body = data && data.response && data.response.data;
+            if (typeof body !== 'string') return '';
+            const text = body.trim();
+            if (!text || text.length > 300 || text.startsWith('#EXTM3U') || text.startsWith('<')) return '';
+            return text.replace(/^\d+\s+/, '');
+        }
         function closeInlinePlayer() {
             const dialog = document.getElementById('inlinePlayer');
             const video = document.getElementById('inlinePlayerVideo');
@@ -10627,6 +10636,8 @@ if(success){
                         hls.on(Hls.Events.ERROR, (event, data) => {
                             if (!data.fatal) return;
                             if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { hls.recoverMediaError(); return; }
+                            const reason = hlsServerReason(data);
+                            if (reason) { inlinePlayerStatus(`播放失败：${reason}`, true); return; }
                             const code = data.response && data.response.code ? ` (HTTP ${data.response.code})` : '';
                             inlinePlayerStatus(`播放失败：${data.details}${code}，可尝试「新窗口打开」或用 VLC / IINA`, true);
                         });

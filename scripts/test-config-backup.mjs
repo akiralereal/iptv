@@ -30,7 +30,7 @@ const seed = {
   'my-playlist-profiles.json': { profiles: [{ id: 'fam01', name: '家人' }] },
   'epg-sources.json': { sources: [] },
   'channel-aliases.json': { 'CCTV5体育': ['央视5套'] },
-  'users.json': { requireToken: false, users: [] },
+  'users.json': { users: [] },
 }
 for (const [name, content] of Object.entries(seed)) {
   writeFileSync(join(DIR, name), JSON.stringify(content))
@@ -160,7 +160,7 @@ check('写盘中途失败自动回滚', () => {
     format: BACKUP_FORMAT, version: 1,
     files: {
       'system-config.json': { userId: 'SHOULD_ROLLBACK' },   // 先写成功
-      'users.json': { requireToken: true, users: [] },        // 后写失败
+      'users.json': { users: [] },                           // 后写失败
     },
   })
   rmSync(join(DIR, 'users.json.tmp'), { recursive: true, force: true })

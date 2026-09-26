@@ -25,7 +25,7 @@ function genId() {
 
 class UserManager {
   constructor() {
-    this.config = { requireToken: false, users: [] }
+    this.config = { users: [] }
     this.index = new Map() // token -> user
     this._dirty = false
     this.load()
@@ -34,19 +34,18 @@ class UserManager {
   load() {
     if (!existsSync(USERS_PATH)) {
       // 不创建文件：保持「未启用」状态，零影响于老部署
-      this.config = { requireToken: false, users: [] }
+      this.config = { users: [] }
       this.rebuildIndex()
       return
     }
     try {
       const parsed = JSON.parse(readFileSync(USERS_PATH, 'utf-8'))
       this.config = {
-        requireToken: parsed?.requireToken === true,
         users: Array.isArray(parsed?.users) ? parsed.users : []
       }
     } catch (e) {
       printRed(`加载用户配置失败，按未启用处理: ${e.message}`)
-      this.config = { requireToken: false, users: [] }
+      this.config = { users: [] }
     }
     this.rebuildIndex()
   }
@@ -159,12 +158,6 @@ class UserManager {
     u.token = token
     const r = this.save()
     return r.success ? { success: true, data: this.config, token } : r
-  }
-
-  setRequireToken(v) {
-    this.config.requireToken = !!v
-    const r = this.save()
-    return r.success ? { success: true, data: this.config } : r
   }
 
   getConfig() {

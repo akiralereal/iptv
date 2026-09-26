@@ -38,7 +38,6 @@ process.env.mbuiltInSourcesUrl = ''
 process.env.NO_PROXY = process.env.no_proxy = '127.0.0.1,localhost'
 
 writeFileSync(join(DATA_DIR, 'users.json'), JSON.stringify({
-  requireToken: false,
   users: [{
     id: 'u_route_test',
     name: '路由测试用户',

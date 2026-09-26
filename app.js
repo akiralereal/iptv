@@ -25,7 +25,7 @@ import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
 import { getEpgSourcesAPI, setEpgEnabledAPI, addEpgSourceAPI, updateEpgSourceAPI,
          removeEpgSourceAPI, expireEpgSourcesAPI } from "./utils/epgSourcesAPI.js";
 import { userManager } from "./utils/userManager.js";
-import { getUsersAPI, addUserAPI, updateUserAPI, removeUserAPI, regenUserTokenAPI, setRequireTokenAPI } from "./utils/usersAPI.js";
+import { getUsersAPI, addUserAPI, updateUserAPI, removeUserAPI, regenUserTokenAPI } from "./utils/usersAPI.js";
 import { getAliasesAPI, setAliasRuleAPI, removeAliasRuleAPI } from "./utils/aliasesAPI.js";
 import { getGroupRulesAPI, setGroupRuleAPI, removeGroupRuleAPI, moveGroupRuleAPI } from "./utils/groupRulesAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
@@ -514,7 +514,6 @@ async function handleRequest(req, res) {
           case 'update': result = updateUserAPI(data.id, data.fields || {}); break
           case 'remove': result = removeUserAPI(data.id); break
           case 'regenToken': result = regenUserTokenAPI(data.id); break
-          case 'setRequireToken': result = setRequireTokenAPI(data.requireToken); break
           default: result = { success: false, message: '未知操作' }
         }
         res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });

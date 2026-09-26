@@ -3886,6 +3886,11 @@
                         <div class="system-config-hint">给每个家人 / 朋友生成独立的源地址 <code>/u/&lt;令牌&gt;/m3u</code>，可单独停用、泄露可追溯，且<strong>令牌进不了本后台</strong>。不新增用户则对现有链接零影响。</div>
                     </div>
 
+                    <!-- 没设访问密码时裸地址对所有人开放，令牌挡不住任何人（issue #141）；由 /api/users 的 passSet 决定显隐 -->
+                    <div id="userPassWarning" style="display:none; margin-top:10px; padding:12px 14px; background:#fff7e6; border:1px solid #ffd591; border-left:4px solid #fa8c16; border-radius:6px; color:#874d00; font-size:13px; line-height:1.7;">
+                        ⚠️ <strong>还没设访问密码，一人一源等于没生效</strong>：去掉令牌的地址（如 <code>http://ip:端口/m3u</code>）谁都能直接用，后台也没上锁。请先到 <a href="javascript:void(0)" onclick="switchSettingsTab(0)">⚙️ 系统配置</a> 设置「访问密码」；已发出去的 <code>/u/&lt;令牌&gt;/…</code> 链接不受影响。
+                    </div>
+
                     <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
                         <div style="font-weight:600; color:#333; margin-bottom:4px;">怎么用</div>
                         <div>① 点「➕ 新增用户」，给每个人起个名（如「客厅电视」「老王」）；</div>
@@ -5226,7 +5231,7 @@
         }
 
         // ===== 用户管理（一人一源，访问令牌）=====
-        let usersConfig = { requireToken: false, users: [] };
+        let usersConfig = { users: [] };
 
         async function loadUsers() {
             try {
@@ -5236,6 +5241,8 @@
                 if (payload && payload.success && payload.data) {
                     usersConfig = payload.data;
                     if (!Array.isArray(usersConfig.users)) usersConfig.users = [];
+                    const passWarn = document.getElementById('userPassWarning');
+                    if (passWarn) passWarn.style.display = payload.passSet === false ? '' : 'none';
                     renderUsers();
                     fillUserProfileSelect(document.getElementById('userNewProfile'), '');
                 }

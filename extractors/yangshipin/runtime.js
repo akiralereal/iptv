@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 
+import { debug } from '../../config.js'
 import { checkModuleBurst } from '../../utils/clientScanGuard.js'
-import { printBlue, printRed, printYellow } from '../../utils/colorOut.js'
+import { printBlue, printGrey, printRed, printYellow } from '../../utils/colorOut.js'
 import { dataPath } from '../../utils/paths.js'
 import { AUTH_CHANNEL_BY_ID, AUTH_CHANNEL_BY_REF } from './channels.js'
 import {
@@ -20,7 +21,7 @@ const ACCOUNT_STATUS_TTL = 5 * 60_000
 
 /**
  * 登录态保活。官网 SDK 只在浏览器页面开着时才续期：刷新令牌 48 小时一到就作废，而后台
- * Chromium 会员频道停播 45 秒后就关掉、不会自己再开——家里两天没人看会员频道，登录就没了。
+ * Chromium 会员频道停播 3 分钟后就关掉、不会自己再开——家里两天没人看会员频道，登录就没了。
  * 所以只要「关联过账号」（标记文件在），就每隔一段时间静默拉起后台会话、让 SDK 续一次
  * 再由空闲回收关掉。标记里只有昵称和时间，不含任何凭据；没关联过的部署永远不会为此启动浏览器。
  */
@@ -52,7 +53,7 @@ function rememberLoginLink(status) {
 }
 
 const browserSession = new YspBrowserSession({ logger: log, onAccount: rememberLoginLink })
-const vipBridge = new VipMseBridge(browserSession, { logger: log })
+const vipBridge = new VipMseBridge(browserSession, { logger: log, traceNetwork: debug })
 const browserLogin = new YspBrowserLogin(browserSession, {
   beforeOpen: async () => {
     await vipBridge.suspend()
@@ -298,11 +299,20 @@ function vipBurstRefusal(channel, client) {
   return response(429, 'text/plain;charset=UTF-8', verdict.desc, { 'Retry-After': String(verdict.retryAfterSeconds) })
 }
 
+/**
+ * 会员频道请求跟踪：mdebug=1 时逐条打印播放器拉了哪份清单、哪个分片、离最新几片。
+ * 排「刚打开卡 / 播着播着卡」时，用它对照「解扰桥就绪」日志与官网分片到达节奏，看卡在哪一侧。
+ */
+function traceVip(channel, client, describe) {
+  if (!debug) return
+  try { printGrey(`[央视频] ${channel.name} ${describe()}｜${client?.tag || ''}`) } catch { /* 跟踪日志不影响播放 */ }
+}
+
 /** 模块本地媒体路由；app.js 只负责鉴权、选择模块及写 HTTP 响应。 */
 export async function handleLocalRequest({ path, method = 'GET', headers = {}, accessPrefix = '', client } = {}) {
   const value = String(path || '')
   const playlistMatch = value.match(/^\/ysp-vip\/([a-z0-9]+)\/(video|audio)\.m3u8$/i)
-  const assetMatch = value.match(/^\/ysp-vip\/([a-z0-9]+)\/(video|audio)\/(init|\d+)\.(?:mp4|m4s)$/i)
+  const assetMatch = value.match(/^\/ysp-vip\/([a-z0-9]+)\/(video|audio)\/(init|v?\d+|vpad\d+)\.(?:mp4|m4s)$/i)
   const topRef = isTopLevelRef(value)
   const channel = topRef
     ? AUTH_CHANNEL_BY_REF.get(topRef)
@@ -341,10 +351,26 @@ export async function handleLocalRequest({ path, method = 'GET', headers = {}, a
       return response(200, 'application/vnd.apple.mpegurl', vipBridge.master(channel, accessPrefix))
     }
     if (playlistMatch) {
-      const body = await vipBridge.playlist(channel, playlistMatch[2].toLowerCase(), accessPrefix)
+      const kind = playlistMatch[2].toLowerCase()
+      const body = await vipBridge.playlist(channel, kind, accessPrefix, { userAgent: headers['user-agent'] })
+      if (debug) {
+        const state = vipBridge.streams.get(channel.id)
+        const media = state ? await vipBridge.mediaState(state) : null
+        traceVip(channel, client, () => {
+          const sequences = [...body.matchAll(/\/(v?\d+)\.m4s/g)].map(match => match[1])
+          return `${kind} 清单 ${sequences.length} 片 #${sequences[0]}..#${sequences.at(-1)}；${vipBridge.describeMedia(media)}`
+        })
+      }
       return response(200, 'application/vnd.apple.mpegurl', body)
     }
-    const body = vipBridge.asset(channel, assetMatch[2].toLowerCase(), assetMatch[3])
+    const kind = assetMatch[2].toLowerCase()
+    const body = vipBridge.asset(channel, kind, assetMatch[3])
+    traceVip(channel, client, () => {
+      if (assetMatch[3] === 'init') return `${kind} init${body ? '' : '（已过期）'}`
+      const edge = /^\d+$/.test(assetMatch[3]) ? vipBridge.edge(channel, kind) : null
+      const behind = edge == null ? '' : `，距最新 ${edge - Number(assetMatch[3])} 片`
+      return `${kind} #${assetMatch[3]}${behind}${headers.range ? ` range=${headers.range}` : ''}${body ? '' : '（已过期）'}`
+    })
     if (!body) return response(404, 'text/plain;charset=UTF-8', '央视频会员片段已过期，请让播放器刷新清单')
     return rangeResponse(body, headers.range)
   } catch (error) {

@@ -17,6 +17,15 @@ const MEDIA_HOST = 'live.qztv.cn'
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 const MAX_TEXT_BYTES = 512 * 1024
+// 官网签名接口挂着阿里云 WAF，按出口 IP 的请求频率弹滑块验证；2026-09-26 实测同一出口十几秒内
+// 第七八次就被拦，之后每分钟一次也 15 分钟以上不解封。所以签到的地址要在有效期内被所有刷新共用，
+// 被拦后停一段时间不再请求（越打封得越久），滑块本身不去碰。
+// auth_key 开头 10 位是时间戳：明显在未来就当过期时间，提前 1 分钟换；否则当签发时间，最多用 10 分钟
+// （阿里云 CDN 鉴权默认有效 30 分钟）。CDN 拒绝旧地址时立刻重签。
+const SIGN_REUSE_MS = 10 * 60_000
+const SIGN_REUSE_MAX_MS = 30 * 60_000
+const SIGN_EXPIRY_MARGIN_MS = 60_000
+const WAF_COOLDOWN_MS = Object.freeze([5, 10, 20, 30].map(minutes => minutes * 60_000))
 
 export function officialManifestUrl(raw) {
   let url
@@ -87,8 +96,22 @@ async function requestText(url, { fetchImpl, timeoutMs, method = 'GET', body, he
   return Buffer.concat(chunks, size).toString('utf8')
 }
 
+/** 签名地址可以复用到什么时候（毫秒时间戳），规则见 SIGN_REUSE_MS 注释。 */
+export function signedReuseUntil(url, now = Date.now()) {
+  let seconds = NaN
+  try { seconds = Number(String(new URL(url).searchParams.get('auth_key') || '').split('-')[0]) } catch { /* 走默认 */ }
+  const stamp = seconds * 1000
+  if (Number.isFinite(stamp) && stamp - SIGN_EXPIRY_MARGIN_MS > now + SIGN_EXPIRY_MARGIN_MS) {
+    return Math.min(stamp - SIGN_EXPIRY_MARGIN_MS, now + SIGN_REUSE_MAX_MS)
+  }
+  return now + SIGN_REUSE_MS
+}
+
+const wafError = () => Object.assign(new Error('官网要求人机验证'), { waf: true })
+
 export async function requestPlayUrl({ fetchImpl = proxyAwareFetch, timeoutMs = 12000 } = {}) {
   let lastError = null
+  let blocked = null
   for (const api of PLAY_APIS) {
     try {
       const text = await requestText(api, {
@@ -101,16 +124,20 @@ export async function requestPlayUrl({ fetchImpl = proxyAwareFetch, timeoutMs = 
           Accept: 'application/json',
         },
       })
-      if (text.includes('aliyun_waf_aa')) throw new Error('官网要求人机验证')
+      if (text.includes('aliyun_waf_aa')) throw wafError()
       let payload
       try { payload = JSON.parse(text) } catch { throw new Error('官网接口没有返回 JSON') }
       if (payload?.error_code !== 0 || typeof payload?.data !== 'string') {
         throw new Error('官网当前没有签发闽南语直播地址')
       }
       return officialManifestUrl(payload.data)
-    } catch (error) { lastError = error }
+    } catch (error) {
+      lastError = error
+      if (error?.waf) blocked = error
+    }
   }
-  throw lastError || new Error('官网直播接口不可用')
+  // 两个入口挂的是同一套 WAF：只要有一个弹了滑块又没拿到地址，就按被拦处理（调用方据此冷却）
+  throw blocked || lastError || new Error('官网直播接口不可用')
 }
 
 export async function requestManifest(url, { fetchImpl = proxyAwareFetch, timeoutMs = 12000 } = {}) {
@@ -129,26 +156,68 @@ export function buildChannels() {
 
 export function claimsRef(ref) { return String(ref || '') === CHANNEL.ref }
 
-export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {}) {
+export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch, now = () => Date.now() } = {}) {
+  // 全部观众、全部刷新共用一份签名；同时到达的请求只签一次
+  let signed = null          // { url, reuseUntil }
+  let signing = null
+  let cooldownUntil = 0
+  let wafStrikes = 0
+
+  const success = (url, manifest) => ({
+    url,
+    desc: '泉州闽南语官方直播地址',
+    manifestText: manifest,
+    manifestUrl: url,
+    // CDN 拒绝 curl / Lavf 等客户端标识；所有分片由本机按官网浏览器标识取回。
+    upstreamHeaders: () => ({ Referer: PLAYER_PAGE, 'User-Agent': UA }),
+    upstreamUrlTransform: raw => officialSegmentUrl(raw, url),
+  })
+  const failure = error => {
+    const reason = ['AbortError', 'TimeoutError'].includes(error?.name)
+      ? '请求超时' : (error?.message || '上游请求失败')
+    return { url: '', desc: `泉州闽南语取流失败：${reason}` }
+  }
+  const coolingDesc = () => {
+    const minutes = Math.max(1, Math.ceil((cooldownUntil - now()) / 60_000))
+    return { url: '', desc: `泉州闽南语取流失败：官网要求人机验证，已暂停向官网请求，约 ${minutes} 分钟后自动重试` }
+  }
+
+  function sign(options) {
+    if (!signing) {
+      signing = requestPlayUrl(options).then(url => {
+        signed = { url, reuseUntil: signedReuseUntil(url, now()) }
+        wafStrikes = 0
+        cooldownUntil = 0
+        return url
+      }, error => {
+        if (error?.waf) {
+          cooldownUntil = now() + WAF_COOLDOWN_MS[Math.min(wafStrikes, WAF_COOLDOWN_MS.length - 1)]
+          wafStrikes++
+        }
+        throw error
+      }).finally(() => { signing = null })
+    }
+    return signing
+  }
+
   async function resolve(ref, ctx = {}) {
     if (!claimsRef(ref)) return { url: '', desc: '泉州闽南语频道引用格式错误' }
     const options = { fetchImpl: ctx.fetchImpl || defaultFetch, timeoutMs: ctx.timeoutMs || 12000 }
-    try {
-      const url = await requestPlayUrl(options)
-      const manifest = await requestManifest(url, options)
-      return {
-        url,
-        desc: '泉州闽南语官方直播地址',
-        manifestText: manifest,
-        manifestUrl: url,
-        // CDN 拒绝 curl / Lavf 等客户端标识；所有分片由本机按官网浏览器标识取回。
-        upstreamHeaders: () => ({ Referer: PLAYER_PAGE, 'User-Agent': UA }),
-        upstreamUrlTransform: raw => officialSegmentUrl(raw, url),
+    const reusable = signed && now() < signed.reuseUntil ? signed.url : ''
+    if (reusable) {
+      try {
+        return success(reusable, await requestManifest(reusable, options))
+      } catch {
+        // CDN 不认这份签名了（过期或被收回）：丢掉，下面重签一次
+        if (signed?.url === reusable) signed = null
       }
+    }
+    if (now() < cooldownUntil) return coolingDesc()
+    try {
+      const url = await sign(options)
+      return success(url, await requestManifest(url, options))
     } catch (error) {
-      const reason = ['AbortError', 'TimeoutError'].includes(error?.name)
-        ? '请求超时' : (error?.message || '上游请求失败')
-      return { url: '', desc: `泉州闽南语取流失败：${reason}` }
+      return error?.waf ? coolingDesc() : failure(error)
     }
   }
   return { resolve }

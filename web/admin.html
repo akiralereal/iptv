@@ -10630,7 +10630,10 @@ if(success){
                         try { await loadScriptOnce('player-assets/hls.min.js', () => window.Hls); hlsReady = !!(window.Hls && Hls.isSupported()); } catch (e) {}
                     }
                     if (hlsReady) {
-                        const hls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 90 });
+                        // 央视频等来源每次刷新清单会换 CDN 节点，同一分片序号的地址随之变化；hls.js 1.6 起
+                        // 把这当成清单错误，只有一个清晰度时直接放弃，十几秒后停播（issue #142）。内容是同一路
+                        // 流，照常播即可，只记警告。
+                        const hls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 90, ignorePlaylistParsingErrors: true });
                         hls.loadSource(url);
                         hls.attachMedia(video);
                         hls.on(Hls.Events.ERROR, (event, data) => {

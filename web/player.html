@@ -266,7 +266,11 @@
                                 const hls = new Hls({
                                     enableWorker: true,
                                     lowLatencyMode: true,
-                                    backBufferLength: 90
+                                    backBufferLength: 90,
+                                    // 央视频等来源每次刷新清单会换 CDN 节点，同一分片序号的地址随之变化；
+                                    // hls.js 1.6 起把这当成清单错误，只有一个清晰度时直接放弃，十几秒后
+                                    // 停播（issue #142）。内容是同一路流，照常播即可，只记警告。
+                                    ignorePlaylistParsingErrors: true
                                 });
                                 hls.loadSource(video.src);
                                 hls.attachMedia(video);

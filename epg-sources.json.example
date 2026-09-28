@@ -2,8 +2,8 @@
   "enabled": true,
   "sources": [
     {
-      "name": "默认EPG",
-      "url": "https://e.erw.cc/all.xml.gz",
+      "name": "我的EPG",
+      "url": "https://example.com/epg.xml.gz",
       "enabled": true,
       "format": "auto",
       "refreshInterval": 720,

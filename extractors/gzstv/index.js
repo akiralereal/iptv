@@ -6,7 +6,8 @@ export default {
   name: '贵州',
   description: '贵州广电官网 8 路公开频道；无需登录，播放时获取短效签名，清单和媒体全代理。',
   capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
-  catalogVersion: 1,
+  // v2：八路频道带上官方台标
+  catalogVersion: 2,
   outputGroupName: '贵州',
   channelHlsMode: 'proxy',
   defaultRefreshMinutes: 1440,

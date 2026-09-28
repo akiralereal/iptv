@@ -1,6 +1,7 @@
 /** 福建省级短效接口、海博地市频道，以及福州、厦门广电独立直播线路。 */
 import { createHash } from 'node:crypto'
 import fetch from 'node-fetch'
+import { FUZHOU_CHANNELS, PROVINCE_CHANNELS, XIAMEN_CHANNELS } from './channels.js'
 
 export const CHANNEL_LIST_URL = 'https://mapi-plus.fjtv.net/api/open/haibo8/tv_channel_list.php'
 export const PROVINCE_CHANNEL_URL = 'https://live.fjtv.net/m2o/channel/channel_info.php'
@@ -26,41 +27,10 @@ const PROVINCE_API_SECRET = '68a04b8177bdc9e5e16a89e6777a7b66'
 const PROVINCE_API_VERSION = '1.0.0'
 const PROVINCE_MEDIA_HOSTS = new Set(['live1-fuyun.fjtv.net', 'live2-fuyun.fjtv.net'])
 
-// 福视悦动官网播放器公开的三路固定 HLS。它们不经过海博 API，因而海博被
-// 讯飞 WAF 拦截时仍可独立工作。只接受这张固定表，避免把活动直播混进频道组。
-export const FUZHOU_CHANNELS = Object.freeze([
-  Object.freeze({ name: '福州综合', url: 'http://live.zohi.tv/video/s10001-fztv-1/index.m3u8' }),
-  Object.freeze({ name: '福州生活', url: 'http://live.zohi.tv/video/s10001-fztv-3/index.m3u8' }),
-  Object.freeze({ name: '福州少儿', url: 'http://live.zohi.tv/video/s10001-fztv-4/index.m3u8' }),
-])
-
-// 看厦门官方频道接口当前提供 3 个值得保留的地面频道。厦门卫视清晰度低且
-// 咪咕已有更优来源，与移动电视一起固定排除；第三频道的接口原名是
-// 「直播通道3」，对外使用正式频道名。
-export const XIAMEN_CHANNELS = Object.freeze([
-  Object.freeze({ id: '16', rawNames: Object.freeze(['厦视一套']), name: '厦视一套', path: 'xmtjs1' }),
-  Object.freeze({ id: '17', rawNames: Object.freeze(['厦视二套']), name: '厦视二套', path: 'xmtjs2' }),
-  Object.freeze({ id: '18', rawNames: Object.freeze(['直播通道3', '厦视三套']), name: '厦视三套', path: 'xmtjs3' }),
-])
+// 省级六路、厦门三路、福州三路的固定频道表与节目单共用，见 channels.js
+export { FUZHOU_CHANNELS, PROVINCE_CHANNELS, XIAMEN_CHANNELS }
 
 const XIAMEN_BY_ID = new Map(XIAMEN_CHANNELS.map(channel => [channel.id, channel]))
-
-// 省级六路来自官网直播页的固定频道 ID；播放地址在用户打开频道时按官网
-// m2o 签名接口获取，不再依赖海博频道表里可能过期或串台的 streams[].hls。
-export const PROVINCE_CHANNELS = Object.freeze([
-  Object.freeze({ id: '665248990102917120', rawName: '综合频道', name: '福建综合', path: 'zhpd/hd',
-    logo: 'https://fyfile.fjtv.net/file/storage1-cloudlivemanage/cloudlivemanage/2024/468/3363c3e049251201.png' }),
-  Object.freeze({ id: '665248966136664064', rawName: '东南卫视', name: '东南卫视', path: 'dnpd/hd',
-    logo: 'https://fyfile.fjtv.net/file/storage1-cloudlivemanage/cloudlivemanage/2024/468/5c0e71b56c10085b.png' }),
-  Object.freeze({ id: '665248914378952704', rawName: '新闻频道', name: '福建新闻', path: 'xwpd/hd',
-    logo: 'https://fyfile.fjtv.net/file/storage1-cloudlivemanage/cloudlivemanage/2024/468/a8ba93a63f73bd96.png' }),
-  Object.freeze({ id: '665248752898248704', rawName: '文旅·体育频道', name: '福建文旅体育', path: 'dspd/hd',
-    logo: 'https://fyfile.fjtv.net/file/storage1-cloudlivemanage/cloudlivemanage/2026/468/a506ae5283b09312.png' }),
-  Object.freeze({ id: '665248553475870720', rawName: '少儿频道', name: '福建少儿', path: 'child/hd',
-    logo: 'https://fyfile.fjtv.net/file/storage1-cloudlivemanage/cloudlivemanage/2024/468/e04ccb9cd4982251.png' }),
-  Object.freeze({ id: '665248523855695872', rawName: '海峡卫视', name: '海峡卫视', path: 'haixiapd/hd',
-    logo: 'https://fyfile.fjtv.net/file/storage1-cloudlivemanage/cloudlivemanage/2024/468/15411d7dabac026f.png' }),
-])
 
 const PROVINCE_BY_ID = new Map(PROVINCE_CHANNELS.map(channel => [channel.id, channel]))
 
@@ -348,7 +318,7 @@ async function probeFuzhouChannel(channel, { timeoutMs = 10000, fetchImpl = fetc
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const manifest = await response.text()
     if (!/^\s*#EXTM3U(?:\r?\n|$)/.test(manifest)) throw new Error('返回内容不是 HLS 清单')
-    return { name: channel.name, url: channel.url, logo: '' }
+    return { name: channel.name, url: channel.url, logo: channel.logo }
   } catch (error) {
     const reason = error?.name === 'AbortError' ? `超时 ${timeoutMs}ms` : (error?.message || String(error))
     throw new Error(`${channel.name}探测失败：${reason}`)

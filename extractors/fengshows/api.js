@@ -1,12 +1,9 @@
+import { CHANNELS, channelRef } from './channels.js'
+
+export { CHANNELS }
+
 const API = 'https://api.fengshows.cn/'
 const CLIENT = 'app(fs-web,1000000);'
-
-// Fixed television scope: no business lives, VOD, schedules or replay.
-export const CHANNELS = Object.freeze([
-  { key: 'info', id: '7c96b084-60e1-40a9-89c5-682b994fb680', name: '凤凰资讯', logo: 'https://q1.fengshows.com/a/2021_22/79dcc3a9da358a3.png' },
-  { key: 'chinese', id: 'f7f48462-9b13-485b-8101-7b54716411ec', name: '凤凰中文', logo: 'https://q1.fengshows.com/a/2021_22/ede3d9e09be28e5.png' },
-  { key: 'hongkong', id: '15e02d92-1698-416c-af2f-3e9a872b4d78', name: '凤凰香港', logo: 'https://q1.fengshows.com/a/2021_23/325d941090bee17.png' },
-])
 
 export function parseToken(input = '') {
   if (typeof input !== 'string' || input.length > 12000) throw new Error('凤凰秀 Token 格式无效')
@@ -36,13 +33,13 @@ export function officialMediaUrl(raw) {
 
 export function buildGroups() {
   return [{ name: '香港', dataList: CHANNELS.map(channel => ({
-    name: channel.name, deferredRef: `fengshows-${channel.key}.flv`,
+    name: channel.name, deferredRef: channelRef(channel),
     logo: channel.logo, groupTitle: '香港', catchup: 'none',
   })) }]
 }
 
 export function claimsRef(ref) {
-  return CHANNELS.some(channel => ref === `fengshows-${channel.key}.flv`)
+  return CHANNELS.some(channel => ref === channelRef(channel))
 }
 
 async function api(path, params, { token, fetchImpl = fetch, timeoutMs = 10000 }) {
@@ -61,7 +58,7 @@ async function api(path, params, { token, fetchImpl = fetch, timeoutMs = 10000 }
 }
 
 export async function resolveChannel(ref, ctx = {}) {
-  const channel = CHANNELS.find(item => ref === `fengshows-${item.key}.flv`)
+  const channel = CHANNELS.find(item => ref === channelRef(item))
   if (!channel) return { url: '', desc: '未知的凤凰卫视直播频道' }
   try {
     const token = parseToken(ctx.config?.token || '')

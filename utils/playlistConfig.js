@@ -13,9 +13,12 @@ import { ANNOUNCEMENT, isAnnouncementChannel, protectAnnouncementConfig, systemC
 
 // 台标来源分类（供后台展示）：本地上传 / 源自带 / 公共库兜底 / 无。
 // 依据 interface 里写出的 tvg-logo 形态判定，不联网、零额外成本。issue #38 / #40
-function classifyLogo(logo) {
+export function classifyLogo(logo) {
   if (!logo) return 'none'
-  if (logo.includes('/logos/')) return 'local'                                  // ${replace}/logos/<名>.<ext>（本地上传/手放，最高优先级）
+  if (logo.startsWith('${replace}/logos/')) return 'local'                      // ${replace}/logos/<名>.<ext>（本地上传/手放，最高优先级）
+  if (logo.startsWith('${replace}/logo-pack/')) return 'pack'                    // 仓库内置台标（utils/logoPack.js）
+  // 本机托管的（utils/logoCache.js）：地址里的 from 记着它原本来自源自带还是公共库
+  if (logo.includes('/logo-cache/')) return /[?&]from=auto(?:&|$)/.test(logo) ? 'auto' : 'source'
   if (externalLogoBase && logo.startsWith(externalLogoBase)) return 'auto'       // 公共台标库按名兜底
   return 'source'                                                               // 咪咕 pics / m3u 源自带
 }
@@ -31,13 +34,12 @@ const DEFAULT_PROFILE = { id: 'default', name: '默认' }
 
 // 新建配置档的默认分组顺序。用户在后台手动拖拽后会写入
 // groupOrder，下方 applyConfig 仍以用户顺序为最终优先级。
-// 「央视频」紧跟公告置顶：央视全套与主要卫视它匿名就是 1080p，同台的咪咕
-// 游客只到 540p、1080p 要 VIP，播放器按名聚合成「源1 / 源2」时应先走这份。
+// 「央视频」排在咪咕的「央视」「卫视」之后：它匿名虽有 1080p，但官方线路起播慢、
+// 偶尔卡，播放器按名聚合成「源1 / 源2」时先走咪咕，央视频作备用（作者 09-27 调整）。
 export const DEFAULT_GROUP_ORDER = [
   '公告',
-  '央视频',
   '体育', '体育-昨天', '体育-今天', '体育-明天',
-  '央视', '卫视', '亚太', '国际', '影视', '少儿', '教育', '娱乐时尚', '文旅', 'iPanda',
+  '央视', '卫视', '央视频', '亚太', '国际', '影视', '少儿', '教育', '娱乐时尚', '文旅', 'iPanda',
   'B站', '虎牙', '斗鱼',
 ]
 
@@ -550,11 +552,15 @@ export function applyConfig(groups, config) {
         const direct = config.groupOrder.indexOf(name)
         // 「纪实」已更名为「文旅」；旧配置档不需重新拖拽也能沿用原位置。
         if (direct === -1 && name === '文旅') return config.groupOrder.indexOf('纪实')
-        // 「央视频」是后来新增的系统来源，且已升为央视 / 卫视的首选源（匿名 1080p，
-        // 见 DEFAULT_GROUP_ORDER）。旧配置档尚未记录它时直接置顶（公告仍由下方固定在首位）；
+        // 「央视频」是后来新增的系统来源，作咪咕的备用（见 DEFAULT_GROUP_ORDER）。
+        // 旧配置档尚未记录它时跟在卫视后，没有卫视就跟在央视后；
         // 一旦用户显式拖拽保存，direct 会优先尊重用户位置。
-        // 返回负数但**不是 -1**：-1 在下面的比较里表示「不在列表中」。
-        if (direct === -1 && name === '央视频') return -0.5
+        if (direct === -1 && name === '央视频') {
+          const satellite = config.groupOrder.indexOf('卫视')
+          if (satellite !== -1) return satellite + 0.5
+          const cctv = config.groupOrder.indexOf('央视')
+          if (cctv !== -1) return cctv + 0.5
+        }
         // iPanda 是后来新增的内容来源；旧配置没有记录它时跟在文旅后。
         if (direct === -1 && name === 'iPanda') {
           const culture = config.groupOrder.indexOf('文旅')

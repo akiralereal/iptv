@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>播放器 - IPTV</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dplayer@1.27.1/dist/DPlayer.min.css">
     <style>
         * {
             margin: 0;
@@ -162,9 +161,10 @@
         <div class="error-message" id="errorMessage"></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/dplayer@1.27.1/dist/DPlayer.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="/player-assets/mpegts.js"></script>
+    <!-- 播放器库本机提供（web/vendor/），DPlayer 的样式已打包在 JS 里 -->
+    <script src="player-assets/DPlayer.min.js"></script>
+    <script src="player-assets/hls.min.js"></script>
+    <script src="player-assets/mpegts.js"></script>
     <script>
         // 从URL参数获取播放信息
         const urlParams = new URLSearchParams(window.location.search);
@@ -195,7 +195,17 @@
             errorDiv.classList.add('show');
             document.getElementById('loading').style.display = 'none';
         }
-        
+
+        // 频道入口拿不到地址时回 HTTP 200 + 一行中文原因（#131 定的兼容行为），hls.js 只会报
+        // manifestParsingError。把这行原因取出来直接显示（issue #140）；开头的频道 ID 对用户没意义，去掉。
+        function hlsServerReason(data) {
+            const body = data && data.response && data.response.data;
+            if (typeof body !== 'string') return '';
+            const text = body.trim();
+            if (!text || text.length > 300 || text.startsWith('#EXTM3U') || text.startsWith('<')) return '';
+            return text.replace(/^\d+\s+/, '');
+        }
+
         // 初始化播放器
         function initPlayer() {
             if (!videoUrl) {
@@ -256,7 +266,11 @@
                                 const hls = new Hls({
                                     enableWorker: true,
                                     lowLatencyMode: true,
-                                    backBufferLength: 90
+                                    backBufferLength: 90,
+                                    // 央视频等来源每次刷新清单会换 CDN 节点，同一分片序号的地址随之变化；
+                                    // hls.js 1.6 起把这当成清单错误，只有一个清晰度时直接放弃，十几秒后
+                                    // 停播（issue #142）。内容是同一路流，照常播即可，只记警告。
+                                    ignorePlaylistParsingErrors: true
                                 });
                                 hls.loadSource(video.src);
                                 hls.attachMedia(video);
@@ -273,7 +287,10 @@
                                         fatal: data.fatal,
                                         status: data.response && data.response.code
                                     }));
-                                    if (data.fatal) {
+                                    const reason = data.fatal ? hlsServerReason(data) : '';
+                                    if (reason) {
+                                        showError('❌ 播放失败：' + reason);
+                                    } else if (data.fatal) {
                                         switch(data.type) {
                                             case Hls.ErrorTypes.NETWORK_ERROR:
                                                 showError('❌ 网络错误：无法加载视频流，请检查网络连接');

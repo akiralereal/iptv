@@ -116,7 +116,7 @@ function isPlainObject(value) {
  * 原先存的是补齐默认值后的全量 key，于是「这个字段用户配过没有」这个状态在存储里
  * 表达不出来——导致 env 兜底对布尔字段永远失效（default:true 恒为真值就跳过 env），
  * 也导致判据没法用 hasOwnProperty（存过一次配置后每个 key 都在）。
- * 稀疏之后取值分三层：已存 → 环境变量 → schema 默认（见 resolveConfig）。
+ * 稀疏之后取值分三层：已存 → 环境变量 → schema 默认（hidden 字段环境变量优先，见 resolveConfig）。
  *
  * @param stored 已落盘的稀疏配置。secret 字段收到空串表示「不修改」而非「清空」——
  *               后台看不见凭据，不能因为保存表单就把它抹掉；显式传 null 才是清空。
@@ -231,7 +231,7 @@ function coerceSelect(field, text) {
 }
 
 /**
- * 取生效配置：已存 → 环境变量 → schema 默认，逐字段分层。
+ * 取生效配置：已存 → 环境变量 → schema 默认，逐字段分层；hidden 字段例外，环境变量优先。
  *
  * 这是稀疏存储换来的东西——「没配过」现在是个明确状态，所以 env 兜底对布尔和
  * 整数也能正确工作了（原先 default:true 的布尔恒为真值，env 永远读不到）。
@@ -240,14 +240,17 @@ export function resolveConfig(module, stored = {}) {
   const effective = {}
   for (const field of module.configSchema || []) {
     const key = field.key
+    const fromEnv = field.env ? process.env[field.env] : undefined
+    const envSet = fromEnv !== undefined && fromEnv !== ''
+    // hidden 字段后台不渲染、用户在界面上改不了，环境变量是它唯一的公开入口，所以 env
+    // 压过已存值（两个方向都是：compose 示例里的 menableHDR=true 同样压过文件里的 false）。
+    // 不这样的话 menableHDR=false 会被顶死：老「系统配置」页每次保存都把 enableHDR 连同
+    // 其它字段整份写回 system-config.json（隐藏复选框默认勾着，几乎所有人存下的都是 true），
+    // 迁移把它搬进模块配置成了「已存值」，用户按 README 在 compose 里关 HDR 却毫无反应，
+    // 界面上也找不到开关（issue #117）。
+    if (field.hidden && envSet) { effective[key] = coerceEnvValue(field, fromEnv); continue }
     if (stored[key] !== undefined) { effective[key] = stored[key]; continue }
-    if (field.env) {
-      const fromEnv = process.env[field.env]
-      if (fromEnv !== undefined && fromEnv !== '') {
-        effective[key] = coerceEnvValue(field, fromEnv)
-        continue
-      }
-    }
+    if (envSet) { effective[key] = coerceEnvValue(field, fromEnv); continue }
     effective[key] = field.default
   }
   return effective
@@ -580,7 +583,7 @@ class ExtractorManager {
     return entry
   }
 
-  /** 生效配置：已存的 → 按 schema 补默认 → 环境变量兜底。 */
+  /** 生效配置：已存 → 环境变量 → schema 默认（hidden 字段环境变量优先），见 resolveConfig。 */
   effectiveConfig(module) {
     return resolveConfig(module, this.#entry(module.id).config)
   }
@@ -622,7 +625,7 @@ class ExtractorManager {
       const envProvided = {}
       for (const field of module.configSchema || []) {
         // 稀疏存储后「没配过」= 该 key 不存在，不用再靠真值判断（布尔 false 会被误判）
-        if (field.env && entry.config[field.key] === undefined && process.env[field.env]) {
+        if (field.env && (field.hidden || entry.config[field.key] === undefined) && process.env[field.env]) {
           envProvided[field.key] = field.env
         }
       }

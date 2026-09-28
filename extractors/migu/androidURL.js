@@ -49,7 +49,7 @@ function miguFetchFail(respData) {
 
 // playurl 各档位的文案，只用于日志。与 extractors/migu/index.js 的画质选项一致；
 // 咪咕回应里出现的档位以外的数字兜底按数字打印。
-const RATE_LABELS = { 1: '流畅', 2: '标清 540P', 3: '高清 720P', 4: '蓝光 1080P', 7: '原画', 9: '4K 臻享超高清' }
+const RATE_LABELS = { 1: '流畅', 2: '标清 540P', 3: '高清 720P', 4: '蓝光 1080P', 7: '原画', 8: '超清4K (投屏专享)', 9: '4K 臻享超高清' }
 function rateLabel(rt) { return RATE_LABELS[rt] || `档位 ${rt}` }
 
 // 把咪咕拒绝时的原话带进日志。此前拒绝一律打「该账号没有会员」，可用户明明有会员、
@@ -57,6 +57,60 @@ function rateLabel(rt) { return RATE_LABELS[rt] || `档位 ${rt}` }
 function serverHint(respData) {
   const msg = respData?.message
   return msg && msg !== 'SUCCESS' ? `（咪咕：${msg}）` : ''
+}
+
+/**
+ * 档位表压成一行给日志：「蓝光 1080P(4/55) / 超清4K (投屏专享)(8/221416 本端不可切)」。
+ * 带上 usageCode 与「本端可否切换」标记——下一次 4K 反馈只要贴这一行，就能对出咪咕到底
+ * 列了哪些档、哪一档只给电视端，不必再猜。
+ */
+function tierTable(list) {
+  return (Array.isArray(list) ? list : []).map(f => {
+    const flags = [f?.needAuth === true ? '需权益' : '', f?.currentTerminalCanSwitch === '0' ? '本端不可切' : ''].filter(Boolean).join(' ')
+    return `${f?.rateDesc || '?'}(${f?.rateType}/${f?.usageCode ?? '?'}${flags ? ' ' + flags : ''})`
+  }).join(' / ')
+}
+
+/**
+ * 大屏策略走通后，档位表里有没有比已拿到的更高的「投屏专享」4K 档。
+ *
+ * 咪咕 4K 赛事有两套编码：rateType 9「臻享 超高清」是手机端的（约 10M），电视端「咪视界」
+ * 同一场更高（网上实测投屏流约 18M、用户说咪视界约 30M）。手机 App 的「投屏」功能走的就是
+ * 电视端那条流——游客探 4K 场次时 ottMediaFiles 里列着 rateType 8「超清4K (投屏专享)」
+ * usageCode 221416，只给大屏权益。含电视端权益的账号按 rateType 9 带 ott 要到的仍是手机
+ * 编码，10M 就成了天花板（issue #117 用户开通四屏后实测）。所以成功回应里若列着投屏档，
+ * 再按它要一次。只认档位表里真有的，不硬编码 8：档位表没有就什么都不做。
+ *
+ * 必须同时带「投屏」字样和 4K 字样（或 rateType 8）：档位表是升序的，只按「投屏」匹配
+ * 会先撞上将来可能出现的「蓝光 (投屏)」之类的低档。多项命中取表末尾的那项。
+ */
+function castTier(respData) {
+  const got = parseInt(respData?.body?.urlInfo?.rateType)
+  const lists = [respData?.body?.ottMediaFiles, respData?.body?.mediaFiles].filter(Array.isArray)
+  for (const list of lists) {
+    const hits = list.filter(f => {
+      const rt = parseInt(f?.rateType)
+      const desc = String(f?.rateDesc || '')
+      return rt !== got && /投屏/.test(desc) && (rt === 8 || /4K|2160|超清/i.test(desc))
+    })
+    const hit = hits[hits.length - 1]
+    if (hit) return { rateType: parseInt(hit.rateType), rateDesc: hit.rateDesc || rateLabel(parseInt(hit.rateType)) }
+  }
+  return null
+}
+
+/**
+ * 投屏档那一次请求算不算拿到了。咪咕拿不到所请求档位时不一定拒绝：会以 SUCCESS 回一条
+ * 更低档的流（游客要 9 给 540P、解说流要 9 给原画 都是这样），没权益时也可能只给几分钟
+ * 试看。这两种都不能拿去顶掉第一次已经拿到的完整 4K——顶掉了会按 pid 缓存 3 小时，
+ * 用户体感就是「开了四屏反而更差」。
+ */
+function castAccepted(castResp, cast) {
+  const info = castResp?.body?.urlInfo
+  if (castResp?.rid != 'SUCCESS' || !info?.url) return { ok: false, why: serverHint(castResp) }
+  if (parseInt(info.rateType) !== cast.rateType) return { ok: false, why: `（咪咕实际给的是 ${info.rateDesc || rateLabel(parseInt(info.rateType))}）` }
+  if ((parseInt(info.trySeeDuration) || 0) > 0) return { ok: false, why: `（只给试看 ${parseInt(info.trySeeDuration)} 秒）` }
+  return { ok: true, why: '' }
 }
 
 async function getAndroidURL(userId, token, pid, rateType, opts = {}) {
@@ -129,6 +183,27 @@ async function getAndroidURL(userId, token, pid, rateType, opts = {}) {
     printYellow(`4K 按大屏策略被拒${serverHint(respData)}，改按手机策略再要一次 4K`)
     respData = await requestPlayurl(9, false)
     if (!respData) return miguFetchFail(respData)
+  } else if (rateType == 9 && respData.rid == 'SUCCESS' && respData.body?.urlInfo?.url) {
+    // 大屏策略走通（含电视端权益的账号）。只有这类账号看得到大屏档位表，所以有表就打
+    // 出来——再有「码率不对」的反馈，靠这一行就能对出咪咕列了哪些档、我们要了哪一档。
+    // 普通频道（CCTV1 之类）大屏表是空的、也没什么可要的，只进 debug，免得换一圈台刷一屏黄字。
+    const got = respData.body.urlInfo
+    const gotDesc = got.rateDesc || rateLabel(parseInt(got.rateType))
+    const ottTable = tierTable(respData.body.ottMediaFiles)
+    const tables = `大屏档位表：${ottTable || '（空）'}；手机档位表：${tierTable(respData.body.mediaFiles) || '（空）'}`
+    const cast = castTier(respData)
+    if (ottTable || cast) printYellow(`4K 按大屏策略取到 ${gotDesc}；${tables}`)
+    else printDebug(`4K 按大屏策略取到 ${gotDesc}；${tables}`)
+    if (cast) {
+      printYellow(`档位表里另有「${cast.rateDesc}」，按 rateType ${cast.rateType} 带大屏策略再要一次`)
+      const castResp = await requestPlayurl(cast.rateType, true)
+      const verdict = castAccepted(castResp, cast)
+      if (verdict.ok) {
+        respData = castResp
+      } else {
+        printYellow(`「${cast.rateDesc}」没拿到${verdict.why}，沿用 ${gotDesc}`)
+      }
+    }
   }
   if (respData.rid == 'TIPS_NEED_MEMBER') {
     // 拒绝回应的 urlInfo.rateType 是咪咕愿意给的档位（同一字段在游客被拒时就是它降到的

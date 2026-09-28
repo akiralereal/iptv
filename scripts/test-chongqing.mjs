@@ -30,7 +30,7 @@ const listPayload = {
   code: 0,
   data: {
     lists: [
-      { id: 6, title: 'CQTV新闻', tvorfm: 'tv', ios_HDlive_url: rawUrl },
+      { id: 6, title: 'CQTV新闻', tvorfm: 'tv', ios_HDlive_url: rawUrl, thumb: '', thumb_mob: 'https://cmsimg.cbg.cn/2020/07/01/b39ff90b.jpg' },
       { id: 7, title: '重庆广播', tvorfm: 'fm', ios_HDlive_url: rawUrl },
     ],
   },
@@ -52,6 +52,8 @@ check('模块已注册为免账号的重庆全代理模块', () => {
 check('目录只收电视频道，并产出独立重庆分组的延迟引用', () => {
   const rows = parseChannelList(listPayload)
   assert.deepEqual(rows.map(row => [row.id, row.name]), [['6', 'CQTV新闻']])
+  assert.equal(buildChannels(rows)[0].logo, 'https://cmsimg.cbg.cn/2020/07/01/b39ff90b.jpg', '台标取官方接口的 thumb_mob')
+  assert.equal(parseChannelList({ code: 0, data: { lists: [{ id: 6, title: 'CQTV新闻', tvorfm: 'tv', ios_HDlive_url: rawUrl, thumb_mob: 'https://evil.example/x.jpg' }] } })[0].logo, '', '只收重庆广电图床')
   assert.deepEqual(buildChannels(rows).map(channel => channel.deferredRef), ['chongqing-6'])
   assert.equal(claimsRef('chongqing-text'), false)
 })

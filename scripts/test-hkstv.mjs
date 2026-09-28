@@ -69,7 +69,8 @@ check('模块注册为免账号的香港中继模块', () => {
   assert.equal(hkstv.channelHlsMode, 'relay')
   assert.equal(hkstv.relayProxyCompatible, true)
   assert.equal(hkstv.capabilities.catchup, false)
-  assert.equal(hkstv.capabilities.epg, false)
+  // 官网節目單走独立的 epg.js（见 test-hkstv-epg.mjs）
+  assert.equal(hkstv.capabilities.epg, true)
   assert.equal(hkstv.catalogVersion, 1)
   assert.deepEqual(hkstv.configSchema, [])
   assert.equal(resolverFor(CHANNEL.ref), hkstv)

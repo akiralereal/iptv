@@ -1,5 +1,6 @@
 /** 新疆广播电视台：官网页面签名发现、公开频道接口与实时 HLS 清单。 */
 import { proxyAwareFetch } from '../../utils/systemProxy.js'
+import { CHANNELS } from './channels.js'
 import {
   createSignedParams,
   extractSigningMaterial,
@@ -23,38 +24,7 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
 
-export const CHANNELS = Object.freeze([
-  Object.freeze({
-    ref: 'xjtv-1', channelId: '1', callSign: 'XJTV-1', name: '新疆卫视',
-    path: '/xjtv1/xjtv1stream.m3u8',
-    logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_2024090610562817*$*1.000',
-  }),
-  Object.freeze({
-    ref: 'xjtv-2', channelId: '3', callSign: 'XJTV-2', name: '维吾尔语新闻综合',
-    path: '/xjtv2/xjtv2stream.m3u8',
-    logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105701646*$*1.000',
-  }),
-  Object.freeze({
-    ref: 'xjtv-3', channelId: '4', callSign: 'XJTV-3', name: '哈萨克语新闻综合',
-    path: '/xjtv3/xjtv3stream.m3u8',
-    logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105720257*$*1.000',
-  }),
-  Object.freeze({
-    ref: 'xjtv-7', channelId: '21', callSign: 'XJTV-7', name: '新疆体育健康',
-    path: '/xjtv10/xjtv10stream.m3u8',
-    logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105823916*$*1.000',
-  }),
-  Object.freeze({
-    ref: 'xjtv-8', channelId: '23', callSign: 'XJTV-8', name: '新疆少儿',
-    path: '/xjtv12/xjtv12stream.m3u8',
-    logo: 'https://slststore.xjtvs.com.cn/imgs/2024/09/06/xj_img_20240906105836950*$*1.000',
-  }),
-])
-
-export const UNAVAILABLE_CHANNELS = Object.freeze([
-  Object.freeze({ callSign: 'XJTV-4', name: '汉语综艺频道', reason: '官网标记禁播且 CDN 返回 404' }),
-  Object.freeze({ callSign: 'XJTV-5', name: '维吾尔语影视频道', reason: '官网标记禁播且 CDN 返回 404' }),
-])
+export { CHANNELS }
 
 const CHANNEL_BY_REF = new Map(CHANNELS.map(channel => [channel.ref, channel]))
 const CHANNEL_BY_ID = new Map(CHANNELS.map(channel => [channel.channelId, channel]))
@@ -186,21 +156,24 @@ export function parseChannelList(payload, { now = Date.now() } = {}) {
   if (response?.success !== true || !Array.isArray(response?.data)) {
     throw new Error('新疆频道接口返回异常')
   }
+  // 逐路校验：标禁播或这次没给的只跳过那一路，一路都没有才算接口异常。
+  // 禁播标记跟着当前这档节目走（汉语综艺、维吾尔语影视的电视剧时段多半标着，CDN 同时 404），
+  // 单独记下来，播放时报「这档节目限播」而不是「不在直播列表」
   const urls = new Map()
+  const forbidden = new Set()
   let hardExpiresAt = Infinity
   for (const [channelId, channel] of CHANNEL_BY_ID) {
     const matches = response.data.filter(item => String(item?.Id) === channelId
       && String(item?.SimpleName || '').trim() === channel.callSign)
+    if (matches.length === 1 && matches[0].IsForbidden === true) forbidden.add(channelId)
     if (matches.length !== 1 || matches[0].IsForbidden === true
         || typeof matches[0].PlayStreamUrl !== 'string') continue
     const parsed = officialHlsUrl(matches[0].PlayStreamUrl, channel, now)
     urls.set(channelId, parsed.url)
     hardExpiresAt = Math.min(hardExpiresAt, parsed.expiresAt - 60 * 1000)
   }
-  if (urls.size !== CHANNELS.length) {
-    throw new Error(`新疆广电当前仅返回 ${urls.size}/${CHANNELS.length} 路可播放频道`)
-  }
-  return { urls, hardExpiresAt }
+  if (!urls.size) throw new Error('新疆广电当前没有返回任何可播放频道')
+  return { urls, hardExpiresAt, forbidden }
 }
 
 function hlsRefs(text, baseUrl) {
@@ -390,9 +363,12 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
       random: ctx.random,
       date: ctx.date,
     }
+    const notListed = () => new Error(channelCache?.forbidden?.has(channel.channelId)
+      ? `${channel.name} 当前这档节目官网不提供网络直播，换档后自动恢复`
+      : `${channel.name} 当前不在官网有效直播列表中`)
     try {
       let streamUrl = (await cachedChannelUrls(options)).get(channel.channelId)
-      if (!streamUrl) throw new Error(`${channel.name} 当前不在官网有效直播列表中`)
+      if (!streamUrl) throw notListed()
       let manifest
       try {
         manifest = await requestManifest(streamUrl, options)
@@ -400,7 +376,7 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
         // 短效入口若提前轮换，立即重新签发一次再读清单。
         invalidateChannelUrl(channel, streamUrl, options.fetchImpl)
         streamUrl = (await cachedChannelUrls(options)).get(channel.channelId)
-        if (!streamUrl) throw new Error(`${channel.name} 当前不在官网有效直播列表中`)
+        if (!streamUrl) throw notListed()
         manifest = await requestManifest(streamUrl, options)
       }
       return {

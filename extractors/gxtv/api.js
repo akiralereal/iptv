@@ -6,22 +6,13 @@
  * 稳定性承诺，也可能与正式频道重复。
  */
 import fetch from 'node-fetch'
+import { CHANNELS } from './channels.js'
 import { decryptGxtvTs } from './decrypt.js'
 
 export const CHANNEL_LIST_URL = 'https://api2019.gxtv.cn/memberApi/channel/channelList'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-
-const CHANNELS = [
-  { ref: 'gxtv-gxws', rawName: '广西卫视', name: '广西卫视', kind: 'core' },
-  { ref: 'gxtv-zyly', rawName: '综艺旅游频道', name: '广西综艺旅游', kind: 'core' },
-  { ref: 'gxtv-ds', rawName: '都市频道', name: '广西都市', kind: 'core' },
-  { ref: 'gxtv-ys', rawName: '影视频道', name: '广西影视', kind: 'core' },
-  { ref: 'gxtv-xw', rawName: '新闻频道', name: '广西新闻', kind: 'core' },
-  { ref: 'gxtv-gj', rawName: '国际频道', name: '广西国际', kind: 'core' },
-  { ref: 'gxtv-yd', rawName: '移动数字电视频道', name: '广西移动', kind: 'core' },
-]
 
 const CHANNEL_BY_RAW_NAME = new Map(CHANNELS.map(channel => [channel.rawName, channel]))
 const CHANNEL_BY_REF = new Map(CHANNELS.map(channel => [channel.ref, channel]))

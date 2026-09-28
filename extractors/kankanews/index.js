@@ -7,12 +7,13 @@ import {
   fetchScenicList,
   resolveChannel,
 } from './api.js'
+import epg from './epg.js'
 
 export default {
   id: 'kankanews',
   name: '上海',
   description: '东方卫视、新闻综合等 SMG 官方电视直播，以及陆家嘴、外滩等上海景观慢直播。按官网当前节目验签取流并全代理防盗链请求；版权屏蔽时段以官网为准。',
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  capabilities: { cache: 'disk', resolve: true, epg: true },
   outputGroupName: '上海',
   preserveGroupSuffixes: ['景观'],
   defaultRefreshMinutes: 240,
@@ -20,6 +21,8 @@ export default {
   refreshDescription: '自动管理：频道列表每 240 分钟刷新；播放地址约每 150 秒重新获取，失败后 1 分钟重试。',
 
   configSchema: [],
+  // 官网节目单，按 channel_id 验签取；与取流链路互不依赖（见 epg.js）
+  epg,
 
   async fetch(_config, ctx = {}) {
     const options = { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl }

@@ -2,6 +2,8 @@
 import { createCipheriv, createDecipheriv, createHash } from 'node:crypto'
 import fetch from 'node-fetch'
 
+import { CHANNELS } from './channels.js'
+
 export const AUTH_HOST = 'feiying.litenews.cn'
 const CHANNEL_TTL_MS = 4 * 60 * 60 * 1000
 const CHANNEL_RETRY_MS = 60 * 1000
@@ -11,20 +13,6 @@ const STREAM_RETRY_MS = 60 * 1000
 const ZERO_IV = Buffer.alloc(16, 0x30)
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-
-// 只收录官网当前九个省级电视频道。国际频道页复用了山东卫视 ID，不能作为独立频道；
-// 居家购物固定排除。ref 使用页面 slug，而不是易变的内部数字 ID。
-const CHANNELS = [
-  { slug: 'sdtv', name: '山东卫视', pageName: '山东卫视', logo: 'https://file.iqilu.com/custom/new/v2016/webtv/images/wspd.png' },
-  { slug: 'qlpd', name: '齐鲁频道', pageName: '齐鲁频道', logo: 'https://file.iqilu.com/custom/new/v2016/webtv/images/qlpd.png' },
-  { slug: 'ggpd', name: '山东新闻', pageName: '新闻频道', logo: 'https://file.iqilu.com/custom/new/v2016/webtv/images/ggpd.png' },
-  { slug: 'typd', name: '山东体育休闲', pageName: '体育休闲频道', logo: 'https://file.iqilu.com/custom/new/v2016/webtv/images/typd.png' },
-  { slug: 'shpd', name: '山东生活', pageName: '生活频道', logo: 'https://file.iqilu.com/custom/new/v2016/webtv/images/shpd.png' },
-  { slug: 'zypd', name: '山东综艺', pageName: '综艺频道', logo: 'https://file.iqilu.com/custom/new/v2016/webtv/images/zypd.png' },
-  { slug: 'nkpd', name: '山东农科', pageName: '农科频道', logo: 'https://file.iqilu.com/custom/new/v2016/webtv/images/nkpd.png' },
-  { slug: 'yspd', name: '山东文旅', pageName: '文旅频道', logo: 'https://file.iqilu.com/custom/new/v2016/webtv/images/wlpd.png' },
-  { slug: 'sepd', name: '山东少儿', pageName: '少儿频道', logo: 'https://file.iqilu.com/custom/new/v2016/webtv/images/sepd.png' },
-]
 
 const CHANNEL_BY_SLUG = new Map(CHANNELS.map(channel => [channel.slug, channel]))
 let channelCache = null

@@ -20,16 +20,6 @@ https://cdn.qd.je/163189/fhhk
 https://hlsz.yjjcfw.com/live/vl.m3u8?expire=1786948372&sign=2e4a56b89fe644db147552011f972714
 # === END 直连源 ===
 
-# === BEGIN 宁夏官方直播 ===
-# 说明：宁夏广播电视台官方公开直播，使用固定原始 HLS 地址。
-#EXTINF:-1 tvg-id="宁夏卫视" tvg-name="宁夏卫视" group-title="宁夏",宁夏卫视
-https://hls.nxhhy.cn/live/nxws1M.m3u8
-#EXTINF:-1 tvg-id="宁夏公共" tvg-name="宁夏公共" group-title="宁夏",宁夏公共
-https://hls.nxhhy.cn/live/nxgg1M.m3u8
-#EXTINF:-1 tvg-id="宁夏文旅" tvg-name="宁夏文旅" group-title="宁夏",宁夏文旅
-https://hls.nxhhy.cn/live/nxwl1M.m3u8
-# === END 宁夏官方直播 ===
-
 # === BEGIN 亚太旧源直连复核保留 ===
 # 说明：以下频道已绕过 VPN 复核根地址与实际媒体数据；不可直连、明显不稳定及旧式 RTMP 源已清理。
 #EXTINF:-1 tvg-logo="" group-title="香港",翡翠台
@@ -38,8 +28,6 @@ https://cdn3.indevs.in/stream/tvb/fct/
 http://211.72.174.95:8116/0.ts
 #EXTINF:-1 tvg-name="民视" tvg-logo="" group-title="台湾",民视高清
 http://211.72.174.95:8115/0.ts
-#EXTINF:-1 tvg-name="华视" tvg-logo="" group-title="台湾",华视高清
-http://220.135.241.47:8317/0.ts
 #EXTINF:-1 tvg-name="台视" tvg-logo="" group-title="台湾",台视高清
 http://211.72.174.95:8112/0.ts
 #EXTINF:-1 group-title="台湾",TVBS亚洲
@@ -49,9 +37,6 @@ http://38.64.72.148/hls/modn/list/4005/playlist.m3u8
 # === BEGIN 亚洲直播实验台已处理直连源 ===
 # 说明：以下频道均由 asian-live-lab 筛选并按直连方式验证，使用固定原始 HLS 地址。
 # 维护：此区块与上方原有精选频道分开；YTN News、NHK World 属于动态源，保留在“亚洲与国际直播”模块。
-# 实验台备注：官方自适应 360p / 540p / 720p
-#EXTINF:-1 group-title="韩国",Arirang
-https://amdlive-ch01-g-ctnd-com.akamaized.net/arirang_1gch/smil:arirang_1gch.smil/playlist.m3u8
 # 实验台备注：香港粤语财经直播，单档 576p
 #EXTINF:-1 group-title="香港",耀才财经
 https://v3.mediacast.hk/webcast/bshdlive-pc/playlist.m3u8
@@ -64,135 +49,36 @@ https://wildearth-plex.amagi.tv/masterR1080p.m3u8
 # 实验台备注：英语自然纪实频道，单档 2160p / 29.97fps HEVC
 #EXTINF:-1 tvg-logo="https://images.sr.roku.com/idType/roku-trc/context/trc/id/479fe0d11f3f5132a3f36b617547da3b/https%3A%2F%2Fimage.roku.com%2Fbh-uploads%2Fproduction%2FinfoHUDLogo%2F1738776545554_LoveNature_logos_HUB_Centered.png" group-title="文旅",Love Nature 4K
 https://pb-ehs1glsha1juy.akamaized.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/pb-ehs1glsha1juy/f2141f37-1f48-475b-ba54-b9efb62346db/0.m3u8
-# 实验台备注：FashionTV 官网直播频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",FashionTV Paris L'Original
-https://ftv1.b-cdn.net/bfdbb576-83f7-11f0-9f89-0200170e3e04_1000028043_HLS/manifest.m3u8
-# 实验台备注：频道官网嵌入的英语时尚与生活方式直播，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Global Fashion Channel
-https://pubgfc.teleosmedia.com/linear/globalfashionchannel/globalfashionchannel/playlist.m3u8
-# 实验台备注：Stingray 为 Samsung TV Plus 提供的演唱会频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Qello Concerts
-https://lotus.stingray.com/manifest/qello-qello001-montreal/samsungtvplus/master.m3u8
-# 实验台备注：40media 官方演唱会频道，1080p
-#EXTINF:-1 group-title="娱乐时尚",Totalmusic Concerts
-https://cdn.40mediagroup.com/live/c7eds/Totalmusic_Concerts/SA_LIVE_hls_enc/master.m3u8
 # 实验台备注：香港粤语综合娱乐网络频道，单档直播
 #EXTINF:-1 group-title="娱乐时尚",面包台
 https://video.bread-tv.com:8091/hls-live24/online/index.m3u8
-# 实验台备注：英语闯关真人秀 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Wipeout Xtra
-https://amg00627-banijaygroup-wipeoutxtraau-samsungau-ashbl.amagi.tv/playlist/amg00627-banijaygroup-wipeoutxtraau-samsungau/playlist.m3u8
-# 实验台备注：英语脱口秀精选 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Graham Norton
-https://amg00654-itv-amg00654c35-rakuten-gb-7598.playouts.now.amagi.tv/playlist.m3u8
-# 实验台备注：英语悬疑与罪案 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Mystery TV
-https://aenetworks-mysterytv-rakuten.amagi.tv/playlist.m3u8
-# 实验台备注：西班牙语综合娱乐频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Estrella TV
-https://estrellatv-oando.amagi.tv/playlist.m3u8
-# 实验台备注：Lionsgate 英语电影 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",MovieSphere
-https://amg00353-lionsgatefilmsi-moviesphereaus-samsungau-7qzhf.amagi.tv/playlist/amg00353-lionsgatefilmsi-moviesphereaus-samsungau/playlist.m3u8
-# 实验台备注：意大利语综合国际频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Rai Italia
-https://d3k8wzt41aflvx.cloudfront.net/RAIHD/Live.m3u8
-# 实验台备注：意大利语影视娱乐频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Rai World Premium
-https://d3k8wzt41aflvx.cloudfront.net/RAIP/Live.m3u8
-# 实验台备注：意大利语综合娱乐国际频道，最高 1080p
-#EXTINF:-1 group-title="娱乐时尚",Mediaset Italia
-https://d3k8wzt41aflvx.cloudfront.net/Mediaset_AU/Live.m3u8
-# 实验台备注：英语历史纪录片 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="文旅",History Hit
-https://lds-timeline-rakuten.amagi.tv/playlist.m3u8
-# 实验台备注：英语自然与野生动物纪录片频道，最高 1080p
-#EXTINF:-1 group-title="文旅",Terra Mater WILD
-https://amg01775-amg01775c1-amgplt0343.playout.now3.amagi.tv/playlist/amg01775-amg01775c1-amgplt0343/playlist.m3u8
-# 实验台备注：英语法庭纪实与案件报道频道，最高 1080p
-#EXTINF:-1 group-title="文旅",Court TV
-https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01438-ewscrippscompan-courttv-tablo/playlist.m3u8
-# 实验台备注：英语综合纪录片 FAST 频道，最高 1080p
-#EXTINF:-1 group-title="文旅",Documentary+
-https://ef79b15c8c7c46c7a9de9d33001dbd07.mediatailor.us-west-2.amazonaws.com/v1/master/ba62fe743df0fe93366eba3a257d792884136c7f/LINEAR-859-DOCUMENTARYPLUS-DOCUMENTARYPLUS/mt/documentaryplus/859/hls/master/playlist.m3u8
 # 实验台备注：CGTN 英语纪录频道，最高 1080p
 #EXTINF:-1 group-title="文旅",CGTN Documentary
 https://english-livebkali.cgtn.com/live/doccgtn.m3u8
-# 实验台备注：英语国际旅行与生活方式频道，最高 1080p
-#EXTINF:-1 group-title="文旅",InTravel
-https://amg00861-amg00861c10-rakuten-uk-3152.playouts.now.amagi.tv/playlist.m3u8
 # 实验台备注：新加坡英语亚洲新闻频道，最高 1080p
 #EXTINF:-1 group-title="国际",CNA
 https://d2e1asnsl7br7b.cloudfront.net/7782e205e72f43aeb4a48ec97f66ebbe/index.m3u8
 # 实验台备注：路透英语国际新闻直播，固定 1080p / 29.97fps
 #EXTINF:-1 tvg-logo="https://provider-static.plex.tv/epg/cms/production/8cf9c131-2d92-4d91-86b1-22ef458d703f/reuters_reutersnow_1RDX.png" group-title="国际",Reuters
 https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/e7493ea5-5c1c-4d7a-a3f7-e95516048ad8/3.m3u8
-# 实验台备注：泰国新闻频道，官方自适应直播最高约 2 Mbps
-#EXTINF:-1 group-title="国际",NEWS1
-https://server1.streamssl.com/stream/news1.m3u8
 # 实验台备注：法语国际新闻高码率直播
 #EXTINF:-1 group-title="国际",France 24 Français
 https://live.france24.com/hls/live/2037179-b/F24_FR_HI_HLS/master_5000.m3u8
 # 实验台备注：英语国际新闻高码率直播
 #EXTINF:-1 group-title="国际",France 24 English
 https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_5000.m3u8
-# 实验台备注：西班牙语国际新闻高码率直播
-#EXTINF:-1 group-title="国际",France 24 Español
-https://live.france24.com/hls/live/2037220-b/F24_ES_HI_HLS/master_5000.m3u8
-# 实验台备注：香港电台综合旗舰频道，最高 1080p
-#EXTINF:-1 group-title="香港",港台电视31
-https://rthktv31-live.akamaized.net/hls/live/2036818/RTHKTV31/master.m3u8
-# 实验台备注：澳大利亚赛马直播频道，720p
-#EXTINF:-1 group-title="体育",Sky Racing 1
-https://636ffd31f0e12.streamlock.net/RacingStream1/RacingStream1/playlist.m3u8
-# 实验台备注：澳大利亚赛马直播频道，720p
-#EXTINF:-1 group-title="体育",Sky Racing 2
-https://636ffd31f0e12.streamlock.net/RacingStream2/RacingStream2/playlist.m3u8
-# 实验台备注：英语户外与极限运动频道，最高 1080p
-#EXTINF:-1 group-title="体育",World of Freesports
-https://mainstreammedia-worldoffreesportsintl-rakuten.amagi.tv/playlist.m3u8
-# 实验台备注：英语极限运动国际频道，最高 1080p
-#EXTINF:-1 group-title="体育",FUEL TV
-https://amg01074-fueltv-fueltvemeaen-rakuten-b6j62.amagi.tv/hls/amagi_hls_data_rakutenAA-fueltvemeaen/CDN/master.m3u8
-# 实验台备注：英语赛车赛事与专题频道，最高 1080p
-#EXTINF:-1 group-title="体育",FloRacing
-https://amg02278-amg02278c1-flosports-worldwide-7592.playouts.now.amagi.tv/playlist.m3u8
-# 实验台备注：英语体育新闻与数据分析频道，最高 1080p
-#EXTINF:-1 group-title="体育",SportsGrid
-https://sportsgrid-tribal.amagi.tv/playlist.m3u8
-# 实验台备注：ACC 大学体育赛事与专题频道，最高 1080p
-#EXTINF:-1 group-title="体育",ACCDN
-https://raycom-accdn-firetv.amagi.tv/playlist.m3u8
-# 实验台备注：Pac-12 大学体育赛事与专题频道，最高 1080p
-#EXTINF:-1 group-title="体育",Pac-12 Insider
-https://pac12-firetv.amagi.tv/playlist.m3u8
 # 实验台备注：英语职业扑克赛事频道，最高 1080p
 #EXTINF:-1 group-title="体育",World Poker Tour
 https://amg00477-samsungelectron-worldpokertour-samsunguk-81igb.amagi.tv/playlist/amg00477-samsungelectron-worldpokertour-samsunguk/playlist.m3u8
 # 实验台备注：极限运动、赛车及户外节目，最高 1080p
 #EXTINF:-1 group-title="体育",Red Bull TV
 https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8
-# 实验台备注：Samsung TV Plus 澳大利亚区体育明星纪实频道，最高 1080p
-#EXTINF:-1 group-title="体育",Trace Sport Stars
-https://lightning-tracesport-samsungau.amagi.tv/playlist.m3u8
-# 实验台备注：beIN 官方免费英语体育频道，最高 1080p
-#EXTINF:-1 tvg-logo="https://image.xumo.com/v1/channels/channel/99991387/168x168.png?type=color_onBlack" group-title="体育",beIN Sports Xtra
-https://bein-xtra-bein.amagi.tv/playlist.m3u8
-# 实验台备注：FIFA 官方免费 FAST 频道，精选赛事、回放及专题节目，最高 720p
-#EXTINF:-1 group-title="体育",FIFA+
-https://d2w9q46ikgrcwx.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-of5cbk3sav3w5/v1/sysdata_s_p_a_fifa_7/samsungheadend_us/latest/main/hls/playlist.m3u8
 # 实验台备注：NHL 官方免费内容频道，不是付费线性频道 NHL Network
 #EXTINF:-1 group-title="体育",NHL FAST
 https://nhl-firetv.amagi.tv/playlist1080p.m3u8
-# 实验台备注：Tennis Channel 官方国际版 FAST 频道，LG Channels 英国区讯源
-#EXTINF:-1 tvg-logo="https://i.ibb.co/pBBqvWSK/tennis-channel.png" group-title="体育",Tennis Channel International
-https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01444-tennischannelth-tennischnlintl-lggb/playlist.m3u8
 # 实验台备注：Xumo 官方 UFC FAST 频道，主要播放经典比赛、回放及专题，不包含当期付费赛事
 #EXTINF:-1 tvg-logo="https://d1biytugnv36sr.cloudfront.net/resize?width=400&height=200&url=https://static.frequency.com/studio/ufc/channels/ufc-domestic400x200.png" group-title="体育",UFC 24/7
 https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/194a140c-0cf5-443e-b747-08bf621d75a8/0.m3u8
-# 实验台备注：Krave Media 官方 24/7 赛车频道，Samsung TV Plus 澳大利亚区讯源，最高 1080p
-#EXTINF:-1 group-title="体育",MTRSPT1
-https://amg02873-kravemedia-mtrspt1-samsungau-2anp4.amagi.tv/playlist/amg02873-kravemedia-mtrspt1-samsungau/playlist.m3u8
 # 实验台备注：中国旅行与风光频道，最高 1080p
 #EXTINF:-1 group-title="文旅",China Travel
 https://fastlive.cctvplus.com/out/v1/ca6f9297b7314a63959435028af287fc/index.m3u8

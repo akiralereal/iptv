@@ -1,22 +1,18 @@
 /** 大连云当前公开客户端的电视目录、匿名媒体票据与腾讯云 HLS 地址。 */
 import fetch from 'node-fetch'
-import { generateSm2KeyPair, sm2Decrypt, sm2Encrypt } from './sm2.js'
+import {
+  API_BASE, API_HOST, API_ORIGIN, APP_VERSION, UA, buildTicket, buildTokenRequest, decodeTokenPayload,
+} from './auth.js'
 
-const API_ORIGIN = 'https://wan-dlrm.dlrm.cn'
-const API_BASE = `${API_ORIGIN}/app/`
-const API_HOST = 'wan-dlrm.dlrm.cn'
+// 令牌与 ticket 是纯计算，挪到 auth.js 与节目单共用；这里照旧导出，原有调用方不用改
+export { ticketPlaintext } from './auth.js'
+
 const STREAM_HOST = 'livepull.dlrm.cn'
 const RESOURCE_HOST = 'nginx-dlrm.dlrm.cn'
-const APP_VERSION = '5.7.0'
-const APP_KEY = 'mediax-dev-app'
-const APP_SECRET = '367bde41-4eae-4c59-b151-47fc1ce83153'
-const SERVER_PUBLIC_KEY = '04195D1F93F950DDCC8C8384DD47DEBBD19B2897753686DE6B2EC87B583578325DF9191865258EB22A08AEFE4AA5E0EAD59D0EFB0187B0649EEF9008222BD3DA22'
 const CATALOG_TTL_MS = 5 * 60 * 1000
 const STALE_TTL_MS = 30 * 60 * 1000
 const RETRY_TTL_MS = 60 * 1000
 const TOKEN_SAFETY_MS = 30 * 1000
-const CLIENT_TIME_OFFSET_MS = 3 * 60 * 60 * 1000
-const UA = `DalianCloud/${APP_VERSION} (Android; MediaX)`
 
 // IDs and names are fixed to the formal TV services exposed by the current official app.
 // A whitelist keeps test/dev rooms, temporary events, radio and any future shopping service out.
@@ -101,35 +97,14 @@ function assertResponseUrl(response, hostname, pathname) {
   return url
 }
 
-export function ticketPlaintext(token, now = Date.now(), secret = APP_SECRET) {
-  return JSON.stringify({ token, timestamp: Number(now) + CLIENT_TIME_OFFSET_MS, secret })
-}
-
 /** Perform the same anonymous key exchange published in the current Android client. */
 export async function requestMediaToken(options = {}) {
   const fetchImpl = options.fetchImpl || fetch
-  const serverPublicKey = options.serverPublicKey || SERVER_PUBLIC_KEY
-  const keyPair = generateSm2KeyPair(options)
-  const query = new URLSearchParams()
-  for (const [key, value] of Object.entries({
-    type: 'app', key: APP_KEY, secret: APP_SECRET, publicKey: keyPair.publicKey,
-  })) query.set(key, sm2Encrypt(serverPublicKey, value, options))
-  const endpoint = new URL(`security/token?${query}`, API_BASE)
-  if (endpoint.hostname !== API_HOST) throw new Error('媒体令牌接口域名异常')
+  const { url: endpoint, keyPair } = buildTokenRequest(options)
   const response = await timedFetch(endpoint, { headers: commonHeaders() }, options.timeoutMs, fetchImpl)
   assertResponseUrl(response, API_HOST, '/app/security/token')
   const payload = await readJson(response)
-  if (Number(payload?.status) !== 0 || typeof payload?.data !== 'string') {
-    throw new Error(payload?.message || `媒体令牌状态 ${payload?.status}`)
-  }
-  let decoded
-  try { decoded = JSON.parse(sm2Decrypt(keyPair.privateKey, payload.data).toString('utf8')) }
-  catch (error) { throw new Error(`媒体令牌解密失败：${error?.message || String(error)}`) }
-  const token = String(decoded?.token || '')
-  const timeout = Number(decoded?.timeout)
-  if (!/^app\.[A-Za-z0-9.]+$/.test(token) || !Number.isSafeInteger(timeout) || timeout <= Number(options.now ?? Date.now())) {
-    throw new Error('媒体令牌内容无效或已过期')
-  }
+  const { token, timeout } = decodeTokenPayload(payload, keyPair, options.now ?? Date.now())
   return { token, timeout, keyPair }
 }
 
@@ -153,7 +128,7 @@ async function requestCatalog(options = {}) {
     longitude: '0', latitude: '0', location: '', deviceId: 'iptv-dalian-extractor',
   })
   if (endpoint.hostname !== API_HOST) throw new Error('电视频道接口域名异常')
-  const ticket = sm2Encrypt(SERVER_PUBLIC_KEY, ticketPlaintext(auth.token, now))
+  const ticket = buildTicket(auth.token, now)
   const response = await timedFetch(endpoint, {
     headers: commonHeaders({ ticket, source: 'APP' }),
   }, options.timeoutMs, options.fetchImpl || fetch)

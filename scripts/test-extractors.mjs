@@ -751,11 +751,12 @@ check('省市广电模块卡片只显示地区名，不带平台品牌', () => {
   const expectedNames = {
     anhui: '安徽', beidou: '辽宁', chongqing: '重庆', sichuan: '四川', cztv: '浙江', dalian: '大连', fjtv: '福建', gansu: '甘肃', gdtv: '广东', gxtv: '广西',
     gztv: '广州', hbtv: '湖北', hebtv: '河北', heilongjiang: '黑龙江', hnntv: '海南', hntv: '河南',
-    iqilu: '山东', jlntv: '吉林', jstv: '江苏', jxntv: '江西', kankanews: '上海', mgtv: '湖南', njtv: '南京', nmtv: '内蒙古',
-    qtv: '青岛', sztv: '深圳',
-    xinjiang: '新疆', yunnan: '云南',
+    iqilu: '山东', jiaxing: '嘉兴', jlntv: '吉林', jstv: '江苏', jxntv: '江西', kankanews: '上海', 'meizhou-hakka': '梅州', mgtv: '湖南', njtv: '南京', nmtv: '内蒙古',
+    'quanzhou-minnan': '泉州',
+    ningxia: '宁夏', qinghai: '青海', qtv: '青岛', shaanxi: '陕西', shanxi: '山西', sztv: '深圳', tianjin: '天津',
+    xinjiang: '新疆', xizang: '西藏', yunnan: '云南',
   }
-  const groupOverrides = { dalian: '辽宁', gztv: '广东', sztv: '广东' }
+  const groupOverrides = { dalian: '辽宁', gztv: '广东', sztv: '广东', jiaxing: '浙江', 'meizhou-hakka': '广东', 'quanzhou-minnan': '福建' }
   for (const [id, name] of Object.entries(expectedNames)) {
     assert.equal(getModule(id)?.name, name, `${id} 卡片标题应只保留地区名`)
     assert.equal(
@@ -808,8 +809,13 @@ const oneGroup = [{
 
 try {
   check('迁移：把系统配置里真有的画质搬进模块，幂等，且不覆盖已配过的', () => {
+    // enableHDR 是 hidden 字段，env 压过已存值；shell 里带着 compose 的 menableHDR=true 跑测试
+    // 会把这里的断言打翻，所以先摘掉
+    const savedHDR = process.env.menableHDR
+    delete process.env.menableHDR
     const manager = newManager({ rateType: 9, enableHDR: false, enableH265: false, port: '1905' })
     const cfg = manager.effectiveConfig(getModule('migu'))
+    if (savedHDR !== undefined) process.env.menableHDR = savedHDR
     assert.equal(cfg.rateType, 9)
     assert.equal(cfg.enableHDR, false)
     assert.equal(cfg.enableH265, false)
@@ -822,6 +828,39 @@ try {
     manager.updateModuleConfig('migu', { rateType: 4 })
     manager.load()
     assert.equal(manager.effectiveConfig(getModule('migu')).rateType, 4, '标记在就不该再搬')
+  })
+
+  check('★ 隐藏字段 env 压过已存值：迁移搬来的 enableHDR:true 不能顶死 menableHDR=false（#117）', () => {
+    // 老「系统配置」页每次保存都无条件写 enableHDR:true，迁移把它搬成模块「已存值」；
+    // enableHDR 在后台是 hidden 的，用户只剩 README 写的 menableHDR=false 这一条路，
+    // 若已存值仍优先，用户关 HDR 就毫无反应，也没有任何界面能改回来。
+    const manager = newManager({ enableHDR: true, rateType: 9 })
+    const migu = getModule('migu')
+    assert.equal(manager.config.modules.migu.config.enableHDR, true, '前提：值确实被搬成了已存值')
+    const saved = { hdr: process.env.menableHDR, rate: process.env.mrateType }
+    try {
+      process.env.menableHDR = 'false'
+      process.env.mrateType = '4'
+      const cfg = manager.effectiveConfig(migu)
+      assert.equal(cfg.enableHDR, false, '隐藏字段：env 必须生效')
+      assert.equal(cfg.rateType, 9, '可见字段不受影响：已存值仍压过 env（后台改过的不能被 compose 悄悄改掉）')
+      process.env.menableHDR = ''
+      assert.equal(manager.effectiveConfig(migu).enableHDR, true, 'env 为空串视为没设，回到已存值')
+      delete process.env.menableHDR
+      assert.equal(manager.effectiveConfig(migu).enableHDR, true, 'env 没设回到已存值')
+      // 反向同样成立：文件里 false、compose 示例的 menableHDR=true 也压过去
+      manager.updateModuleConfig('migu', { enableHDR: false })
+      process.env.menableHDR = 'true'
+      assert.equal(manager.effectiveConfig(migu).enableHDR, true, '反向也是 env 优先')
+      // 后台状态里要标出它来自 env（隐藏字段不渲染，但 API 载荷得自洽）
+      const state = manager.getState().modules.find(m => m.id === 'migu')
+      assert.equal(state.envProvided.enableHDR, 'menableHDR')
+    } finally {
+      for (const [env, v] of [['menableHDR', saved.hdr], ['mrateType', saved.rate]]) {
+        if (v === undefined) delete process.env[env]
+        else process.env[env] = v
+      }
+    }
   })
 
   check('迁移：凭据不写进日志（docker 日志常被贴进 issue）', () => {
@@ -2376,6 +2415,10 @@ await checkAsync('福建：福州固定官方 HLS 逐路探测，单路失败不
   assert.deepEqual(calls, FUZHOU_CHANNELS.map(channel => channel.url))
   assert.deepEqual(result.channels.map(channel => channel.name), ['福州综合', '福州少儿'])
   assert.match(result.warnings[0], /福州生活探测失败：HTTP 503/)
+  // 台标来自官网播放器频道列表的 icon，三路各不相同
+  assert.ok(FUZHOU_CHANNELS.every(channel => /^https:\/\/img\.zohi\.tv\/a\/10001\/\d{6}\/[0-9a-f]{32}\.jpe?g$/.test(channel.logo)))
+  assert.equal(new Set(FUZHOU_CHANNELS.map(channel => channel.logo)).size, FUZHOU_CHANNELS.length)
+  assert.deepEqual(result.channels.map(channel => channel.logo), [FUZHOU_CHANNELS[0].logo, FUZHOU_CHANNELS[2].logo])
 
   await assert.rejects(
     () => fetchFuzhouChannels({ fetchImpl: async () => fakeResponse('<html>not hls</html>') }),
@@ -2484,6 +2527,12 @@ check('海南：只输出固定七套电视，保持官网顺序并拒绝身份�
     'hnntv-13', 'hnntv-5', 'hnntv-1', 'hnntv-3', 'hnntv-4', 'hnntv-6', 'hnntv-7',
   ])
   assert.ok(channels.every(channel => !channel.proxyHls && !channel.relayHls))
+  // 台标是视听海南 App 频道列表的圆标，按 App 图片基址拼成完整 https 地址，七套各不相同
+  assert.equal(channels[0].logo,
+    'https://img-app.hnntv.cn/resource/upload/image/media/2023-09-03/94fb34ba-3474-4b48-aa32-0a4a61721af3.png')
+  assert.ok(channels.every(channel =>
+    /^https:\/\/img-app\.hnntv\.cn\/resource\/upload\/image\/media\/\d{4}-\d{2}-\d{2}\/[0-9a-f-]{36}\.png$/.test(channel.logo)))
+  assert.equal(new Set(channels.map(channel => channel.logo)).size, 7)
 })
 
 await checkAsync('海南：抓取七套频道，播放时签名并在有效期内复用地址', async () => {
@@ -2547,7 +2596,21 @@ check('河南：只输出固定正式频道、规范名称并排除购物与 ID/
   assert.deepEqual(channels.map(channel => channel.name), ['河南卫视', '河南新闻'])
   assert.deepEqual(channels.map(channel => channel.deferredRef), ['hntv-145', 'hntv-149'])
   assert.ok(channels.every(channel => !channel.proxyHls && !channel.relayHls))
-  assert.equal(channels[0].logo, 'https://static.hntv.tv/a.png')
+})
+
+check('河南：接口 image 相对路径按官网图床拼完整，缺图留空', () => {
+  const expiry = Math.floor(Date.now() / 1000) + 14400
+  const stream = id => `http://tvcdn.stream3.hndt.com/tv/${id}/playlist.m3u8?wsSecret=x&wsTime=${expiry}`
+  const channels = buildHntvChannels([
+    { cid: 145, name: '河南卫视', image: '/anonymous/2020/9/18/1306760236945772544.png', logo: '', video_streams: [stream('ws')] },
+    { cid: 149, name: '新闻频道', image: '', logo: '', video_streams: [stream('news')] },
+    { cid: 141, name: '都市频道', image: 'javascript:alert(1)', video_streams: [stream('ds')] },
+  ])
+  assert.deepEqual(channels.map(channel => channel.logo), [
+    'https://cmsres.dianzhenkeji.com/anonymous/2020/9/18/1306760236945772544.png',
+    '',
+    '',
+  ])
 })
 
 await checkAsync('河南：模块用签名频道接口取流，缓存后播放不重复联网', async () => {
@@ -3042,12 +3105,21 @@ check('芒果：固定排除快乐购，官网分类重复频道只输出一次�
     { id: '280', name: '湖南经视', channel_image: 'https://2img.hitv.com/hnjs.jpg' },
     { id: '287', name: '金鹰卡通', channel_image: 'https://2img.hitv.com/duplicate.jpg' },
     { id: '999', name: '临时活动直播', channel_image: '' },
+    // 芒果给这三台的 channel_image 是空的
+    { id: '218', name: '快乐垂钓', channel_image: '' },
+    { id: '269', name: '长沙新闻综合', channel_image: '' },
+    { id: '254', name: '长沙政法', channel_image: 'http://0img.hitv.com/generic.jpg' },
   ]
   const channels = buildMgtvChannels(rows)
-  assert.deepEqual(channels.map(channel => channel.name), ['金鹰卡通', '湖南经视'])
+  assert.deepEqual(channels.map(channel => channel.name), ['金鹰卡通', '湖南经视', '快乐垂钓', '长沙新闻综合', '长沙政法'])
   assert.equal(channels[0].deferredRef, 'mgtv-287')
   assert.equal(channels[0].logo, 'https://0img.hitv.com/jykt.jpg')
   assert.ok(channels.every(channel => channel.proxyHls === true))
+  // 长沙两台用长沙广电官网的频道图标，芒果以后给了图也不顶替；快乐垂钓官方没有，留空
+  const logoOf = name => channels.find(channel => channel.name === name).logo
+  assert.equal(logoOf('快乐垂钓'), '')
+  assert.match(logoOf('长沙新闻综合'), /^https:\/\/cdn-fuse-oss\.csbtv\.com\/images\/[0-9a-f]{24}\.png$/)
+  assert.match(logoOf('长沙政法'), /^https:\/\/cdn-oss\.zhcs\.csbtv\.com\/zhcs-prd\/images\/\d+\.png$/)
 })
 
 check('芒果：播放签名与官网固定样本一致，且最高 definition 同档优先 H.264', () => {

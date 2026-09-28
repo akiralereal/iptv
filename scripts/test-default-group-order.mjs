@@ -27,9 +27,10 @@ check('内容类按固定顺序置顶，不受来源顺序影响', () => {
     '少儿', '文旅', 'iPanda', '体育-昨天', '亚太', '娱乐时尚', '虎牙', '影视', '教育', '体育-今天',
   ]
   assert.deepEqual(sortGroupsByDefault(makeGroups(shuffled)).map(group => group.name), DEFAULT_GROUP_ORDER)
-  // 央视频紧跟公告置顶（匿名 1080p，优先于咪咕的同台低画质源）
-  assert.equal(DEFAULT_GROUP_ORDER.indexOf('央视频'), DEFAULT_GROUP_ORDER.indexOf('公告') + 1)
-  assert.equal(DEFAULT_GROUP_ORDER.indexOf('体育'), DEFAULT_GROUP_ORDER.indexOf('央视频') + 1)
+  // 央视频排在咪咕的央视、卫视之后作备用（官方线路起播慢），体育紧跟公告
+  assert.equal(DEFAULT_GROUP_ORDER.indexOf('体育'), DEFAULT_GROUP_ORDER.indexOf('公告') + 1)
+  assert.equal(DEFAULT_GROUP_ORDER.indexOf('卫视'), DEFAULT_GROUP_ORDER.indexOf('央视') + 1)
+  assert.equal(DEFAULT_GROUP_ORDER.indexOf('央视频'), DEFAULT_GROUP_ORDER.indexOf('卫视') + 1)
   assert.equal(DEFAULT_GROUP_ORDER.indexOf('iPanda'), DEFAULT_GROUP_ORDER.indexOf('文旅') + 1)
   assert.equal(DEFAULT_GROUP_ORDER.indexOf('国际'), DEFAULT_GROUP_ORDER.indexOf('亚太') + 1)
   assert.equal(DEFAULT_GROUP_ORDER.includes('新闻'), false)
@@ -76,28 +77,29 @@ check('旧 groupOrder 里的纪实位置自动由文旅继承', () => {
   assert.deepEqual(result.map(group => group.name), ['广东', '文旅', '体育'])
 })
 
-check('旧配置未记录央视频时自动置顶（公告仍在首位），显式拖拽后尊重用户位置', () => {
+check('旧配置未记录央视频时跟在卫视后（没有卫视就跟在央视后），显式拖拽后尊重用户位置', () => {
   const groups = makeGroups(['央视频', '卫视', '央视', '体育'])
   const legacy = applyConfig(groups, {
     ...baseConfig(),
     groupOrder: ['体育', '央视', '卫视'],
   })
-  assert.deepEqual(legacy.map(group => group.name), ['央视频', '体育', '央视', '卫视'])
+  assert.deepEqual(legacy.map(group => group.name), ['体育', '央视', '卫视', '央视频'])
 
-  // 旧配置里没有「央视」也一样置顶（此前只在央视存在时才插入）
-  const noCctv = applyConfig(groups, {
+  // 旧配置里没有「卫视」就跟在「央视」后
+  const noSatellite = applyConfig(groups, {
     ...baseConfig(),
-    groupOrder: ['体育', '卫视'],
+    groupOrder: ['央视', '体育'],
   })
-  assert.deepEqual(noCctv.map(group => group.name), ['央视频', '体育', '卫视', '央视'])
+  assert.deepEqual(noSatellite.map(group => group.name), ['央视', '央视频', '体育', '卫视'])
 
-  // 公告固定首位不被央视频顶掉
-  const withAnnouncement = applyConfig(makeGroups(['央视频', '体育', '公告']), {
+  // 公告固定首位
+  const withAnnouncement = applyConfig(makeGroups(['央视频', '卫视', '公告']), {
     ...baseConfig(),
-    groupOrder: ['公告', '体育'],
+    groupOrder: ['公告', '卫视'],
   })
-  assert.deepEqual(withAnnouncement.map(group => group.name), ['公告', '央视频', '体育'])
+  assert.deepEqual(withAnnouncement.map(group => group.name), ['公告', '卫视', '央视频'])
 
+  // 已经拖拽保存过的顺序（含央视频置顶）保持不变
   const explicit = applyConfig(groups, {
     ...baseConfig(),
     groupOrder: ['央视频', '体育', '央视', '卫视'],

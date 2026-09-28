@@ -34,6 +34,11 @@
  *                                 HLS 路由标记，适合整个平台统一要求代理的模块
  *   relayProxyCompatible boolean 可选；true 表示模块的 relay 频道可被 `?relay=2`
  *                                 安全升级为全代理；默认不升级，避免破坏拒绝服务端分片的 CDN
+ *   resolveBurstGuard     boolean 可选；true 表示播放请求经 utils/clientScanGuard.js 的客户端
+ *                                 批量探测防护：同一客户端短时间连续请求多个不同频道（播放器
+ *                                 刷新预览图 / 检测可用性 / 失败自动换台）时本地拒绝、不打上游。
+ *                                 给「服务端代所有观众向官方取票」且官方按 IP 限频的模块用；
+ *                                 直链或分片播放器直连的模块不需要
  *   streamType            string  可选；默认 hls，flv 由本机流式代理且不转码。
  *                                 FLV resolve 须返回 validateMediaUrl 校验官方调度跳转。
  *   capabilities.catchup boolean 可选；false 表示纯直播，不透传回看查询参数。
@@ -78,20 +83,34 @@
  *
  *   claimsLocalPath(path) → boolean + async handleLocalRequest(ctx) → response
  *       可选成对实现。供需要把进程内媒体 Buffer 作为 HLS 输出的模块使用；普通
- *       上游 HLS 不要走这里。ctx: { path, method, headers, accessPrefix }，response:
+ *       上游 HLS 不要走这里。ctx: { path, method, headers, accessPrefix, client }，response:
  *       { status, headers, body }。app.js 仍统一负责访问鉴权与 HTTP 写出。
+ *       client 是 { key, tag } 形式的客户端身份。这条路由不经 resolve，resolveBurstGuard
+ *       管不到；要启动高成本本地会话（浏览器页等）的模块应自己在启动前调
+ *       utils/clientScanGuard.js 的 checkModuleBurst，与 resolve 路径共用一本账。
  *
  *   async shutdown()
  *       可选。关闭模块持有的浏览器/页面等资源；服务重启与 SIGTERM 时调用。
  *
- *   async epg(channels, ctx) → XMLTV 片段
- *       可选，capabilities.epg 为真时必需。槽位先留着，本轮无人实现。
+ *   epg                   object  可选；模块自带的官方节目单，放在 extractors/<id>/epg.js：
+ *       {
+ *         days: number                         从今天起取几天（上海日期）
+ *         channels() → [{ ref, name, key }]    哪些频道有节目单：频道 ref → 平台内部 key
+ *         async programmes(key, day, { fetchImpl, timeoutMs }) → [{ title, start, stop }]
+ *                                              day 为 YYYYMMDD，start / stop 为毫秒时间戳
+ *       }
+ *       由 utils/moduleEpg.js 在咪咕之后、外部 XMLTV 聚合之前调用，按 ref 找频道、不按名字
+ *       模糊配对；直链频道没有 ref，按本模块内频道名精确对应 channels() 里的 name。提供者只用注入的 fetchImpl，不 import 项目内部模块——配合零依赖的
+ *       utils/epgXmltv.js 与 scripts/build-epg.mjs，整套能拆出去单独产出节目单。
+ *       programmes() 抛错只让该频道本轮没有节目单；官方当天没发的返回空数组。
+ *       来源、清理约定与各模块状态的整套规则见仓库根目录 EPG.md，新增模块要在那里登记。
  *
  * 频道对象（dataList 的元素）字段：
  *   name       必需，显示名，也是去重键的一半
  *   url        直链模块必需
  *   deferredRef  延迟解析模块必需（与 url 二选一）
- *   logo       台标，空串即可
+ *   logo       官方台标的完整图片地址；官方确实没有才留空。默认没有台标库兜底，
+ *              留空就是没有台标。取法与要求见仓库根目录 LOGO.md
  *   groupTitle 装饰用；真正的分组来自所在 group.name
  *   opts       string[]，#EXTVLCOPT 的 key=value，交给 utils/channelOpts.js 渲染
  *   proxyHls   可选；清单和分片都经本机代理
@@ -109,14 +128,12 @@ import beijing from './beijing/index.js'
 import chongqing from './chongqing/index.js'
 import sichuan from './sichuan/index.js'
 import cztv from './cztv/index.js'
-import daai from './daai/index.js'
 import dalian from './dalian/index.js'
 import douyuLive from './douyu-live/index.js'
 import fjtv from './fjtv/index.js'
 import fengshows from './fengshows/index.js'
 import gansu from './gansu/index.js'
 import gdtv from './gdtv/index.js'
-import goodtv from './goodtv/index.js'
 import gztv from './gztv/index.js'
 import gzstv from './gzstv/index.js'
 import gxtv from './gxtv/index.js'
@@ -131,18 +148,28 @@ import ipanda from './ipanda/index.js'
 import jlntv from './jlntv/index.js'
 import jxntv from './jxntv/index.js'
 import jstv from './jstv/index.js'
+import jiaxing from './jiaxing/index.js'
 import iqilu from './iqilu/index.js'
 import kankanews from './kankanews/index.js'
 import livechina from './livechina/index.js'
+import lotustv from './lotustv/index.js'
+import meizhouHakka from './meizhou-hakka/index.js'
 import mgtv from './mgtv/index.js'
 import migu from './migu/index.js'
+import ningxia from './ningxia/index.js'
 import njtv from './njtv/index.js'
 import nmtv from './nmtv/index.js'
 import qtv from './qtv/index.js'
+import qinghai from './qinghai/index.js'
+import quanzhouMinnan from './quanzhou-minnan/index.js'
+import shanxi from './shanxi/index.js'
+import shaanxi from './shaanxi/index.js'
 import songjiang from './songjiang/index.js'
 import sztv from './sztv/index.js'
+import tianjin from './tianjin/index.js'
 import yangshipin from './yangshipin/index.js'
 import xinjiang from './xinjiang/index.js'
+import xizang from './xizang/index.js'
 import yunnan from './yunnan/index.js'
 
 // 模块 id 会进 sourceId 并写进 EXTINF 属性值，不消毒就是注入面。
@@ -156,8 +183,7 @@ const MODULES = [
   yangshipin,
   fengshows,
   hkstv,
-  daai,
-  goodtv,
+  lotustv,
   asianLive,
   bilibiliLive,
   huyaLive,
@@ -174,6 +200,7 @@ const MODULES = [
   gzstv,
   gxtv,
   fjtv,
+  quanzhouMinnan,
   jlntv,
   jxntv,
   hebtv,
@@ -182,12 +209,20 @@ const MODULES = [
   hnntv,
   hntv,
   cztv,
+  jiaxing,
   jstv,
   iqilu,
   sztv,
+  meizhouHakka,
   njtv,
   nmtv,
+  shanxi,
+  shaanxi,
+  tianjin,
+  qinghai,
+  ningxia,
   xinjiang,
+  xizang,
   yunnan,
   qtv,
   kankanews,
@@ -224,6 +259,9 @@ export function validateModule(module) {
   if (module.relayProxyCompatible != null && typeof module.relayProxyCompatible !== 'boolean') {
     throw new Error(`抓取模块 ${module.id} 的 relayProxyCompatible 必须是布尔值`)
   }
+  if (module.resolveBurstGuard != null && typeof module.resolveBurstGuard !== 'boolean') {
+    throw new Error(`抓取模块 ${module.id} 的 resolveBurstGuard 必须是布尔值`)
+  }
   const hasLocalClaim = typeof module.claimsLocalPath === 'function'
   const hasLocalHandler = typeof module.handleLocalRequest === 'function'
   if (hasLocalClaim !== hasLocalHandler) {
@@ -234,6 +272,9 @@ export function validateModule(module) {
     if ((field.type === 'select' || field.type === 'multiselect') && !(field.options || []).length) {
       throw new Error(`抓取模块 ${module.id} 的字段 ${field.key} 声明了 ${field.type} 但没有 options`)
     }
+  }
+  if (module.epg != null && (typeof module.epg.channels !== 'function' || typeof module.epg.programmes !== 'function')) {
+    throw new Error(`抓取模块 ${module.id} 的 epg 必须提供 channels() 与 programmes()`)
   }
   if (module.streamType != null && !['hls', 'flv'].includes(module.streamType)) {
     throw new Error(`抓取模块 ${module.id} 的 streamType 非法`)

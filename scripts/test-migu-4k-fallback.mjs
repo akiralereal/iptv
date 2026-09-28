@@ -25,14 +25,22 @@ const { getAndroidURL, printStreamInfo } = await import('../extractors/migu/andr
 const PID = '967231356'
 const OPTS = { enableHDR: false, enableH265: false }
 
-const ok = (rt) => ({
+const ok = (rt, extra = {}, urlInfoExtra = {}) => ({
   rid: 'SUCCESS', message: 'SUCCESS',
   body: {
-    urlInfo: { url: `http://gslbmgsplive.miguvideo.com/x.m3u8?pid=${PID}&puData=0123456789abcdef0123456789abcdef`, rateType: String(rt) },
+    urlInfo: { url: `http://gslbmgsplive.miguvideo.com/x.m3u8?pid=${PID}&puData=0123456789abcdef0123456789abcdef`, rateType: String(rt), rateDesc: RATE_DESC[rt], ...urlInfoExtra },
     content: { contId: PID },
     auth: { logined: true, authResult: 'SUCCESS' },
+    ...extra,
   },
 })
+const RATE_DESC = { 3: '高清 720P', 4: '蓝光 1080P', 7: '原画 HDR', 8: '超清4K (投屏专享)', 9: '臻享 超高清' }
+// 09-06 游客探 4K 场次时看到的档位表形状：手机表到 9「臻享 超高清」，大屏表另有 8「超清4K (投屏专享)」
+const tier = (rt, usageCode, extra = {}) => ({ rateType: String(rt), rateDesc: RATE_DESC[rt], usageCode: String(usageCode), ottEnable: '1', needAuth: rt >= 3, currentTerminalCanSwitch: '1', ...extra })
+const TABLES = {
+  mediaFiles: [tier(3, 54), tier(4, 55), tier(7, 902), tier(9, 221406)],
+  ottMediaFiles: [tier(4, 55), tier(8, 221416)],
+}
 // offered：咪咕拒绝时在 urlInfo.rateType 里给出的「它愿意给的档位」
 const needMember = (offered, message = '该内容需开通电视会员') => ({
   rid: 'TIPS_NEED_MEMBER', message,
@@ -95,6 +103,115 @@ try {
     const { fn, calls } = fakeFetch({ '9+ott': ok(9) })
     const res = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
     assert.deepEqual(calls, ['9+ott'])
+    assert.equal(res.rateType, 9)
+  })
+
+  await check('含电视端权益：大屏档位表列着「投屏专享」→ 再按它带 ott 要一次，拿到 rateType 8', async () => {
+    const { fn, calls } = fakeFetch({ '9+ott': ok(9, TABLES), '8+ott': ok(8) })
+    const res = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
+    assert.deepEqual(calls, ['9+ott', '8+ott'])
+    assert.equal(res.rateType, 8)
+    assert.ok(res.url.includes('&ddCalcu='))
+    assert.ok(logs.some(l => l.includes('大屏档位表：蓝光 1080P(4/55 需权益) / 超清4K (投屏专享)(8/221416 需权益)')), '要把咪咕列的档位表连 usageCode 打出来')
+    assert.ok(logs.some(l => l.includes('按 rateType 8 带大屏策略再要一次')), '要说明多要的这一次是什么')
+  })
+
+  await check('大屏策略只给到原画（解说流）：档位表有投屏专享照样再要', async () => {
+    const { fn, calls } = fakeFetch({ '9+ott': ok(7, TABLES), '8+ott': ok(8) })
+    const res = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
+    assert.deepEqual(calls, ['9+ott', '8+ott'])
+    assert.equal(res.rateType, 8)
+  })
+
+  await check('投屏专享被拒 / 没给地址：沿用第一次拿到的档位，不降级', async () => {
+    const { fn, calls } = fakeFetch({ '9+ott': ok(9, TABLES), '8+ott': needMember(9, '开通钻石会员即可免费畅看哦~') })
+    const res = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
+    assert.deepEqual(calls, ['9+ott', '8+ott'])
+    assert.equal(res.rateType, 9)
+    assert.ok(logs.some(l => l.includes('没拿到（咪咕：开通钻石会员即可免费畅看哦~），沿用 臻享 超高清')))
+
+    const second = fakeFetch({ '9+ott': ok(9, TABLES), '8+ott': () => undefined })
+    const res2 = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: second.fn })
+    assert.equal(res2.rateType, 9, '网络失败也沿用')
+  })
+
+  await check('★ 投屏档被静默降档（SUCCESS 但给的是蓝光 / 原画）：不能顶掉已拿到的 4K', async () => {
+    for (const lower of [4, 7]) {
+      const { fn, calls } = fakeFetch({ '9+ott': ok(9, TABLES), '8+ott': ok(lower) })
+      const res = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
+      assert.deepEqual(calls, ['9+ott', '8+ott'])
+      assert.equal(res.rateType, 9, `咪咕回 ${lower} 时要沿用 9`)
+      assert.ok(logs.some(l => l.includes(`没拿到（咪咕实际给的是 ${RATE_DESC[lower]}），沿用 臻享 超高清`)), '日志要说清咪咕实际给了哪档')
+    }
+  })
+
+  await check('★ 投屏档只给试看：视为没拿到，沿用完整的 4K', async () => {
+    const { fn } = fakeFetch({ '9+ott': ok(9, TABLES), '8+ott': ok(8, {}, { trySeeDuration: '300' }) })
+    const res = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
+    assert.equal(res.rateType, 9)
+    assert.ok(logs.some(l => l.includes('（只给试看 300 秒），沿用 臻享 超高清')))
+  })
+
+  await check('投屏档 SUCCESS 但没地址：沿用第一次的结果', async () => {
+    const noUrl = ok(8); noUrl.body.urlInfo.url = ''
+    const { fn } = fakeFetch({ '9+ott': ok(9, TABLES), '8+ott': noUrl })
+    const res = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
+    assert.equal(res.rateType, 9)
+  })
+
+  await check('档位表里低档也标了「投屏」：只认 4K 的投屏档，取表末尾那项', async () => {
+    const weird = { ottMediaFiles: [
+      { rateType: '4', rateDesc: '蓝光 1080P (投屏)', usageCode: '55' },
+      { rateType: '8', rateDesc: '超清4K (投屏专享)', usageCode: '221416' },
+    ] }
+    const { fn, calls } = fakeFetch({ '9+ott': ok(9, weird), '8+ott': ok(8) })
+    const res = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
+    assert.deepEqual(calls, ['9+ott', '8+ott'])
+    assert.equal(res.rateType, 8)
+    const onlyLow = { ottMediaFiles: [{ rateType: '4', rateDesc: '蓝光 1080P (投屏)', usageCode: '55' }] }
+    const b = fakeFetch({ '9+ott': ok(9, onlyLow) })
+    assert.equal((await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: b.fn })).rateType, 9)
+    assert.deepEqual(b.calls, ['9+ott'], '只有低档投屏时不多请求')
+  })
+
+  await check('大屏表在 ottMediaFiles 缺失时也看 mediaFiles', async () => {
+    const inMobile = { ottMediaFiles: null, mediaFiles: [tier(4, 55), tier(9, 221406), tier(8, 221416, { currentTerminalCanSwitch: '0' })] }
+    const { fn, calls } = fakeFetch({ '9+ott': ok(9, inMobile), '8+ott': ok(8) })
+    const res = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
+    assert.deepEqual(calls, ['9+ott', '8+ott'])
+    assert.equal(res.rateType, 8)
+    assert.ok(logs.some(l => l.includes('超清4K (投屏专享)(8/221416 需权益 本端不可切)')), '「本端不可切」标记要打出来')
+  })
+
+  await check('普通频道（大屏表为空）：档位表不刷黄字，只进 debug', async () => {
+    const { fn } = fakeFetch({ '9+ott': ok(4, { mediaFiles: [tier(3, 54), tier(4, 55)], ottMediaFiles: null }) })
+    await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
+    assert.ok(!logs.some(l => l.includes('\x1B[33m') && l.includes('档位表')), '普通频道不该有黄字档位表')
+  })
+
+  await check('第一次 SUCCESS 却没地址：不进大屏分支，按原样返回空地址', async () => {
+    const noUrl = ok(9, TABLES); noUrl.body.urlInfo.url = ''
+    const { fn, calls } = fakeFetch({ '9+ott': noUrl })
+    const res = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
+    assert.deepEqual(calls, ['9+ott'])
+    assert.equal(res.url, '')
+    assert.ok(!logs.some(l => l.includes('按大屏策略取到')))
+  })
+
+  await check('档位表里没有投屏档（普通频道 / 已经拿到 8）：不多请求', async () => {
+    const noCast = { mediaFiles: [tier(3, 54), tier(4, 55)], ottMediaFiles: null }
+    const a = fakeFetch({ '9+ott': ok(4, noCast) })
+    assert.equal((await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: a.fn })).rateType, 4)
+    assert.deepEqual(a.calls, ['9+ott'])
+    const b = fakeFetch({ '9+ott': ok(8, TABLES) })
+    assert.equal((await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: b.fn })).rateType, 8)
+    assert.deepEqual(b.calls, ['9+ott'], '已经是投屏档就不再要')
+  })
+
+  await check('三屏会员走手机策略拿到的 4K：不看档位表、不多请求（那条路上本来就没大屏档）', async () => {
+    const { fn, calls } = fakeFetch({ '9+ott': needMember(9), '9': ok(9, TABLES) })
+    const res = await getAndroidURL('u', 't', PID, 9, { ...OPTS, fetchUrl: fn })
+    assert.deepEqual(calls, ['9+ott', '9'])
     assert.equal(res.rateType, 9)
   })
 

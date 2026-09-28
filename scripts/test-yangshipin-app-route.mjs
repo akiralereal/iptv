@@ -38,7 +38,6 @@ process.env.mbuiltInSourcesUrl = ''
 process.env.NO_PROXY = process.env.no_proxy = '127.0.0.1,localhost'
 
 writeFileSync(join(DATA_DIR, 'users.json'), JSON.stringify({
-  requireToken: false,
   users: [{
     id: 'u_route_test',
     name: '路由测试用户',
@@ -165,6 +164,59 @@ try {
     assert.match(proxied.body.toString(), new RegExp(`/${PASS}/ysp-vip/${channel.id}/video\\.m3u8`))
   })
 
+  await check('公开频道清单直出：libVLC 拿到带垫片的清单，垫片地址带访问前缀且取得到；其他播放器和全代理照旧', async () => {
+    const realFetch = globalThis.fetch
+    const upstream = [
+      '#EXTM3U', '#EXT-X-VERSION:3', '#EXT-X-MEDIA-SEQUENCE:500', '#EXT-X-TARGETDURATION:9',
+      '#EXTINF:8.880,', 'https://hlslive-tx-cdn.ysp.cctv.cn/TOKEN/2024078203-500.ts',
+      '#EXTINF:4.200,', 'https://hlslive-tx-cdn.ysp.cctv.cn/TOKEN/2024078203-501.ts',
+      '#EXTINF:5.000,', 'https://hlslive-tx-cdn.ysp.cctv.cn/TOKEN/2024078203-502.ts',
+    ].join('\n') + '\n'
+    globalThis.fetch = async url => String(url).startsWith('https://bkliveinfo.ysp.cctv.cn/')
+      ? Response.json({ iretcode: 0, playurl: 'https://hlslive-tx-cdn.ysp.cctv.cn/TOKEN/2024078203.m3u8' })
+      : new Response(upstream, { status: 200 })
+    try {
+      const vlc = { 'User-Agent': 'VLC/4.0.0-dev LibVLC/4.0.0-dev' }
+      const viaPass = await request(`/${PASS}/relay/ysp-cctv2.m3u8`, { headers: vlc })
+      assert.equal(viaPass.status, 200)
+      const text = viaPass.body.toString()
+      const filler = `http://127.0.0.1:${PORT}/${PASS}/ysp-pad.ts`
+      assert.equal(text.split('\n').filter(line => line === filler).length, 5, '头上两个 + 每片后面一个')
+      assert.ok(text.trimEnd().endsWith(filler), '清单最后一项是垫片')
+      assert.match(text, /#EXT-X-MEDIA-SEQUENCE:998\n/)
+      assert.match(text, /#EXT-X-TARGETDURATION:5\n/)
+      assert.match(text, /#EXTINF:8\.870,\nhttps:\/\/hlslive-tx-cdn\.ysp\.cctv\.cn\/TOKEN\/2024078203-500\.ts\n/)
+
+      const viaToken = await request(`/u/${USER_TOKEN}/relay/ysp-cctv2.m3u8`, { headers: vlc })
+      assert.ok(viaToken.body.toString().includes(`http://127.0.0.1:${PORT}/u/${USER_TOKEN}/ysp-pad.ts`))
+      const behindProxy = await request(`/${PASS}/relay/ysp-cctv2.m3u8`, {
+        headers: { ...vlc, 'X-Forwarded-Host': 'tv.example.com', 'X-Forwarded-Proto': 'https' },
+      })
+      assert.ok(behindProxy.body.toString().includes(`https://tv.example.com/${PASS}/ysp-pad.ts`))
+
+      for (const path of [`/${PASS}/ysp-pad.ts`, `/u/${USER_TOKEN}/ysp-pad.ts`]) {
+        const pad = await request(path, { headers: vlc })
+        assert.equal(pad.status, 200)
+        assert.equal(pad.headers['content-type'], 'video/mp2t')
+        assert.equal(pad.body.length, 188 * 200)
+      }
+      const head = await request(`/${PASS}/ysp-pad.ts`, { method: 'HEAD', headers: vlc })
+      assert.equal(head.status, 200)
+      assert.equal(head.body.length, 0)
+      const noPass = await request('/ysp-pad.ts', { headers: vlc })
+      assert.notEqual(noPass.status, 200, '没带访问前缀不给')
+
+      const other = await request(`/${PASS}/relay/ysp-cctv2.m3u8`, { headers: { 'User-Agent': 'AppleCoreMedia/1.0.0' } })
+      assert.equal(other.body.toString().includes('ysp-pad'), false, '其他播放器拿原样清单')
+      assert.match(other.body.toString(), /#EXT-X-TARGETDURATION:9\n/)
+      const proxied = await request(`/${PASS}/proxy/ysp-cctv2.m3u8`, { headers: vlc })
+      assert.equal(proxied.status, 200)
+      assert.equal(proxied.body.toString().includes('ysp-pad'), false, '全代理不换视图')
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
   await check('/u token + relay master 与子清单都保留用户令牌前缀', async () => {
     const master = await request(`/u/${USER_TOKEN}/relay/ysp-vip-cctvfyzq.m3u8?session=user`)
     assert.equal(master.status, 200)
@@ -271,6 +323,76 @@ try {
     runtime.loginLink.remember({ authenticated: false, account: null })
     assert.equal(existsSync(marker), false)
     assert.deepEqual(await runLoginKeepalive(), { skipped: 'unlinked' })
+  })
+
+  await check('客户端批量探测：同一客户端连续 GET 多个公开频道，第 6 个起本地拒绝、不再打上游；别的客户端不受影响', async () => {
+    // 央视频取票走全局 fetch，这里桩成 403：前几路会真的进解析链（并失败），拒绝的一路不该碰它
+    const realFetch = globalThis.fetch
+    let upstream = 0
+    globalThis.fetch = async () => { upstream++; return new Response('denied', { status: 403 }) }
+    try {
+      const outcomes = []
+      for (const ref of ['cctv1', 'cctv2', 'cctv3', 'cctv4', 'cctv5', 'cctv6', 'cctv7', 'cctv8']) {
+        const before = upstream
+        const response = await request(`/${PASS}/relay/ysp-${ref}.m3u8`, { headers: { 'User-Agent': 'scan-test/1.0' } })
+        outcomes.push({ status: response.status, body: response.body.toString(), hit: upstream > before })
+      }
+      assert.ok(outcomes.slice(0, 5).every(o => o.hit), '前 5 个台正常进解析链')
+      assert.ok(outcomes.slice(5).every(o => !o.hit), '第 6 个起一枪都不打上游')
+      assert.ok(outcomes.slice(5).every(o => o.status === 200 && o.body.includes('批量探测')), '拒绝仍是 code 200 + 中文原因')
+      const before = upstream
+      const other = await request(`/${PASS}/relay/ysp-cctv1.m3u8`, { headers: { 'User-Agent': 'viewer-test/1.0' } })
+      assert.equal(other.body.toString().includes('批量探测'), false, '另一个客户端不受影响')
+      assert.ok(upstream > before, '另一个客户端照常进解析链')
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  await check('会员频道批量探测：未在跑的台第 6 个起回 429、不启动解扰桥；已在跑的台照常给；别的客户端不受影响', async () => {
+    const scanner = { 'User-Agent': 'vip-scan/1.0' }
+    const idle = ['cctvsjdl', 'cctvfyyl', 'cctvbqkj', 'cctvgfew', 'cctvnxss', 'cctvwhjp', 'cctvtq', 'cctvdszn', 'cctvwsjk']
+    const statuses = []
+    for (const id of idle) {
+      const response = await request(`/${PASS}/relay/ysp-vip-${id}.m3u8`, { headers: scanner })
+      statuses.push(response.status)
+      if (response.status === 429) {
+        assert.equal(response.headers['retry-after'], '5')
+        assert.match(response.body.toString(), /批量探测/)
+      } else {
+        assert.match(response.body.toString(), /^#EXTM3U/, '入口主清单是本地文本，放行不启动桥')
+      }
+    }
+    assert.deepEqual(statuses, [200, 200, 200, 200, 200, 429, 429, 429, 429])
+    // 扫描中：未在跑的台，子清单也拒——子清单才是真正启动解扰桥的请求
+    const idleChild = await request(`/${PASS}/ysp-vip/cctvsjdl/video.m3u8`, { headers: scanner })
+    assert.equal(idleChild.status, 429)
+    // 扫描中：已在跑的台（测试预置的风云足球）入口和子清单照常给
+    const liveMaster = await request(`/${PASS}/relay/ysp-vip-cctvfyzq.m3u8`, { headers: scanner })
+    assert.equal(liveMaster.status, 200)
+    const liveChild = await request(`/${PASS}/ysp-vip/cctvfyzq/video.m3u8`, { headers: scanner })
+    assert.equal(liveChild.status, 200)
+    assert.match(liveChild.body.toString(), /#EXT-X-MAP/)
+    // 别的客户端照常
+    const other = await request(`/${PASS}/relay/ysp-vip-cctvsjdl.m3u8`, { headers: { 'User-Agent': 'vip-viewer/1.0' } })
+    assert.equal(other.status, 200)
+  })
+
+  await check('公开频道一路扫进会员频道算同一次扫描：5 个公开台之后第一个会员台就被拒', async () => {
+    const realFetch = globalThis.fetch
+    globalThis.fetch = async () => new Response('denied', { status: 403 })
+    try {
+      const mixed = { 'User-Agent': 'mixed-scan/1.0' }
+      for (const ref of ['cctv9', 'cctv10', 'cctv11', 'cctv12', 'cctv13']) {
+        const response = await request(`/${PASS}/relay/ysp-${ref}.m3u8`, { headers: mixed })
+        assert.equal(response.body.toString().includes('批量探测'), false)
+      }
+      const vip = await request(`/${PASS}/relay/ysp-vip-cctvwsjk.m3u8`, { headers: mixed })
+      assert.equal(vip.status, 429)
+      assert.match(vip.body.toString(), /6 个不同频道/)
+    } finally {
+      globalThis.fetch = realFetch
+    }
   })
 
   assert.equal(chromiumStarts, 0, '测试不应尝试启动 Chromium')

@@ -1,5 +1,6 @@
 /** 香港卫视官网：单路公开电视直播，播放时动态取当前入口与滚动 HLS 清单。 */
 import { proxyAwareFetch } from '../../utils/systemProxy.js'
+import { CHANNEL } from './channels.js'
 
 export const HKSTV_PAGE = 'https://hkstv.tv/live'
 export const HKSTV_CHANNEL_API = 'https://hkstv.tv/services/live/default'
@@ -17,11 +18,7 @@ const SOURCE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
-export const CHANNEL = Object.freeze({
-  ref: 'hkstv-live',
-  name: '香港卫视',
-  logo: 'https://hkstv.tv/images/logos/hks-logo-red.png',
-})
+export { CHANNEL }
 
 function safeUrl(raw, label) {
   try {

@@ -11,6 +11,8 @@ import { printBlue, printGreen, printGrey, printMagenta, printRed, printYellow }
 import { channel, interfaceStr, fetchManifestDirect, rewriteManifest, inlineResolvedManifest } from "./utils/appUtils.js";
 import { toProxyManifest, lookup as lookupProxyTarget, pipeUpstream, probeUpstream, fetchNested, manifestCooling, markManifestResult } from "./utils/hlsProxy.js";
 import { dataPath } from "./utils/paths.js";
+import { cachedLogoFile } from "./utils/logoCache.js";
+import { packLogoFile } from "./utils/logoPack.js";
 import { getExtractorManager, getModuleConfig } from "./utils/extractorManager.js";
 import { getExtractorsAPI, startModuleLoginAPI, pollModuleLoginAPI, setExtractorEnabledAPI,
   updateExtractorConfigAPI, runExtractorNowAPI, setContentFlagAPI, startBrowserLoginAPI,
@@ -23,7 +25,7 @@ import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
 import { getEpgSourcesAPI, setEpgEnabledAPI, addEpgSourceAPI, updateEpgSourceAPI,
          removeEpgSourceAPI, expireEpgSourcesAPI } from "./utils/epgSourcesAPI.js";
 import { userManager } from "./utils/userManager.js";
-import { getUsersAPI, addUserAPI, updateUserAPI, removeUserAPI, regenUserTokenAPI, setRequireTokenAPI } from "./utils/usersAPI.js";
+import { getUsersAPI, addUserAPI, updateUserAPI, removeUserAPI, regenUserTokenAPI } from "./utils/usersAPI.js";
 import { getAliasesAPI, setAliasRuleAPI, removeAliasRuleAPI } from "./utils/aliasesAPI.js";
 import { getGroupRulesAPI, setGroupRuleAPI, removeGroupRuleAPI, moveGroupRuleAPI } from "./utils/groupRulesAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
@@ -53,7 +55,18 @@ function logOncePer(key, ms) {
 function clientOf(req) {
   const ip = (req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '?').replace(/^::ffff:/, '')
   const ua = String(req.headers['user-agent'] || '无UA').replace(/[\r\n]/g, ' ')
-  return { ip, key: `${ip}|${ua.slice(0, 120)}`, tag: `${ip} UA:${ua.slice(0, 80)}` }
+  return { ip, ua, key: `${ip}|${ua.slice(0, 120)}`, tag: `${ip} UA:${ua.slice(0, 80)}` }
+}
+
+// 这位客户端访问本实例用的来源（协议 + 主机）：经反代时取转发头，否则取 Host。
+// 写进下发给它自己的清单里，格式不对就回空串，调用方当作没有。
+function originOf(req) {
+  const forwardedHost = req.headers['x-forwarded-host']?.split(',')[0]?.trim()
+  const host = forwardedHost || String(req.headers.host || '')
+  if (!/^[a-z0-9.\-_:[\]]{1,255}$/i.test(host)) return ''
+  const forwardedProto = req.headers['x-forwarded-proto']?.split(',')[0]?.trim().toLowerCase()
+  const proto = ['http', 'https'].includes(forwardedProto) ? forwardedProto : (forwardedHost ? 'https' : 'http')
+  return `${proto}://${host}`
 }
 
 /**
@@ -149,9 +162,16 @@ function logProxyManifest(pid, req, contentLength) {
 // 运行时长
 var hours = 0
 
-// 本地台标文件夹：用户把 <频道名>.png 放进数据目录的 logos/，优先于公共台标库兜底。
+// 本地台标文件夹：用户把 <频道名>.png 放进数据目录的 logos/，优先于频道自带的与台标库兜底的。
 // 放 mdataDir 下随数据卷持久化；启动时建好，方便用户找到位置。
 const LOGOS_DIR = dataPath('logos')
+
+// 网页播放器用的库：/player-assets/<名> → web/vendor/<文件>，只认这几个
+const PLAYER_ASSETS = Object.freeze({
+  '/player-assets/mpegts.js': 'mpegts.js',
+  '/player-assets/hls.min.js': 'hls.min.js',
+  '/player-assets/DPlayer.min.js': 'DPlayer.min.js',
+})
 try { mkdirSync(LOGOS_DIR, { recursive: true }) } catch (e) { /* 已存在或无法创建，读写时再报 */ }
 
 // 读取请求体（Promise 化，避免回调式写法导致的释放/死锁问题）
@@ -258,10 +278,16 @@ async function handleRequest(req, res) {
     return
   }
 
-  // Public, fixed player library asset; no user content or credentials.
-  if (urlPath === '/player-assets/mpegts.js') {
+  // Public, fixed player library assets; no user content or credentials.
+  // 网页播放器用的库随仓库发布、本机提供（web/vendor/），不从 cdn.jsdelivr.net 现取：
+  // 大陆探针实测只有一半到七成取得到，播放器一加载失败预览就整个不能用。
+  // 版本：mpegts.js 1.8.0、hls.js 1.7.3、DPlayer 1.27.1（样式已打包在 JS 里）。
+  // 页面用相对路径引用（player-assets/…），所以也认去掉密码 / 令牌前缀后的路径：
+  // 挂在反向代理子路径下、或带密码访问时，库文件都跟着页面走
+  const playerAsset = PLAYER_ASSETS[urlPath] || PLAYER_ASSETS[routePath]
+  if (playerAsset) {
     if (!['GET', 'HEAD'].includes(method)) { res.writeHead(405); res.end(); return }
-    const library = readFileSync(new URL('./web/vendor/mpegts.js', import.meta.url))
+    const library = readFileSync(new URL(`./web/vendor/${playerAsset}`, import.meta.url))
     res.writeHead(200, { 'Content-Type': 'text/javascript;charset=UTF-8', 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' })
     res.end(method === 'HEAD' ? undefined : library)
     return
@@ -499,7 +525,6 @@ async function handleRequest(req, res) {
           case 'update': result = updateUserAPI(data.id, data.fields || {}); break
           case 'remove': result = removeUserAPI(data.id); break
           case 'regenToken': result = regenUserTokenAPI(data.id); break
-          case 'setRequireToken': result = setRequireTokenAPI(data.requireToken); break
           default: result = { success: false, message: '未知操作' }
         }
         res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
@@ -993,7 +1018,9 @@ async function handleRequest(req, res) {
     return
   }
 
-  // 本地台标：/logos/<文件名>（也兼容前面带 /userId/token 段的情况），从数据目录 logos/ 读取。
+  // 本地台标：/logos/<文件名>（也兼容前面带 /userId/token 段的情况），从数据目录 logos/ 读取；
+  // 托管台标：/logo-cache/<哈希>.<扩展名>（utils/logoCache.js 下载校验过的），从数据目录 logo-cache/ 读取；
+  // 内置台标：/logo-pack/<台标名>.png（utils/logoPack.js），从仓库 logo-pack/ 读取，只认 index.json 登记过的文件。
   // 必须放在下方「用户段解析」之前，否则 /logos/x.png 会被当成 /userId/token 拆掉。
   const logosIdx = routePath.indexOf('/logos/')
   if (logosIdx !== -1) {
@@ -1007,34 +1034,30 @@ async function handleRequest(req, res) {
     if (!logoName || logoName.includes('/') || logoName.includes('\\') || logoName.includes('..')) {
       res.writeHead(400); res.end(); return
     }
+    const ext = logoName.slice(logoName.lastIndexOf('.') + 1).toLowerCase()
+    const mime = ext === 'png' ? 'image/png'
+      : (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg'
+      : ext === 'webp' ? 'image/webp'
+      : ext === 'svg' ? 'image/svg+xml'
+      : 'application/octet-stream'
+    serveDataImage(res, method, headers, dataPath(`logos/${logoName}`), mime)
+    return
+  }
+  const cachedIdx = routePath.indexOf('/logo-cache/')
+  if (cachedIdx !== -1) {
+    const cached = cachedLogoFile(routePath.slice(cachedIdx + '/logo-cache/'.length))
+    if (!cached) { res.writeHead(400); res.end(); return }
+    serveDataImage(res, method, headers, cached.path, cached.mime)
+    return
+  }
+  const packIdx = routePath.indexOf('/logo-pack/')
+  if (packIdx !== -1) {
+    let packed = null
     try {
-      const file = dataPath(`logos/${logoName}`)
-      // 条件请求（issue #119）：订阅里的台标 URL 已带 ?v=<mtime>，换图即换 URL；这里再补
-      // ETag / Last-Modified，让不认 query 的客户端至少能用 If-None-Match 拿到 304 而不是旧图。
-      const stat = statSync(file)
-      const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`
-      const lastModified = new Date(stat.mtimeMs).toUTCString()
-      const cacheHeaders = { 'Cache-Control': 'public, max-age=86400', ETag: etag, 'Last-Modified': lastModified }
-      const ifNoneMatch = String(headers['if-none-match'] || '')
-      const ifModifiedSince = Date.parse(headers['if-modified-since'] || '')
-      const notModified = ifNoneMatch
-        ? ifNoneMatch.split(',').some(tag => tag.trim() === etag)
-        : Number.isFinite(ifModifiedSince) && Math.floor(stat.mtimeMs / 1000) * 1000 <= ifModifiedSince
-      if (notModified) {
-        res.writeHead(304, cacheHeaders); res.end(); return
-      }
-      const buf = readFileSync(file)
-      const ext = logoName.slice(logoName.lastIndexOf('.') + 1).toLowerCase()
-      const mime = ext === 'png' ? 'image/png'
-        : (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg'
-        : ext === 'webp' ? 'image/webp'
-        : ext === 'svg' ? 'image/svg+xml'
-        : 'application/octet-stream'
-      res.writeHead(200, { 'Content-Type': mime, 'Content-Length': buf.length, ...cacheHeaders })
-      res.end(method === 'HEAD' ? undefined : buf)
-    } catch (e) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('logo not found')
-    }
+      packed = packLogoFile(decodeURIComponent(routePath.slice(packIdx + '/logo-pack/'.length)))
+    } catch { /* 畸形百分号编码，按找不到处理 */ }
+    if (!packed) { res.writeHead(404); res.end(); return }
+    serveDataImage(res, method, headers, packed.path, packed.mime)
     return
   }
 
@@ -1157,6 +1180,8 @@ async function handleRequest(req, res) {
       method,
       headers,
       accessPrefix,
+      // 客户端身份：模块在「要启动高成本本地会话」前过批量探测防护用，见 utils/clientScanGuard.js
+      client: clientOf(req),
     })
     if (local) {
       res.writeHead(local.status || 200, {
@@ -1280,12 +1305,17 @@ async function handleRequest(req, res) {
 
   // 频道（relayMode = 清单直出兼容模式，issue #98：极影视等播放器不跟随 302 跳转；
   // relay 段已在「/userId/token」解析前剥离，此处 routeUrl 即普通频道地址）
-  const result = await channel(routeUrl, urlUserId, urlToken)
+  // selfBase 只在清单直出时给：全代理会把清单里的地址全部改成经本机转发，模块不该再引用本机地址
+  const origin = relayMode ? originOf(req) : ''
+  const result = await channel(routeUrl, urlUserId, urlToken, clientOf(req), {
+    selfBase: origin ? `${origin}${accessPrefix}` : '',
+  })
 
   // 结果异常
   if (result.code != 302) {
 
-    printRed(result.desc)
+    // silent：批量探测被本地拒绝，appUtils 已按客户端归并打过黄字，不再逐条刷红
+    if (!result.silent) printRed(result.desc)
     res.writeHead(result.code, {
       'Content-Type': 'application/json;charset=UTF-8',
     });
@@ -1358,6 +1388,42 @@ async function handleRequest(req, res) {
   });
 
   res.end()
+}
+
+// 从数据目录回一张图片（本地上传台标 / 托管台标）。
+// 条件请求（issue #119）：订阅里的台标 URL 已带 ?v=<mtime>，换图即换 URL；这里再补
+// ETag / Last-Modified，让不认 query 的客户端至少能用 If-None-Match 拿到 304 而不是旧图。
+function serveDataImage(res, method, headers, file, mime) {
+  try {
+    const stat = statSync(file)
+    const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`
+    const lastModified = new Date(stat.mtimeMs).toUTCString()
+    const cacheHeaders = { 'Cache-Control': 'public, max-age=86400', ETag: etag, 'Last-Modified': lastModified }
+    const ifNoneMatch = String(headers['if-none-match'] || '')
+    const ifModifiedSince = Date.parse(headers['if-modified-since'] || '')
+    const notModified = ifNoneMatch
+      ? ifNoneMatch.split(',').some(tag => tag.trim() === etag)
+      : Number.isFinite(ifModifiedSince) && Math.floor(stat.mtimeMs / 1000) * 1000 <= ifModifiedSince
+    if (notModified) {
+      res.writeHead(304, cacheHeaders); res.end(); return
+    }
+    const buf = readFileSync(file)
+    // 托管的台标里有第三方的 SVG，和管理后台同源：直接在浏览器里打开时脚本会带着访问前缀跑，
+    // 所以 SVG 一律沙箱化、不许执行脚本或加载外部资源；<img> 里显示不受影响
+    const svgHeaders = mime === 'image/svg+xml'
+      ? { 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox" }
+      : {}
+    res.writeHead(200, {
+      'Content-Type': mime,
+      'Content-Length': buf.length,
+      'X-Content-Type-Options': 'nosniff',
+      ...svgHeaders,
+      ...cacheHeaders,
+    })
+    res.end(method === 'HEAD' ? undefined : buf)
+  } catch (e) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('logo not found')
+  }
 }
 
 const server = http.createServer((req, res) => {

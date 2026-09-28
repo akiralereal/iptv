@@ -5,7 +5,6 @@ import { generateKeyPairSync } from 'node:crypto'
 import xinjiang from '../extractors/xinjiang/index.js'
 import {
   CHANNELS,
-  UNAVAILABLE_CHANNELS,
   XINJIANG_CHANNEL_ENDPOINT,
   XINJIANG_PAGE,
   XINJIANG_TIMESTAMP_URL,
@@ -47,8 +46,8 @@ const apiPayload = () => ({
       IsForbidden: false,
       PlayStreamUrl: `https://slstplay.xjtvs.com.cn${channel.path}?auth_key=${authFor(index + 1)}&aliyun_uuid=${uuid}`,
     })),
-    { Id: 16, SimpleName: 'XJTV-4', IsForbidden: true, PlayStreamUrl: null },
-    { Id: 17, SimpleName: 'XJTV-5', IsForbidden: true, PlayStreamUrl: null },
+    // 官网另有的频道（如 XJTV-6）不认
+    { Id: 19, SimpleName: 'XJTV-6', IsForbidden: true, PlayStreamUrl: null },
   ],
 })
 
@@ -59,7 +58,8 @@ function Seeds(){const t=["noise","random_string","2029-01-01","date","abcdefghi
 function decode(x,y){return x=x-400,Seeds()[x]}
 const T=decode;
 const row={};row[T(403)]=T(402);row[T(401)]=T(404);row[T(405)]=4;
-const rows=[row],endpoint="TVChannelList",key=\`${pem}\`;
+const inline={};inline[T(403)]="2029-01-03",inline.random_string=T(404),inline[T(405)]=7;
+const rows=[row,inline],endpoint="TVChannelList",key=\`${pem}\`;
 `
 
 console.log('新疆广电模块测试')
@@ -71,31 +71,33 @@ check('模块注册为免账号的新疆清单中继模块', () => {
   assert.equal(xinjiang.channelHlsMode, 'relay')
   assert.equal(xinjiang.relayProxyCompatible, true)
   assert.equal(xinjiang.capabilities.catchup, false)
-  assert.equal(xinjiang.catalogVersion, 1)
+  assert.equal(xinjiang.catalogVersion, 2)
   assert.deepEqual(xinjiang.configSchema, [])
   assert.equal(resolverFor('xjtv-1'), xinjiang)
   assert.equal(resolverFor('xjtv-8'), xinjiang)
   assert.equal(resolverFor('xjtv-1/extra'), null)
 })
 
-await checkAsync('官网五路可播频道固定输出为独立新疆分组', async () => {
+await checkAsync('官网七路公开频道固定输出为独立新疆分组', async () => {
   assert.deepEqual(CHANNELS.map(channel => [channel.channelId, channel.callSign]), [
     ['1', 'XJTV-1'],
     ['3', 'XJTV-2'],
     ['4', 'XJTV-3'],
+    ['16', 'XJTV-4'],
+    ['17', 'XJTV-5'],
     ['21', 'XJTV-7'],
     ['23', 'XJTV-8'],
   ])
   assert.deepEqual(CHANNELS.map(channel => channel.name), [
-    '新疆卫视', '维吾尔语新闻综合', '哈萨克语新闻综合', '新疆体育健康', '新疆少儿',
+    '新疆卫视', '维吾尔语新闻综合', '哈萨克语新闻综合', '新疆汉语综艺', '维吾尔语影视', '新疆体育健康', '新疆少儿',
   ])
-  assert.deepEqual(UNAVAILABLE_CHANNELS.map(channel => channel.callSign), ['XJTV-4', 'XJTV-5'])
   const channels = buildChannels()
   assert.deepEqual(channels.map(channel => channel.deferredRef), [
-    'xjtv-1', 'xjtv-2', 'xjtv-3', 'xjtv-7', 'xjtv-8',
+    'xjtv-1', 'xjtv-2', 'xjtv-3', 'xjtv-4', 'xjtv-5', 'xjtv-7', 'xjtv-8',
   ])
   assert.ok(channels.every(channel => channel.catchup === 'none'))
-  assert.equal(claimsRef('xjtv-4'), false)
+  assert.equal(claimsRef('xjtv-4'), true)
+  assert.equal(claimsRef('xjtv-6'), false)
   const result = await xinjiang.fetch()
   assert.deepEqual(result.groups, [{ name: '新疆', dataList: channels }])
 })
@@ -107,6 +109,13 @@ check('静态解析当天签名配置，不执行官网脚本', () => {
   assert.equal(material.random_number, 4)
   assert.equal(material.publicKey, pem)
   assert.throws(() => extractSigningMaterial(signingBundle, '2029-01-02'), /没有 2029-01-02/)
+})
+
+check('当天日期直接写成字面量、不在字符串表里时也能解析', () => {
+  const material = extractSigningMaterial(signingBundle, '2029-01-03')
+  assert.equal(material.date, '2029-01-03')
+  assert.equal(material.random_string, 'abcdefghijklmnopqrstuvwxyzABCDEFGH')
+  assert.equal(material.random_number, 7)
 })
 
 check('接口签名、上海日期和 Nuxt 脚本发现均受严格约束', () => {
@@ -123,16 +132,25 @@ check('接口签名、上海日期和 Nuxt 脚本发现均受严格约束', () =
   ), ['https://www.xjtvs.com.cn/_nuxt/live_A-1.js'])
 })
 
-check('频道接口严格保留五路可播频道并排除两路官网禁播频道', () => {
+check('频道接口逐路校验：标禁播、缺席或台号对不上的只跳过那一路，一路都没有才报错', () => {
   const parsed = parseChannelList(apiPayload(), { now })
-  assert.equal(parsed.urls.size, 5)
+  assert.equal(parsed.urls.size, 7)
   assert.match(parsed.urls.get('1'), /xjtv1stream\.m3u8/)
+  assert.match(parsed.urls.get('16'), /xjtv4stream\.m3u8/)
+  const forbidden = apiPayload()
+  Object.assign(forbidden.data.find(item => String(item.Id) === '16'), { IsForbidden: true, PlayStreamUrl: null })
+  const partial = parseChannelList(forbidden, { now })
+  assert.equal(partial.urls.size, 6)
+  assert.equal(partial.urls.has('16'), false, '重新标禁播的一路不连累其余六路')
+  assert.deepEqual([...partial.forbidden], ['16'], '按节目禁播的记下来，播放时单独说明')
+  assert.equal(parsed.forbidden.size, 0)
   const incomplete = apiPayload()
   incomplete.data = incomplete.data.filter(item => String(item.Id) !== '23')
-  assert.throws(() => parseChannelList(incomplete, { now }), /4\/5/)
+  assert.equal(parseChannelList(incomplete, { now }).urls.has('23'), false)
   const swapped = apiPayload()
   swapped.data.find(item => String(item.Id) === '3').SimpleName = 'XJTV-3'
-  assert.throws(() => parseChannelList(swapped, { now }), /4\/5/)
+  assert.equal(parseChannelList(swapped, { now }).urls.has('3'), false, '台号对不上的不认')
+  assert.throws(() => parseChannelList({ success: true, data: [] }, { now }), /没有返回任何可播放频道/)
   assert.throws(() => parseChannelList('{broken', { now }), /有效 JSON/)
 })
 
@@ -157,7 +175,7 @@ check('媒体白名单覆盖签名清单和分片并拒绝外部地址', () => {
   assert.throws(() => validateHls('#EXTM3U\nhttps://evil.test/a.ts\n', stream))
 })
 
-await checkAsync('首次播放完成签名发现，五路共享短效入口缓存但每次刷新清单', async () => {
+await checkAsync('首次播放完成签名发现，各路共享短效入口缓存但每次刷新清单', async () => {
   let pageRequests = 0
   let scriptRequests = 0
   let timestampRequests = 0
@@ -231,4 +249,26 @@ await checkAsync('清缓存后会重新发现官网当天脚本和短效入口',
   assert.equal(pageRequests, 2)
 })
 
-console.log(`\n全部通过：${passed}/8 ✅`)
+await checkAsync('当前节目被标禁播时说明是这档节目限播，不说不在直播列表', async () => {
+  const payload = apiPayload()
+  Object.assign(payload.data.find(item => String(item.Id) === '17'), { IsForbidden: true, PlayStreamUrl: null })
+  payload.data = payload.data.filter(item => String(item.Id) !== '23')
+  const fetchImpl = async raw => {
+    const url = new URL(raw)
+    if (url.href === XINJIANG_PAGE) return response('<script src="/_nuxt/live_A-1.js"></script>')
+    if (url.pathname === '/_nuxt/live_A-1.js') return response(signingBundle)
+    if (url.href === XINJIANG_TIMESTAMP_URL) return response({ data: '1861920000000' })
+    if (url.pathname === XINJIANG_CHANNEL_ENDPOINT) return response(payload)
+    if (url.hostname === 'slstplay.xjtvs.com.cn') return response(`#EXTM3U\n#EXTINF:6,\nsegment.ts?auth_key=${authFor(7)}\n`)
+    throw new Error(`unexpected URL: ${url.href}`)
+  }
+  const resolver = createResolver({ fetchImpl })
+  const blocked = await resolver.resolve('xjtv-5', { now })
+  assert.equal(blocked.url, '')
+  assert.match(blocked.desc, /维吾尔语影视 当前这档节目官网不提供网络直播，换档后自动恢复/)
+  const missing = await resolver.resolve('xjtv-8', { now })
+  assert.match(missing.desc, /新疆少儿 当前不在官网有效直播列表中/)
+  assert.notEqual((await resolver.resolve('xjtv-4', { now })).url, '')
+})
+
+console.log(`\n全部通过：${passed}/10 ✅`)

@@ -9,6 +9,7 @@ import { resolverFor, listModules } from "../extractors/registry.js";
 import { getExtractorManager, getModuleConfig } from "./extractorManager.js";
 import { omitPlayerOnlyOpts } from "./channelOpts.js";
 import { fetchUpstreamResponse } from "./hlsProxy.js";
+import { checkModuleBurst } from "./clientScanGuard.js";
 
 /**
  * 清空各模块的解析缓存。
@@ -311,11 +312,16 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix, 
  *
  * 平台知识（签名、缓存、画质档位）已搬进 extractors/<id>/；这里只剩三件事：
  * 解析地址里的 ref 与回看参数、按 ref 路由到模块、把模块结果拼成 HTTP 响应。
+ * 外加一道客户端批量探测防护（checkModuleBurst），在路由到模块之后、调 resolve 之前：只对声明了
+ * resolveBurstGuard 的模块生效，按「模块｜客户端」计数，没声明的模块连账都不记。规则与依据见
+ * utils/clientScanGuard.js；同一模块的本地媒体入口（handleLocalRequest）与这里共用一本账。
  *
  * 失败一律 code=200 + 中文正文（app.js:881-888 直接用 result.code 写响应头），
  * 不改 4xx/5xx——那是存量播放器依赖的行为。
+ *
+ * client 可选：{ key, tag }，来自 app.js 的 clientOf(req)。不传就不计不拦（测试、旧调用方）。
  */
-async function channel(url, urlUserId, urlToken) {
+async function channel(url, urlUserId, urlToken, client, request = {}) {
 
   let result = {
     code: 200,
@@ -346,12 +352,32 @@ async function channel(url, urlUserId, urlToken) {
     return result
   }
 
+  // 播放器「刷新预览图 / 检测可用性 / 失败自动换台」式的批量探测：本地拒绝，一枪不打上游。
+  // 拒绝也走 code=200 + 中文正文，播放器看到的与普通解析失败无异。红字由 app.js 按 silent
+  // 跳过，这里按客户端每 10 秒归并成一行黄字，免得一次扫描刷出几十行。
+  if (module.resolveBurstGuard === true && client?.key) {
+    const verdict = checkModuleBurst({ moduleId: module.id, moduleName: module.name, client, channelKey: pid })
+    if (!verdict.allowed) {
+      if (verdict.logLine) printYellow(verdict.logLine)
+      result.desc = verdict.desc
+      result.silent = true
+      return result
+    }
+  }
+
   let resolved
   try {
     // ctx 带三样：账号（来自地址里的 /userId/token 段）、模块自己的生效配置
     // （画质等，effectiveConfig 是纯内存计算，不碰磁盘）、以及回看参数由外壳处理。
+    // 另带客户端身份和 selfBase（这位客户端访问本实例用的地址前缀，仅清单直出时有）：
+    // 模块要按播放器下发不同清单、或在清单里引用本机地址时用，用不上的模块不必理会。
     const config = getExtractorManager().effectiveConfig(module)
-    resolved = await module.resolve(pid, { account: { userId: urlUserId, token: urlToken }, config })
+    resolved = await module.resolve(pid, {
+      account: { userId: urlUserId, token: urlToken },
+      config,
+      client,
+      selfBase: request.selfBase || '',
+    })
   } catch (error) {
     // 模块契约要求 resolve 不抛。万一抛了也绝不能让异常冒出去——app.js 的
     // 请求 handler 没有顶层 try，未捕获异常等于请求永远不 end、客户端挂死。

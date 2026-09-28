@@ -20,7 +20,7 @@ export default {
   channelHlsMode: 'proxy',
   defaultRefreshMinutes: 5,
   refreshConfigurable: false,
-  refreshDescription: '自动管理：每 5 分钟发现公开活动；电视台播放签名约 45 秒后后台换新，清单、密钥和分片全代理。',
+  refreshDescription: '自动管理：每 5 分钟发现公开活动；电视台播放签名按官网给的有效期提前换新，清单、密钥和分片全代理并逐跳加签。',
   helper: 'sichuan-token',
   helperSection: '四川官网登录',
 

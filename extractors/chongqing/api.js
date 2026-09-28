@@ -76,7 +76,8 @@ export function parseChannelList(payload) {
       id,
       name,
       rawUrl: officialHlsUrl(raw),
-      logo: officialLogo(item.pic || item.thumb || item.image),
+      // 台标在 thumb_mob（App 频道卡，cmsimg.cbg.cn 上的重庆广电台标）；pic / thumb / image 目前都是空的
+      logo: officialLogo(item.thumb_mob || item.pic || item.thumb || item.image),
     })
   }
   return [...found.values()]

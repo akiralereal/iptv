@@ -21,7 +21,7 @@ check('模块注册为免账号的直连模块，不声明解析能力', () => {
   assert.equal(heilongjiang.name, '黑龙江')
   assert.equal(heilongjiang.outputGroupName, '黑龙江')
   assert.equal(heilongjiang.capabilities.resolve, false)
-  assert.equal(heilongjiang.catalogVersion, 1)
+  assert.equal(heilongjiang.catalogVersion, 2)
   assert.deepEqual(heilongjiang.configSchema, [])
   // 直连模块不该声明代理路由，也不该认领任何播放引用
   assert.equal(heilongjiang.channelHlsMode, undefined)
@@ -40,8 +40,10 @@ await checkAsync('七套频道给直链而不是延迟引用，且不继承回�
   // url 直出：播放器直连官方 CDN，本机不转发媒体，也就没有 deferredRef
   assert.ok(channels.every(channel => channel.url.startsWith(`${HLJTV_MEDIA_ORIGIN}/live/`)))
   assert.ok(channels.every(channel => channel.deferredRef === undefined))
-  // 台标留空交给公共台标库按台名兜底：实验台那张是明确标注的研究占位图，不进订阅
-  assert.ok(channels.every(channel => channel.logo === '' && channel.groupTitle === '黑龙江'))
+  // 七套都给极光新闻 App 下发的官方频道卡，不留空（LOGO.md 第 4 条）；实验台的研究占位图不进订阅
+  assert.ok(channels.every(channel => channel.groupTitle === '黑龙江'))
+  assert.ok(channels.every(channel => /^https:\/\/imgcdn\.hljtv\.com\/newscontent-[0-9a-f-]+\.jpeg$/.test(channel.logo)))
+  assert.equal(new Set(channels.map(channel => channel.logo)).size, 7, '七张台标必须互不相同')
   assert.ok(channels.every(channel => channel.catchup === 'none'))
   assert.equal(new Set(channels.map(channel => channel.url)).size, 7, '七条地址必须互不相同')
   assert.deepEqual(await heilongjiang.fetch(), {

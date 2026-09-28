@@ -22,9 +22,10 @@ function isHttpUrl(u) {
 // 获取 EPG 源配置（含每个源的运行状态：lastUpdated / lastStatus / channelCount / matchedCount）
 export function getEpgSourcesAPI() {
   try {
-    // legacyUrls：已废掉的老默认源地址。migrateLegacySources 只原地升级「一字未改」的内置默认源，
-    // 用户改过名字的那条会被当成自定义源留在原地——它现在只回 101 个央视卫视、地方台一个都补不到，
-    // 而界面上除了「已匹配」数字偏低看不出任何异常。把清单交给前端，让它在源列表里明说。issue #124
+    // legacyUrls：停用的老默认源地址。migrateLegacySources 只删「一字未改」的内置默认源，
+    // 用户改过名字的那条会被当成自定义源留在原地——它要么已经退化（51zmt，issue #124）、要么
+    // 停止免费下载（erw），而界面上除了「已匹配」数字偏低或一行失败状态看不出原因。
+    // 把清单交给前端，让它在源列表里明说。现在没有内置默认源，defaultUrl 为空。
     return { success: true, data: loadEpgConfig(), legacyUrls: LEGACY_EPG_SOURCE_URLS, defaultUrl: BUILT_IN_EPG_SOURCES[0]?.url || '' }
   } catch (error) {
     return { success: false, message: error.message }
@@ -62,6 +63,8 @@ export function addEpgSourceAPI(source = {}) {
       format: trimStr(source.format) || 'auto',
       refreshInterval: clampInt(source.refreshInterval, 720, 10, 100000),
       priority: clampInt(source.priority, 10, 0, 9999),
+      // 勾上后，这个源此刻有节目的频道优先用它，咪咕与各模块官方节目单让出来
+      overrideOfficial: source.overrideOfficial === true,
       lastUpdated: null,
       lastStatus: null,
       channelCount: 0,
@@ -95,6 +98,7 @@ export function updateEpgSourceAPI(index, fields = {}) {
     if (fields.format !== undefined) s.format = trimStr(fields.format) || 'auto'
     if (fields.refreshInterval !== undefined) s.refreshInterval = clampInt(fields.refreshInterval, 720, 10, 100000)
     if (fields.priority !== undefined) s.priority = clampInt(fields.priority, 10, 0, 9999)
+    if (fields.overrideOfficial !== undefined) s.overrideOfficial = fields.overrideOfficial === true
 
     saveEpgConfig(config)
     return { success: true, data: config }

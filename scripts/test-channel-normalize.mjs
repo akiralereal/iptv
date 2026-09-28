@@ -9,9 +9,17 @@
  *
  * 注：卫视/港台等规范名在生产环境由 playback.xml 提供（运行时读取）；
  * 测试环境无 EPG 文件，故这里只校验「静态可用」的 CCTV 系列（来自 datas.js 的 cntvNames）。
+ * 数据目录指到临时空目录：不设 mdataDir 时默认是当前目录，在仓库里跑过服务的机器上
+ * 那里有 playback.xml（里面有翡翠台），「港台台预期未命中」的断言就会挂。
  */
 import assert from 'node:assert/strict'
-import { normalizeKey, normalizeTvgName, logoMatchName } from '../utils/channelNormalize.js'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+const DATA_DIR = mkdtempSync(join(tmpdir(), 'iptv-normalize-'))
+process.env.mdataDir = DATA_DIR
+const { normalizeKey, normalizeTvgName, logoMatchName } = await import('../utils/channelNormalize.js')
 
 let passed = 0
 function check(name, fn) { fn(); passed++; console.log(`  ✅ ${name}`) }
@@ -149,4 +157,5 @@ check('凤凰系长短名收敛（issue #97）', () => {
   assert.notEqual(normalizeKey('凤凰卫视'), normalizeKey('凤凰资讯'))
 })
 
+rmSync(DATA_DIR, { recursive: true, force: true })
 console.log(`\n全部通过：${passed} 组 ✅`)

@@ -1,0 +1,350 @@
+#!/usr/bin/env node
+/**
+ * 台标本机托管回归测试（utils/logoCache.js）
+ *
+ * 不变量：
+ * 1. 只收真图片（按文件头认），只代取公网 http(s)，局域网 / 本机地址一律不碰；
+ * 2. 候选按优先级取第一个已托管的：源自带的坏了（404、不是图片）自动换台标库的；
+ * 3. 没托管上但不确定坏掉的（网络出错、还没下过）沿用原地址——与托管前一样，不会凭空变空；
+ * 4. 全部确认坏掉才留空；
+ * 5. 已托管的到期重取，失败保留旧图；坏掉的隔一天再试；一轮下载有时长上限；
+ * 6. 一个月没用到的清掉；后台按地址里的 from 区分「源自带 / 库兜底」；
+ * 7. 图床每次重签的 CDN 鉴权参数（sign=时间戳-随机串-uid-md5）不算新图，一张图只托管一份。
+ *
+ * 全程离线：注入假 fetch。
+ *
+ * 运行： node scripts/test-logo-cache.mjs   （或 npm test）
+ */
+import assert from 'node:assert/strict'
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+const DATA_DIR = mkdtempSync(join(tmpdir(), 'iptv-logo-cache-'))
+process.env.mdataDir = DATA_DIR
+process.env.mblank = 'true'
+
+const {
+  NOT_PUBLIC, cachedLogoFile, createGuardedFetch, createGuardedLookup, detectImage, hasPrivateAnswer, finishLogoCache, hostableUrl, hostedLogoUrl, logoCacheKey, prefetchLogos, resetLogoCacheForTest,
+} = await import('../utils/logoCache.js')
+const { classifyLogo } = await import('../utils/playlistConfig.js')
+
+let passed = 0
+const check = (n, fn) => { fn(); passed++; console.log('  ✅ ' + n) }
+const checkAsync = async (n, fn) => { await fn(); passed++; console.log('  ✅ ' + n) }
+
+const png = (tag = 'a') => Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(80, tag)])
+const jpg = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), Buffer.alloc(80)])
+const HTML = Buffer.from(`<!doctype html><html><body>${'x'.repeat(100)}</body></html>`)
+const DAY = 24 * 60 * 60 * 1000
+const T0 = Date.parse('2026-09-25T00:00:00Z')
+
+const OWN = 'https://static.example.cn/logo/henan.png'
+const LIB = 'https://gcore.jsdelivr.net/gh/taksssss/tv@main/icon/%E6%B2%B3%E5%8D%97%E5%8D%AB%E8%A7%86.png'
+const candidates = [{ url: OWN, from: 'source' }, { url: LIB, from: 'auto' }]
+
+// 按地址回预设响应；function 值每次调用重新求
+function fakeFetch(routes) {
+  const calls = []
+  const impl = async url => {
+    calls.push(String(url))
+    const route = routes[String(url)]
+    const value = typeof route === 'function' ? route() : route
+    if (value instanceof Error) throw value
+    if (!value) return new Response('not found', { status: 404 })
+    return new Response(value.body, { status: value.status ?? 200, headers: value.headers || {} })
+  }
+  impl.calls = calls
+  return impl
+}
+const reset = () => {
+  rmSync(join(DATA_DIR, 'logo-cache'), { recursive: true, force: true })
+  resetLogoCacheForTest()
+}
+
+console.log('台标本机托管回归测试')
+
+check('按文件头认图片，网页、太小的一律不算', () => {
+  assert.equal(detectImage(png()), 'png')
+  assert.equal(detectImage(jpg), 'jpg')
+  assert.equal(detectImage(Buffer.concat([Buffer.from('GIF89a'), Buffer.alloc(80)])), 'gif')
+  assert.equal(detectImage(Buffer.concat([Buffer.from('RIFF1234WEBPVP8 '), Buffer.alloc(80)])), 'webp')
+  assert.equal(detectImage(Buffer.from(`<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg">${' '.repeat(60)}</svg>`)), 'svg')
+  const illustrator = `<?xml version="1.0"?>\n<!-- Generator: Adobe Illustrator -->\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "x.dtd" [\n\t<!ENTITY ns_ai "http://ns.adobe.com/AI/10.0/">\n]>\n<svg version="1.1">${' '.repeat(40)}</svg>`
+  assert.equal(detectImage(Buffer.from(illustrator)), 'svg', 'DOCTYPE 带内部声明')
+  assert.equal(detectImage(Buffer.from(`<!doctype html><html><body><svg viewBox="0 0 1 1"></svg>${'x'.repeat(80)}</body></html>`)), null, '内嵌 SVG 的网页')
+  assert.equal(detectImage(HTML), null)
+  assert.equal(detectImage(Buffer.from('89504e47', 'hex')), null)
+})
+
+check('只代取公网 http(s)，局域网与本机地址不碰', () => {
+  assert.equal(hostableUrl(OWN), true)
+  assert.equal(hostableUrl('http://8.8.8.8/a.png'), true)
+  for (const bad of [
+    'http://localhost/a.png', 'http://127.0.0.1/a.png', 'http://192.168.1.2/a.png', 'http://10.0.0.1/a.png',
+    'http://172.20.0.1/a.png', 'http://100.64.1.1/a.png', 'http://[::1]/a.png', 'http://nas.local/a.png',
+    'https://user:pw@example.com/a.png', 'ftp://example.com/a.png', '${replace}/logos/a.png', '',
+  ]) assert.equal(hostableUrl(bad), false, bad)
+})
+
+check('几十段注释后面不跟 <svg> 的内容线性判完，不会回溯卡死进程', () => {
+  const started = Date.now()
+  assert.equal(detectImage(Buffer.from(`${'<!---->'.repeat(500)}<html>${'x'.repeat(64)}`)), null)
+  assert.equal(detectImage(Buffer.from(`<?xml version="1.0"?>\n${'<!-- generated -->\n'.repeat(200)}<html><body>`)), null)
+  assert.ok(Date.now() - started < 200, `用了 ${Date.now() - started}ms`)
+  assert.equal(detectImage(Buffer.from(`${'<!-- a -->'.repeat(40)}<svg viewBox="0 0 1 1">${' '.repeat(40)}</svg>`)), 'svg')
+  assert.equal(detectImage(Buffer.from(`<!DOCTYPE svg [ <!ENTITY a "x"> ]><!-- after --><svg>${' '.repeat(60)}</svg>`)), 'svg')
+  assert.equal(detectImage(Buffer.from(`<!DOCTYPE svg><!DOCTYPE svg><svg>${' '.repeat(60)}</svg>`)), null, '只认一个 DOCTYPE')
+  assert.equal(detectImage(Buffer.from(`<!-- 没闭合的注释 <svg>${' '.repeat(60)}`)), null)
+})
+
+check('IPv4 映射 / 兼容 / NAT64 的 IPv6、结尾带点的 localhost、组播地址都不代取；fake-ip 段照常', () => {
+  for (const bad of [
+    'http://[::ffff:127.0.0.1]/a.png', 'http://[::ffff:c0a8:101]/a.png', 'http://[::]/a.png', 'http://[::7f00:1]/a.png',
+    'http://[64:ff9b::a00:1]/a.png', 'http://[fe90::1]/a.png', 'http://[ff02::1]/a.png', 'http://localhost./a.png',
+    'http://nas.local./a.png', 'http://224.0.0.251/a.png', 'http://0.0.0.0/a.png',
+  ]) assert.equal(hostableUrl(bad), false, bad)
+  for (const good of ['http://198.18.0.5/a.png', 'http://[2400:3200::1]/a.png', 'http://[::ffff:8.8.8.8]/a.png', 'https://example.com./a.png']) {
+    assert.equal(hostableUrl(good), true, good)
+  }
+})
+
+await checkAsync('下载前逐跳解析域名：解析到局域网、跳转到本机的都不取，公网跳转照常跟', async () => {
+  const dns = { 'img.example.cn': ['203.0.113.7'], 'rebind.example.cn': ['203.0.113.8', '192.168.1.10'], 'cdn.example.cn': ['2400:3200::1'] }
+  const lookupImpl = async host => (dns[host] || []).map(address => ({ address }))
+  const requested = []
+  const routes = {
+    'http://img.example.cn/a.png': () => new Response(png()),
+    'http://img.example.cn/to-local.png': () => new Response(null, { status: 302, headers: { location: 'http://127.0.0.1:5000/secret.png' } }),
+    'http://img.example.cn/to-cdn.png': () => new Response(null, { status: 301, headers: { location: '//cdn.example.cn/b.png' } }),
+    'http://cdn.example.cn/b.png': () => new Response(png()),
+    'http://img.example.cn/loop.png': () => new Response(null, { status: 302, headers: { location: '/loop.png' } }),
+  }
+  const fetchImpl = async (url, init) => {
+    requested.push(url)
+    assert.equal(init.redirect, 'manual')
+    return routes[url]()
+  }
+  const guarded = createGuardedFetch({ fetchImpl, lookupImpl })
+  assert.equal((await guarded('http://img.example.cn/a.png')).status, 200)
+  await assert.rejects(guarded('http://rebind.example.cn/a.png'), /局域网/)
+  await assert.rejects(guarded('http://nowhere.example.cn/a.png'), /局域网/)
+  await assert.rejects(guarded('http://img.example.cn/to-local.png'), /不是公网地址/)
+  assert.equal((await guarded('http://img.example.cn/to-cdn.png')).status, 200)
+  await assert.rejects(guarded('http://img.example.cn/loop.png'), /跳转超过/)
+  assert.ok(!requested.some(url => url.includes('127.0.0.1')), requested.join(' '))
+  const hang = createGuardedFetch({ fetchImpl, lookupImpl: () => new Promise(() => {}) })
+  const controller = new AbortController()
+  setTimeout(() => controller.abort(), 20)
+  await assert.rejects(hang('http://img.example.cn/a.png', { signal: controller.signal }), error => error?.name === 'AbortError')
+})
+
+check('fake-ip 模式同时回的 IPv6 假地址（ULA）不算内网；单独的 ULA、混进来的真实内网地址照旧挡', () => {
+  assert.equal(hasPrivateAnswer(['198.18.0.73']), false)
+  assert.equal(hasPrivateAnswer(['198.18.0.73', 'fc00::49']), false)
+  assert.equal(hasPrivateAnswer(['198.19.255.1', 'fdfe:dcba:9876::49']), false)
+  assert.equal(hasPrivateAnswer(['203.0.113.7', '2400:3200::1']), false)
+  assert.equal(hasPrivateAnswer(['fc00::49']), true)
+  assert.equal(hasPrivateAnswer(['198.18.0.73', '192.168.1.10']), true)
+  assert.equal(hasPrivateAnswer(['198.18.0.73', '::1']), true)
+  assert.equal(hasPrivateAnswer([]), true)
+  assert.equal(hasPrivateAnswer(['198.18.0.186', '::ffff:0:c612:ba']), false, 'fake-ip 的 SIIT 形式 AAAA')
+  assert.equal(hasPrivateAnswer(['::ffff:0:7f00:1']), true, 'SIIT 形式的 127.0.0.1')
+})
+
+await checkAsync('连接时再查一遍解析结果：先回公网、连接时回 127.0.0.1 的域名（DNS 重绑定）连不上本机', async () => {
+  const { createServer } = await import('node:http')
+  const { Agent, fetch: undiciFetch } = await import('undici')
+  let hits = 0
+  const server = createServer((_req, res) => { hits++; res.end('secret') })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address()
+  const rebinding = (_host, _opts, callback) => callback(null, [{ address: '127.0.0.1', family: 4 }])
+  const agent = new Agent({ connect: { lookup: createGuardedLookup(rebinding) } })
+  try {
+    await assert.rejects(undiciFetch(`http://rebind.example.cn:${port}/x.png`, { dispatcher: agent }),
+      error => error?.cause?.code === NOT_PUBLIC)
+    assert.equal(hits, 0, '本机服务一个请求都没收到')
+    const guarded = createGuardedFetch({
+      fetchImpl: undiciFetch,
+      lookupImpl: async () => [{ address: '203.0.113.7' }],   // 下载前那次检查看到的是公网地址
+      dispatcher: agent,
+    })
+    const result = await prefetchLogos([`http://rebind.example.cn:${port}/x.png`], { now: T0, fetchImpl: guarded })
+    assert.equal(result.local, 1)
+    assert.equal(hits, 0)
+  } finally {
+    await agent.close()
+    server.close()
+  }
+  const lookup = createGuardedLookup((_host, _opts, callback) => callback(null, [{ address: '203.0.113.7', family: 4 }]))
+  await new Promise(resolve => lookup('img.example.cn', {}, (error, address, family) => {
+    assert.equal(error, null); assert.equal(address, '203.0.113.7'); assert.equal(family, 4); resolve()
+  }))
+  await new Promise(resolve => lookup('img.example.cn', { all: true }, (error, list) => {
+    assert.deepEqual(list, [{ address: '203.0.113.7', family: 4 }]); resolve()
+  }))
+})
+
+await checkAsync('局域网里的域名台标不托管、也不被内置台标顶替，订阅里照原样写原地址；隔天再查', async () => {
+  reset()
+  const LAN = 'http://nas.lan:8080/logos/CCTV1.png'
+  const refused = async () => { throw Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('域名解析到局域网 / 本机地址，不代取'), { code: NOT_PUBLIC }) }) }
+  const result = await prefetchLogos([LAN], { now: T0, fetchImpl: refused })
+  assert.deepEqual(result, { fetched: 0, dead: 0, errors: 0, pending: 0, local: 1 })
+  const pack = { url: '${replace}/logo-pack/CCTV1%E7%BB%BC%E5%90%88.png', from: 'pack' }
+  assert.equal(hostedLogoUrl([{ url: LAN, from: 'source' }, pack], { now: T0 }), LAN)
+  assert.equal((await prefetchLogos([LAN], { now: T0 + 60 * 60 * 1000, fetchImpl: refused })).local, undefined, '当天不再重查')
+  assert.equal((await prefetchLogos([LAN], { now: T0 + DAY, fetchImpl: refused })).local, 1)
+})
+
+await checkAsync('没有 Content-Length、解开后超过 2 MB 的响应读到上限就停，不整个读进内存', async () => {
+  reset()
+  let pulled = 0
+  const huge = () => new Response(new ReadableStream({
+    pull(controller) {
+      pulled++
+      controller.enqueue(new Uint8Array(512 * 1024))
+      if (pulled > 400) controller.close()
+    },
+  }))
+  const result = await prefetchLogos([OWN], { now: T0, fetchImpl: async () => huge() })
+  assert.equal(result.dead, 1)
+  assert.ok(pulled < 10, `读了 ${pulled} 块`)
+})
+
+await checkAsync('源自带的坏了自动换台标库的；写进订阅的是本机地址并带来源标记', async () => {
+  reset()
+  const fetchImpl = fakeFetch({ [OWN]: null, [LIB]: { body: png(), headers: { 'content-type': 'image/png' } } })
+  const result = await prefetchLogos([OWN, LIB], { now: T0, fetchImpl })
+  assert.deepEqual(result, { fetched: 1, dead: 1, errors: 0, pending: 0 })
+  const url = hostedLogoUrl(candidates, { now: T0 })
+  assert.match(url, /^\$\{replace\}\/logo-cache\/[0-9a-f]{20}\.png\?v=\d+&from=auto$/)
+  assert.equal(classifyLogo(url), 'auto')
+  const file = url.match(/logo-cache\/([^?]+)/)[1]
+  assert.ok(existsSync(join(DATA_DIR, 'logo-cache', file)))
+  assert.equal(cachedLogoFile(file).mime, 'image/png')
+})
+
+await checkAsync('源自带返回的不是图片也算坏；源自带好的优先于库', async () => {
+  reset()
+  await prefetchLogos([OWN, LIB], { now: T0, fetchImpl: fakeFetch({ [OWN]: { body: HTML }, [LIB]: { body: png() } }) })
+  assert.match(hostedLogoUrl(candidates, { now: T0 }), /from=auto$/)
+  reset()
+  await prefetchLogos([OWN, LIB], { now: T0, fetchImpl: fakeFetch({ [OWN]: { body: jpg }, [LIB]: { body: png() } }) })
+  const url = hostedLogoUrl(candidates, { now: T0 })
+  assert.match(url, /\.jpg\?v=\d+&from=source$/)
+  assert.equal(classifyLogo(url), 'source')
+})
+
+await checkAsync('没托管上但不确定坏掉的，沿用原地址；全都确认坏了才留空', async () => {
+  reset()
+  // 源自带坏了、库网络出错：用库的原地址，和托管前一样
+  await prefetchLogos([OWN, LIB], { now: T0, fetchImpl: fakeFetch({ [OWN]: null, [LIB]: new Error('ECONNRESET') }) })
+  assert.equal(hostedLogoUrl(candidates, { now: T0 }), LIB)
+  // 还没下过的也一样
+  assert.equal(hostedLogoUrl([{ url: 'https://new.example.com/x.png', from: 'source' }], { now: T0 }), 'https://new.example.com/x.png')
+  // 5xx 当网络问题，不算坏
+  reset()
+  await prefetchLogos([OWN], { now: T0, fetchImpl: fakeFetch({ [OWN]: { body: 'busy', status: 503 } }) })
+  assert.equal(hostedLogoUrl([{ url: OWN, from: 'source' }], { now: T0 }), OWN)
+  // 全坏
+  reset()
+  await prefetchLogos([OWN, LIB], { now: T0, fetchImpl: fakeFetch({}) })
+  assert.equal(hostedLogoUrl(candidates, { now: T0 }), '')
+  // 不归托管管的地址原样用
+  assert.equal(hostedLogoUrl([{ url: '${replace}/logos/x.png', from: 'source' }]), '${replace}/logos/x.png')
+})
+
+await checkAsync('已托管的一周后重取，失败保留旧图；坏掉的一天后再试；过大的算坏', async () => {
+  reset()
+  let libBody = png('a')
+  const fetchImpl = fakeFetch({ [OWN]: null, [LIB]: () => (libBody instanceof Error ? libBody : { body: libBody }) })
+  await prefetchLogos([OWN, LIB], { now: T0, fetchImpl })
+  const first = hostedLogoUrl(candidates, { now: T0 })
+
+  fetchImpl.calls.length = 0
+  await prefetchLogos([OWN, LIB], { now: T0 + 2 * 60 * 60 * 1000, fetchImpl })
+  assert.deepEqual(fetchImpl.calls, [], '两小时内：已托管的不重取，坏掉的也不重试')
+
+  libBody = new Error('timeout')
+  await prefetchLogos([OWN, LIB], { now: T0 + 8 * DAY, fetchImpl })
+  assert.ok(fetchImpl.calls.includes(OWN), '一天后重试坏掉的')
+  assert.ok(fetchImpl.calls.includes(LIB), '一周后重取已托管的')
+  assert.equal(hostedLogoUrl(candidates, { now: T0 + 8 * DAY }), first, '重取失败保留旧图')
+
+  reset()
+  const big = fakeFetch({ [OWN]: { body: png(), headers: { 'content-length': String(3 * 1024 * 1024) } } })
+  assert.equal((await prefetchLogos([OWN], { now: T0, fetchImpl: big })).dead, 1)
+})
+
+await checkAsync('图床每次重签的 CDN 鉴权不算新图：一张图只托管一份，重取用当轮的新签名地址', async () => {
+  reset()
+  const base = 'https://cdn-bt.example.cn/saas/image/2025-05/a.png'
+  const signed = ts => `${base}?sign=${ts}-abc123-0-0123456789abcdef0123456789abcdef`
+  const [day1, day2, day9] = [signed(1790278209), signed(1790364609), signed(1790969409)]
+  const fetchImpl = fakeFetch({ [day1]: { body: png('a') }, [day9]: { body: png('b') } })
+  await prefetchLogos([day1, day2], { now: T0, fetchImpl })
+  assert.deepEqual(fetchImpl.calls, [day1], '同一张图一轮只取一次')
+  const first = hostedLogoUrl([{ url: day1, from: 'source' }], { now: T0 })
+
+  // 第二天模块给了新签名：不重下，还是同一个托管文件
+  fetchImpl.calls.length = 0
+  await prefetchLogos([day2], { now: T0 + DAY, fetchImpl })
+  assert.deepEqual(fetchImpl.calls, [])
+  assert.equal(hostedLogoUrl([{ url: day2, from: 'source' }], { now: T0 + DAY }), first)
+
+  // 一周后重取，用的是当轮拿到的地址；文件名不变，版本号跟着重取时间走
+  await prefetchLogos([day9], { now: T0 + 8 * DAY, fetchImpl })
+  assert.deepEqual(fetchImpl.calls, [day9])
+  const refreshed = hostedLogoUrl([{ url: day9, from: 'source' }], { now: T0 + 8 * DAY })
+  assert.equal(refreshed.split('?')[0], first.split('?')[0])
+  assert.notEqual(refreshed, first)
+  assert.equal(readdirSync(join(DATA_DIR, 'logo-cache')).filter(name => name.endsWith('.png')).length, 1)
+
+  // 只认这种签名格式，别的查询参数照常区分
+  assert.equal(logoCacheKey(day1), base)
+  assert.equal(logoCacheKey(`${base}?w=100&sign=1790278209-abc123-0-0123456789abcdef0123456789abcdef`), `${base}?w=100`)
+  for (const other of [`${base}?sign=abc`, `${base}?v=2`, OWN, '${replace}/logos/a.png']) assert.equal(logoCacheKey(other), other)
+})
+
+await checkAsync('一轮下载有时长上限，没轮到的下一轮接着下；局域网地址不下', async () => {
+  reset()
+  const fetchImpl = fakeFetch({ [OWN]: { body: png() } })
+  const result = await prefetchLogos([OWN, 'http://192.168.1.2/a.png'], { now: T0, fetchImpl, budgetMs: 0 })
+  assert.deepEqual(result, { fetched: 0, dead: 0, errors: 0, pending: 1 })
+  assert.deepEqual(fetchImpl.calls, [])
+})
+
+await checkAsync('一个月没用到的清掉，目录里的无主文件一并删', async () => {
+  reset()
+  await prefetchLogos([OWN, LIB], { now: T0, fetchImpl: fakeFetch({ [OWN]: { body: jpg }, [LIB]: { body: png() } }) })
+  hostedLogoUrl([{ url: OWN, from: 'source' }], { now: T0 + 20 * DAY })
+  writeFileSync(join(DATA_DIR, 'logo-cache', 'ffffffffffffffffffff.png'), png())
+  finishLogoCache({ now: T0 + 31 * DAY })
+  const files = readdirSync(join(DATA_DIR, 'logo-cache')).sort()
+  assert.equal(files.length, 2, files.join(','))
+  assert.ok(files.includes('index.json'))
+  assert.ok(files.some(name => name.endsWith('.jpg')), '最近用过的留着')
+})
+
+await checkAsync('下载时不声明 WebP / AVIF，按 Accept 转码的图床给原图', async () => {
+  reset()
+  let accept = null
+  await prefetchLogos([OWN], {
+    now: T0,
+    fetchImpl: async (_url, init) => { accept = init.headers.Accept; return new Response(png()) },
+  })
+  assert.ok(accept && !/webp|avif/i.test(accept), accept)
+  assert.match(accept, /image\/png/)
+})
+
+check('托管路由只认 20 位小写哈希加图片扩展名', () => {
+  assert.equal(cachedLogoFile('0123456789abcdef0123.webp').mime, 'image/webp')
+  for (const bad of ['index.json', '../x.png', '0123456789ABCDEF0123.png', '0123456789abcdef012.png', '0123456789abcdef0123.exe']) {
+    assert.equal(cachedLogoFile(bad), null, bad)
+  }
+})
+
+rmSync(DATA_DIR, { recursive: true, force: true })
+console.log(`\n全部通过：${passed} ✅`)

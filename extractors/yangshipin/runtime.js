@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 
-import { printBlue, printRed, printYellow } from '../../utils/colorOut.js'
+import { debug } from '../../config.js'
+import { checkModuleBurst } from '../../utils/clientScanGuard.js'
+import { printBlue, printGrey, printRed, printYellow } from '../../utils/colorOut.js'
 import { dataPath } from '../../utils/paths.js'
 import { AUTH_CHANNEL_BY_ID, AUTH_CHANNEL_BY_REF } from './channels.js'
 import {
@@ -11,6 +13,7 @@ import {
   YspBrowserLogin,
   YspBrowserSession,
 } from './browser-auth.js'
+import { FILLER_BODY, FILLER_PATH } from './libvlc-view.js'
 import { VipMseBridge } from './vip-bridge.js'
 
 const firstLine = error => String(error?.message || error || '未知错误').split('\n')[0]
@@ -19,7 +22,7 @@ const ACCOUNT_STATUS_TTL = 5 * 60_000
 
 /**
  * 登录态保活。官网 SDK 只在浏览器页面开着时才续期：刷新令牌 48 小时一到就作废，而后台
- * Chromium 会员频道停播 45 秒后就关掉、不会自己再开——家里两天没人看会员频道，登录就没了。
+ * Chromium 会员频道停播 3 分钟后就关掉、不会自己再开——家里两天没人看会员频道，登录就没了。
  * 所以只要「关联过账号」（标记文件在），就每隔一段时间静默拉起后台会话、让 SDK 续一次
  * 再由空闲回收关掉。标记里只有昵称和时间，不含任何凭据；没关联过的部署永远不会为此启动浏览器。
  */
@@ -51,7 +54,7 @@ function rememberLoginLink(status) {
 }
 
 const browserSession = new YspBrowserSession({ logger: log, onAccount: rememberLoginLink })
-const vipBridge = new VipMseBridge(browserSession, { logger: log })
+const vipBridge = new VipMseBridge(browserSession, { logger: log, traceNetwork: debug })
 const browserLogin = new YspBrowserLogin(browserSession, {
   beforeOpen: async () => {
     await vipBridge.suspend()
@@ -232,7 +235,7 @@ function isTopLevelRef(path) {
 
 export function claimsLocalPath(path) {
   const value = String(path || '')
-  return value.startsWith('/ysp-vip/') || Boolean(isTopLevelRef(value))
+  return value === FILLER_PATH || value.startsWith('/ysp-vip/') || Boolean(isTopLevelRef(value))
 }
 
 function response(status, contentType, body = '', headers = {}) {
@@ -273,11 +276,48 @@ function rangeResponse(body, rangeHeader) {
   })
 }
 
+/**
+ * 会员频道的批量探测防护。公开频道经 channel() → resolve 已有 resolveBurstGuard，会员频道走本地
+ * 媒体路由、不经 resolve，得在这里自己接上，并与公开频道共用「央视频｜客户端」一本账：一次扫描
+ * 从 63 个公开台一路扫进会员台，是同一次扫描。
+ *
+ * 真正花钱的是启动解扰桥：开一个浏览器页、用会员账号打开官网点进频道、最多等 25 秒片段，
+ * 启动还是排队串行的，客户端断开也不取消，同时最多 3 路、第 4 路会挤掉最久没用的一路。
+ * 入口主清单本身是本地写死的文本，但放行它播放器就会接着拉子清单、触发启动，所以两处都卡。
+ * 该频道的桥已在跑或正在启动时照常放行（exempt）：再给它请求不多开页，也不会误伤重拉主清单的观众。
+ * 分片只读已在跑的桥、HEAD/OPTIONS 本地应答，都不会启动任何东西，不过防护。
+ */
+function vipBurstRefusal(channel, client) {
+  const verdict = checkModuleBurst({
+    moduleId: 'yangshipin',       // 与 index.js 的 id 一致，公开/会员两条路由才落到同一本账
+    moduleName: '央视频',
+    client,
+    channelKey: `ysp-vip-${channel.id}`,
+    exempt: vipBridge.isActive(channel.id),
+  })
+  if (verdict.allowed) return null
+  if (verdict.logLine) printYellow(verdict.logLine)
+  return response(429, 'text/plain;charset=UTF-8', verdict.desc, { 'Retry-After': String(verdict.retryAfterSeconds) })
+}
+
+/**
+ * 会员频道请求跟踪：mdebug=1 时逐条打印播放器拉了哪份清单、哪个分片、离最新几片。
+ * 排「刚打开卡 / 播着播着卡」时，用它对照「解扰桥就绪」日志与官网分片到达节奏，看卡在哪一侧。
+ */
+function traceVip(channel, client, describe) {
+  if (!debug) return
+  try { printGrey(`[央视频] ${channel.name} ${describe()}｜${client?.tag || ''}`) } catch { /* 跟踪日志不影响播放 */ }
+}
+
 /** 模块本地媒体路由；app.js 只负责鉴权、选择模块及写 HTTP 响应。 */
-export async function handleLocalRequest({ path, method = 'GET', headers = {}, accessPrefix = '' } = {}) {
+export async function handleLocalRequest({ path, method = 'GET', headers = {}, accessPrefix = '', client } = {}) {
   const value = String(path || '')
+  // 公开频道 libVLC 清单里的垫片（见 libvlc-view.js）：固定的一段 TS 空包，与频道、账号无关
+  if (value === FILLER_PATH) {
+    return response(200, 'video/mp2t', method === 'GET' ? FILLER_BODY : '', { 'Cache-Control': 'public, max-age=86400' })
+  }
   const playlistMatch = value.match(/^\/ysp-vip\/([a-z0-9]+)\/(video|audio)\.m3u8$/i)
-  const assetMatch = value.match(/^\/ysp-vip\/([a-z0-9]+)\/(video|audio)\/(init|\d+)\.(?:mp4|m4s)$/i)
+  const assetMatch = value.match(/^\/ysp-vip\/([a-z0-9]+)\/(video|audio)\/(init|v?\d+|vpad\d+)\.(?:mp4|m4s)$/i)
   const topRef = isTopLevelRef(value)
   const channel = topRef
     ? AUTH_CHANNEL_BY_REF.get(topRef)
@@ -306,16 +346,36 @@ export async function handleLocalRequest({ path, method = 'GET', headers = {}, a
   if (browserLogin.active()) {
     return response(409, 'text/plain;charset=UTF-8', '央视频正在完成登录关联，请稍后重试')
   }
+  if (topRef || playlistMatch) {
+    const refused = vipBurstRefusal(channel, client)
+    if (refused) return refused
+  }
 
   try {
     if (topRef) {
       return response(200, 'application/vnd.apple.mpegurl', vipBridge.master(channel, accessPrefix))
     }
     if (playlistMatch) {
-      const body = await vipBridge.playlist(channel, playlistMatch[2].toLowerCase(), accessPrefix)
+      const kind = playlistMatch[2].toLowerCase()
+      const body = await vipBridge.playlist(channel, kind, accessPrefix, { userAgent: headers['user-agent'] })
+      if (debug) {
+        const state = vipBridge.streams.get(channel.id)
+        const media = state ? await vipBridge.mediaState(state) : null
+        traceVip(channel, client, () => {
+          const sequences = [...body.matchAll(/\/(v?\d+)\.m4s/g)].map(match => match[1])
+          return `${kind} 清单 ${sequences.length} 片 #${sequences[0]}..#${sequences.at(-1)}；${vipBridge.describeMedia(media)}`
+        })
+      }
       return response(200, 'application/vnd.apple.mpegurl', body)
     }
-    const body = vipBridge.asset(channel, assetMatch[2].toLowerCase(), assetMatch[3])
+    const kind = assetMatch[2].toLowerCase()
+    const body = vipBridge.asset(channel, kind, assetMatch[3])
+    traceVip(channel, client, () => {
+      if (assetMatch[3] === 'init') return `${kind} init${body ? '' : '（已过期）'}`
+      const edge = /^\d+$/.test(assetMatch[3]) ? vipBridge.edge(channel, kind) : null
+      const behind = edge == null ? '' : `，距最新 ${edge - Number(assetMatch[3])} 片`
+      return `${kind} #${assetMatch[3]}${behind}${headers.range ? ` range=${headers.range}` : ''}${body ? '' : '（已过期）'}`
+    })
     if (!body) return response(404, 'text/plain;charset=UTF-8', '央视频会员片段已过期，请让播放器刷新清单')
     return rangeResponse(body, headers.range)
   } catch (error) {

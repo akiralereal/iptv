@@ -11,7 +11,8 @@ export default {
   name: '江西',
   description: '江西广电官网 8 路公开频道；无需登录，播放时自动换取匿名短效凭证并持续刷新清单。',
   capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
-  catalogVersion: 1,
+  // v2：八路频道带上官方台标
+  catalogVersion: 2,
   outputGroupName: '江西',
   channelHlsMode: 'proxy',
   defaultRefreshMinutes: 1440,

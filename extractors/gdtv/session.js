@@ -10,16 +10,29 @@ const IDLE_CLOSE_MS = 5 * 60 * 1000
 const SLOT_WAIT_MS = 30 * 1000
 const DEFAULT_CAPTURE_TIMEOUT_MS = 20 * 1000
 
+// 官网两套取流：多数频道走触电 tcdn.itouchtv.cn，带 t_token（实测约两分钟失效）；
+// 纪录片走 lbplay.grtn.cn，带阿里云 A 型鉴权 auth_key=<过期秒>-<随机数>-<uid>-<md5>，签发起 30 分钟有效。
+const AUTH_KEY_RE = /^(\d{10})-\w+-\w+-[0-9a-f]{32}$/i
+
 export function isOfficialStreamUrl(raw) {
   try {
     const url = new URL(String(raw || '').trim())
-    return url.protocol === 'https:'
-      && url.hostname === 'tcdn.itouchtv.cn'
-      && url.pathname.startsWith('/live/')
-      && /\.m3u8$/i.test(url.pathname)
-      && !!url.searchParams.get('t_token')
+    if (url.protocol !== 'https:' || !url.pathname.startsWith('/live/') || !/\.m3u8$/i.test(url.pathname)) return false
+    if (url.hostname === 'tcdn.itouchtv.cn') return !!url.searchParams.get('t_token')
+    if (url.hostname === 'lbplay.grtn.cn') return AUTH_KEY_RE.test(url.searchParams.get('auth_key') || '')
+    return false
   } catch {
     return false
+  }
+}
+
+/** 地址自带的过期时刻（毫秒）：只有 auth_key 写了，t_token 的地址读不出来返回 0。 */
+export function streamExpiresAt(raw) {
+  try {
+    const match = AUTH_KEY_RE.exec(new URL(String(raw || '').trim()).searchParams.get('auth_key') || '')
+    return match ? Number(match[1]) * 1000 : 0
+  } catch {
+    return 0
   }
 }
 
@@ -129,7 +142,13 @@ export class GdtvBrowserSession {
     }).catch(() => {})
 
     try {
-      return await captured
+      const url = await captured
+      // 页面得留着（见上），但取到票就没人看了：暂停官网播放器，免得服务器一直在后台解码视频。
+      // 实测暂停后浏览器 CPU 从两成多降到个位数，已取到的票照样有效（暂停两分钟后仍能取清单）。
+      await page.evaluate(() => {
+        for (const video of document.querySelectorAll('video')) video.pause()
+      }).catch(() => {})
+      return url
     } catch (error) {
       if (navigationError) {
         throw new Error(`官网页面加载失败：${navigationError?.message || navigationError}`)

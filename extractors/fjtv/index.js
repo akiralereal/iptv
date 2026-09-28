@@ -11,6 +11,7 @@ import {
   resolveProvinceChannel,
   resolveXiamenChannel,
 } from './api.js'
+import epg from './epg.js'
 
 const CITY_GROUP = '福建地市台'
 const OLD_FUZHOU_NAMES = new Set(['福州新闻综合', '福州综合', '福州生活', '福州少儿'])
@@ -77,13 +78,15 @@ export default {
   id: 'fjtv',
   name: '福建',
   description: '福建省级频道播放时自动续签；地市、福州和厦门官方线路独立抓取并合入现有福建分组。',
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  capabilities: { cache: 'disk', resolve: true, epg: true },
   outputGroupName: '福建',
   defaultRefreshMinutes: 360,
   refreshConfigurable: false,
   refreshDescription: '自动管理：省级六路在播放时刷新短效地址；每 360 分钟刷新地市频道表及福州、厦门官方 HLS。',
 
   configSchema: [],
+  // 省级走云直播平台节目单、厦门走看厦门接口；与取流链路只共用频道表（见 epg.js）
+  epg,
 
   async fetch(_config, ctx = {}) {
     const options = { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl }

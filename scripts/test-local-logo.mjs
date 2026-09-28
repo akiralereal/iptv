@@ -11,7 +11,7 @@
  */
 import assert from 'node:assert/strict'
 import http from 'node:http'
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -42,6 +42,13 @@ process.env.mbuiltInSourcesUrl = ''
 process.env.NO_PROXY = process.env.no_proxy = '127.0.0.1,localhost'
 
 mkdirSync(LOGO_DIR, { recursive: true })
+// 内置台标（logo-pack/）指到临时目录，只登记一张
+const PACK_DIR = join(DATA_DIR, 'pack')
+process.env.mlogoPackDir = PACK_DIR
+mkdirSync(PACK_DIR, { recursive: true })
+writeFileSync(join(PACK_DIR, `${NAME}.png`), Buffer.from('89504e470d0a1a0a-packed-image', 'utf8'))
+writeFileSync(join(PACK_DIR, 'unlisted.png'), Buffer.from('89504e470d0a1a0a-unlisted', 'utf8'))
+writeFileSync(join(PACK_DIR, 'index.json'), JSON.stringify({ version: 1, logos: { [NAME]: { file: `${NAME}.png`, hash: 'abc' } }, refs: {} }))
 writeFileSync(join(DATA_DIR, 'external-sources.json'), JSON.stringify({ enabled: false, updateOnStartup: false, sources: [] }))
 
 const FIRST = Buffer.from('89504e470d0a1a0a-first-image', 'utf8')
@@ -177,6 +184,65 @@ try {
     assert.equal(missing.status, 404)
     const traversal = await request(`/${PASS}/logos/..%2F..%2Fpackage.json`)
     assert.equal(traversal.status, 400)
+  })
+
+  await check('托管台标 /logo-cache/：按哈希文件名取图、带缓存头，文件名不合规回 400，同样在鉴权之后', async () => {
+    const CACHE_DIR = join(DATA_DIR, 'logo-cache')
+    mkdirSync(CACHE_DIR, { recursive: true })
+    writeFileSync(join(CACHE_DIR, '0123456789abcdef0123.png'), SECOND)
+    const response = await request(`/${PASS}/logo-cache/0123456789abcdef0123.png?v=1&from=auto`)
+    assert.equal(response.status, 200)
+    assert.equal(response.headers['content-type'], 'image/png')
+    assert.ok(response.body.equals(SECOND))
+    assert.match(response.headers.etag, /^"[0-9a-f]+-[0-9a-f]+"$/)
+    assert.equal((await request(`/${PASS}/logo-cache/0123456789abcdef9999.png`)).status, 404)
+    for (const bad of ['index.json', '..%2Findex.json', 'ABCDEF0123456789ABCD.png', '0123456789abcdef0123.exe']) {
+      assert.equal((await request(`/${PASS}/logo-cache/${bad}`)).status, 400, bad)
+    }
+    assert.equal((await request('/logo-cache/0123456789abcdef0123.png')).status, 403)
+    assert.equal(response.headers['x-content-type-options'], 'nosniff')
+    assert.equal(response.headers['content-security-policy'], undefined)
+    // 第三方 SVG 与后台同源：沙箱化，直接在浏览器里打开也跑不了脚本
+    writeFileSync(join(CACHE_DIR, 'abcdef0123456789abcd.svg'), '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(2)</script></svg>')
+    const svg = await request(`/${PASS}/logo-cache/abcdef0123456789abcd.svg`)
+    assert.equal(svg.status, 200)
+    assert.equal(svg.headers['content-type'], 'image/svg+xml')
+    assert.match(svg.headers['content-security-policy'], /default-src 'none'.*sandbox/)
+  })
+
+  await check('内置台标 /logo-pack/：只给 index.json 登记过的文件，带缓存头，同样在鉴权之后', async () => {
+    const response = await request(`/${PASS}/logo-pack/${encoded}.png?v=abc`)
+    assert.equal(response.status, 200)
+    assert.equal(response.headers['content-type'], 'image/png')
+    assert.equal(response.body.toString('utf8'), '89504e470d0a1a0a-packed-image')
+    assert.match(response.headers.etag, /^"[0-9a-f]+-[0-9a-f]+"$/)
+    for (const bad of ['unlisted.png', 'index.json', '..%2Findex.json', '%E0%A4%A']) {
+      assert.equal((await request(`/${PASS}/logo-pack/${bad}`)).status, 404, bad)
+    }
+    assert.equal((await request(`/logo-pack/${encoded}.png`)).status, 403)
+  })
+
+  await check('网页播放器的库本机提供，不再从外部 CDN 现取', async () => {
+    for (const [asset, global] of [['mpegts.js', 'mpegts'], ['hls.min.js', 'Hls'], ['DPlayer.min.js', 'DPlayer']]) {
+      const response = await request(`/player-assets/${asset}`)
+      assert.equal(response.status, 200, asset)
+      assert.match(response.headers['content-type'], /^text\/javascript/)
+      assert.ok(response.body.length > 100_000 && response.body.includes(global), asset)
+    }
+    for (const bad of ['hls.js', '..%2Fplayer.html', 'mpegts-LICENSE.txt']) {
+      assert.notEqual((await request(`/player-assets/${bad}`)).status, 200, bad)
+    }
+    // 页面按相对路径引用：带密码前缀（或挂在反向代理子路径下）时库文件跟着页面走
+    for (const asset of ['mpegts.js', 'hls.min.js', 'DPlayer.min.js']) {
+      assert.equal((await request(`/${PASS}/player-assets/${asset}`)).status, 200, `/${PASS}/player-assets/${asset}`)
+    }
+    const player = (await request(`/${PASS}/player`)).body.toString('utf8')
+    assert.match(player, /<script src="player-assets\/DPlayer\.min\.js">/)
+    assert.doesNotMatch(player, /src="\/player-assets\//)
+    for (const page of ['admin.html', 'player.html']) {
+      const html = readFileSync(new URL(`../web/${page}`, import.meta.url), 'utf8')
+      assert.doesNotMatch(html, /cdn\.jsdelivr\.net|unpkg\.com|cdnjs\./, page)
+    }
   })
 
   console.log(`\n全部通过 (${passed} 项)`)

@@ -205,11 +205,14 @@ async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, cover
   if (sources.length === 0) return { appended: 0 }
 
   // 待补频道：播放列表中尚无 EPG 的频道，归一 key → 输出用频道 id。
+  // 配对 key 取输出 id（开启归一时即规范名）的 key：用户给频道设的别名（channel-aliases.json）
+  // 要按规范名去对外部源的 display-name，拿原名配就白设了。issue #144
+  // 已覆盖仍按原名也认一遍：咪咕 / 模块节目单记的是原名的 key。
   const pending = new Map()
   for (const name of playlistChannelNames) {
-    const k = normalizeKey(name)
-    if (!k || coveredKeys.has(k) || pending.has(k)) continue
     const outputId = epgChannelId(name)
+    const k = normalizeKey(outputId)
+    if (!k || coveredKeys.has(k) || coveredKeys.has(normalizeKey(name)) || pending.has(k)) continue
     pending.set(k, outputId)
   }
   if (pending.size === 0) {

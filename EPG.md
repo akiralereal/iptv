@@ -53,7 +53,8 @@
 | `gztv` | 广州 | 无官方节目单 | — | — | — | 广视网直播页没有节目单，频道数据里的节目字段为空；旧节目单域名已失效 |
 | `gzstv` | 贵州 | 无官方节目单 | — | — | — | 官网接口只给标题与流地址；动静 App（2026-09-25 拆包，官网直链 120 MB）是梆梆 DexHelper + zxprotect 加固，单个 137 MB 的假 dex，不脱壳、到此为止 |
 | `gxtv` | 广西 | 已接入 | 6/7 | 2 | api2019.gxtv.cn/memberApi/programList/selectListByChannelId | POST，实际按频道名查；只给开始时间与时长；广西移动官方不展示节目单 |
-| `quanzhou-minnan` | 泉州 | 已接入 | 1/1 | 1 | wxqz2.qztv.cn（备 www.qztv.cn）闽南语播放页 | 服务端渲染的节目表，完整日期标签给最近七天到今天、没有明天；每档有起止时间，末档结束写次日时刻；官网偶发阿里云人机验证，两入口都被拦本轮就没有 |
+| `quanzhou-minnan` | 泉州 | 已接入 | 2/2 | 1 | wxqz2.qztv.cn（备 www.qztv.cn、control-center.qztv.cn）新闻综合、闽南语播放页 | 服务端渲染的节目表，完整日期标签给最近七天到今天、没有明天；每档有起止时间，末档结束写次日时刻；三个域名同一源站、各挂一套阿里云 WAF，偶发人机验证，三个都被拦本轮就没有 |
+| `quanzhou-county` | 晋江、石狮 | 已接入 | 1/2 | 2 | 两台官网直播页的云直播接口 cloudlive-manage-mapi/api/topic/program/list（mapi.ijjnews.com、mapi-new.chinashishi.net），app_secret 写在官网页面脚本里 | 与福建省级同一平台，star/end 是 unix 秒；石狮今明两天真编排、07:00 起，偶有全空格标题的空档条目丢掉；晋江天天只有 24 条整点「精彩节目」占位，当官方没发；照样每轮去取，哪天官方真排了就自动有；两台都是直链，按名对上 |
 | `fjtv` | 福建 | 已接入 | 9 路 | 2 | 省级 mapi-plus.fjtv.net 云直播 program/list；厦门 mapi1.kxm.xmtv.cn/api/v1/program.php；福州 app.zohi.tv/video/player/playbill | 东南卫视、厦视三套、海博地市只有占位；福州只列自办栏目、只有今天，少儿不收 |
 | `jlntv` | 吉林 | 已接入 | 1/15 | 2 | api.cntv.cn/epg/getEpgInfoByChannelNew?c=yanbian | broadcast/programs 只维护广播，电视频道全空；延边卫视取央视网，节目名是朝鲜语（官方原样）；吉林卫视由咪咕 / 央视频覆盖，其余央视网没收 |
 | `jxntv` | 江西 | 无官方节目单 | — | — | — | 官网与今视频 App 后端都没有；App 接口有阿里云 WAF；今视频 6.2.6（2026-09-25 拆包，官网只指向应用宝）是爱加密壳，桩 dex 13 KB，不脱壳、到此为止 |

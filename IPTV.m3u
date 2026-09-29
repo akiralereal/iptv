@@ -86,3 +86,20 @@ https://fastlive.cctvplus.com/out/v1/ca6f9297b7314a63959435028af287fc/index.m3u8
 #EXTINF:-1 group-title="台湾",大立电视台
 http://www.dalitv.com.tw:4568/live/dali/index.m3u8
 # === END 亚洲直播实验台已处理直连源 ===
+
+# === BEGIN 苏州广电直连源 ===
+# 说明：苏州广播电视总台「看苏州」App 用的固定 HLS 地址，不带签名，播放器直连官方 CDN（issue #149，2026-09-29 大陆与美国探针实测可播）。
+# 1～5 套名称按看苏州 App 频道表；苏州4K 官方名「SBS影像长廊」（台里自制纪录片轮播，3840x2160）。旧地址 tylive.kan0512.com 曾两次失效，改用 App 现用的同一 CDN。
+#EXTINF:-1 group-title="江苏",苏州新闻综合
+https://live-auth.51kandianshi.com/szgd/csztv1.m3u8
+#EXTINF:-1 group-title="江苏",苏州社会经济
+https://live-auth.51kandianshi.com/szgd/csztv2.m3u8
+#EXTINF:-1 group-title="江苏",苏州文化生活
+https://live-auth.51kandianshi.com/szgd/csztv3.m3u8
+#EXTINF:-1 group-title="江苏",苏州电影娱乐
+https://live-auth.51kandianshi.com/szgd/csztv4.m3u8
+#EXTINF:-1 group-title="江苏",苏州生活资讯
+https://live-auth.51kandianshi.com/szgd/csztv5.m3u8
+#EXTINF:-1 group-title="江苏",苏州4K
+https://live-auth.51kandianshi.com/szgd/csztv4k_4k.m3u8
+# === END 苏州广电直连源 ===

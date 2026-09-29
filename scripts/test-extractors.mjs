@@ -752,11 +752,11 @@ check('省市广电模块卡片只显示地区名，不带平台品牌', () => {
     anhui: '安徽', beidou: '辽宁', chongqing: '重庆', sichuan: '四川', cztv: '浙江', dalian: '大连', fjtv: '福建', gansu: '甘肃', gdtv: '广东', gxtv: '广西',
     gztv: '广州', hbtv: '湖北', hebtv: '河北', heilongjiang: '黑龙江', hnntv: '海南', hntv: '河南',
     iqilu: '山东', jiaxing: '嘉兴', jlntv: '吉林', jstv: '江苏', jxntv: '江西', kankanews: '上海', 'meizhou-hakka': '梅州', mgtv: '湖南', njtv: '南京', nmtv: '内蒙古',
-    'quanzhou-minnan': '泉州',
+    'quanzhou-minnan': '泉州', 'quanzhou-county': '晋江、石狮',
     ningxia: '宁夏', qinghai: '青海', qtv: '青岛', shaanxi: '陕西', shanxi: '山西', sztv: '深圳', tianjin: '天津',
     xinjiang: '新疆', xizang: '西藏', yunnan: '云南',
   }
-  const groupOverrides = { dalian: '辽宁', gztv: '广东', sztv: '广东', jiaxing: '浙江', 'meizhou-hakka': '广东', 'quanzhou-minnan': '福建' }
+  const groupOverrides = { dalian: '辽宁', gztv: '广东', sztv: '广东', jiaxing: '浙江', 'meizhou-hakka': '广东', 'quanzhou-minnan': '福建', 'quanzhou-county': '福建' }
   for (const [id, name] of Object.entries(expectedNames)) {
     assert.equal(getModule(id)?.name, name, `${id} 卡片标题应只保留地区名`)
     assert.equal(
@@ -1061,6 +1061,50 @@ try {
     const groups = manager.getValidChannels()
     assert.deepEqual(groups.map(group => group.name), ['辽宁', '广东', '上海', '上海景观'])
     assert.equal(groups.find(group => group.name === '广东').dataList.length, 2)
+  })
+
+  // issue #146：咪咕排在注册表第一，它补进「上海」的频道若照常插入，
+  // 会抢到组内源1，还会让「上海」挤到地方台最前。
+  check('输出：补充频道排在同组官方频道之后，也不决定分组位置', () => {
+    const manager = newManager()
+    manager.cache.modules.migu = {
+      groups: [
+        { name: '江苏', dataList: [{ name: '财富天下', deferredRef: '9' }] },
+        { name: '上海', dataList: [
+          { name: '上海新闻综合', deferredRef: '651632657', supplement: true, wantsPlayback: false },
+          { name: '上视东方影视', deferredRef: '617290047', supplement: true, wantsPlayback: true },
+        ] },
+      ],
+      health: { status: 'ok' },
+    }
+    manager.cache.modules.beidou = {
+      groups: [{ name: '辽宁频道', dataList: [{ name: '辽宁卫视', deferredRef: 'beidou-liaoning-1' }] }],
+      health: { status: 'ok' },
+    }
+    manager.cache.modules.kankanews = {
+      groups: [{ name: '上海电视台', dataList: [
+        { name: '东方卫视', deferredRef: 'kankanews-1' },
+        { name: '上海新闻综合', deferredRef: 'kankanews-2' },
+      ] }],
+      health: { status: 'ok' },
+    }
+    const groups = manager.getValidChannels()
+    assert.deepEqual(groups.map(group => group.name), ['江苏', '辽宁', '上海'],
+      '「上海」的位置该由看看新闻决定，不能被咪咕的备用线路提到前面')
+    const shanghai = groups.find(group => group.name === '上海').dataList
+    assert.deepEqual(shanghai.map(channel => [channel.name, channel.sourceId]), [
+      ['东方卫视', 'xt:kankanews'],
+      ['上海新闻综合', 'xt:kankanews'],
+      ['上海新闻综合', 'migu'],
+      ['上视东方影视', 'migu'],
+    ])
+    assert.equal(shanghai[2].wantsPlayback, false, '官方也有的台不抓咪咕节目单，共用官方的')
+
+    // 官方模块没出频道时，补充频道照样输出，分组补在最后
+    delete manager.cache.modules.kankanews
+    const fallback = manager.getValidChannels()
+    assert.deepEqual(fallback.map(group => group.name), ['江苏', '辽宁', '上海'])
+    assert.deepEqual(fallback[2].dataList.map(channel => channel.deferredRef), ['651632657', '617290047'])
   })
 
   check('抓取失败时沿用上一轮频道——频道不能静默从播放列表消失', () => {

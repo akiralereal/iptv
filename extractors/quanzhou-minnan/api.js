@@ -1,46 +1,53 @@
-/** 泉州广播电视台闽南语频道；播放时由官网接口签发短期 HLS 地址。 */
+/** 泉州广播电视台新闻综合、闽南语两路；播放时由官网签发短期 HLS 地址。 */
 import { proxyAwareFetch } from '../../utils/systemProxy.js'
+import { CHANNEL_BY_REF, CHANNELS, MEDIA_HOST, SITE_ORIGINS, playerPage } from './channels.js'
 
-export const CHANNEL = Object.freeze({
-  name: '泉州闽南语',
-  ref: 'quanzhou-minnan-tv',
-  // 官网首页「电视直播」区块的闽南语频道卡（QZTV-2 闽南语），路径不带哈希；官网没有单独的方形频道标
-  logo: 'https://www.qztv.cn/index/images/home/crad-02.jpg',
-})
-export const PLAYER_PAGE = 'https://wxqz2.qztv.cn/index/Medias/index/media_id/wq95wqbDnMKyd8KiwqzChnt0w5nChcKofcKh/stream_name/mny.html'
-export const PLAY_APIS = Object.freeze([
-  'https://wxqz2.qztv.cn/index/medias/getLivepath',
-  'https://www.qztv.cn/index/medias/getLivepath',
-])
-const MEDIA_ID = 'wq95wqbDnMKyd8KiwqzChnt0w5nChcKofcKh'
-const MEDIA_HOST = 'live.qztv.cn'
+export { CHANNELS }
+
+// 取签名地址的三个入口，按顺序试：
+// - 前两个是官网播放页脚本自己调的签名接口：POST media_id，回 { error_code: 0, data: 签名地址 }；
+// - 第三个是 control-center 域名下的播放页本身，页面脚本里直接写着一份签好的地址（urls = "..."）。
+// 三个域名是同一源站、各挂一套阿里云 WAF，频率阈值是否各算各的没测过（测就要故意去撞）；
+// 前两个被拦时，第三个至少多一条路。上次从哪个入口签到，下次就先试它，被拦的入口不再每次陪跑。
+export const PLAY_APIS = Object.freeze(SITE_ORIGINS.slice(0, 2).map(origin => `${origin}/index/medias/getLivepath`))
+export const PAGE_ORIGIN = SITE_ORIGINS[2]
+export const ENTRY_COUNT = PLAY_APIS.length + 1
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+// 签名接口的 JSON 不到 1 KB；control-center 播放页约 150 KB（带七天节目表）
 const MAX_TEXT_BYTES = 512 * 1024
 // 官网签名接口挂着阿里云 WAF，按出口 IP 的请求频率弹滑块验证；2026-09-26 实测同一出口十几秒内
 // 第七八次就被拦，之后每分钟一次也 15 分钟以上不解封。所以签到的地址要在有效期内被所有刷新共用，
 // 被拦后停一段时间不再请求（越打封得越久），滑块本身不去碰。
 // auth_key 开头 10 位是时间戳：明显在未来就当过期时间，提前 1 分钟换；否则当签发时间，最多用 10 分钟
-// （阿里云 CDN 鉴权默认有效 30 分钟）。CDN 拒绝旧地址时立刻重签。
+// （阿里云 CDN 鉴权默认有效 30 分钟）。CDN 拒绝旧地址时立刻重签。2026-09-29 实测时间戳是签发后约
+// 15 分钟，官网播放器自己每 1750 秒重取一次。
 const SIGN_REUSE_MS = 10 * 60_000
 const SIGN_REUSE_MAX_MS = 30 * 60_000
 const SIGN_EXPIRY_MARGIN_MS = 60_000
 const WAF_COOLDOWN_MS = Object.freeze([5, 10, 20, 30].map(minutes => minutes * 60_000))
 
-export function officialManifestUrl(raw) {
+function channelOf(channel) {
+  const found = CHANNEL_BY_REF.get(channel?.ref)
+  if (!found) throw new Error('泉州频道无效')
+  return found
+}
+
+export function officialManifestUrl(raw, channel) {
+  const { key } = channelOf(channel)
   let url
   try { url = new URL(String(raw || '')) } catch { throw new Error('泉州播放地址无效') }
   if (url.protocol !== 'https:' || url.hostname !== MEDIA_HOST || url.port || url.username
-      || url.password || url.hash || !/^\/live\/mny[A-Za-z0-9_-]*\.m3u8$/.test(url.pathname)
+      || url.password || url.hash || !new RegExp(`^/live/${key}[A-Za-z0-9_-]*\\.m3u8$`).test(url.pathname)
       || !/^\d{10}-0-0-[a-f0-9]{32}$/.test(url.searchParams.get('auth_key') || '')
-      || [...url.searchParams.keys()].some(key => key !== 'auth_key')) {
+      || [...url.searchParams.keys()].some(name => name !== 'auth_key')) {
     throw new Error('泉州播放地址不在官方签名频道路径')
   }
   return url.href
 }
 
-export function officialSegmentUrl(raw, manifestUrl) {
-  const manifest = new URL(officialManifestUrl(manifestUrl))
+export function officialSegmentUrl(raw, manifestUrl, channel) {
+  const manifest = new URL(officialManifestUrl(manifestUrl, channel))
   let url
   try { url = new URL(String(raw || ''), manifest) } catch { throw new Error('泉州分片地址无效') }
   const stream = manifest.pathname.slice('/live/'.length, -'.m3u8'.length)
@@ -52,8 +59,8 @@ export function officialSegmentUrl(raw, manifestUrl) {
   return url.href
 }
 
-export function validateManifest(text, manifestUrl) {
-  officialManifestUrl(manifestUrl)
+export function validateManifest(text, manifestUrl, channel) {
+  officialManifestUrl(manifestUrl, channel)
   if (typeof text !== 'string' || !text.trimStart().startsWith('#EXTM3U')
       || !/#EXT-X-MEDIA-SEQUENCE:\d+/.test(text) || !text.includes('#EXTINF:')) {
     throw new Error('泉州 CDN 没有返回实时 HLS 清单')
@@ -63,7 +70,7 @@ export function validateManifest(text, manifestUrl) {
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim()
     if (!line || line.startsWith('#')) continue
-    officialSegmentUrl(line, manifestUrl)
+    officialSegmentUrl(line, manifestUrl, channel)
     count++
   }
   if (!count) throw new Error('泉州清单没有视频分片')
@@ -109,83 +116,107 @@ export function signedReuseUntil(url, now = Date.now()) {
 
 const wafError = () => Object.assign(new Error('官网要求人机验证'), { waf: true })
 
-export async function requestPlayUrl({ fetchImpl = proxyAwareFetch, timeoutMs = 12000 } = {}) {
+/** 第 index 个入口取一次签名地址。 */
+async function signFromEntry(index, channel, { fetchImpl, timeoutMs }) {
+  if (index < PLAY_APIS.length) {
+    const api = PLAY_APIS[index]
+    const text = await requestText(api, {
+      fetchImpl, timeoutMs, method: 'POST',
+      body: new URLSearchParams({ media_id: channel.mediaId }),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        Referer: playerPage(channel, new URL(api).origin),
+        Origin: new URL(api).origin,
+        Accept: 'application/json',
+      },
+    })
+    if (text.includes('aliyun_waf_aa')) throw wafError()
+    let payload
+    try { payload = JSON.parse(text) } catch { throw new Error('官网接口没有返回 JSON') }
+    if (payload?.error_code !== 0 || typeof payload?.data !== 'string') {
+      throw new Error(`官网当前没有签发${channel.name}直播地址`)
+    }
+    return officialManifestUrl(payload.data, channel)
+  }
+  const text = await requestText(playerPage(channel, PAGE_ORIGIN), {
+    fetchImpl, timeoutMs,
+    headers: { Referer: `${PAGE_ORIGIN}/`, Accept: 'text/html' },
+  })
+  if (text.includes('aliyun_waf_aa')) throw wafError()
+  const match = /\burls\s*=\s*"([^"]+)"/.exec(text)
+  if (!match) throw new Error(`官网播放页没有${channel.name}直播地址`)
+  return officialManifestUrl(match[1], channel)
+}
+
+/**
+ * 按入口顺序取签名地址，从 startAt 开始、绕一圈。成功返回 { url, entry }。
+ * 全部失败时：只要有一个入口弹了滑块，就按被拦处理（调用方据此冷却）。
+ */
+export async function requestPlayUrl(channel, { fetchImpl = proxyAwareFetch, timeoutMs = 12000, startAt = 0 } = {}) {
+  const target = channelOf(channel)
   let lastError = null
   let blocked = null
-  for (const api of PLAY_APIS) {
+  for (let step = 0; step < ENTRY_COUNT; step++) {
+    const entry = (startAt + step) % ENTRY_COUNT
     try {
-      const text = await requestText(api, {
-        fetchImpl, timeoutMs, method: 'POST',
-        body: new URLSearchParams({ media_id: MEDIA_ID }),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          Referer: PLAYER_PAGE,
-          Origin: new URL(api).origin,
-          Accept: 'application/json',
-        },
-      })
-      if (text.includes('aliyun_waf_aa')) throw wafError()
-      let payload
-      try { payload = JSON.parse(text) } catch { throw new Error('官网接口没有返回 JSON') }
-      if (payload?.error_code !== 0 || typeof payload?.data !== 'string') {
-        throw new Error('官网当前没有签发闽南语直播地址')
-      }
-      return officialManifestUrl(payload.data)
+      return { url: await signFromEntry(entry, target, { fetchImpl, timeoutMs }), entry }
     } catch (error) {
       lastError = error
       if (error?.waf) blocked = error
     }
   }
-  // 两个入口挂的是同一套 WAF：只要有一个弹了滑块又没拿到地址，就按被拦处理（调用方据此冷却）
   throw blocked || lastError || new Error('官网直播接口不可用')
 }
 
-export async function requestManifest(url, { fetchImpl = proxyAwareFetch, timeoutMs = 12000 } = {}) {
-  const safe = officialManifestUrl(url)
+export async function requestManifest(url, channel, { fetchImpl = proxyAwareFetch, timeoutMs = 12000 } = {}) {
+  const safe = officialManifestUrl(url, channel)
   const text = await requestText(safe, {
     fetchImpl, timeoutMs,
-    headers: { Referer: PLAYER_PAGE, Accept: 'application/vnd.apple.mpegurl' },
+    headers: { Referer: playerPage(channelOf(channel)), Accept: 'application/vnd.apple.mpegurl' },
   })
-  return validateManifest(text, safe)
+  return validateManifest(text, safe, channel)
 }
 
 export function buildChannels() {
-  return [{ name: CHANNEL.name, deferredRef: CHANNEL.ref, logo: CHANNEL.logo,
-    opts: ['network-caching=3000'], catchup: 'none' }]
+  return CHANNELS.map(channel => ({ name: channel.name, deferredRef: channel.ref, logo: channel.logo,
+    opts: ['network-caching=3000'], catchup: 'none' }))
 }
 
-export function claimsRef(ref) { return String(ref || '') === CHANNEL.ref }
+export function claimsRef(ref) { return CHANNEL_BY_REF.has(String(ref || '')) }
 
 export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch, now = () => Date.now() } = {}) {
-  // 全部观众、全部刷新共用一份签名；同时到达的请求只签一次
-  let signed = null          // { url, reuseUntil }
-  let signing = null
+  // 每个频道的签名被全部观众、全部刷新共用；同一频道同时到达的请求只签一次
+  const signed = new Map()   // ref → { url, reuseUntil }
+  const signing = new Map()  // ref → Promise
+  // WAF 按出口 IP 拦，两个频道共用一个冷却；preferredEntry 记上次签到的入口
   let cooldownUntil = 0
   let wafStrikes = 0
+  let preferredEntry = 0
 
-  const success = (url, manifest) => ({
+  const success = (channel, url, manifest) => ({
     url,
-    desc: '泉州闽南语官方直播地址',
+    desc: `${channel.name}官方直播地址`,
     manifestText: manifest,
     manifestUrl: url,
-    // CDN 拒绝 curl / Lavf 等客户端标识；所有分片由本机按官网浏览器标识取回。
-    upstreamHeaders: () => ({ Referer: PLAYER_PAGE, 'User-Agent': UA }),
-    upstreamUrlTransform: raw => officialSegmentUrl(raw, url),
+    // CDN 拒绝 curl / Lavf 等客户端标识，还按 Referer 放行；所有分片由本机按官网浏览器标识取回。
+    upstreamHeaders: () => ({ Referer: playerPage(channel), 'User-Agent': UA }),
+    upstreamUrlTransform: raw => officialSegmentUrl(raw, url, channel),
   })
-  const failure = error => {
+  const failure = (channel, error) => {
     const reason = ['AbortError', 'TimeoutError'].includes(error?.name)
       ? '请求超时' : (error?.message || '上游请求失败')
-    return { url: '', desc: `泉州闽南语取流失败：${reason}` }
+    return { url: '', desc: `${channel.name}取流失败：${reason}` }
   }
-  const coolingDesc = () => {
+  const coolingDesc = channel => {
     const minutes = Math.max(1, Math.ceil((cooldownUntil - now()) / 60_000))
-    return { url: '', desc: `泉州闽南语取流失败：官网要求人机验证，已暂停向官网请求，约 ${minutes} 分钟后自动重试` }
+    return { url: '', desc: `${channel.name}取流失败：官网要求人机验证，已暂停向官网请求，约 ${minutes} 分钟后自动重试` }
   }
 
-  function sign(options) {
-    if (!signing) {
-      signing = requestPlayUrl(options).then(url => {
-        signed = { url, reuseUntil: signedReuseUntil(url, now()) }
+  function sign(channel, options) {
+    if (!signing.has(channel.ref)) {
+      signing.set(channel.ref, requestPlayUrl(channel, { ...options, startAt: preferredEntry }).then(({ url, entry }) => {
+        signed.set(channel.ref, { url, reuseUntil: signedReuseUntil(url, now()) })
+        preferredEntry = entry
         wafStrikes = 0
         cooldownUntil = 0
         return url
@@ -195,29 +226,31 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch, now 
           wafStrikes++
         }
         throw error
-      }).finally(() => { signing = null })
+      }).finally(() => { signing.delete(channel.ref) }))
     }
-    return signing
+    return signing.get(channel.ref)
   }
 
   async function resolve(ref, ctx = {}) {
-    if (!claimsRef(ref)) return { url: '', desc: '泉州闽南语频道引用格式错误' }
+    const channel = CHANNEL_BY_REF.get(String(ref || ''))
+    if (!channel) return { url: '', desc: '泉州频道引用格式错误' }
     const options = { fetchImpl: ctx.fetchImpl || defaultFetch, timeoutMs: ctx.timeoutMs || 12000 }
-    const reusable = signed && now() < signed.reuseUntil ? signed.url : ''
+    const cached = signed.get(channel.ref)
+    const reusable = cached && now() < cached.reuseUntil ? cached.url : ''
     if (reusable) {
       try {
-        return success(reusable, await requestManifest(reusable, options))
+        return success(channel, reusable, await requestManifest(reusable, channel, options))
       } catch {
         // CDN 不认这份签名了（过期或被收回）：丢掉，下面重签一次
-        if (signed?.url === reusable) signed = null
+        if (signed.get(channel.ref)?.url === reusable) signed.delete(channel.ref)
       }
     }
-    if (now() < cooldownUntil) return coolingDesc()
+    if (now() < cooldownUntil) return coolingDesc(channel)
     try {
-      const url = await sign(options)
-      return success(url, await requestManifest(url, options))
+      const url = await sign(channel, options)
+      return success(channel, url, await requestManifest(url, channel, options))
     } catch (error) {
-      return error?.waf ? coolingDesc() : failure(error)
+      return error?.waf ? coolingDesc(channel) : failure(channel, error)
     }
   }
   return { resolve }

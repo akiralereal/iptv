@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * 泉州闽南语官方节目单回归测试：按完整日期标签取当天、末档跨零点、重叠截断、没有这天返回空、
- * 人机验证与改版报错、主入口失败走备用入口。样本按 2026-09-25 官网播放页的真实结构裁剪。
+ * 泉州官方节目单回归测试：按完整日期标签取当天、末档跨零点、重叠截断、没有这天返回空、
+ * 人机验证与改版报错、主入口失败依次走备用入口、两路频道各取自己的播放页。样本按 2026-09-25 官网播放页的真实结构裁剪。
  *
  * 运行： node scripts/test-quanzhou-minnan-epg.mjs
  *       TZ=UTC node scripts/test-quanzhou-minnan-epg.mjs
  */
 import assert from 'node:assert/strict'
 
-import quanzhouEpg, { EPG_PAGES, dayInfo, parseProgrammes } from '../extractors/quanzhou-minnan/epg.js'
-import { CHANNEL } from '../extractors/quanzhou-minnan/api.js'
+import quanzhouEpg, { dayInfo, epgPages, parseProgrammes } from '../extractors/quanzhou-minnan/epg.js'
+import { buildChannels } from '../extractors/quanzhou-minnan/api.js'
 import { getModule } from '../extractors/registry.js'
 
 let passed = 0
@@ -41,13 +41,17 @@ const SAMPLE = page({
     li('22:47-23:25', '新闻相拍报'), li('23:20-23:50', '泉州第一炮'), li('23:50-00:10', '泉州美食 &amp; 小吃')],
 })
 
-console.log('泉州闽南语节目单测试')
+console.log('泉州节目单测试')
 
 check('模块挂上节目单，频道 ref 与取流一致', () => {
   const module = getModule('quanzhou-minnan')
   assert.equal(module.epg, quanzhouEpg)
   assert.equal(module.capabilities.epg, true)
-  assert.deepEqual(quanzhouEpg.channels(), [{ ref: CHANNEL.ref, name: CHANNEL.name, key: 'mny' }])
+  assert.deepEqual(quanzhouEpg.channels(), [
+    { ref: 'quanzhou-news-tv', name: '泉州新闻综合', key: 'news' },
+    { ref: 'quanzhou-minnan-tv', name: '泉州闽南语', key: 'mny' },
+  ])
+  assert.deepEqual(quanzhouEpg.channels().map(c => [c.ref, c.name]), buildChannels().map(c => [c.deferredRef, c.name]))
   assert.equal(quanzhouEpg.days, 1)
 })
 
@@ -74,15 +78,25 @@ check('页面没有这一天（明天）返回空；人机验证与改版报错'
   assert.throws(() => parseProgrammes(SAMPLE.replace(/class="time"/g, 'class="t"'), '20260925'), /格式异常/)
 })
 
-await checkAsync('主入口被拦时走备用入口；两个都失败才抛错', async () => {
+check('每路频道按 wxqz2、www、control-center 的顺序取自己的播放页', () => {
+  const media = { news: 'wq95wqbDnMKyd8KiwqzChnt0w5nChcKowoHCoQ', mny: 'wq95wqbDnMKyd8KiwqzChnt0w5nChcKofcKh' }
+  for (const key of ['news', 'mny']) {
+    assert.deepEqual(epgPages(key), ['wxqz2', 'www', 'control-center'].map(host =>
+      `https://${host}.qztv.cn/index/Medias/index/media_id/${media[key]}/stream_name/${key}.html`))
+  }
+  assert.throws(() => epgPages('other'), /参数非法/)
+})
+
+await checkAsync('前面的入口被拦时依次走备用入口；全部失败才抛错', async () => {
   const calls = []
-  const items = await quanzhouEpg.programmes('mny', '20260925', {
+  const pages = epgPages('news')
+  const items = await quanzhouEpg.programmes('news', '20260925', {
     fetchImpl: async url => {
       calls.push(url)
-      return url === EPG_PAGES[0] ? new Response('<meta name="aliyun_waf_aa">') : new Response(SAMPLE)
+      return url === pages[2] ? new Response(SAMPLE) : new Response('<meta name="aliyun_waf_aa">')
     },
   })
-  assert.deepEqual(calls, EPG_PAGES)
+  assert.deepEqual(calls, pages)
   assert.equal(items.length, 5)
   await assert.rejects(quanzhouEpg.programmes('mny', '20260925', { fetchImpl: async () => new Response('x', { status: 502 }) }), /HTTP 502/)
   await assert.rejects(quanzhouEpg.programmes('other', '20260925', { fetchImpl: async () => new Response(SAMPLE) }), /参数非法/)

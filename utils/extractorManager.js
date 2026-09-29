@@ -934,6 +934,9 @@ class ExtractorManager {
     if (!this.loaded) this.load()
     // 总开关的判定下沉到 isModuleEnabled——代理开关的模块（咪咕）要绕过它
     const groupMap = new Map()
+    // 补充频道（channel.supplement，如咪咕并进「上海」的上海新闻综合）等所有模块排完再追加：
+    // 咪咕在注册表里排第一，照常插入会抢到组内源1，还会让它先建的分组挤到地方台最前。
+    const supplements = []
     for (const module of listModules()) {
       if (!this.isModuleEnabled(module)) continue
       // 模块可以自己声明 sourceId。收编既有源时必须这样——比如咪咕的归属在
@@ -949,8 +952,11 @@ class ExtractorManager {
         const name = preserveName
           ? cachedName
           : module.outputGroupName || cachedName
-        if (!groupMap.has(name)) groupMap.set(name, { name, dataList: [] })
-        for (const channel of group?.dataList || []) {
+        const channels = group?.dataList || []
+        // 只装着补充频道的分组不在这里建，免得分组位置由补充频道决定
+        const onlySupplements = channels.length > 0 && channels.every(channel => channel?.supplement === true)
+        if (!onlySupplements && !groupMap.has(name)) groupMap.set(name, { name, dataList: [] })
+        for (const channel of channels) {
           if (!channel?.name) continue
           // 平台级 HLS 模式在输出时覆盖频道缓存，既避免每条频道重复声明，
           // 也让平台防盗链规则变化后能立即修正旧磁盘缓存，无需等待下一轮抓取。
@@ -960,7 +966,7 @@ class ExtractorManager {
             : hlsMode === 'relay'
               ? { proxyHls: false, relayHls: true }
               : {}
-          groupMap.get(name).dataList.push({
+          const entry = {
             ...channel,
             ...hlsRouting,
             groupTitle: name,
@@ -975,9 +981,15 @@ class ExtractorManager {
             // 不能靠「有没有 url」被推断成外部源——那样会被外部源的
             // includeInPlaylists 开关连坐，用户会以为模块坏了。
             source: 'extractor',
-          })
+          }
+          if (channel.supplement === true) supplements.push({ name, entry })
+          else groupMap.get(name).dataList.push(entry)
         }
       }
+    }
+    for (const { name, entry } of supplements) {
+      if (!groupMap.has(name)) groupMap.set(name, { name, dataList: [] })
+      groupMap.get(name).dataList.push(entry)
     }
     return [...groupMap.values()]
   }

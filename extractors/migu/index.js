@@ -89,17 +89,28 @@ export function dedupeAcrossGroups(groups) {
 // 受账号/VIP 限制。最终播放列表不再输出「地方」，只保留官方模块
 // 尚未覆盖且用户明确要保留的频道，并直接并入对应地区。精确白名单刻意
 // 不自动接纳咪咕后续新增的地方频道，避免重复项刷新后悄悄复活。
-// 「上视东方影视」曾在此列并入上海，实测播放不了，已移到下方剔除名单。
+// 「上视东方影视」曾在此列并入上海，09-06 因取不到流剔除，09-28 复测能播，改走下方的补充名单。
 // 陕西银龄、都市青春、秦腔、新闻资讯四路曾在此并入陕西，陕西官方模块上线后已覆盖，撤掉。
 export const MIGU_LOCAL_REASSIGNMENTS = Object.freeze({
   '财富天下': '江苏',
 })
 
+// 补充进地区分组的咪咕频道（issue #146）：打 supplement，排在同组官方模块的频道之后，
+// 也不决定分组位置（extractorManager.getValidChannels）。
+//   name        改成官方模块里的台名：同名播放器才会合成一个台的源1 / 源2
+//   officialEpg 节目单用官方模块的，不抓咪咕的
+export const MIGU_LOCAL_SUPPLEMENTS = Object.freeze({
+  // 看看新闻对没有网络版权的节目（主要是电视剧）暂停直播，这两台每天有大段放不了，咪咕
+  // 同一时段照常出画面（2026-09-28 实测）。咪咕新闻综合的节目单是过期模板（剧名停在上周）。
+  '上海新闻综合': { group: '上海', officialEpg: true },
+  '上海第一财经': { group: '上海', name: '第一财经', officialEpg: true },
+  // 看看新闻没有这个台，节目单照常用咪咕的
+  '上视东方影视': { group: '上海' },
+})
+
 // 这些地方频道还会出现在「新闻」等分类里，因此需要在
 // 所有咪咕分类中全局剔除，避免删掉「地方」组后又从别组复活。
 export const MIGU_CHANNEL_EXCLUSIONS = new Set([
-  // 咪咕这路取不到流、播不了；全局剔除，免得换个分类又冒出来
-  '上视东方影视',
   '中国天气',
   '公共新闻频道',
   '新动力量创一流',
@@ -124,7 +135,7 @@ export const MIGU_CHANNEL_EXCLUSIONS = new Set([
   '陕西新闻资讯频道',
 ])
 
-/** 清理咪咕地方重复源，并把少数保留频道合并进地区分组。 */
+/** 清理咪咕地方重复源，并把少数保留频道和补充频道合并进地区分组。 */
 export function redistributeMiguLocalChannels(groups) {
   const output = []
   const append = (name, channels) => {
@@ -146,8 +157,18 @@ export function redistributeMiguLocalChannels(groups) {
       continue
     }
     for (const channel of channels) {
-      const target = MIGU_LOCAL_REASSIGNMENTS[String(channel?.name || '').trim()]
+      const name = String(channel?.name || '').trim()
+      const target = MIGU_LOCAL_REASSIGNMENTS[name]
       if (target) append(target, [channel])
+      const supplement = MIGU_LOCAL_SUPPLEMENTS[name]
+      if (supplement) {
+        append(supplement.group, [{
+          ...channel,
+          ...(supplement.name ? { name: supplement.name } : {}),
+          ...(supplement.officialEpg ? { wantsPlayback: false } : {}),
+          supplement: true,
+        }])
+      }
     }
   }
   return output

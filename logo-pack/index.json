@@ -1490,6 +1490,15 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "晋江电视台": {
+   "file": "晋江电视台.png",
+   "hash": "e41a8c2cc5",
+   "height": 256,
+   "origin": "quanzhou-county",
+   "source": "https://filestorage.ijjnews.com/file/storage1-cloudlivemanage/cloudlivemanage/2026/1067/0f5007bcbfe40cd8.jpg",
+   "updated": "2026-09-28",
+   "width": 254
+  },
   "晋中综合": {
    "file": "晋中综合.png",
    "hash": "0a8fbe01e1",
@@ -1929,6 +1938,15 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "泉州新闻综合": {
+   "file": "泉州新闻综合.png",
+   "hash": "140a44775f",
+   "height": 106,
+   "origin": "quanzhou-minnan",
+   "source": "https://www.qztv.cn/index/images/home/crad-01.jpg",
+   "updated": "2026-09-28",
+   "width": 256
+  },
   "赛事最经典": {
    "file": "赛事最经典.png",
    "hash": "3808b1f84e",
@@ -2181,6 +2199,15 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "上视东方影视": {
+   "file": "上视东方影视.png",
+   "hash": "3f751f9aa7",
+   "height": 170,
+   "origin": "migu",
+   "source": "http://wapx.cmvideo.cn:8080/publish/poms/image/5500/002/274/202105271333_5100001715_2_H32_1080.webp",
+   "updated": "2026-09-28",
+   "width": 256
+  },
   "深圳电视剧": {
    "file": "深圳电视剧.png",
    "hash": "45afa41faa",
@@ -2269,6 +2296,17 @@
    "origin": "beidou",
    "source": "https://zbhk-new.lnyun.com.cn/www/sygbdst/images/202603/892032642633962440.jpg",
    "updated": "2026-09-25",
+   "width": 256
+  },
+  "石狮新闻综合": {
+   "file": "石狮新闻综合.png",
+   "hash": "f8f73a7e25",
+   "height": 256,
+   "kind": "official",
+   "note": "石狮新闻综合官方没有单独的频道台标：官网频道列表的 indexpic 是节目宣传海报，台角那个 SSTV 彩色标在官网、云直播 H5 和「看石狮」App 里都找不到，App 图标是书法字「看石狮」。按所属电视台台标的规则，用石狮市融媒体中心官网页头站标左侧的狮子标，四周留白做成正方形；原图是白色透明底，铺官网页头同款蓝底 #015095",
+   "origin": "manual",
+   "source": "https://www.chinashishi.net/（石狮市融媒体中心官网页头站标，截取左侧狮子标）",
+   "updated": "2026-09-28",
    "width": 256
   },
   "朔州-1": {
@@ -2385,6 +2423,72 @@
    "source": "https://cdn.jlntv.cn/saas/image/2025-03/17bf2681-aad6-4d26-a912-77330c19df57.jpg?sign=1790302894-enjqt-0-79554e661fecd1a7a0b7d604ca1b9ee8",
    "updated": "2026-09-25",
    "width": 255
+  },
+  "苏州4K": {
+   "file": "苏州4K.png",
+   "hash": "da4219c880",
+   "height": 66,
+   "kind": "official",
+   "note": "官方没有这个频道（SBS影像长廊）的台标：看苏州 App 4K 页的 indexpic 域名解析不到，页面只有通用「4K」小图标。按规则用所属电视台台标：苏州广电官网页头 headlogo.jpg（360x66 白底 JPG）左侧的 SBS 环标与字母，裁掉右边「苏州广播电视总台」文字。",
+   "origin": "manual",
+   "source": "https://www.csztv.cn/",
+   "updated": "2026-09-29",
+   "width": 191
+  },
+  "苏州电影娱乐": {
+   "file": "苏州电影娱乐.png",
+   "hash": "1cbdc067c6",
+   "height": 100,
+   "kind": "official",
+   "note": "苏州广电官网「节目时间表」页的频道标签图 ds_on_04.png（144x100 透明 PNG），青底白色 SBS 环标加「4」与「电影娱乐」；右侧标签箭头已裁掉，保留 131x100。看苏州 App 频道接口只有 cover 字段（主持人横幅，4 套是 65x50 小图），没有频道台标。",
+   "origin": "manual",
+   "source": "https://www.csztv.cn/dspd/jmsjb/index.shtml",
+   "updated": "2026-09-29",
+   "width": 131
+  },
+  "苏州社会经济": {
+   "file": "苏州社会经济.png",
+   "hash": "41ad56342d",
+   "height": 100,
+   "kind": "official",
+   "note": "苏州广电官网「节目时间表」页的频道标签图 ds_on_02.png（144x100 透明 PNG），青底白色 SBS 环标加「2」与「社会经济」；右侧标签箭头已裁掉，保留 131x100。看苏州 App 频道接口只有 cover 字段（主持人横幅，4 套是 65x50 小图），没有频道台标。",
+   "origin": "manual",
+   "source": "https://www.csztv.cn/dspd/jmsjb/index.shtml",
+   "updated": "2026-09-29",
+   "width": 131
+  },
+  "苏州生活资讯": {
+   "file": "苏州生活资讯.png",
+   "hash": "a626b12a49",
+   "height": 100,
+   "kind": "official",
+   "note": "苏州广电官网「节目时间表」页的频道标签图 ds_on_05.png（144x100 透明 PNG），青底白色 SBS 环标加「5」与「生活资讯」；右侧标签箭头已裁掉，保留 131x100。看苏州 App 频道接口只有 cover 字段（主持人横幅，4 套是 65x50 小图），没有频道台标。",
+   "origin": "manual",
+   "source": "https://www.csztv.cn/dspd/jmsjb/index.shtml",
+   "updated": "2026-09-29",
+   "width": 131
+  },
+  "苏州文化生活": {
+   "file": "苏州文化生活.png",
+   "hash": "eeecc72699",
+   "height": 100,
+   "kind": "official",
+   "note": "苏州广电官网「节目时间表」页的频道标签图 ds_on_03.png（144x100 透明 PNG），青底白色 SBS 环标加「3」与「文化生活」；右侧标签箭头已裁掉，保留 131x100。看苏州 App 频道接口只有 cover 字段（主持人横幅，4 套是 65x50 小图），没有频道台标。",
+   "origin": "manual",
+   "source": "https://www.csztv.cn/dspd/jmsjb/index.shtml",
+   "updated": "2026-09-29",
+   "width": 131
+  },
+  "苏州新闻综合": {
+   "file": "苏州新闻综合.png",
+   "hash": "f7e8043b27",
+   "height": 100,
+   "kind": "official",
+   "note": "苏州广电官网「节目时间表」页的频道标签图 ds_on_01.png（144x100 透明 PNG），青底白色 SBS 环标与「新闻综合」；右侧标签箭头已裁掉，保留 131x100。看苏州 App 频道接口只有 cover 字段（主持人横幅，4 套是 65x50 小图），没有频道台标。",
+   "origin": "manual",
+   "source": "https://www.csztv.cn/dspd/jmsjb/index.shtml",
+   "updated": "2026-09-29",
+   "width": 131
   },
   "台视高清": {
    "file": "台视高清.png",
@@ -4126,6 +4230,9 @@
   "mgtv/mgtv-344": "湖南娱乐",
   "mgtv/mgtv-346": "湖南都市",
   "mgtv/mgtv-484": "湖南电视剧",
+  "ningxia/#宁夏公共": "宁夏公共",
+  "ningxia/#宁夏卫视": "宁夏卫视",
+  "ningxia/#宁夏文旅": "宁夏文旅",
   "njtv/#南京教育科技": "南京教育科技",
   "njtv/#南京十八·生活": "南京十八·生活",
   "njtv/#南京文旅纪录": "南京文旅纪录",
@@ -4151,7 +4258,10 @@
   "nmtv/nmtv-wuhai": "乌海",
   "nmtv/nmtv-xilingol": "锡林郭勒",
   "qinghai/qinghai-amdo": "安多卫视",
+  "quanzhou-county/#晋江电视台": "晋江电视台",
+  "quanzhou-county/#石狮新闻综合": "石狮新闻综合",
   "quanzhou-minnan/quanzhou-minnan-tv": "泉州闽南语",
+  "quanzhou-minnan/quanzhou-news-tv": "泉州新闻综合",
   "shaanxi/shaanxi-mobile": "陕西移动电视",
   "shaanxi/shaanxi-news": "陕西新闻资讯频道",
   "shaanxi/shaanxi-nonglin": "农林卫视",

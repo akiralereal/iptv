@@ -116,6 +116,8 @@
  *   proxyHls   可选；清单和分片都经本机代理
  *   relayHls   可选；只由本机刷新/改写清单，分片仍由播放器直连 CDN
  *   catchup    可选 'none'，显式关闭该台继承订阅头的全局回看能力
+ *   supplement 可选 true，补充频道：追加在同组所有模块频道之后，不决定分组位置
+ *              （咪咕并进地区分组的频道，见 extractors/migu 的 MIGU_LOCAL_SUPPLEMENTS）
  *
  * sourceId / source 由 extractorManager 统一盖章，模块不用自己填——
  * `xt:` 这个前缀格式是注册表层的事，模块不该知道。
@@ -162,6 +164,7 @@ import nmtv from './nmtv/index.js'
 import qtv from './qtv/index.js'
 import qinghai from './qinghai/index.js'
 import quanzhouMinnan from './quanzhou-minnan/index.js'
+import quanzhouCounty from './quanzhou-county/index.js'
 import shanxi from './shanxi/index.js'
 import shaanxi from './shaanxi/index.js'
 import songjiang from './songjiang/index.js'
@@ -201,6 +204,7 @@ const MODULES = [
   gxtv,
   fjtv,
   quanzhouMinnan,
+  quanzhouCounty,
   jlntv,
   jxntv,
   hebtv,

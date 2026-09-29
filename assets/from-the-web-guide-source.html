@@ -478,6 +478,13 @@
         .field-label { margin-top: 18px; color: var(--text-secondary); font-size: 18px; font-weight: 650; }
         .input-mock { display: flex; align-items: center; height: 50px; margin-top: 10px; padding: 0 16px; border: 1px solid var(--line); border-radius: 11px; background: white; color: var(--text); font-size: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .input-mock.url { border-color: var(--indigo); color: var(--indigo); font-family: "SF Mono", Menlo, monospace; font-size: 18px; font-weight: 650; }
+
+        .grid-mock { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 22px; }
+        .add-mock { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 176px; padding: 18px; border: 2px dashed #c3cbf3; border-radius: 18px; background: var(--indigo-soft); color: var(--indigo); font-size: 22px; font-weight: 720; text-align: center; }
+        .add-mock .plus { font-size: 38px; line-height: 1; }
+        .add-mock small { color: var(--muted); font-size: 16px; font-weight: 500; }
+        .add-mock.hot { border: 3px solid var(--indigo); background: white; box-shadow: 0 16px 34px rgba(79, 99, 233, .2); }
+        .notice-mock { margin-top: 14px; padding: 12px 16px; border: 1px solid #ffe58f; border-radius: 12px; background: #fffbe6; color: #8c6d1f; font-size: 16px; line-height: 1.5; }
     </style>
 </head>
 <body data-slide="0">
@@ -501,21 +508,20 @@
                 <div class="intro-layout">
                     <div class="intro-copy">
                         <span class="eyebrow">From the web · How to</span>
-                        <h1>「来源于网络」的频道<br>自己一条地址加回来</h1>
-                        <p class="lead">内置精选列表以前收过一些<strong>网络上流传的第三方直播源</strong>，现在它们单独放在仓库的 from-the-web 目录里，不再默认提供。需要的话，往后台粘一条地址就能全部加回来。</p>
+                        <h1>「来源于网络」的频道<br>后台点一下就能加回来</h1>
+                        <p class="lead">内置精选列表以前收过一些<strong>网络上流传的第三方直播源</strong>，现在它们单独放在仓库的 from-the-web 目录里，不再默认提供。需要的话，在后台点一下就能全部加回来。</p>
                         <div class="feature-pills">
-                            <span class="feature-pill">只需一条地址</span>
+                            <span class="feature-pill">不用抄地址</span>
                             <span class="feature-pill">约一分钟</span>
                             <span class="feature-pill">不进默认列表</span>
                             <span class="feature-pill">新收录自动出现</span>
                         </div>
                     </div>
                     <div class="overview" aria-hidden="true">
-                        <h3>三步完成</h3>
+                        <h3>两步完成</h3>
                         <ol>
-                            <li><span>1</span><div>复制列表地址<small>仓库 from-the-web 目录里的 m3u 直链</small></div></li>
-                            <li><span>2</span><div>后台添加订阅<small>源管理 → 添加自定义源 → 订阅模式 → 在线 URL</small></div></li>
-                            <li><span>3</span><div>导入并保存<small>频道按地区分组进入「我的频道」</small></div></li>
+                            <li><span>1</span><div>点「来源于网络」卡片<small>源管理 → 自定义源 → 🌏 添加「来源于网络」列表</small></div></li>
+                            <li><span>2</span><div>导入并保存<small>频道按地区分组进入「我的频道」</small></div></li>
                         </ol>
                     </div>
                 </div>
@@ -547,56 +553,59 @@
                 </div>
             </section>
 
-            <!-- 2 复制地址 -->
+            <!-- 2 点卡片 -->
             <section class="slide slide-2">
                 <div class="step-layout">
                     <div class="step-copy">
-                        <span class="step-badge"><span class="num">1</span>复制列表地址</span>
-                        <h2>地址固定不变<br>内容跟着仓库更新</h2>
-                        <p class="lead">打开 GitHub 仓库 <strong>akiralereal/iptv</strong> 的 from-the-web 目录，README 里就有这条直链；或者直接照右边这条抄。以后文件里新收录的链接，订阅刷新后会自动出现，<strong>不用再加一次</strong>。</p>
-                        <div class="tip"><span class="symbol">!</span><span>地址在国内拉取时会自动回退 GitHub 镜像，列表本身不用翻墙就能拿到。</span></div>
-                    </div>
-                    <div class="mock-stack">
-                        <div class="browser">
-                            <div class="browser-bar"><span class="browser-dots"><span></span><span></span><span></span></span><span class="address">https://github.com/akiralereal/iptv/tree/main/from-the-web</span></div>
-                            <div class="repo-list">
-                                <div class="repo-row"><i></i><span>..</span><span></span></div>
-                                <div class="repo-row"><i></i><span>README.md</span><span>说明、收录范围与直链</span></div>
-                                <div class="repo-row hot"><i></i><span>from-the-web.m3u</span><span>「来源于网络」列表</span></div>
-                            </div>
-                            <div class="link-box">https://raw.githubusercontent.com/akiralereal/iptv/main/from-the-web/from-the-web.m3u<small>复制整行，下一步粘到后台</small></div>
-                        </div>
-                        <span class="pointer" style="right: 52px; bottom: 40px;">↑ 复制这一整行</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 3 后台添加 -->
-            <section class="slide slide-3">
-                <div class="step-layout">
-                    <div class="step-copy">
-                        <span class="step-badge"><span class="num">2</span>后台添加订阅</span>
-                        <h2>源管理 → 添加自定义源<br>选「订阅模式」，粘贴地址</h2>
-                        <p class="lead">打开 iPTV 后台的「<strong>🌐 源管理</strong>」，点「<strong>＋ 添加自定义源</strong>」，切到「<strong>订阅模式</strong>」，来源选「<strong>🌐 在线 URL</strong>」，把地址粘进去，起个名字，点「<strong>📥 导入并保存</strong>」。</p>
-                        <div class="tip"><span class="symbol">!</span><span>能不能播取决于你的网络能否访问海外；列表拿到了但频道打不开，多半是这个原因。</span></div>
+                        <span class="step-badge"><span class="num">1</span>点「来源于网络」卡片</span>
+                        <h2>打开源管理<br>点「来源于网络」这张卡片</h2>
+                        <p class="lead">打开 iPTV 后台「<strong>🌐 源管理</strong>」里的「<strong>👤 自定义源</strong>」，点那张带 🌏 的「<strong>来源于网络</strong>」卡片，订阅名称和列表地址会自动填好，<strong>不用抄地址</strong>。</p>
+                        <div class="tip"><span class="symbol">!</span><span>已经加过的话这张卡片不再出现，列表就是那张名为「来源于网络」的源卡片。</span></div>
                     </div>
                     <div class="mock-stack">
                         <div class="browser">
                             <div class="browser-bar"><span class="browser-dots"><span></span><span></span><span></span></span><span class="address">http://你的NAS地址:1905/admin</span></div>
                             <div class="browser-body">
                                 <div class="card-mock">
-                                    <div class="card-title">＋ 添加自定义源 <span class="badge">🌐 源管理</span></div>
-                                    <div class="mode-mock"><span>直连模式</span><span>抓取模式</span><span class="on">订阅模式</span></div>
+                                    <div class="card-title">🌐 源管理</div>
+                                    <div class="mode-mock"><span class="on">👤 自定义源</span><span>🧩 内置抓取模块</span><span>📦 内置源</span></div>
+                                    <div class="grid-mock">
+                                        <div class="add-mock"><span class="plus">＋</span>添加自定义源</div>
+                                        <div class="add-mock hot"><span class="plus">🌏</span>添加「来源于网络」列表<small>港澳台、新马、影视等网络第三方频道</small></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="pointer" style="right: 70px; bottom: -26px;">↑ 点这张卡片</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3 导入并保存 -->
+            <section class="slide slide-3">
+                <div class="step-layout">
+                    <div class="step-copy">
+                        <span class="step-badge"><span class="num">2</span>导入并保存</span>
+                        <h2>表单已经填好<br>点「导入并保存」</h2>
+                        <p class="lead">订阅名称和列表地址都已自动填好，直接点「<strong>📥 导入并保存</strong>」，频道按地区分组进入「我的频道」；以后文件里新收录的链接，订阅刷新后自动出现，<strong>不用再加一次</strong>。</p>
+                        <div class="tip"><span class="symbol">!</span><span>列表在国内会自动回退 GitHub 镜像拉取；但频道能不能播，取决于你的网络能否访问海外。</span></div>
+                    </div>
+                    <div class="mock-stack">
+                        <div class="browser">
+                            <div class="browser-bar"><span class="browser-dots"><span></span><span></span><span></span></span><span class="address">http://你的NAS地址:1905/admin</span></div>
+                            <div class="browser-body">
+                                <div class="card-mock">
+                                    <div class="card-title">来源于网络 <span class="badge">订阅</span></div>
                                     <div class="field-label">订阅名称 *</div>
                                     <div class="input-mock">来源于网络</div>
                                     <div class="field-label">来源 *</div>
-                                    <div class="mode-mock"><span class="on">🌐 在线 URL</span><span>📁 本地文件 / 粘贴</span></div>
                                     <div class="input-mock url">https://raw.githubusercontent.com/akiralereal/iptv/main/from-the-web/from-the-web.m3u</div>
+                                    <div class="notice-mock">🌏 这是仓库 from-the-web 里的网络第三方转发源，不是电视台官方地址：国内直连大多播不了……</div>
                                     <div class="card-row"><span class="btn-mock primary">📥 导入并保存</span><span class="card-hint" style="margin: 0;">解析入库后，频道进入「我的频道」</span></div>
                                 </div>
                             </div>
                         </div>
-                        <span class="pointer" style="right: 60px; bottom: 58px;">← 粘贴地址后点这里</span>
+                        <span class="pointer" style="right: 60px; bottom: 58px;">← 点这里</span>
                     </div>
                 </div>
             </section>

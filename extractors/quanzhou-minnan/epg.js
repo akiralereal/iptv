@@ -1,20 +1,22 @@
 /**
- * 泉州闽南语频道官方节目单。
+ * 泉州新闻综合、闽南语两路官方节目单。
  *
- * 官网闽南语播放页（取流用的同一页，wxqz2.qztv.cn 主、www.qztv.cn 备）下方直接渲染了节目表，
- * 不用登录、不带签名。实测（2026-09-25）：
+ * 官网播放页（取流用的同一页）下方直接渲染了节目表，不用登录、不带签名。按 wxqz2.qztv.cn、
+ * www.qztv.cn、control-center.qztv.cn 的顺序试，三个是同一源站。实测（2026-09-25、09-29）：
  * - 日期标签是完整日期（<div id="day">2026-09-25</div>），给最近七天到今天，没有明天。
  * - 每档写「HH:MM-HH:MM」加节目名；当天最后一档的结束写的是次日时刻（23:50-00:10），按跨零点处理。
- * - 官网偶尔要求阿里云人机验证（页面里带 aliyun_waf），两个入口都被拦时本轮就没有节目单。
+ * - 官网偶尔要求阿里云人机验证（页面里带 aliyun_waf），三个入口都失败时本轮就没有节目单。
  *
- * 和取流链路没有共享状态：只用调用方注入的 fetch，不 import 项目内其它模块。
+ * 和取流链路没有共享状态：只用频道表 channels.js 和调用方注入的 fetch，不 import 项目内其它模块。
  */
-export const EPG_PAGES = Object.freeze([
-  'https://wxqz2.qztv.cn/index/Medias/index/media_id/wq95wqbDnMKyd8KiwqzChnt0w5nChcKofcKh/stream_name/mny.html',
-  'https://www.qztv.cn/index/Medias/index/media_id/wq95wqbDnMKyd8KiwqzChnt0w5nChcKofcKh/stream_name/mny.html',
-])
-const REF = 'quanzhou-minnan-tv'
-const EPG_KEY = 'mny'
+import { CHANNEL_BY_KEY, CHANNELS, SITE_ORIGINS, playerPage } from './channels.js'
+
+/** 某个频道的节目单页，按尝试顺序。 */
+export function epgPages(key) {
+  const channel = CHANNEL_BY_KEY.get(String(key ?? ''))
+  if (!channel) throw new Error('泉州节目单参数非法')
+  return SITE_ORIGINS.map(origin => playerPage(channel, origin))
+}
 const MAX_BYTES = 2 * 1024 * 1024
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -90,14 +92,14 @@ export default {
   days: 1,
 
   channels() {
-    return [{ ref: REF, name: '泉州闽南语', key: EPG_KEY }]
+    return CHANNELS.map(channel => ({ ref: channel.ref, name: channel.name, key: channel.key }))
   },
 
   async programmes(key, day, { fetchImpl = fetch, timeoutMs = 10000 } = {}) {
-    if (key !== EPG_KEY) throw new Error('泉州节目单参数非法')
+    const pages = epgPages(key)
     dayInfo(day)
     let lastError = null
-    for (const page of EPG_PAGES) {
+    for (const page of pages) {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), timeoutMs)
       try {

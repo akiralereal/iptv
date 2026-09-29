@@ -1,13 +1,14 @@
-/** 泉州广播电视台闽南语频道：官网公开接口签发短期 HLS，播放时取签名并全代理。 */
+/** 泉州广播电视台新闻综合、闽南语两路：官网公开接口签发短期 HLS，播放时取签名并全代理。 */
 import { buildChannels, claimsRef, resolveChannel } from './api.js'
 import epg from './epg.js'
 
 export default {
   id: 'quanzhou-minnan',
   name: '泉州',
-  description: '从泉州广播电视台公开播放接口获取闽南语频道的短期签名 HLS。',
+  description: '从泉州广播电视台公开播放接口获取新闻综合、闽南语频道的短期签名 HLS。',
   capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
-  catalogVersion: 1,
+  // 2：加入泉州新闻综合
+  catalogVersion: 2,
   outputGroupName: '福建',
   channelHlsMode: 'proxy',
   defaultRefreshMinutes: 1440,

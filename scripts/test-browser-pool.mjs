@@ -5,12 +5,17 @@
  */
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
+import { existsSync, mkdtempSync, readlinkSync, rmSync, symlinkSync } from 'node:fs'
+import { hostname, tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import {
   BASE_ARGS,
   BrowserPool,
+  clearStaleProfileLock,
   closeBrowser,
   isLaunchTimeoutError,
+  isProfileInUseError,
   launchBrowser,
   launchWithFallback,
   platformArgs,
@@ -182,6 +187,122 @@ await check('回退顺序：全部候选都不可用时给出人能看懂的说�
     exists: () => false,
     launchImpl: async () => { throw new Error('Could not find Chrome (ver. 1)') },
   }), /找不到可用的 Chrome\/Chromium/)
+})
+
+// 与 Chromium 真实残留同构：三个符号链接，SingletonLock 指向「主机名-pid」
+function lockedProfile(lockTarget) {
+  const dir = mkdtempSync(join(tmpdir(), 'iptv-profile-lock-'))
+  symlinkSync(lockTarget, join(dir, 'SingletonLock'))
+  symlinkSync('/tmp/.org.chromium.Chromium.gone/SingletonSocket', join(dir, 'SingletonSocket'))
+  symlinkSync('11266088405643339909', join(dir, 'SingletonCookie'))
+  return dir
+}
+const singletons = dir => ['SingletonLock', 'SingletonSocket', 'SingletonCookie'].filter(name => {
+  try { return Boolean(readlinkSync(join(dir, name))) } catch { return false }
+})
+
+await check('profile 锁：容器重建后主机名变了（issue #153），三个 Singleton 链接全部清掉', async () => {
+  const dir = lockedProfile('3f2a9c1d7e44-123')
+  try {
+    const result = clearStaleProfileLock(dir, { hostname: 'b81e0c55aa01', isAlive: () => true, readCmdline: () => [] })
+    assert.equal(result.cleared, true)
+    assert.match(result.reason, /3f2a9c1d7e44/)
+    assert.deepEqual(singletons(dir), [])
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+await check('profile 锁：同主机但 pid 已不存在（被 SIGKILL / 断电）时清掉', async () => {
+  const dir = lockedProfile('nas-box-4242')
+  try {
+    const result = clearStaleProfileLock(dir, { hostname: 'nas-box', isAlive: () => false, readCmdline: () => { throw new Error('不该读') } })
+    assert.equal(result.cleared, true)
+    assert.deepEqual(singletons(dir), [])
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+await check('profile 锁：容器 restart 后 pid 被别的进程复用时清掉，不让 Chromium 去强杀那个进程', async () => {
+  const dir = lockedProfile('nas-box-45')
+  try {
+    const result = clearStaleProfileLock(dir, {
+      hostname: 'nas-box',
+      isAlive: () => true,
+      readCmdline: () => ['/usr/lib/chromium/chromium', '--user-data-dir=/tmp/puppeteer_dev_chrome_profile-x', `--user-data-dir=${dir}2`],
+    })
+    assert.equal(result.cleared, true)
+    assert.match(result.reason, /复用/)
+    assert.deepEqual(singletons(dir), [])
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+await check('profile 锁：同主机确有 Chromium 正用这个 profile、或读不到进程信息（macOS）时保留', async () => {
+  const dir = lockedProfile('nas-box-45')
+  try {
+    const inUse = clearStaleProfileLock(dir, { hostname: 'nas-box', isAlive: () => true, readCmdline: () => ['/usr/bin/chromium', `--user-data-dir=${dir}`] })
+    assert.deepEqual(inUse, { cleared: false, reason: '' })
+    const unknown = clearStaleProfileLock(dir, { hostname: 'nas-box', isAlive: () => true, readCmdline: () => null })
+    assert.deepEqual(unknown, { cleared: false, reason: '' })
+    assert.deepEqual(singletons(dir), ['SingletonLock', 'SingletonSocket', 'SingletonCookie'])
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+await check('profile 锁：没有锁 / 目录还不存在时什么也不做；默认探测能认出 pid 被非 Chromium 进程复用', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'iptv-profile-lock-'))
+  try {
+    assert.deepEqual(clearStaleProfileLock(dir), { cleared: false, reason: '' })
+    assert.deepEqual(clearStaleProfileLock(join(dir, 'missing')), { cleared: false, reason: '' })
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+  // 默认探测：本进程（node）活着但命令行里没有 --user-data-dir=<dir>，能读 /proc 时应判为 pid 复用
+  const own = lockedProfile(`${hostname()}-${process.pid}`)
+  try {
+    const result = clearStaleProfileLock(own)
+    if (existsSync(`/proc/${process.pid}/cmdline`)) {
+      assert.equal(result.cleared, true)
+      assert.deepEqual(singletons(own), [])
+    } else {
+      assert.equal(result.cleared, false)
+    }
+  } finally { rmSync(own, { recursive: true, force: true }) }
+})
+
+await check('持久 profile 启动前先清锁；清锁出错不挡启动；没有 userDataDir 不碰', async () => {
+  const cleaned = []
+  await launchWithFallback({
+    env: {}, platform: 'unknown', exists: () => false,
+    launchOptions: { userDataDir: '/data/yangshipin/chrome-profile' },
+    clearProfileLock: dir => { cleaned.push(dir); throw new Error('EACCES') },
+    launchImpl: async () => new FakeBrowser(),
+  })
+  assert.deepEqual(cleaned, ['/data/yangshipin/chrome-profile'])
+  await launchWithFallback({
+    env: {}, platform: 'unknown', exists: () => false,
+    clearProfileLock: dir => { cleaned.push(dir); return { cleared: false, reason: '' } },
+    launchImpl: async () => new FakeBrowser(),
+  })
+  assert.deepEqual(cleaned, ['/data/yangshipin/chrome-profile'])
+})
+
+await check('profile 仍被占用（Code 21）时直接说清原因，不再换二进制、也不再报「找不到 Chrome」', async () => {
+  const inUse = new Error('Failed to launch the browser process:  Code: 21\n\nstderr:\n[1:1:0930/1.2:ERROR:chrome/browser/process_singleton_posix.cc:358] The profile appears to be in use by another Chromium process (123) on another computer (3f2a9c1d7e44). Chromium has locked the profile so that it doesn\'t get corrupted.\n')
+  assert.equal(isProfileInUseError(inUse), true)
+  assert.equal(isProfileInUseError(new Error('Failed to launch the browser process:  Code: 210')), false)
+  assert.equal(isProfileInUseError(new Error('spawn ENOENT')), false)
+  assert.equal(isProfileInUseError(new Error('The browser is already running for /iptv/data/yangshipin/chrome-profile. Use a different `userDataDir` or stop the running browser first.')), true)
+  const tried = []
+  await assert.rejects(launchWithFallback({
+    env: { PUPPETEER_EXECUTABLE_PATH: '/usr/bin/chromium' },
+    platform: 'linux',
+    exists: p => p === '/usr/bin/chromium',
+    launchOptions: { userDataDir: '/iptv/data/yangshipin/chrome-profile' },
+    clearProfileLock: () => ({ cleared: false, reason: '' }),
+    launchImpl: async opts => { tried.push(opts.executablePath || opts.channel || 'bundled'); throw inUse },
+  }), error => {
+    assert.match(error.message, /profile 正被另一个 Chromium 进程占用（\/iptv\/data\/yangshipin\/chrome-profile）/)
+    assert.match(error.message, /SingletonLock/)
+    assert.match(error.message, /on another computer \(3f2a9c1d7e44\)/)
+    assert.doesNotMatch(error.message, /找不到可用的 Chrome/)
+    return true
+  })
+  assert.deepEqual(tried, ['/usr/bin/chromium'])
 })
 
 await check('launchBrowser：启动失败自动归还位子；成功后位子随浏览器关闭归还', async () => {

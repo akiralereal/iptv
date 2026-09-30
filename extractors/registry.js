@@ -123,6 +123,7 @@
  * `xt:` 这个前缀格式是注册表层的事，模块不该知道。
  */
 import bilibiliLive from './bilibili-live/index.js'
+import douyinLive from './douyin-live/index.js'
 import asianLive from './asian-live/index.js'
 import anhui from './anhui/index.js'
 import beidou from './beidou/index.js'
@@ -173,6 +174,8 @@ import tianjin from './tianjin/index.js'
 import yangshipin from './yangshipin/index.js'
 import xinjiang from './xinjiang/index.js'
 import xizang from './xizang/index.js'
+import wuxi from './wuxi/index.js'
+import yangzhou from './yangzhou/index.js'
 import yunnan from './yunnan/index.js'
 
 // 模块 id 会进 sourceId 并写进 EXTINF 属性值，不消毒就是注入面。
@@ -189,6 +192,7 @@ const MODULES = [
   lotustv,
   asianLive,
   bilibiliLive,
+  douyinLive,
   huyaLive,
   douyuLive,
   anhui,
@@ -215,6 +219,8 @@ const MODULES = [
   cztv,
   jiaxing,
   jstv,
+  wuxi,
+  yangzhou,
   iqilu,
   sztv,
   meizhouHakka,

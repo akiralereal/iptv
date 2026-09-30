@@ -11,6 +11,7 @@ import {
   SICHUAN_LIVE_MEDIA_HEADERS,
   SICHUAN_MEDIA_HEADERS,
   SICHUAN_PAGE,
+  TokenRejectedError,
   applySichuanSecret,
   signedAssetUrl,
   buildChannels,
@@ -243,7 +244,7 @@ await checkAsync('配置 Token 后抓取频道，并在播放时动态换签', a
   assert.equal(calls.filter(call => call.url.origin + call.url.pathname === SICHUAN_AUTH_API).length, 1)
 })
 
-await checkAsync('签名被提前作废时重签一次；登录过期给出能看懂的提示', async () => {
+await checkAsync('签名被提前作废时重签一次；官网不认 Token 时给出能看懂的提示', async () => {
   clearCache()
   const accessToken = 'account-token'
   const page = Array.from({ length: 8 }, (_, index) => ({
@@ -276,7 +277,61 @@ await checkAsync('签名被提前作废时重签一次；登录过期给出能�
   expired = true
   const denied = await resolveChannel('sichuan-1016553', { config: { accessToken }, fetchImpl, now: 1788666000000 })
   assert.equal(denied.url, '')
-  assert.match(denied.desc, /登录已过期，请在后台重新关联 Token/)
+  assert.match(denied.desc, /官网不认当前 Token（已过期或已在别处失效）/)
+})
+
+await checkAsync('刷新时试换签检验 Token：不认就写进警告但频道照留，网关 HTTP 401 同样处理', async () => {
+  const accessToken = 'account-token'
+  const page = Array.from({ length: 8 }, (_, index) => ({
+    id: String(1016553 + index),
+    name: `四川频道${index + 1}`,
+    playAddress: `https://sub-tvshowf.scgczm.com/live/sctv${index + 1}.m3u8`,
+  })).map(JSON.stringify).join('')
+  let auth = () => response({ rs: 200, data: { auth_key: 'k1', expiresIn: 1800 } })
+  let signs = 0
+  const fetchImpl = async raw => {
+    const url = new URL(String(raw))
+    if (url.href === SICHUAN_PAGE) return response(page)
+    if (url.href === SICHUAN_LIVE_API) return response({ rs: 200, data: [] })
+    if (url.origin + url.pathname === SICHUAN_AUTH_API) {
+      signs++
+      return auth()
+    }
+    throw new Error(`unexpected URL: ${url.href}`)
+  }
+  const tokenWarnings = fetched => fetched.meta.warnings.filter(w => /Token/.test(w))
+
+  clearCache()
+  let fetched = await sichuan.fetch({ accessToken }, { fetchImpl, now: 1788666000000 })
+  assert.equal(fetched.groups[0].dataList.length, 8)
+  assert.deepEqual(tokenWarnings(fetched), [])
+  // 签名进了缓存，播放时不再换签
+  await resolveChannel('sichuan-1016553', {
+    config: { accessToken },
+    fetchImpl: async raw => new URL(String(raw)).pathname === '/live/sctv1.m3u8'
+      ? response('#EXTM3U\n#EXTINF:6,\na.ts\n')
+      : fetchImpl(raw),
+    now: 1788666001000,
+  })
+  assert.equal(signs, 1)
+
+  clearCache()
+  auth = () => response({ trace_id: 'x', rs: 401, error: '请登录后重试', message: '请登录后重试', data: {} })
+  fetched = await sichuan.fetch({ accessToken }, { fetchImpl, now: 1788666000000 })
+  assert.equal(fetched.groups[0].dataList.length, 8)
+  assert.deepEqual(tokenWarnings(fetched), [new TokenRejectedError().message])
+
+  clearCache()
+  auth = () => response('<html>401 Authorization Required</html>', 401)
+  fetched = await sichuan.fetch({ accessToken }, { fetchImpl, now: 1788666000000 })
+  assert.deepEqual(tokenWarnings(fetched), [new TokenRejectedError().message])
+
+  // 别的失败只说检查没做完，不冤枉 Token
+  clearCache()
+  auth = () => response('bad gateway', 502)
+  fetched = await sichuan.fetch({ accessToken }, { fetchImpl, now: 1788666000000 })
+  assert.deepEqual(tokenWarnings(fetched), ['四川 Token 检查没有完成：HTTP 502'])
+  assert.equal(fetched.groups[0].dataList.length, 8)
 })
 
 await checkAsync('缺少凭据时只隐藏固定频道，活动有则显示、无则不显示', async () => {
@@ -298,6 +353,9 @@ check('后台包含四川官网书签工具且不会把 Token 写入播放地址
   assert.match(admin, /sichuanBookmarklet/)
   assert.match(admin, /scgc_useraccountinfo/)
   assert.match(admin, /获取四川 Token/)
+  // 徽标靠这句识别「官网不认 Token」的警告，两边措辞要一致
+  assert.ok(new TokenRejectedError().message.includes('官网不认当前 Token'))
+  assert.match(admin, /includes\('官网不认当前 Token'\)/)
 })
 
 console.log(`\n全部通过：${passed} ✅`)

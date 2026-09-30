@@ -1,5 +1,8 @@
 import { once } from 'node:events'
 
+// 官方调度跳到校验不放行的地址：错误里带上主机和路径（不带签名参数），日志里一眼看出该放行哪个 CDN
+class RedirectRejected extends Error {}
+
 // Forward HTTP-FLV with backpressure, no transcoding and no concatenation on reconnect.
 // Only the resolver uses account credentials; this media transport never receives them.
 export async function pipeFlv(url, req, res, validateUrl, { fetchImpl = fetch } = {}) {
@@ -22,7 +25,9 @@ export async function pipeFlv(url, req, res, validateUrl, { fetchImpl = fetch } 
       const location = response.headers.get('location')
       await response.body?.cancel()
       if (!location || hop === 5) throw new Error('官方直播调度跳转失败')
-      current = validateUrl(new URL(location, current).href)
+      const next = new URL(location, current)
+      try { current = validateUrl(next.href) }
+      catch { throw new RedirectRejected(`官方调度跳到未放行的地址 ${next.host}${next.pathname}`) }
     }
     if (!response.ok || !response.body) { await response.body?.cancel(); throw new Error(`直播媒体 HTTP ${response.status}`) }
     reader = response.body.getReader()
@@ -47,7 +52,8 @@ export async function pipeFlv(url, req, res, validateUrl, { fetchImpl = fetch } 
     const disconnected = res.destroyed || req.aborted
     if (!disconnected && !res.headersSent) { res.writeHead(502, { 'Content-Type': 'text/plain;charset=UTF-8' }); res.end('直播取流失败，请重新连接或检查模块配置') }
     else if (!res.destroyed) res.destroy()
-    return { ok: false, bytes, disconnected, error: /^直播媒体 HTTP \d{3}$/.test(error.message) ? error.message : '直播连接结束或上游异常' }
+    const reported = error instanceof RedirectRejected || /^直播媒体 HTTP \d{3}$/.test(error.message)
+    return { ok: false, bytes, disconnected, error: reported ? error.message : '直播连接结束或上游异常' }
   } finally {
     clearTimeout(timer); ctrl.abort(); await reader?.cancel().catch(() => {}); res.off('close', onClose)
   }

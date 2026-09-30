@@ -159,6 +159,44 @@ function logProxyManifest(pid, req, contentLength) {
   stat.head = 0; stat.get = 0; stat.ok = 0; stat.since = now
 }
 
+const relayStats = new Map()   // 频道|client -> { count, since }  自该客户端上一条清单直出日志以来的清单请求次数
+
+// 清单概况：媒体清单报分片数、目标时长和窗口总长，主清单报档位数
+function describeManifest(text) {
+  const durations = [...text.matchAll(/^#EXTINF:\s*([\d.]+)/gm)].map(match => Number(match[1]))
+  if (!durations.length) {
+    const variants = (text.match(/^#EXT-X-STREAM-INF/gm) || []).length
+    return variants ? `主清单 ${variants} 档` : '无分片'
+  }
+  const target = text.match(/^#EXT-X-TARGETDURATION:\s*(\d+)/m)?.[1] || '?'
+  const total = durations.reduce((sum, duration) => sum + duration, 0)
+  return `${durations.length} 片，目标时长 ${target} 秒，共 ${total.toFixed(1)} 秒`
+}
+
+// 清单直出（/relay/，央视频公开频道在标准订阅里就走这条）此前只有全代理打清单日志：
+// 看不出是哪个播放器在播、多久重拉一次清单（issue #142 飞牛影视加载慢/卡顿无从归属）。
+// 每频道每客户端每分钟一行，带这段时间的清单请求次数（即播放器的重拉节奏）和本次清单概况。
+// 每次请求只多一次 Map 计数；清单正文只在确实要打行时才扫一遍，且在响应发出之后。
+function logRelayManifest(label, req, manifest) {
+  const client = clientOf(req)
+  const key = `${label}|${client.key}`
+  let stat = relayStats.get(key)
+  if (!stat) {
+    if (relayStats.size > 5000) relayStats.clear()   // 诊断辅助表，粗暴清空即可
+    stat = { count: 0, since: 0 }
+    relayStats.set(key, stat)
+  }
+  stat.count++
+  if (!logOncePer(`relay-manifest|${key}`, 60 * 1000)) return
+  const now = Date.now()
+  const seconds = Math.round((now - stat.since) / 1000)
+  const pace = stat.since
+    ? `近 ${seconds} 秒拉清单 ${stat.count} 次，约每 ${(seconds / stat.count).toFixed(1)} 秒一次`
+    : '开始计数'
+  printGrey(`清单直出：${label} ${req.method} -> 200，${describeManifest(manifest)}（${pace}）｜${client.tag}`)
+  stat.count = 0; stat.since = now
+}
+
 // 运行时长
 var hours = 0
 
@@ -1252,7 +1290,7 @@ async function handleRequest(req, res) {
     res.writeHead(200, {
       // 清单直出地址按 HLS 类型应答 HEAD 探测：部分播放器播放前先 HEAD 判断类型，
       // 回 application/json 会被判定「不可播放」（issue #98）
-      'Content-Type': streamType === 'flv' ? 'video/x-flv' : (relayMode || proxyMode) ? 'application/vnd.apple.mpegurl' : 'application/json;charset=UTF-8',
+      'Content-Type': (relayMode || proxyMode) ? 'application/vnd.apple.mpegurl' : streamType === 'flv' ? 'video/x-flv' : 'application/json;charset=UTF-8',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, HEAD, OPTIONS',
       'Access-Control-Allow-Headers': '*'
@@ -1364,6 +1402,7 @@ async function handleRequest(req, res) {
       });
       if (proxyMode) logProxyManifest(proxyPid, req, body.length)
       res.end(body)
+      if (!proxyMode) logRelayManifest(routeUrl.split('?')[0].replace(/^\//, ''), req, manifest)
       return
     }
     // 取清单失败（网络抖动/非 HLS 内容）：回退 302，能跟随跳转的播放器仍可播。

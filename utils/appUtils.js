@@ -415,7 +415,7 @@ async function channel(url, urlUserId, urlToken, client, request = {}) {
   result.manifestUrl = resolved.manifestUrl
   // 平台可要求旧的无后缀入口也直出动态 HLS 清单；用于兼容已收藏/已下发的旧地址。
   result.relayHls = resolved.relayHls === true
-  result.streamType = module.streamType || 'hls'
+  result.streamType = resolved.streamType || module.streamType || 'hls'
   result.validateMediaUrl = resolved.validateMediaUrl
   return result
 }

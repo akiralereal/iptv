@@ -2,6 +2,7 @@
 import {
   buildChannels,
   buildLiveChannels,
+  checkToken,
   claimsRef,
   clearCache,
   fetchChannelList,
@@ -20,7 +21,7 @@ export default {
   channelHlsMode: 'proxy',
   defaultRefreshMinutes: 5,
   refreshConfigurable: false,
-  refreshDescription: '自动管理：每 5 分钟发现公开活动；电视台播放签名按官网给的有效期提前换新，清单、密钥和分片全代理并逐跳加签。',
+  refreshDescription: '自动管理：每 5 分钟发现公开活动并检查 Token 是否仍被官网认可；电视台播放签名按官网给的有效期提前换新，清单、密钥和分片全代理并逐跳加签。',
   helper: 'sichuan-token',
   helperSection: '四川官网登录',
 
@@ -42,15 +43,15 @@ export default {
     let liveRows = []
     if (!accessToken) warnings.push('尚未配置四川官网登录 Token，9 个电视频道暂不加入；公开活动直播不受影响')
     else {
+      const options = { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now }
       try {
-        rows = await fetchChannelList({
-          timeoutMs: ctx.timeoutMs,
-          fetchImpl: ctx.fetchImpl,
-          now: ctx.now,
-        })
+        rows = await fetchChannelList(options)
       } catch (error) {
         warnings.push(error?.message || String(error))
       }
+      // 校验结果只做提示，不增删播放列表里的频道
+      const tokenWarning = await checkToken(rows, accessToken, options)
+      if (tokenWarning) warnings.push(tokenWarning)
     }
     try {
       liveRows = await fetchLiveEvents({ timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl })

@@ -40,7 +40,7 @@ export const DEFAULT_GROUP_ORDER = [
   '公告',
   '体育', '体育-昨天', '体育-今天', '体育-明天',
   '央视', '卫视', '央视频', '亚太', '国际', '影视', '少儿', '教育', '娱乐时尚', '文旅', 'iPanda',
-  'B站', '虎牙', '斗鱼',
+  'B站', '抖音', '虎牙', '斗鱼',
 ]
 
 const LOCAL_GROUP_NAMES = new Set([
@@ -567,6 +567,11 @@ export function applyConfig(groups, config) {
           if (culture !== -1) return culture + 0.5
           const documentary = config.groupOrder.indexOf('纪实')
           if (documentary !== -1) return documentary + 0.5
+        }
+        // 新增抖音直播时，旧配置档里尚无此组；默认贴在 B 站后面。
+        if (direct === -1 && name === '抖音') {
+          const bilibili = config.groupOrder.indexOf('B站')
+          if (bilibili !== -1) return bilibili + 0.5
         }
         return direct
       }

@@ -3943,7 +3943,7 @@
                                 <strong style="color: #333; font-size: 16px;">当前版本</strong>
                             </div>
                             <div style="padding-left: 30px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                                <span id="versionText" style="font-size: 15px; color: #333; font-weight: 600;">v4.23.0</span>
+                                <span id="versionText" style="font-size: 15px; color: #333; font-weight: 600;">v4.24.0</span>
                                 <button class="btn btn-sm" onclick="checkUpdate()" id="checkUpdateBtn">检查更新</button>
                             </div>
                             <div id="updateInfo" style="padding-left: 30px; margin-top: 8px; font-size: 13px; display: none;"></div>
@@ -4307,7 +4307,7 @@
                 // 助手挂在它自己那一段的开头（B 站的扫码登录属于「登录态」那段，
                 // 顶在整个表单最上面会莫名其妙）。没声明 helperSection 的照旧渲染在最外层。
                 if (helper && helper.section && helper.section === section) {
-                    html += extractorHelperHtml(helper.key, secretsSet, config);
+                    html += extractorHelperHtml(helper.key, secretsSet, config, helper.health);
                 }
 
                 if (chunk.some(f => f.group)) {
@@ -4330,7 +4330,7 @@
 
         // 模块可以声明 helper，在自己的卡片里多渲染一块辅助 UI。
         // markup 留在这里而不是模块文件：配套的 CSS、引导弹窗、bookmarklet 代码都在本页。
-        function extractorHelperHtml(key, secretsSet, config) {
+        function extractorHelperHtml(key, secretsSet, config, health) {
             if (key === 'fengshows-bookmarklet') {
                 const configured = !!secretsSet.token;
                 return `<div class="bookmarklet-section" style="margin:0 0 12px;">
@@ -4416,16 +4416,20 @@
             }
             if (key === 'sichuan-token') {
                 const loggedIn = !!(secretsSet && secretsSet.accessToken);
+                // 模块每轮刷新会拿 Token 试换一次签，官网不认时写进健康警告；徽标跟着变，
+                // 否则失效的 Token 仍显示「已配置」，要等播放才报错（#150）。
+                const rejected = loggedIn && ((health && health.warnings) || []).some(w => String(w).includes('官网不认当前 Token'));
+                const badge = rejected ? '⚠️ Token 已失效（请重新获取）' : (loggedIn ? '✅ 已配置 Token（启用 9 个频道）' : '未登录（频道暂不加入）');
                 return `<div class="bookmarklet-section" style="margin:0 0 12px;">
                     <div class="bookmarklet-title">
                         <span>🔑</span><span>四川广电登录态</span>
-                        <span class="login-state-badge ${loggedIn ? 'on' : 'off'}">${loggedIn ? '✅ 已配置 Token（启用 9 个频道）' : '未登录（频道暂不加入）'}</span>
+                        <span class="login-state-badge ${loggedIn && !rejected ? 'on' : 'off'}">${badge}</span>
                     </div>
                     <div class="bookmarklet-actions">
                         <a id="sichuanBookmarklet" class="bookmarklet-link" draggable="true">获取四川 Token</a>
                         <a href="https://www.sctv.com/channelLive" target="_blank" rel="noreferrer">打开四川官网 ↗</a>
                     </div>
-                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;">先在四川官网登录，然后把“获取四川 Token”拖到浏览器书签栏，在已登录的官网页面点击该书签。复制结果粘贴到下方并保存，再点“立即刷新”。兼容官网当前 <code>scgc_userAccountInfo</code> 和历史大小写写法。</div>
+                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;">先在四川官网登录，并确认官网里电视频道能正常播放（官网只在播放时检查登录，页面显示已登录不代表还有效），然后把“获取四川 Token”拖到浏览器书签栏，在该页面点击书签。复制结果粘贴到下方并保存，再点“立即刷新”。兼容官网当前 <code>scgc_userAccountInfo</code> 和历史大小写写法。</div>
                 </div>`;
             }
             return '';
@@ -4669,8 +4673,8 @@
                 </div>
                 <div style="font-size:12px; margin-bottom:12px;">${extractorHealthHtml(m.health || {})}</div>
                 <div style="border-top:1px solid #f5f5f5; padding-top:12px;">
-                    ${m.helperSection ? '' : extractorHelperHtml(m.helper, m.secretsSet || {}, m.config || {})}
-                    ${extractorFieldsHtml(m.id, m.configSchema || [], m.config || {}, m.secretsSet || {}, m.envProvided || {}, m.helperSection ? { key: m.helper, section: m.helperSection } : null)}
+                    ${m.helperSection ? '' : extractorHelperHtml(m.helper, m.secretsSet || {}, m.config || {}, m.health || {})}
+                    ${extractorFieldsHtml(m.id, m.configSchema || [], m.config || {}, m.secretsSet || {}, m.envProvided || {}, m.helperSection ? { key: m.helper, section: m.helperSection, health: m.health || {} } : null)}
                     ${m.refreshConfigurable === false ? `
                     <div style="margin-bottom:12px; padding:10px 12px; border-radius:6px; background:#f7f9fb; color:#666; font-size:12px; line-height:1.6;">
                         <div style="font-weight:600; color:#555; margin-bottom:2px;">自动刷新</div>
@@ -4679,7 +4683,7 @@
                     <div style="margin-bottom:12px;">
                         <label style="display:block; font-size:12px; color:#888;">刷新间隔（分钟）</label>
                         <input type="number" min="${m.minRefreshMinutes || 1}" max="${m.maxRefreshMinutes || 1440}" id="xf-${escapeHtml(m.id)}-__refresh" oninput="setSaveDirty('xt:${escapeHtml(m.id)}')" value="${m.refreshMinutes}" style="width:140px;">
-                        <div style="font-size:12px; color:#888; margin-top:3px;">允许范围 ${m.minRefreshMinutes || 1}–${m.maxRefreshMinutes || 1440} 分钟，默认 ${m.defaultRefreshMinutes} 分钟。${m.id === 'bilibili-live' ? '只决定多久重新挑一次直播间（热门榜换人、主播下播）；播放地址在播放时实时换取，与此无关。过短容易触发风控。' : ''}</div>
+                        <div style="font-size:12px; color:#888; margin-top:3px;">允许范围 ${m.minRefreshMinutes || 1}–${m.maxRefreshMinutes || 1440} 分钟，默认 ${m.defaultRefreshMinutes} 分钟。${m.id === 'bilibili-live' ? '只决定多久重新挑一次直播间（热门榜换人、主播下播）；播放地址在播放时实时换取，与此无关。过短容易触发风控。' : m.id === 'douyin-live' ? '只决定多久重新选一次房间；播放器刷新订阅不会强制重抓。播放时会获取当前地址。' : ''}</div>
                     </div>`}
                     ${hasEditableConfig ? `<button class="btn btn-sm btn-success" data-save-scope="xt:${escapeHtml(m.id)}" onclick="saveExtractorConfig('${escapeHtml(m.id)}')">💾 保存配置</button>` : ''}
                 </div>`;

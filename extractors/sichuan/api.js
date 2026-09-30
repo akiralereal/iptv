@@ -42,6 +42,17 @@ let catalogPending = null
 const signedCache = new Map()
 const signedPending = new Map()
 
+/**
+ * 换签接口不认这个 Token。官网对乱填的、过期的、被别处登录顶掉的 Token 一律回 rs 401「请登录后重试」，
+ * 分不出是哪一种，所以提示不只说「过期」。官网代码还处理了网关直接回 HTTP 401 的情况，一并归到这里。
+ */
+export class TokenRejectedError extends Error {
+  constructor(message = '四川官网不认当前 Token（已过期或已在别处失效），请在官网重新登录、确认能播放电视频道后重新获取') {
+    super(message)
+    this.name = 'TokenRejectedError'
+  }
+}
+
 export function parseCredential(input) {
   let value = String(input ?? '').trim()
   if (!value) return ''
@@ -307,16 +318,19 @@ async function requestSigned(row, accessToken, options = {}) {
   const endpoint = new URL(SICHUAN_AUTH_API)
   endpoint.searchParams.set('streamName', raw.pathname)
   endpoint.searchParams.set('host', raw.hostname)
-  const { text } = await requestText(endpoint, {
+  const response = await request(endpoint, {
     ...options,
     headers: {
       authorization: `bearer ${accessToken}`,
       ...SICHUAN_MEDIA_HEADERS,
     },
   })
+  const text = await response.text()
+  if (response.status === 401) throw new TokenRejectedError()
+  if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText || ''}`.trim())
   let payload
   try { payload = JSON.parse(text) } catch { throw new Error('四川播放鉴权接口没有返回有效 JSON') }
-  if (Number(payload?.rs) === 401) throw new Error('四川官网登录已过期，请在后台重新关联 Token')
+  if (Number(payload?.rs) === 401) throw new TokenRejectedError()
   const data = payload?.data || {}
   const authKey = String(data.auth_key || data.secret || '').replace(/^auth_key=/, '')
   if (Number(payload?.rs) !== 200 || !authKey) {
@@ -396,6 +410,23 @@ async function requestTvManifest(signed, options = {}) {
   const variant = firstVariantUrl(master.text, master.url)
   if (!variant) return master
   return requestManifest(signedAssetUrl(variant, signed.host, signed.authKey), options)
+}
+
+/**
+ * 刷新时拿第一个电视频道换一次签，确认官网还认这个 Token，免得后台显示正常、一播才报错。
+ * 签名照常进缓存，播放时直接复用。返回要挂在后台的警告，没问题时返回空串。
+ */
+export async function checkToken(rows, accessToken, options = {}) {
+  const row = Array.isArray(rows) ? rows[0] : null
+  if (!row) return ''
+  try {
+    await cachedSigned(row, accessToken, options)
+    return ''
+  } catch (error) {
+    if (error instanceof TokenRejectedError) return error.message
+    const reason = error?.name === 'AbortError' ? '请求超时' : (error?.message || String(error))
+    return `四川 Token 检查没有完成：${reason}`
+  }
 }
 
 export function claimsRef(ref) {

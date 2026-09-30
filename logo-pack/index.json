@@ -819,6 +819,17 @@
    "updated": "2026-09-25",
    "width": 195
   },
+  "邗江频道": {
+   "file": "邗江频道.png",
+   "hash": "21998835dd",
+   "height": 36,
+   "kind": "official",
+   "note": "扬州发布 App 频道详情接口 getChannelDetail 的 hostUserIcon（100x100 透明 PNG，彩色飘带标加黑字频道名）。黑字在深色界面上看不清，裁边后铺白底。同接口的 logo / shareLogo 是 1080x608 主持人宣传图，不是台标。",
+   "origin": "manual",
+   "source": "https://share.96189.com/client/app/index.html#/channel/292",
+   "updated": "2026-09-29",
+   "width": 96
+  },
   "和美乡途轮播台": {
    "file": "和美乡途轮播台.png",
    "hash": "f792e07b79",
@@ -1309,6 +1320,17 @@
    "source": "http://wapx.cmvideo.cn:8080/publish/poms/image/5910/019/527/202606181400_1781762407477_H32_1080.webp",
    "updated": "2026-09-25",
    "width": 256
+  },
+  "江都频道": {
+   "file": "江都频道.png",
+   "hash": "2e099e4612",
+   "height": 36,
+   "kind": "official",
+   "note": "扬州发布 App 频道详情接口 getChannelDetail 的 hostUserIcon（100x100 透明 PNG，彩色飘带标加黑字频道名）。黑字在深色界面上看不清，裁边后铺白底。同接口的 logo / shareLogo 是 1080x608 主持人宣传图，不是台标。",
+   "origin": "manual",
+   "source": "https://share.96189.com/client/app/index.html#/channel/290",
+   "updated": "2026-09-29",
+   "width": 96
   },
   "江苏城市": {
    "file": "江苏城市.png",
@@ -2656,6 +2678,51 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "无锡都市资讯": {
+   "file": "无锡都市资讯.png",
+   "hash": "8fed58184a",
+   "height": 180,
+   "origin": "wuxi",
+   "source": "https://bb-img.wifiwx.com/20220801c22666cd9a348a2b0458f97fdcbbb68e.png",
+   "updated": "2026-09-29",
+   "width": 180
+  },
+  "无锡经济": {
+   "file": "无锡经济.png",
+   "hash": "f76075c4b2",
+   "height": 180,
+   "origin": "wuxi",
+   "source": "https://bb-img.wifiwx.com/202208016797793c42b9f64891b93631e045e9a0.png",
+   "updated": "2026-09-29",
+   "width": 180
+  },
+  "无锡生活": {
+   "file": "无锡生活.png",
+   "hash": "4b6383f01b",
+   "height": 180,
+   "origin": "wuxi",
+   "source": "https://bb-img.wifiwx.com/20220801a6fb8ba6058cf329f6b9cda2c009b7dc.png",
+   "updated": "2026-09-29",
+   "width": 180
+  },
+  "无锡新闻综合": {
+   "file": "无锡新闻综合.png",
+   "hash": "c146b0ee60",
+   "height": 180,
+   "origin": "wuxi",
+   "source": "https://bb-img.wifiwx.com/20220801be428e2d4896146a1521f1d12ba3bc1b.png",
+   "updated": "2026-09-29",
+   "width": 180
+  },
+  "无锡娱乐": {
+   "file": "无锡娱乐.png",
+   "hash": "ae22f96d0b",
+   "height": 180,
+   "origin": "wuxi",
+   "source": "https://bb-img.wifiwx.com/20220801ec0e5017ef5adda908172038a3a477f5.png",
+   "updated": "2026-09-29",
+   "width": 180
+  },
   "五星体育": {
    "file": "五星体育.png",
    "hash": "e3ad090a5d",
@@ -2790,6 +2857,28 @@
    "source": "https://cdn.jlntv.cn/saas/image/2025-03/0d8e127d-58a2-493c-8b48-74bb8896e723.jpg?sign=1790302894-zdeoz-0-f106cd47dd55b9edd68388c2d1c03e41",
    "updated": "2026-09-25",
    "width": 256
+  },
+  "扬州民生": {
+   "file": "扬州民生.png",
+   "hash": "2534703a50",
+   "height": 36,
+   "kind": "official",
+   "note": "扬州发布 App 频道详情接口 getChannelDetail 的 hostUserIcon（100x100 透明 PNG，彩色飘带标加黑字频道名）。黑字在深色界面上看不清，裁边后铺白底。同接口的 logo / shareLogo 是 1080x608 主持人宣传图，不是台标。",
+   "origin": "manual",
+   "source": "https://share.96189.com/client/app/index.html#/channel/291",
+   "updated": "2026-09-29",
+   "width": 96
+  },
+  "扬州新闻": {
+   "file": "扬州新闻.png",
+   "hash": "8b150249ab",
+   "height": 36,
+   "kind": "official",
+   "note": "扬州发布 App 频道详情接口 getChannelDetail 的 hostUserIcon（100x100 透明 PNG，彩色飘带标加黑字频道名）。黑字在深色界面上看不清，裁边后铺白底。同接口的 logo / shareLogo 是 1080x608 主持人宣传图，不是台标。",
+   "origin": "manual",
+   "source": "https://share.96189.com/client/app/index.html#/channel/235",
+   "updated": "2026-09-29",
+   "width": 95
   },
   "阳泉新闻综合": {
    "file": "阳泉新闻综合.png",
@@ -4300,6 +4389,11 @@
   "tianjin/tianjin-news": "天津新闻",
   "tianjin/tianjin-satellite": "天津卫视",
   "tianjin/tianjin-sports": "天津体育",
+  "wuxi/wuxi-city": "无锡都市资讯",
+  "wuxi/wuxi-economy": "无锡经济",
+  "wuxi/wuxi-ent": "无锡娱乐",
+  "wuxi/wuxi-life": "无锡生活",
+  "wuxi/wuxi-news": "无锡新闻综合",
   "xinjiang/xjtv-1": "新疆卫视",
   "xinjiang/xjtv-2": "维吾尔语新闻综合",
   "xinjiang/xjtv-3": "哈萨克语新闻综合",
@@ -4383,6 +4477,10 @@
   "yangshipin/ysp-xzws": "西藏卫视",
   "yangshipin/ysp-ynws": "云南卫视",
   "yangshipin/ysp-zjws": "浙江卫视",
+  "yangzhou/#邗江频道": "邗江频道",
+  "yangzhou/#江都频道": "江都频道",
+  "yangzhou/#扬州民生": "扬州民生",
+  "yangzhou/#扬州新闻": "扬州新闻",
   "yunnan/yunnan-lancang": "澜湄国际",
   "yunnan/yunnan-lincang": "临沧综合",
   "yunnan/yunnan-nujiang": "怒江综合",

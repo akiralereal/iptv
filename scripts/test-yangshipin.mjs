@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import yangshipin from '../extractors/yangshipin/index.js'
 import {
@@ -150,6 +153,31 @@ check('自动登录能力会识别无桌面 Linux，macOS 桌面可用', () => {
   assert.equal(browserLoginAvailability({ platform: 'linux', env: {} }).available, false)
   assert.equal(browserLoginAvailability({ platform: 'linux', env: { DISPLAY: ':0' } }).available, true)
   assert.equal(browserLoginAvailability({ platform: 'darwin', env: {} }).available, true)
+})
+
+await checkAsync('会话浏览器不让 puppeteer 接管 SIGTERM / SIGINT：docker stop 时由 app.js 正常关闭，cookie 落盘、锁被删掉', async () => {
+  const profileDir = mkdtempSync(join(tmpdir(), 'ysp-profile-'))
+  let seen
+  const page = {
+    isClosed: () => false,
+    setUserAgent: async () => {},
+    evaluateOnNewDocument: async () => {},
+    setRequestInterception: async () => {},
+    on() {},
+    url: () => 'https://www.yangshipin.cn/tv/home',
+    waitForFunction: async () => {},
+  }
+  const session = new YspBrowserSession({
+    profileDir,
+    launchImpl: async opts => { seen = opts; return { connected: true, once() {}, pages: async () => [page] } },
+  })
+  try {
+    await session.ensureBrowserNow({ visible: false })
+    assert.equal(seen.launchOptions.userDataDir, profileDir)
+    assert.equal(seen.launchOptions.handleSIGTERM, false)
+    assert.equal(seen.launchOptions.handleSIGINT, false)
+    assert.equal('handleSIGHUP' in seen.launchOptions, false)
+  } finally { rmSync(profileDir, { recursive: true, force: true }) }
 })
 
 await checkAsync('官网 SDK 校验异常会清掉内存中的旧账号，不继续误报 VIP 有效', async () => {

@@ -159,6 +159,12 @@ export class YspBrowserSession {
         userDataDir: this.profileDir,
         protocolTimeout: 30_000,
         defaultViewport: visible ? null : { width: 1440, height: 900 },
+        // app.js 自己处理 SIGTERM / SIGINT：browser.close() 让 Chromium 把 cookie 落盘、删掉 Singleton 锁再退出。
+        // puppeteer 默认也挂这两个信号，收到就 SIGKILL 整个进程组（SIGINT 还立刻 process.exit），抢在正常关闭
+        // 之前——docker stop 后锁必然残留，停止前约 30 秒内导入 / 续期的登录 cookie 也会丢（issue #153）。
+        // 进程退出时 puppeteer 的 exit 钩子仍会杀掉没关掉的 Chromium，不留孤儿；SIGHUP 没人接，保持默认。
+        handleSIGINT: false,
+        handleSIGTERM: false,
       },
     })
     this.browser = browser

@@ -187,8 +187,9 @@ function usesProfile(cmdline, userDataDir, cwd, realpath) {
   }
   const own = canonical(userDataDir)
   return cmdline.some(arg => {
-    if (!arg.startsWith('--user-data-dir=')) return false
-    const dir = arg.slice('--user-data-dir='.length)
+    // Chromium 也认单短横线写法 -user-data-dir=
+    const dir = /^--?user-data-dir=(.*)$/.exec(arg)?.[1]
+    if (dir === undefined) return false
     if (isAbsolute(dir)) return canonical(dir) === own
     const base = cwd()
     return base === null || canonical(resolve(base, dir)) === own

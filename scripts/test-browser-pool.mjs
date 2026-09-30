@@ -255,7 +255,7 @@ await check('profile 锁：主机名不同但该 pid 就是本机正开着这个
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
-await check('profile 锁：持有者用别名路径（符号链接 / 结尾斜杠 / 相对路径）打开同一个 profile 也认得出，保留', async () => {
+await check('profile 锁：持有者用别名路径（符号链接 / 结尾斜杠 / 相对路径 / 单短横线）打开同一个 profile 也认得出，保留', async () => {
   const root = mkdtempSync(join(tmpdir(), 'iptv-profile-alias-'))
   try {
     const real = join(root, 'data', 'chrome-profile')
@@ -263,7 +263,7 @@ await check('profile 锁：持有者用别名路径（符号链接 / 结尾斜�
     symlinkSync(join(root, 'data'), join(root, 'alias'))
     symlinkSync('nas-box-45', join(real, 'SingletonLock'))
     const holder = args => ({ hostname: 'nas-box', isAlive: () => true, readCmdline: () => ['/usr/bin/chromium', ...args], readCwd: () => root })
-    for (const arg of [`--user-data-dir=${join(root, 'alias', 'chrome-profile')}`, `--user-data-dir=${real}/`, `--user-data-dir=${root}/./data/chrome-profile`, '--user-data-dir=data/chrome-profile']) {
+    for (const arg of [`--user-data-dir=${join(root, 'alias', 'chrome-profile')}`, `--user-data-dir=${real}/`, `--user-data-dir=${root}/./data/chrome-profile`, '--user-data-dir=data/chrome-profile', `-user-data-dir=${real}`]) {
       assert.deepEqual(clearStaleProfileLock(real, holder([arg])), { cleared: false, reason: '' }, arg)
     }
     // 相对路径但读不到持有者的 cwd：不猜，保留

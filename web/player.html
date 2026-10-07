@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 网页直接播放海外直链时不带本页地址做来源头：NASA+ 等 CDN 放行不带来源的请求、拒绝别家来源
+         （外部播放器本来就不带）。服务端不读 Referer，本页自己的接口不受影响。 -->
+    <meta name="referrer" content="no-referrer">
     <title>播放器 - IPTV</title>
     <style>
         * {
@@ -168,7 +171,7 @@
     <script>
         // 从URL参数获取播放信息
         const urlParams = new URLSearchParams(window.location.search);
-        const videoUrl = urlParams.get('url');
+        const videoUrl = browserPlaybackUrl(urlParams.get('url'));
         const channelName = urlParams.get('name') || '未知频道';
         let streamCleanup = () => {};
         window.addEventListener('pagehide', () => streamCleanup());
@@ -204,6 +207,41 @@
             const text = body.trim();
             if (!text || text.length > 300 || text.startsWith('#EXTM3U') || text.startsWith('<')) return '';
             return text.replace(/^\d+\s+/, '');
+        }
+
+        // 从最高档起播：主清单解析完后把起播档设成分辨率最高（同分辨率取码率最高）的那一档再开始加载，
+        // 之后照常自动升降档，网速跟不上会降。hls.js 默认按测速从中低档起步，几秒后才升上来。单档清单不受影响。
+        function highestLevelIndex(levels) {
+            let best = -1;
+            (levels || []).forEach((level, index) => {
+                const pixels = (level.width || 0) * (level.height || 0);
+                const top = levels[best];
+                const topPixels = top ? (top.width || 0) * (top.height || 0) : -1;
+                if (pixels > topPixels || (pixels === topPixels && (level.bitrate || 0) > (top.bitrate || 0))) best = index;
+            });
+            return best;
+        }
+        function startHlsAtTopLevel(hls) {
+            hls.once(Hls.Events.MANIFEST_PARSED, (event, data) => {
+                const index = highestLevelIndex(data.levels);
+                if (index >= 0) hls.startLevel = index;
+                hls.startLoad();
+            });
+        }
+        // 与管理台内播放一致：咪咕、山东齐鲁与宁波的 CDN 不给网页跨域许可（宁波还拒绝别家来源头），由本机全代理播放。
+        function browserPlaybackUrl(rawUrl, pageUrl = window.location.href) {
+            try {
+                const url = new URL(rawUrl, pageUrl);
+                if (url.origin !== new URL(pageUrl).origin) return rawUrl;
+                const match = url.pathname.match(/^(.*\/)(\d+|iqilu-[a-z0-9]{2,12}|ningbo-[a-z]{2,12})(?:\.m3u8)?$/);
+                if (!match) return rawUrl;
+                let prefix = match[1];
+                if (prefix.endsWith('/proxy/')) return rawUrl;
+                if (prefix.endsWith('/relay/')) prefix = prefix.slice(0, -6);
+                if (/\/(?:proxy|relay)\//i.test(prefix)) return rawUrl;
+                url.pathname = `${prefix}proxy/${match[2]}.m3u8`;
+                return url.href;
+            } catch { return rawUrl; }
         }
 
         // 初始化播放器
@@ -270,8 +308,10 @@
                                     // 央视频等来源每次刷新清单会换 CDN 节点，同一分片序号的地址随之变化；
                                     // hls.js 1.6 起把这当成清单错误，只有一个清晰度时直接放弃，十几秒后
                                     // 停播（issue #142）。内容是同一路流，照常播即可，只记警告。
-                                    ignorePlaylistParsingErrors: true
+                                    ignorePlaylistParsingErrors: true,
+                                    autoStartLoad: false
                                 });
+                                startHlsAtTopLevel(hls);
                                 hls.loadSource(video.src);
                                 hls.attachMedia(video);
                                 streamCleanup = () => hls.destroy();

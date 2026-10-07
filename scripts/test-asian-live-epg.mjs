@@ -310,14 +310,16 @@ await checkAsync('错误路径：HTTP 错误、跳转、非法日期 404、非 J
   await assert.rejects(asianEpg.programmes('ytn', '2026-09-25', { fetchImpl: noRequest }), /参数非法/)
 })
 
-await checkAsync('每个节目单 ref 与显示名都是模块实际产出的频道，两台全登记', async () => {
+await checkAsync('每个节目单 ref 与显示名都是模块实际产出的频道；没接节目单的只有最高档前置的几台', async () => {
   const module = getModule('asian-live')
   assert.equal(module.epg, asianEpg)
   assert.equal(module.capabilities.epg, true)
   assert.doesNotThrow(() => validateModule(module))
   const { groups } = await module.fetch({})
   const emitted = groups.flatMap(group => group.dataList).map(channel => [channel.deferredRef, channel.name])
-  assert.deepEqual(asianEpg.channels().map(channel => [channel.ref, channel.name]), emitted)
+  const listed = asianEpg.channels().map(channel => [channel.ref, channel.name])
+  assert.deepEqual(listed, emitted.filter(([ref]) => listed.some(([epgRef]) => epgRef === ref)))
+  assert.deepEqual(emitted.filter(([ref]) => !listed.some(([epgRef]) => epgRef === ref)).map(([, name]) => name), ['CNA', 'France 24 English', 'France 24 Français', 'World Poker Tour'])
   assert.deepEqual(asianEpg.channels().map(channel => channel.key), ['ytn', 'nhk-world'])
   assert.ok(asianEpg.channels().every(channel => module.claimsRef(channel.ref)))
 })

@@ -1,0 +1,149 @@
+#EXTM3U
+# iPTV 海外频道：在大陆常卡顿或连不上、海外播放流畅的免费直播频道。
+# 用途：「海外频道」抓取模块（extractors/overseas）运行时从仓库拉这份文件，改了推送即生效、不用发版；
+#       默认关闭，用户在后台自己打开；播放器直连，能不能看取决于播放设备的网络。频道按 group-title 并进现有分组、排在组尾。
+# 分工：在大陆也播得顺的放精选列表 IPTV.m3u；只在海外顺的放这里。一台换了归属就把那几行剪过去。
+# 来源：亚洲直播实验台（asian-live-lab）验证过的分发源——Samsung TV Plus、Plex、Rakuten TV、LG Channels、Xumo 等
+#       免费流媒体（FAST）平台，以及 France 24、Arirang 官方；公共直播实验台（public-live-lab）验证过的广播机构
+#       官方入口（Thai PBS、Bloomberg、DW、TRT World、NASA+、Al Jazeera）和 Xumo 上的 Gusto TV。
+#       新增前先在海外出口取一遍主清单、子清单和分片。
+# 地址：主清单把最低档排在最前的，播放器会从最低档起播、先糊一阵。两种办法：最高档地址固定不变的直接写最高档
+#       （同精选列表的 NHL FAST），代价是没有自动降档；或者写官方主清单并标 x-top-first="1"：新镜像播放时由服务端
+#       取一次主清单、把最高档挪到最前再交给播放器，子清单和分片仍由播放器直连，网速不够照常降档、独立字幕轨也在
+#       （extractors/overseas）；服务端取不到主清单时退回直连。最高档地址带会话参数、写死不了的（FUEL TV、MTRSPT1、
+#       Terra Mater WILD、Wipeout Xtra、MovieSphere、FIFA+、Qello Concerts）只能用后者；会话由服务端取主清单时建立，
+#       10-06 用 Globalping 大陆、德国、日本探针取同一份子清单都通，播放设备换了 IP 也能用。另外标了的：Thai PBS、
+#       DW English、TRT World、NASA+、Gusto TV、Arirang。不是多档主清单的地址别标——播放器每次刷新清单都会打到本机；只有单档地址、要由模块拼主清单的
+#       （France 24 Español）得先在 extractors/overseas 的 LADDERS 里登记。
+# 台标：留空时按台名用内置台标库 logo-pack（规则见 LOGO.md）；beIN Sports Xtra 用 Xumo 频道卡，Tennis Channel International 暂无。
+# 实验台备注：澳大利亚赛马直播频道，720p
+#EXTINF:-1 group-title="体育",Sky Racing 1
+https://636ffd31f0e12.streamlock.net/RacingStream1/RacingStream1/playlist.m3u8
+# 实验台备注：澳大利亚赛马直播频道，720p
+#EXTINF:-1 group-title="体育",Sky Racing 2
+https://636ffd31f0e12.streamlock.net/RacingStream2/RacingStream2/playlist.m3u8
+# 实验台备注：英语户外与极限运动频道，最高 1080p
+#EXTINF:-1 group-title="体育",World of Freesports
+https://mainstreammedia-worldoffreesportsintl-rakuten.amagi.tv/1080p-en/index.m3u8
+# 实验台备注：英语极限运动国际频道，最高 1080p
+#EXTINF:-1 x-top-first="1" group-title="体育",FUEL TV
+https://amg01074-fueltv-fueltvemeaen-rakuten-b6j62.amagi.tv/hls/amagi_hls_data_rakutenAA-fueltvemeaen/CDN/master.m3u8
+# 实验台备注：英语赛车赛事与专题频道，最高 1080p
+#EXTINF:-1 group-title="体育",FloRacing
+https://amg02278-amg02278c1-flosports-worldwide-7592.playouts.now.amagi.tv/1080p-cc/index.m3u8
+# 实验台备注：英语体育新闻与数据分析频道，最高 1080p
+#EXTINF:-1 group-title="体育",SportsGrid
+https://sportsgrid-tribal.amagi.tv/playlist1080p.m3u8
+# 实验台备注：ACC 大学体育赛事与专题频道，最高 1080p
+#EXTINF:-1 group-title="体育",ACCDN
+https://raycom-accdn-firetv.amagi.tv/1080p-cc/index.m3u8
+# 实验台备注：Pac-12 大学体育赛事与专题频道，最高 1080p
+#EXTINF:-1 group-title="体育",Pac-12 Insider
+https://pac12-firetv.amagi.tv/1080p-en-cc/index.m3u8
+# 实验台备注：Samsung TV Plus 澳大利亚区体育明星纪实频道，最高 1080p
+#EXTINF:-1 group-title="体育",Trace Sport Stars
+https://lightning-tracesport-samsungau.amagi.tv/playlist1080p.m3u8
+# 实验台备注：beIN 官方免费英语体育频道，最高 1080p
+#EXTINF:-1 tvg-logo="https://image.xumo.com/v1/channels/channel/99991387/168x168.png?type=color_onBlack" group-title="体育",beIN Sports Xtra
+https://bein-xtra-bein.amagi.tv/playlistR1080p.m3u8
+# 实验台备注：FIFA 官方免费 FAST 频道，精选赛事、回放及专题节目，最高 720p
+#EXTINF:-1 x-top-first="1" group-title="体育",FIFA+
+https://d2w9q46ikgrcwx.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-of5cbk3sav3w5/v1/sysdata_s_p_a_fifa_7/samsungheadend_us/latest/main/hls/playlist.m3u8
+# 实验台备注：Tennis Channel 官方国际版 FAST 频道，LG Channels 英国区讯源
+#EXTINF:-1 group-title="体育",Tennis Channel International
+https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01444-tennischannelth-tennischnlintl-lggb/playlist.m3u8
+# 实验台备注：Krave Media 官方 24/7 赛车频道，Samsung TV Plus 澳大利亚区讯源，最高 1080p
+#EXTINF:-1 x-top-first="1" group-title="体育",MTRSPT1
+https://amg02873-kravemedia-mtrspt1-samsungau-2anp4.amagi.tv/playlist/amg02873-kravemedia-mtrspt1-samsungau/playlist.m3u8
+# 实验台备注：FashionTV 官网直播频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",FashionTV Paris L'Original
+https://ftv1.b-cdn.net/bfdbb576-83f7-11f0-9f89-0200170e3e04_1000028043_HLS/manifest.m3u8
+# 实验台备注：频道官网嵌入的英语时尚与生活方式直播，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Global Fashion Channel
+https://pubgfc.teleosmedia.com/linear/globalfashionchannel/globalfashionchannel/playlist.m3u8
+# 实验台备注：Stingray 为 Samsung TV Plus 提供的演唱会频道，最高 1080p
+#EXTINF:-1 x-top-first="1" group-title="娱乐时尚",Qello Concerts
+https://lotus.stingray.com/manifest/qello-qello001-montreal/samsungtvplus/master.m3u8
+# 实验台备注：40media 官方演唱会频道，1080p
+#EXTINF:-1 group-title="娱乐时尚",Totalmusic Concerts
+https://cdn.40mediagroup.com/live/c7eds/Totalmusic_Concerts/SA_LIVE_hls_enc/master.m3u8
+# 实验台备注：英语闯关真人秀 FAST 频道，最高 1080p
+#EXTINF:-1 x-top-first="1" group-title="娱乐时尚",Wipeout Xtra
+https://amg00627-banijaygroup-wipeoutxtraau-samsungau-ashbl.amagi.tv/playlist/amg00627-banijaygroup-wipeoutxtraau-samsungau/playlist.m3u8
+# 实验台备注：英语脱口秀精选 FAST 频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Graham Norton
+https://amg00654-itv-amg00654c35-rakuten-gb-7598.playouts.now.amagi.tv/playlist1080_p.m3u8
+# 实验台备注：英语悬疑与罪案 FAST 频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Mystery TV
+https://aenetworks-mysterytv-rakuten.amagi.tv/1080p-vtt/index.m3u8
+# 实验台备注：西班牙语综合娱乐频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Estrella TV
+https://estrellatv-oando.amagi.tv/playlistR1080p.m3u8
+# 实验台备注：Lionsgate 英语电影 FAST 频道，最高 1080p
+#EXTINF:-1 x-top-first="1" group-title="娱乐时尚",MovieSphere
+https://amg00353-lionsgatefilmsi-moviesphereaus-samsungau-7qzhf.amagi.tv/playlist/amg00353-lionsgatefilmsi-moviesphereaus-samsungau/playlist.m3u8
+# 实验台备注：意大利语综合国际频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Rai Italia
+https://d3k8wzt41aflvx.cloudfront.net/RAIHD/Live.m3u8
+# 实验台备注：意大利语影视娱乐频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Rai World Premium
+https://d3k8wzt41aflvx.cloudfront.net/RAIP/Live.m3u8
+# 实验台备注：意大利语综合娱乐国际频道，最高 1080p
+#EXTINF:-1 group-title="娱乐时尚",Mediaset Italia
+https://d3k8wzt41aflvx.cloudfront.net/Mediaset_AU/Live.m3u8
+# 实验台备注：英语历史纪录片 FAST 频道，最高 1080p
+#EXTINF:-1 group-title="文旅",History Hit
+https://lds-timeline-rakuten.amagi.tv/1080p-cc/index.m3u8
+# 实验台备注：英语自然与野生动物纪录片频道，最高 1080p
+#EXTINF:-1 x-top-first="1" group-title="文旅",Terra Mater WILD
+https://amg01775-amg01775c1-amgplt0343.playout.now3.amagi.tv/playlist/amg01775-amg01775c1-amgplt0343/playlist.m3u8
+# 实验台备注：英语法庭纪实与案件报道频道，最高 1080p
+#EXTINF:-1 group-title="文旅",Court TV
+https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01438-ewscrippscompan-courttv-tablo/playlist.m3u8
+# 实验台备注：英语综合纪录片 FAST 频道，最高 1080p
+#EXTINF:-1 group-title="文旅",Documentary+
+https://ef79b15c8c7c46c7a9de9d33001dbd07.mediatailor.us-west-2.amazonaws.com/v1/master/ba62fe743df0fe93366eba3a257d792884136c7f/LINEAR-859-DOCUMENTARYPLUS-DOCUMENTARYPLUS/mt/documentaryplus/859/hls/master/playlist.m3u8
+# 实验台备注：英语国际旅行与生活方式频道，最高 1080p
+#EXTINF:-1 group-title="文旅",InTravel
+https://amg00861-amg00861c10-rakuten-uk-3152.playouts.now.amagi.tv/1080p/index.m3u8
+# 公共直播实验台：NASA 官方线性频道（航天、科学与 NASA 原创节目），英语，最高 1080p；NASA 官方接口给的 NASAPrime
+# 主清单，最低档 416x234 排第一，标 x-top-first；字幕是内嵌的 CEA-608，跟着视频走
+#EXTINF:-1 x-top-first="1" group-title="文旅",NASA+
+https://ee119c17e6ed643893ff6ae377fe0693.7wzuvg.channel-assembly.mediatailor.us-east-1.amazonaws.com/v1/channel/NASAPrime/NASAPlus.m3u8
+# 公共直播实验台：加拿大英语美食烹饪频道，Xumo 官方分发（直播条目 SIMULCAST、有效期到 2038 年），最高 1080p；
+# 子清单带会话 ID，写主清单；240p 排第一，标 x-top-first
+#EXTINF:-1 x-top-first="1" group-title="文旅",Gusto TV
+https://dbrb49pjoymg4.cloudfront.net/10001/99991328/hls/playlist.m3u8?ads.xumo_channelId=99991328
+# 实验台备注：泰国新闻频道，官方自适应直播最高约 2 Mbps
+#EXTINF:-1 group-title="国际",NEWS1
+https://server1.streamssl.com/stream/news1_mid.m3u8
+# 实验台备注：西班牙语国际新闻高码率直播；官方只有 1080p、360p 两条单档清单，标 x-top-first 后由模块拼成
+# 1080p 在前的两档主清单（extractors/overseas 的 LADDERS 按这条地址认）
+#EXTINF:-1 x-top-first="1" group-title="国际",France 24 Español
+https://live.france24.com/hls/live/2037220-b/F24_ES_HI_HLS/master_5000.m3u8
+# 公共直播实验台：泰国公共电视，新闻、教育与文娱，泰语；最高 1080p；主清单带泰语、英语字幕轨，144p 排第一，标 x-top-first
+#EXTINF:-1 x-top-first="1" group-title="国际",Thai PBS
+https://thaipbs-mcx0wm.cdn.byteark.com/vtt-live/playlist.m3u8
+# 公共直播实验台：Bloomberg 官方亚太版英语财经直播，最高 720p，主清单最高档排第一；入口在 bloomberg.com，大陆连不上
+#EXTINF:-1 group-title="国际",Bloomberg TV Asia
+https://www.bloomberg.com/media-manifest/streams/asia.m3u8
+# 公共直播实验台：Bloomberg 官方欧洲版英语财经直播，最高 720p
+#EXTINF:-1 group-title="国际",Bloomberg TV Europe
+https://www.bloomberg.com/media-manifest/streams/eu.m3u8
+# 公共直播实验台：Bloomberg 官方美国版英语财经直播，最高 720p
+#EXTINF:-1 group-title="国际",Bloomberg TV US
+https://www.bloomberg.com/media-manifest/streams/us.m3u8
+# 公共直播实验台：德国之声英语频道，国际新闻、纪录与文化专题，最高 1080p / 50 帧；主清单带英文字幕轨和 -b 备用线路，
+# 270p 排第一，标 x-top-first
+#EXTINF:-1 x-top-first="1" group-title="国际",DW English
+https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8
+# 公共直播实验台：土耳其广播公司 TRT 的英语国际新闻频道，主清单 1080p 排第一、最高 1440p 排最后，标 x-top-first
+#EXTINF:-1 x-top-first="1" group-title="国际",TRT World
+https://tv-trtworld.medya.trt.com.tr/master.m3u8
+# 公共直播实验台：半岛电视台英语频道，官网直播播放器经 Brightcove 公开播放接口给出的固定入口（不带签名），
+# 主清单 1080p 排第一
+#EXTINF:-1 group-title="国际",Al Jazeera English
+https://live-hls-web-aje-gcp.thehlive.com/AJE/index.m3u8
+# 实验台备注：官方自适应 360p / 540p / 720p；写官方主清单（360p 排第一），标 x-top-first
+#EXTINF:-1 x-top-first="1" group-title="韩国",Arirang
+https://amdlive-ch01-g-ctnd-com.akamaized.net/arirang_1gch/smil:arirang_1gch.smil/playlist.m3u8

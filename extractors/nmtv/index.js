@@ -6,7 +6,7 @@ export default {
   name: '内蒙古',
   description: '内蒙古广电官网 20 路公开频道；无需登录，播放时从加密接口动态取流，清单和媒体全代理。',
   capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
-  catalogVersion: 2,
+  catalogVersion: 3,
   outputGroupName: '内蒙古',
   channelHlsMode: 'proxy',
   defaultRefreshMinutes: 1440,

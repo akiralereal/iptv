@@ -6,7 +6,9 @@
  *
  * 模块开关关掉后都是「不联网、不出现在播放列表、磁盘数据原样保留、
  * 开回来即恢复」：
- *   单模块 enabled（extractors.json）—— 就是唯一真相。
+ *   单模块 enabled（extractors.json）—— 用户在卡片上点过就是唯一真相。
+ *   没点过的不存 enabled，按模块声明的 defaultEnabled（不声明即开）；v4.29.0 及以前
+ *   会把没点过的落成 enabled:true，那批存量配置照旧按存的值来。
  *   代理开关的模块（咪咕→config.js:enableMigu）走自己的 getter。
  *   历史上还有「部署级 enableExtractors」和「文件级 enabled」两层，都已撤：
  *   前者的显式关闭态只在升级时迁移一次（见 #migrateMasterSwitch），后者与前者
@@ -19,6 +21,7 @@
  * 重写——那是要避开的做法，不是要抄的。
  */
 import { existsSync, readFileSync, copyFileSync } from "node:fs"
+import { createHash } from "node:crypto"
 import { writeJsonFileSync } from "./fileUtil.js"
 import { dataPath } from "./paths.js"
 import { sanitizeOpts } from "./channelOpts.js"
@@ -58,7 +61,26 @@ function emptyHealth() {
     channelCount: 0,
     skippedCount: 0,
     warnings: [],
+    // 官网不认模块里配的登录凭证（Token / Cookie）时的提示。后台登录态徽标、模块卡片和
+    // 「源管理」导航红点都只看这一项，不再靠匹配警告措辞；空串表示没发现问题。
+    credentialRejected: '',
+    // 上面那条结论是按哪份生效配置查出来的（credentialConfigKey 摘要）；对不上就作废
+    credentialConfigKey: '',
   }
+}
+
+/**
+ * 生效配置（含环境变量）的摘要。凭证改了却没经后台保存（改 compose 重启、导入备份）时，
+ * 靠它认出缓存里的「凭证被拒」查的是旧凭证。只存截断摘要，不落明文，也不回传前端。
+ */
+function credentialConfigKey(config) {
+  try { return createHash('sha256').update(JSON.stringify(config ?? {})).digest('hex').slice(0, 16) } catch { return '' }
+}
+
+/** 模块在播放时记下的「凭证被拒」；模块没声明或出错都当没发现问题，不能拖垮整个后台状态接口。 */
+function liveCredentialRejected(module, config) {
+  if (typeof module.credentialRejected !== 'function') return ''
+  try { return String(module.credentialRejected(config) || '').slice(0, 300) } catch { return '' }
 }
 
 /**
@@ -544,7 +566,9 @@ class ExtractorManager {
     }
     // 这里原先还有一道 `if (!enableExtractors) return false`。已撤——旧关闭态只在
     // 升级时一次性折进各模块，运行期每张卡片的开关就是唯一真相。详见迁移注释。
-    return this.#entry(module.id).enabled
+    const { enabled } = this.#entry(module.id)
+    if (typeof enabled === 'boolean') return enabled
+    return module.defaultEnabled !== false
   }
 
   #setModuleEnabledValue(module, on) {
@@ -567,9 +591,10 @@ class ExtractorManager {
     // 存了也不会被读（isModuleEnabled 走 getter），只会让看 extractors.json 的人
     // 以为模块被禁用了。
     const proxied = typeof getModule(id)?.enabledGetter === 'function'
-    if (proxied) delete entry.enabled
-    // 新模块和从未保存过开关的存量模块默认启用；用户已经明确保存的 false 原样保留。
-    else if (typeof entry.enabled !== 'boolean') entry.enabled = true
+    // 没点过的不落值：默认开关看模块声明的 defaultEnabled（见 isModuleEnabled），新模块以后改默认值
+    // 存量用户跟得上。注意 v4.29.0 及以前会把这里落成 enabled:true，所以那时已有的模块改 defaultEnabled
+    // 对升级上来的部署不生效，真要改得另写一次性迁移。
+    if (proxied || (entry.enabled !== undefined && typeof entry.enabled !== 'boolean')) delete entry.enabled
     if (!isPlainObject(entry.config)) entry.config = {}
     normalizeLegacyConfig(getModule(id), entry.config)
     return entry
@@ -609,6 +634,7 @@ class ExtractorManager {
       const cacheEntry = this.#cacheEntry(module.id)
       const cachedChannelCount = cacheEntry.groups.reduce(
         (sum, group) => sum + (group?.dataList?.length || 0), 0)
+      const effective = this.effectiveConfig(module)
       const health = {
         ...emptyHealth(),
         ...cacheEntry.health,
@@ -616,8 +642,11 @@ class ExtractorManager {
         // 显式告诉前端，避免卡片出现「失败 · 16 频道」却不解释链接为何还在。
         usingCachedChannels: ['failed', 'risk'].includes(cacheEntry.health.status)
           && cachedChannelCount > 0,
+        // 刷新时的检查结果之外，播放时才发现凭证被拒的模块也要立刻反映到后台，不等下一轮刷新
+        credentialRejected: (cacheEntry.health.credentialConfigKey === credentialConfigKey(effective)
+          ? cacheEntry.health.credentialRejected : '') || liveCredentialRejected(module, effective),
       }
-      const effective = this.effectiveConfig(module)
+      delete health.credentialConfigKey
       const enabled = this.isModuleEnabled(module)
       const { config, secretsSet } = redactConfig(module, effective)
       // 值来自环境变量而非后台时要让用户知道，否则会遇到「后台看着是空的、
@@ -655,6 +684,12 @@ class ExtractorManager {
         refreshConfigurable: module.refreshConfigurable !== false,
         refreshDescription: module.refreshDescription || '',
         health,
+        // 详情弹窗列「抓到了哪些频道」（issue #164）：只给名字，地址等不出后台。
+        // 来自缓存，关掉的模块也保留关闭前最后一轮；没抓到过就是空数组。
+        channelGroups: cacheEntry.groups.map(group => ({
+          name: group.name,
+          channels: group.dataList.map(channel => channel?.name).filter(Boolean),
+        })).filter(group => group.channels.length),
       }
     })
     return {
@@ -684,7 +719,8 @@ class ExtractorManager {
     } catch (error) {
       // 写盘被拒（配置文件损坏）：内存回滚，保证「接口报失败 ⇒ 开关没变」——
       // 否则开关在内存里已翻转并即刻影响抓取，重启后又弹回，与报错自相矛盾。
-      entry.enabled = prev
+      if (prev === undefined) delete entry.enabled
+      else entry.enabled = prev
       throw error
     }
     return this.getState()
@@ -741,6 +777,8 @@ class ExtractorManager {
     cacheEntry.health.lastSuccessAt = null
     cacheEntry.health.nextRetryAt = null
     cacheEntry.health.consecutiveFailures = 0
+    // 凭证可能刚换过：旧结论作废，紧接着那轮重抓会重新检查
+    cacheEntry.health.credentialRejected = ''
     this.#saveCache()
     return this.getState()
   }
@@ -758,7 +796,7 @@ class ExtractorManager {
    * 记账。健康状态是显式结构，不靠把 lastUpdated 往回拨来编码退避——
    * 那样 UI 上的「上次更新」既不是上次成功也不是上次尝试，谁也看不懂。
    */
-  #recordSuccess(id, groups, meta) {
+  #recordSuccess(id, groups, meta, configKey = '') {
     const entry = this.#cacheEntry(id)
     const catalogVersion = getModule(id)?.catalogVersion
     const count = groups.reduce((sum, group) => sum + (group.dataList?.length || 0), 0)
@@ -766,6 +804,8 @@ class ExtractorManager {
     entry.fetchedAt = Date.now()
     if (catalogVersion != null) entry.catalogVersion = catalogVersion
     else delete entry.catalogVersion
+    // 只沿用同一份配置查出来的结论；凭证换过（哪怕没经后台保存）就不算数
+    const previousRejected = entry.health?.credentialConfigKey === configKey ? (entry.health?.credentialRejected || '') : ''
     entry.health = {
       ...emptyHealth(),
       status: count > 0 ? 'ok' : 'empty',
@@ -774,6 +814,11 @@ class ExtractorManager {
       channelCount: count,
       skippedCount: meta?.skipped?.length || 0,
       warnings: (meta?.warnings || []).slice(0, 5),
+      // 这轮凭证没查成（超时、502）不等于没问题：沿用上一轮的结论，免得提醒时有时无
+      credentialRejected: meta?.credentialRejected === undefined
+        ? previousRejected
+        : String(meta.credentialRejected || '').slice(0, 300),
+      credentialConfigKey: configKey,
     }
   }
 
@@ -901,7 +946,7 @@ class ExtractorManager {
         `${module.name} 超过 ${MODULE_TIMEOUT_MS / 1000}s 未返回`,
       )
       const groups = normalizeGroups(payload?.groups)
-      this.#recordSuccess(module.id, groups, payload?.meta)
+      this.#recordSuccess(module.id, groups, payload?.meta, credentialConfigKey(config))
       const health = this.#cacheEntry(module.id).health
       const note = health.skippedCount ? `，跳过 ${health.skippedCount}` : ''
       printGreen(`抓取模块 ${module.name}：${health.channelCount} 个频道${note}`)
@@ -915,8 +960,10 @@ class ExtractorManager {
       // 本轮开跑后配置又变了：把 updateModuleConfig 置下的「立刻重抓」信号
       // （lastSuccessAt=null）还原——上面的记账整份重建了 health，会把它抹掉；
       // 抹掉的话新配置要等满整个刷新周期（B 站 45 分钟、咪咕 6 小时）才生效。
+      // 凭证结论同理：那是按旧配置查的，updateModuleConfig 已作废，别让它写回来冤枉新凭证。
       if ((this.configGen.get(module.id) || 0) !== genAtStart) {
         this.#cacheEntry(module.id).health.lastSuccessAt = null
+        this.#cacheEntry(module.id).health.credentialRejected = ''
       }
     }
   }

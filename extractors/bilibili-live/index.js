@@ -9,7 +9,7 @@
  * 表现为「每隔一段时间全部失效、手动刷新才恢复」（issue #120）——改成与虎牙 /
  * 斗鱼同款的播放时解析 + 本机中继清单后，播放列表里的地址永远有效。
  */
-import { fetchRoom, resolveRoom, claimsRef, clearResolveCache, parseRoomList, mapLimit, areaList, topRoomsOfArea, qrLoginStart, qrLoginPoll, RiskControlError, RoomOfflineError, BILIBILI_GROUP, DEFAULT_MIN_ONLINE } from './api.js'
+import { fetchRoom, resolveRoom, claimsRef, clearResolveCache, checkLogin, parseRoomList, mapLimit, areaList, topRoomsOfArea, qrLoginStart, qrLoginPoll, RiskControlError, RoomOfflineError, BILIBILI_GROUP, DEFAULT_MIN_ONLINE } from './api.js'
 
 // 并发上限。B 站对短时间内的大量请求会回 -352，实测 3 路是安全且够快的折中；
 // 外部源那边「串行 + 每个之间硬睡 2 秒」的做法在房间数上去之后是分钟级，不抄。
@@ -264,13 +264,24 @@ export default {
     },
   ],
 
+  // 登录态失效时 B 站照样给流、只是封顶超清，播放时分不出来，只能刷新时问
+  credentialCheck: { refresh: true, playback: false, degrade: '登录态失效时 B 站照样给流，画质封顶「超清」' },
+
   /**
    * @param {object} config 已由 extractorManager 按 configSchema 校验并补齐默认值
    * @param {object} ctx    { timeoutMs, signal }
    */
   async fetch(config, ctx = {}) {
     const manualRefs = parseRoomList(config.rooms)
-    const autoResult = await collectTopRooms(config, ctx)
+    const cookie = config.sessdata ? `SESSDATA=${config.sessdata}` : ''
+    // 登录态检查只做提示：失效时 B 站照样给流（封顶超清），频道照常抓
+    const [autoResult, login] = await Promise.all([
+      collectTopRooms(config, ctx),
+      checkLogin(cookie, { timeoutMs: ctx.timeoutMs || 10000, fetchImpl: ctx.fetchImpl }),
+    ])
+    const loginWarnings = login.warning ? [login.warning] : []
+    // 没查成（超时、412）不下结论，后台沿用上一轮（registry.js）
+    const credentialRejected = login.warning ? undefined : (login.rejected || '')
 
     const refs = mergeRoomRefs(manualRefs, autoResult.rooms)
 
@@ -286,20 +297,21 @@ export default {
         groups: [],
         meta: {
           skipped: [],
-          warnings: [...autoResult.warnings, '没有可抓的直播间——填几个房间号，或在「自动加入热门直播间的分区」里填个分区名'],
+          warnings: [...autoResult.warnings, ...loginWarnings, '没有可抓的直播间——填几个房间号，或在「自动加入热门直播间的分区」里填个分区名'],
+          credentialRejected,
         },
       }
     }
 
     const options = {
-      cookie: config.sessdata ? `SESSDATA=${config.sessdata}` : '',
+      cookie,
       preferAvc: config.preferAvc !== false,
       timeoutMs: ctx.timeoutMs || 10000,
       fetchImpl: ctx.fetchImpl,
     }
 
     const skipped = []
-    const warnings = [...autoResult.warnings]
+    const warnings = [...autoResult.warnings, ...loginWarnings]
     let riskControl = null
     // 第一条「真出错」（非未开播）的原话，供整轮失败时归因——skipped[0] 靠不住，
     // 它多半是「未开播」这个被明确定义为正常状态的原因。
@@ -350,7 +362,7 @@ export default {
 
     return {
       groups,
-      meta: { skipped, warnings, requested: refs.length, hardErrors },
+      meta: { skipped, warnings, requested: refs.length, hardErrors, credentialRejected },
     }
   },
 

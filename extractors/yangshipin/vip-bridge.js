@@ -52,6 +52,14 @@ const READY_TIMEOUT_MS = 25_000
 const UPSTREAM_KICK_INTERVAL_MS = 1_500
 const UPSTREAM_KICK_STALE_MS = 1_000
 const MAX_ACTIVE_CHANNELS = 3
+// 预热页：起桥最慢的是「开新页 → 等官网频道列表 → 点台后官网首次加载播放器和解扰模块」，NAS 上实测
+// 首片要 8～14 秒。所以起好一台后备一个已加载好官网的页面，切台直接拿它点台（本机实验点台到首片
+// 1.2～1.8 秒，现开页面要 4～5 秒）。官网页面一打开就自动播默认台，预热页建在后台标签、用请求拦截挡掉
+// 分片和清单，闲置时不下载不解码；认领时关拦截、切到前台再点台；浏览器回收时随之关掉，不会让浏览器常驻。
+// 只能在账号已确认（基页读账号、该续期的已续完）之后才开新的官网页：官网登录 SDK 每个页面加载时都会
+// 检查 endtime，剩不到 10 分钟就拿刷新令牌续期，续期会轮换令牌、没有跨页互斥，失败时清空全部登录 cookie。
+// 两个页面同时加载就会同时续期，后到的拿着已作废的旧令牌失败，把整个 profile 的登录清掉。v4.28.0 冷起时
+// 让播放页和账号基页并行加载就是这样把账号登出的；放久了重开预热页也会多出这种时刻，所以都不做。
 const MAX_SEGMENT_BYTES = 16 * 1024 * 1024
 const MAX_TRACK_BYTES = 64 * 1024 * 1024
 const QUIESCE_TIMEOUT_MS = 2_000
@@ -268,6 +276,55 @@ function prefixPath(accessPrefix, path) {
   return `${prefix}${path}`
 }
 
+const firstLine = error => String(error?.message || error || '未知错误').split('\n')[0]
+
+/** 预热页闲置时要挡的请求：媒体分片和清单（默认台的），其余照常放行。 */
+export function isParkedMediaRequest(url, resourceType = '') {
+  return resourceType === 'media' || /\.(?:ts|m4s|mp4|aac|m3u8)(?:[?#]|$)/i.test(String(url || ''))
+}
+
+// 每个会员页在官网脚本运行前装好的钩子（puppeteer 序列化后注入，必须自包含）。
+function installPageHooks() {
+  window.__yspMseChunks = []
+  // 官网播放器是 hls.js 的定制版，以 window.Hls 挂出；这里截获这次赋值，把它 new 出来的
+  // 实例记下来，就绪时才能催它立刻刷新上游清单（见 kickPlaylistReload）。
+  window.__yspHlsInstances = []
+  let realHls
+  Object.defineProperty(window, 'Hls', {
+    configurable: true,
+    enumerable: true,
+    get() { return realHls },
+    set(value) {
+      if (typeof value !== 'function') { realHls = value; return }
+      const Wrapped = function (...args) {
+        const instance = new value(...args)
+        window.__yspHlsInstances.push(instance)
+        return instance
+      }
+      Object.setPrototypeOf(Wrapped, value)
+      Wrapped.prototype = value.prototype
+      realHls = Wrapped
+    },
+  })
+  const nativeAdd = MediaSource.prototype.addSourceBuffer
+  MediaSource.prototype.addSourceBuffer = function (mime) {
+    const source = nativeAdd.call(this, mime)
+    source.__yspMime = mime
+    return source
+  }
+  const nativeAppend = SourceBuffer.prototype.appendBuffer
+  SourceBuffer.prototype.appendBuffer = function (data) {
+    try {
+      const bytes = data instanceof ArrayBuffer
+        ? new Uint8Array(data)
+        : new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+      window.__yspMseChunks.push({ mime: this.__yspMime || '', data: bytes.slice().buffer })
+      if (window.__yspMseChunks.length > 24) window.__yspMseChunks.shift()
+    } catch { /* 仍让官网播放器继续 */ }
+    return nativeAppend.call(this, data)
+  }
+}
+
 // 在页面里把捕获的 fMP4 块转成 base64 交给 Node。
 // 必须用 FileReader 这种原生编码：之前的 String.fromCharCode(...bytes.subarray(i, i + 32768))
 // 一次把 32768 个字节当参数压栈，Mac 上默认 1MB 栈没事，Docker 镜像里 Alpine Chromium 被压到
@@ -322,6 +379,7 @@ export class VipMseBridge {
     this.streams = new Map()
     this.starts = new Map()
     this.pages = new Set()
+    this.spare = null
     this.inFlight = new Set()
     this.warming = null
     this.startQueue = Promise.resolve()
@@ -440,60 +498,19 @@ ${video}
       await this.stop(oldest[0], oldest[1])
     }
 
+    // 先读账号（该续期的由基页续完）再碰任何新的官网页面，见文件开头「预热页」一段
     const browser = await this.warm()
     this.assertAvailable(generation)
-    let page
+    let holder = null
     try {
-      page = await browser.newPage()
-      this.pages.add(page)
-      const upstream = { lastPlaylistAt: 0 }
-      this.watchUpstreamPlaylist(page, channel, upstream)
-      await page.setUserAgent(BROWSER_UA)
-      await page.evaluateOnNewDocument(() => {
-        window.__yspMseChunks = []
-        // 官网播放器是 hls.js 的定制版，以 window.Hls 挂出；这里截获这次赋值，把它 new 出来的
-        // 实例记下来，就绪时才能催它立刻刷新上游清单（见 kickPlaylistReload）。
-        window.__yspHlsInstances = []
-        let realHls
-        Object.defineProperty(window, 'Hls', {
-          configurable: true,
-          enumerable: true,
-          get() { return realHls },
-          set(value) {
-            if (typeof value !== 'function') { realHls = value; return }
-            const Wrapped = function (...args) {
-              const instance = new value(...args)
-              window.__yspHlsInstances.push(instance)
-              return instance
-            }
-            Object.setPrototypeOf(Wrapped, value)
-            Wrapped.prototype = value.prototype
-            realHls = Wrapped
-          },
-        })
-        const nativeAdd = MediaSource.prototype.addSourceBuffer
-        MediaSource.prototype.addSourceBuffer = function (mime) {
-          const source = nativeAdd.call(this, mime)
-          source.__yspMime = mime
-          return source
-        }
-        const nativeAppend = SourceBuffer.prototype.appendBuffer
-        SourceBuffer.prototype.appendBuffer = function (data) {
-          try {
-            const bytes = data instanceof ArrayBuffer
-              ? new Uint8Array(data)
-              : new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
-            window.__yspMseChunks.push({ mime: this.__yspMime || '', data: bytes.slice().buffer })
-            if (window.__yspMseChunks.length > 24) window.__yspMseChunks.shift()
-          } catch { /* 仍让官网播放器继续 */ }
-          return nativeAppend.call(this, data)
-        }
-      })
-      await page.goto(YSP_HOME, { waitUntil: 'domcontentloaded', timeout: 30_000 })
-      await page.waitForFunction(
-        () => document.querySelectorAll('.tv-main-con-r-list-left-imga').length >= 40,
-        { timeout: 30_000 },
-      )
+      holder = await this.takeSpare(generation)
+      const fromSpare = Boolean(holder)
+      if (!holder) {
+        holder = { page: null, upstream: { lastPlaylistAt: 0, channel: null } }
+        await this.openBridgePage(browser, holder)
+      }
+      const { page, upstream } = holder
+      upstream.channel = channel
       this.assertAvailable(generation)
       const pageReadyAt = Date.now()
 
@@ -541,7 +558,7 @@ ${video}
           const filled = enoughSegments && (seconds >= this.readyMinMediaS || Date.now() - threeAt >= this.readyMediaWaitMs)
           if (filled || Date.now() - firstAt >= this.readyTopUpMs) {
             const media = await this.mediaState(state)
-            this.logReady(state, { queuedAt, startedAt, pageReadyAt, firstAt, filled, media, kicked, seconds })
+            this.logReady(state, { queuedAt, startedAt, pageReadyAt, firstAt, filled, media, kicked, seconds, fromSpare })
             return
           }
         }
@@ -549,23 +566,142 @@ ${video}
       try {
         await state.ready
         this.assertAvailable(generation)
-        return state
       } catch (error) {
         await this.stop(channel.id, state)
         throw error
       }
+      // 这一台起好了，给下一次切台备页
+      this.prepareSpare()
+      return state
     } catch (error) {
-      if (page) this.pages.delete(page)
-      if (page && !page.isClosed()) try { await page.close() } catch { /* browser 可能已关闭 */ }
+      await this.discardPage(holder?.page)
       throw error
     }
   }
 
   /**
+   * 开一个会员页并加载到官网频道列表；parked 时是预热页：在后台标签建（不把正在播的页挤到后台）、
+   * 挡住媒体请求。页面一建好就登记到 holder.page，失败时由调用方关。
+   * 等频道列表用定时轮询：puppeteer 默认按 requestAnimationFrame 轮询，后台标签不跑 rAF，会一直等到超时。
+   */
+  async openBridgePage(browser, holder, { parked = false } = {}) {
+    // 后台建页被拒（个别 Chromium 构建）就退回普通建页：被挤到后台的页实测照常播放
+    const page = parked
+      ? await browser.newPage({ background: true }).catch(() => browser.newPage())
+      : await browser.newPage()
+    holder.page = page
+    this.pages.add(page)
+    this.watchUpstreamPlaylist(page, holder.upstream)
+    await page.setUserAgent(BROWSER_UA)
+    await page.evaluateOnNewDocument(installPageHooks)
+    if (parked) {
+      holder.parkHandler = request => {
+        const blocked = isParkedMediaRequest(request.url(), request.resourceType())
+        ;(blocked ? request.abort() : request.continue()).catch(() => {})
+      }
+      page.on('request', holder.parkHandler)
+      await page.setRequestInterception(true)
+    }
+    await page.goto(YSP_HOME, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+    await page.waitForFunction(
+      () => document.querySelectorAll('.tv-main-con-r-list-left-imga').length >= 40,
+      { timeout: 30_000, polling: 250 },
+    )
+    return page
+  }
+
+  /**
+   * 认领预热页：先关拦截（已挂起的请求随之放行）再摘处理器，然后切到前台再点台——
+   * Chrome 对从没显示过的后台标签会推迟起播媒体。
+   */
+  async unparkPage(holder) {
+    if (!holder.parkHandler) return
+    await holder.page.setRequestInterception(false)
+    holder.page.off('request', holder.parkHandler)
+    holder.parkHandler = null
+    await holder.page.bringToFront()
+  }
+
+  /**
+   * 给下一次起桥备一个预热页（见文件开头「预热页」一段）。已有就不再开；浏览器换过的旧页丢掉重备。
+   * 只在账号刚确认过之后调用（起桥就绪后、takeSpare 里 warm 之后），不能和别的官网页同时加载。
+   * 只在后台浏览器开着、没在关联登录时备；失败只记一行，下次起桥照旧现开页面。
+   */
+  prepareSpare() {
+    const browser = this.browserSession.browser
+    if (this.spare && this.spare.browser === browser && browser?.connected) return
+    this.dropSpare()
+    if (this.suspended || !browser?.connected || this.browserSession.visible) return
+    const generation = this.generation
+    const spare = {
+      browser, generation, page: null, upstream: { lastPlaylistAt: 0, channel: null },
+      parkHandler: null, settled: false, dropped: false, createdAt: Date.now(),
+    }
+    this.spare = spare
+    spare.ready = this.trackTask((async () => {
+      try {
+        await this.openBridgePage(browser, spare, { parked: true })
+        if (spare.dropped || generation !== this.generation || this.suspended) throw new Error('预热页已作废')
+        if (this.traceNetwork) this.logger(`预热页就绪：${((Date.now() - spare.createdAt) / 1000).toFixed(1)} 秒`)
+        return true
+      } catch (error) {
+        if (this.spare === spare) this.spare = null
+        await this.discardPage(spare.page)
+        if (!spare.dropped && browser.connected && generation === this.generation) {
+          this.logger(`预热页准备失败，下次起桥现开页面：${firstLine(error)}`)
+        }
+        return false
+      } finally {
+        spare.settled = true
+      }
+    })())
+  }
+
+  /**
+   * 认领预热页：还在加载的就等它（总不会比现开一个慢），放开拦截后交给起桥流程点台。
+   * 拿不到（加载失败、浏览器换过、登录切换过）返回 null，由调用方现开页面。
+   */
+  async takeSpare(generation) {
+    this.prepareSpare()
+    const spare = this.spare
+    if (!spare) return null
+    this.spare = null
+    const ok = await spare.ready
+    if (!ok || spare.generation !== generation || !spare.page || spare.page.isClosed()) {
+      await this.discardPage(spare.page)
+      return null
+    }
+    try {
+      await this.unparkPage(spare)
+      return spare
+    } catch (error) {
+      this.logger(`预热页放开拦截失败，改为现开页面：${firstLine(error)}`)
+      await this.discardPage(spare.page)
+      return null
+    }
+  }
+
+  /** 丢掉当前预热页；还在加载的由它自己的任务看到 dropped 后关页。 */
+  dropSpare() {
+    const spare = this.spare
+    if (!spare) return
+    this.spare = null
+    spare.dropped = true
+    if (spare.settled) this.discardPage(spare.page).catch(() => {})
+  }
+
+  async discardPage(page) {
+    if (!page) return
+    this.pages.delete(page)
+    if (!page.isClosed?.()) try { await page.close() } catch { /* browser 可能已关闭 */ }
+  }
+
+  /**
    * 记录官网播放器每次拉到上游清单的时刻（催刷新用）；mdebug=1 时再读正文打一行摘要
    * （TARGETDURATION、序号、片数），用来对照它续拉分片的节奏。不记媒体分片本身。
+   * 预热页认领前还不知道是哪个台，频道在认领时写进 upstream.channel。
    */
-  watchUpstreamPlaylist(page, channel, upstream) {
+  watchUpstreamPlaylist(page, upstream) {
     page.on('response', response => {
       const url = response.url()
       if (!/\.m3u8(?:[?#]|$)/i.test(url)) return
@@ -576,7 +712,7 @@ ${video}
         const sequence = (text.match(/#EXT-X-MEDIA-SEQUENCE:(\d+)/) || [])[1]
         const durations = [...text.matchAll(/#EXTINF:([\d.]+)/g)].map(match => Number(match[1]))
         const total = durations.reduce((sum, value) => sum + value, 0)
-        this.logger(`${channel.name} 官网拉清单 ${response.status()} TD=${target ?? '-'} 序号起 ${sequence ?? '-'} 共 ${durations.length} 片 ${total.toFixed(1)}s`
+        this.logger(`${upstream.channel?.name || '预热页'} 官网拉清单 ${response.status()} TD=${target ?? '-'} 序号起 ${sequence ?? '-'} 共 ${durations.length} 片 ${total.toFixed(1)}s`
           + `${durations.length ? `（末片 ${durations.at(-1)}s）` : ''} ${url.replace(/^https?:\/\//, '').replace(/\?.*$/, '').slice(0, 90)}`)
       }).catch(() => {})
     })
@@ -654,13 +790,13 @@ ${video}
   }
 
   /** 就绪一行日志：各阶段耗时与到手分片数，排查「刚打开卡」时不用再猜起桥花在哪。 */
-  logReady(state, { queuedAt, startedAt, pageReadyAt, firstAt, filled, media, kicked, seconds: mediaSeconds = 0 }) {
+  logReady(state, { queuedAt, startedAt, pageReadyAt, firstAt, filled, media, kicked, seconds: mediaSeconds = 0, fromSpare = false }) {
     const now = Date.now()
     const seconds = ms => (Math.max(0, ms) / 1000).toFixed(1)
     const longest = Math.max(0, ...[...state.video.segments.values()].map(item => item.duration))
     this.logger(
       `${state.channel.name} 解扰桥就绪：共 ${seconds(now - queuedAt)} 秒`
-      + `（排队 ${seconds(startedAt - queuedAt)} · 浏览器与页面 ${seconds(pageReadyAt - startedAt)}`
+      + `（排队 ${seconds(startedAt - queuedAt)} · 浏览器与页面 ${seconds(pageReadyAt - startedAt)}${fromSpare ? '（预热页）' : ''}`
       + ` · 首片 ${seconds(firstAt - pageReadyAt)} · 补片 ${seconds(now - firstAt)}）`
       + `，音 ${state.audio.segments.size} 片 / 视 ${state.video.segments.size} 片共 ${mediaSeconds.toFixed(1)} 秒`
       + `${filled ? '' : '（未凑够，先交清单）'}，分片约 ${longest.toFixed(1)} 秒；${kicked || '未催重拉'}；${this.describeMedia(media)}`,
@@ -840,6 +976,7 @@ ${video}
     this.starts.clear()
     this.warming = null
     this.startQueue = Promise.resolve()
+    this.dropSpare()
     await this.waitForInFlight()
     const pages = new Set([
       ...this.pages,
@@ -866,10 +1003,16 @@ ${video}
     for (const [id, state] of this.streams) {
       if (now - state.touched > this.streamIdleTtlMs) this.stop(id, state).catch(() => {})
     }
+    // 预热页：浏览器换过 / 页面没了就丢掉，下次起桥再备（这里不重开，见文件开头「预热页」一段）
+    const spare = this.spare
+    if (spare?.settled && (spare.browser !== this.browserSession.browser || !spare.browser?.connected || spare.page?.isClosed?.())) {
+      this.dropSpare()
+    }
     // 没有会员播放器页后，账号基页也不常驻占用全局 BrowserPool。下次播放会
-    // 用同一 profile 按需恢复，登录态不会因此丢失。
+    // 用同一 profile 按需恢复，登录态不会因此丢失。预热页随浏览器一起关。
     if (!this.suspended && this.isIdle() && this.browserSession.running
         && !this.browserSession.visible && now - this.lastActivity > this.browserIdleTtlMs) {
+      this.dropSpare()
       this.browserSession.close().catch(() => {})
     }
   }

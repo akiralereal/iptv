@@ -17,7 +17,9 @@
  *      换下一个二进制——超时说明机器已经过载，再拉一份只会更糟。
  */
 import puppeteer from 'puppeteer'
-import { existsSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync, unlinkSync } from 'node:fs'
+import { hostname as osHostname } from 'node:os'
+import { isAbsolute, join, resolve } from 'node:path'
 
 import { printBlue, printRed, printYellow } from './colorOut.js'
 
@@ -106,13 +108,159 @@ export function isLaunchTimeoutError(err) {
   return err?.name === 'TimeoutError' || /Timed out after \d+ ms/i.test(err?.message || '')
 }
 
+/**
+ * Chromium（Linux / macOS）在 userDataDir 里放三个符号链接防止两个进程同开一个 profile：
+ * SingletonLock →「主机名-pid」、SingletonSocket、SingletonCookie。正常退出会删，被 SIGKILL /
+ * 容器被停 / 断电则残留。下次启动时 Chromium 若发现锁里的主机名和本机不同，就认定「另一台电脑
+ * 在用」、以 Code 21 退出，不会自己解锁。Docker 容器每次重建（拉新镜像 / NAS 上「更新」「重建」）
+ * hostname 都换成新的容器 ID，于是挂载到宿主机的央视频 profile 一重建就再也起不来（issue #153）。
+ * 容器只是 restart 时主机名不变，但 pid 从头分配，锁里的 pid 可能恰好被别的 Chromium 占着，
+ * Chromium 会把它当成卡死的自己、等一轮后强杀——杀掉的是别的模块正在用的浏览器。
+ *
+ * 所以启动持久 profile 前先判断锁是否陈旧：锁里的 pid 若是本机一个正开着这个 profile 的 Chromium
+ * （Linux 读 /proc 核对 --user-data-dir，按真实路径比较，别名 / 相对路径也认得出）就保留，交给 Chromium；
+ * 否则主机名不同、pid 已不存在、pid 已是别的进程，都删掉三个链接。锁不是符号链接（被备份 / 同步工具
+ * 改写成普通文件）时 Chromium 自己也起不来，一并删掉。读不到进程信息（macOS）且主机名相同就不猜，保留。
+ * 两个容器共用同一个 data 目录同时运行时，这里分不清「另一个容器还在跑」和「旧容器已被重建」，
+ * 会按后者处理——那种部署下配置文件本身也会互相覆盖，不在支持范围内。
+ * @returns {{ cleared: boolean, reason: string }}
+ */
+export function clearStaleProfileLock(userDataDir, {
+  hostname = osHostname(),
+  isAlive = pidAlive,
+  readCmdline = procCmdline,
+  readCwd = procCwd,
+  realpath = realpathSync,
+  readlink = readlinkSync,
+  unlink = unlinkSync,
+} = {}) {
+  const keep = { cleared: false, reason: '' }
+  let target
+  try {
+    target = readlink(join(userDataDir, 'SingletonLock'))
+  } catch (err) {
+    // 没有锁：首次启动 / 上次正常退出 / Windows 不用这套机制
+    if (err?.code === 'ENOENT' || err?.code === 'ENOTDIR') return keep
+    if (err?.code !== 'EINVAL') throw err
+    target = null
+  }
+  const match = target === null ? null : /^(.*)-(\d+)$/.exec(String(target))
+  let reason = ''
+  if (target === null) {
+    reason = 'SingletonLock 不是符号链接（可能被备份 / 同步工具改写过）'
+  } else if (!match) {
+    reason = `锁内容无法识别（${target}）`
+  } else {
+    const [, lockHost, pidText] = match
+    const pid = Number(pidText)
+    const alive = isAlive(pid)
+    const cmdline = alive ? readCmdline(pid) : null
+    if (cmdline && usesProfile(cmdline, userDataDir, () => readCwd(pid), realpath)) return keep
+    if (lockHost !== hostname) {
+      reason = `锁来自主机 ${lockHost}（pid ${pid}），本机是 ${hostname}；容器重建后主机名会变`
+    } else if (!alive) {
+      reason = `锁记录的 pid ${pid} 已不存在`
+    } else if (cmdline === null) {
+      return keep
+    } else if (!cmdline.length) {
+      // 僵尸 / 正在退出的进程 cmdline 为空，例如 closeBrowser 超时后刚被强杀的上一个实例
+      reason = `锁记录的 pid ${pid} 已退出`
+    } else {
+      reason = `锁记录的 pid ${pid} 现在是别的进程（容器重启后 pid 从头分配）`
+    }
+  }
+  // 锁最后删：中途失败时剩下的仍是一把完整的旧锁，而不是半套
+  for (const name of ['SingletonSocket', 'SingletonCookie', 'SingletonLock']) {
+    try {
+      unlink(join(userDataDir, name))
+    } catch (err) {
+      if (err?.code !== 'ENOENT') throw err
+    }
+  }
+  return { cleared: true, reason }
+}
+
+/** 进程命令行里的 --user-data-dir 是否指向同一个目录；相对路径按该进程的 cwd 解析，读不到 cwd 就按「是」。 */
+function usesProfile(cmdline, userDataDir, cwd, realpath) {
+  const canonical = dir => {
+    try { return realpath(dir) } catch { return resolve(dir) }
+  }
+  const own = canonical(userDataDir)
+  return cmdline.some(arg => {
+    // Chromium 也认单短横线写法 -user-data-dir=
+    const dir = /^--?user-data-dir=(.*)$/.exec(arg)?.[1]
+    if (dir === undefined) return false
+    if (isAbsolute(dir)) return canonical(dir) === own
+    const base = cwd()
+    return base === null || canonical(resolve(base, dir)) === own
+  })
+}
+
+function pidAlive(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (err) {
+    // EPERM：进程在，只是不归我们管
+    return err?.code === 'EPERM'
+  }
+}
+
+function procCmdline(pid) {
+  try {
+    return readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').filter(Boolean)
+  } catch {
+    return null
+  }
+}
+
+function procCwd(pid) {
+  try {
+    return readlinkSync(`/proc/${pid}/cwd`)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * profile 被占用：锁指向别的主机时 Chromium 以 Code 21 退出；同机另一个 Chromium 正开着它时，新进程把
+ * 请求转交过去后自己退出，puppeteer 报「The browser is already running for …」。换别的二进制打开的
+ * 还是同一个 profile，没有意义。
+ */
+export function isProfileInUseError(err) {
+  const message = String(err?.message || '')
+  return /\bCode: 21\b/.test(message)
+    || /profile appears to be in use/i.test(message)
+    || /browser is already running for/i.test(message)
+}
+
 let announcedExecutable = ''
+
+/**
+ * Chromium 建不了锁（目录只读 / 属主不对 / 文件系统不支持符号链接）时 puppeteer 报的也是「already running」，
+ * 这时目录里根本没有 SingletonLock，叫人去删锁没用，要说成目录的问题。
+ */
+export function profileInUseMessage(userDataDir, err, lstat = lstatSync) {
+  const detail = String(err?.message || '').match(/The profile appears to be in use[^\n]*?\(\d+\)(?: on another computer \([^)\n]*\))?|The browser is already running for [^\n]*/)?.[0]
+  let locked = true
+  try {
+    lstat(join(userDataDir, 'SingletonLock'))
+  } catch {
+    locked = false
+  }
+  const head = locked
+    ? `浏览器 profile 正被另一个 Chromium 进程占用（${userDataDir}）。若确认没有其它进程在用，删除该目录下的 SingletonLock / SingletonSocket / SingletonCookie 后重试。`
+    : `Chromium 无法在浏览器 profile 目录加锁（${userDataDir}）。请确认该目录可写（挂载目录的属主 / 权限、是否只读挂载），且所在文件系统支持符号链接。`
+  return `${head}原始错误: ${detail || firstLine(err)}`
+}
 
 /**
  * 按顺序尝试：显式指定（PUPPETEER_EXECUTABLE_PATH / mchromePath）→ 系统已装浏览器
  * → puppeteer 自带 → channel:'chrome'。与旧实现的差别：
  *   - 显式路径与系统路径相同（Docker 镜像即如此）只试一次，不再重复；
- *   - 启动超时立即失败，不再逐级尝试（每一级都是再拉一份 Chromium 压到过载的机器上）。
+ *   - 启动超时立即失败，不再逐级尝试（每一级都是再拉一份 Chromium 压到过载的机器上）；
+ *   - 持久 profile（userDataDir）启动前先清陈旧的 Singleton 锁；仍报 profile 被占用 / 加不了锁就直接
+ *     失败，换二进制打开的还是同一个 profile。
  * @param {object} deps 便于单测注入
  */
 export async function launchWithFallback({
@@ -122,7 +270,18 @@ export async function launchWithFallback({
   env = process.env,
   platform = process.platform,
   exists = existsSync,
+  clearProfileLock = clearStaleProfileLock,
 } = {}) {
+  const userDataDir = launchOptions.userDataDir
+  if (userDataDir) {
+    try {
+      const { cleared, reason } = clearProfileLock(userDataDir)
+      if (cleared) printYellow(`已清理浏览器 profile 残留的锁（${reason}）: ${userDataDir}`)
+    } catch (err) {
+      printYellow(`检查浏览器 profile 锁失败，照常启动: ${firstLine(err)}`)
+    }
+  }
+
   const explicit = env.PUPPETEER_EXECUTABLE_PATH || env.mchromePath || ''
   const systemChrome = findSystemChrome(platform, exists)
   const candidates = []
@@ -157,6 +316,7 @@ export async function launchWithFallback({
           `${candidate.label}启动超时（机器负载过高或内存不足，请检查内存 / 交换分区占用）: ${firstLine(err)}`,
         )
       }
+      if (userDataDir && isProfileInUseError(err)) throw new Error(profileInUseMessage(userDataDir, err))
       const next = candidates[i + 1]
       if (next) printRed(`${candidate.label}不可用，改用${next.label}: ${firstLine(err)}`)
     }

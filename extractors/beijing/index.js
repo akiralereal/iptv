@@ -1,4 +1,4 @@
-import { buildGroups, claimsRef, clearCache, fetchCatalog, resolveChannel } from './api.js'
+import { buildGroups, claimsRef, clearCache, credentialRejected, fetchCatalog, resolveChannel } from './api.js'
 import epg from './epg.js'
 
 export default {
@@ -23,16 +23,18 @@ export default {
     default: '',
     hint: '仅 9 个电视频道需要；免登录活动直播无需填写。支持直接粘贴完整 Cookie、以 Cookie: 开头的请求头，或浏览器导出的 cookies JSON。保存后凭据只留在服务端，不写入播放列表，也不发送给媒体 CDN。',
   }],
+  credentialCheck: { refresh: true, playback: true, degrade: '9 个电视台照留但播不了（没有游客版），免登录直播不受影响' },
   async fetch(config, ctx = {}) {
     const catalog = await fetchCatalog({ cookie: config?.cookie || '', timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl })
     return {
       groups: buildGroups(catalog),
-      meta: { skipped: [], warnings: catalog.warnings },
+      meta: { skipped: [], warnings: catalog.warnings, credentialRejected: catalog.credentialRejected },
     }
   },
   // 北京台自己没有节目单，电视频道的取自央视网（见 epg.js）；与取流链路互不依赖
   epg,
   claimsRef,
+  credentialRejected,
   resolve: resolveChannel,
   clearResolveCache: clearCache,
 }

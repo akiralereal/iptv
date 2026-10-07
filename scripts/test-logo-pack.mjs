@@ -99,10 +99,13 @@ check('仓库 logo-pack/ 与 index.json 一一对应，全是 ≤256px 的 PNG',
   const dir = join(ROOT, 'logo-pack')
   assert.ok(existsSync(join(dir, 'index.json')), 'logo-pack/index.json 不存在')
   const index = JSON.parse(readFileSync(join(dir, 'index.json'), 'utf-8'))
+  // macOS 列目录返回的是分解写法（ñ = n + 波浪符），索引和 git 里是合成写法，看着一样但逐字符不相等；
+  // 两边都先统一成合成写法再比，否则 France 24 Español / Français 在 Mac 上会被判成「没登记」
+  const key = file => file.normalize('NFC').toLowerCase()
   const files = new Set()
   for (const [name, entry] of Object.entries(index.logos)) {
-    assert.ok(entry.file && !files.has(entry.file.toLowerCase()), `${name} 文件名重复`)
-    files.add(entry.file.toLowerCase())
+    assert.ok(entry.file && !files.has(key(entry.file)), `${name} 文件名重复`)
+    files.add(key(entry.file))
     const buf = readFileSync(join(dir, entry.file))
     assert.equal(buf.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', `${name} 不是 PNG`)
     assert.equal(createHash('sha1').update(buf).digest('hex').slice(0, 10), entry.hash, `${name} 哈希对不上`)
@@ -113,7 +116,7 @@ check('仓库 logo-pack/ 与 index.json 一一对应，全是 ≤256px 的 PNG',
   }
   for (const file of readdirSync(dir)) {
     if (file === 'index.json') continue
-    assert.ok(files.has(file.toLowerCase()), `${file} 没登记在 index.json`)
+    assert.ok(files.has(key(file)), `${file} 没登记在 index.json`)
   }
   for (const [ref, name] of Object.entries(index.refs)) assert.ok(/^[\w-]+\/.+/.test(ref) && typeof name === 'string', ref)
 })

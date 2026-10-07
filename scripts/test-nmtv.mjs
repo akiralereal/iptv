@@ -40,18 +40,23 @@ check('模块注册为免账号的内蒙古全代理模块', () => {
   assert.equal(nmtv.outputGroupName, '内蒙古')
   assert.equal(nmtv.channelHlsMode, 'proxy')
   assert.equal(nmtv.capabilities.catchup, false)
-  assert.equal(nmtv.catalogVersion, 2)
+  assert.equal(nmtv.catalogVersion, 3)
   assert.deepEqual(nmtv.configSchema, [])
   assert.equal(resolverFor('nmtv-satellite'), nmtv)
   assert.equal(resolverFor('nmtv-satellite/extra'), null)
 })
 
-await checkAsync('官网当前 20 路频道全部归入唯一的内蒙古分组', async () => {
+await checkAsync('官网当前 20 路频道全部归入唯一的内蒙古分组，省级通用台名补上「内蒙古」', async () => {
   assert.equal(CHANNELS.length, 20)
-  assert.deepEqual(CHANNELS.slice(0, 8).map(channel => channel.name), [
+  assert.deepEqual(CHANNELS.slice(0, 8).map(channel => channel.rawName), [
     '内蒙古卫视', '内蒙古蒙古语卫视', '新闻综合', '经济生活',
     '少儿频道', '文体娱乐', '农牧频道', '内蒙古蒙古语文化频道',
   ])
+  assert.deepEqual(CHANNELS.slice(0, 8).map(channel => channel.name), [
+    '内蒙古卫视', '内蒙古蒙古语卫视', '内蒙古新闻综合', '内蒙古经济生活',
+    '内蒙古少儿', '内蒙古文体娱乐', '内蒙古农牧', '内蒙古蒙古语文化频道',
+  ])
+  assert.ok(CHANNELS.slice(8).every(channel => channel.name === channel.rawName))
   assert.deepEqual(CHANNELS.slice(8).map(channel => channel.name), [
     '呼和浩特', '包头', '乌海', '赤峰', '呼伦贝尔', '兴安盟',
     '通辽', '锡林郭勒', '乌兰察布', '鄂尔多斯', '巴彦淖尔', '阿拉善',
@@ -68,11 +73,11 @@ await checkAsync('官网当前 20 路频道全部归入唯一的内蒙古分组'
 
 await checkAsync('台标取官网频道列表里的频道图标，带签名原样透传；列表取不到这一轮算失败、沿用上一轮', async () => {
   const icon = id => `https://cdn-bt.nmtv.cn/saas/image/2025-05/${id}.png?sign=1790278209-zn8vivtg-0-6cdae3a53fa9fb727012761ff0376bc9`
-  const entries = CHANNELS.map(channel => ({ id: channel.upstreamId, title: channel.name, image: icon(channel.upstreamId) }))
+  const entries = CHANNELS.map(channel => ({ id: channel.upstreamId, title: channel.rawName, image: icon(channel.upstreamId) }))
   const channels = buildChannels(entries)
   assert.deepEqual(channels.map(channel => channel.logo), CHANNELS.map(channel => icon(channel.upstreamId)))
 
-  // 按频道 ID 与台名同时认；图床以外、非 https、非图片路径的一律不收
+  // 按频道 ID 与官网台名同时认（官网写的是不带省名的原名）；图床以外、非 https、非图片路径的一律不收
   const picked = buildChannels([
     { id: 2316, title: '新闻综合', image: icon('news') },
     { id: 2317, title: '改了名的频道', image: icon('economy') },
@@ -81,8 +86,8 @@ await checkAsync('台标取官网频道列表里的频道图标，带签名原�
     { id: 2320, title: '农牧频道', image: 'https://cdn-bt.nmtv.cn/saas/video/2025-05/farm.mp4' },
   ])
   const logoOf = name => picked.find(channel => channel.name === name).logo
-  assert.equal(logoOf('新闻综合'), icon('news'))
-  for (const name of ['经济生活', '少儿频道', '文体娱乐', '农牧频道', '内蒙古卫视']) assert.equal(logoOf(name), '', name)
+  assert.equal(logoOf('内蒙古新闻综合'), icon('news'))
+  for (const name of ['内蒙古经济生活', '内蒙古少儿', '内蒙古文体娱乐', '内蒙古农牧', '内蒙古卫视']) assert.equal(logoOf(name), '', name)
 
   clearCache()
   const fetched = await nmtv.fetch({}, {
@@ -183,7 +188,7 @@ await checkAsync('拒绝频道错配，接口失败时只给两路已验证备�
   clearCache()
   const unavailable = await resolveChannel('nmtv-news-general', { fetchImpl: empty })
   assert.equal(unavailable.url, '')
-  assert.match(unavailable.desc, /没有返回新闻综合直播地址/)
+  assert.match(unavailable.desc, /没有返回内蒙古新闻综合直播地址/)
 
   const malformed = await resolveChannel('nmtv-unknown', {
     fetchImpl: async () => { throw new Error('不应请求') },

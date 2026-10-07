@@ -20,8 +20,9 @@ import { constants, createCipheriv, createDecipheriv, createHash, createHmac, ge
 import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { Readable } from 'node:stream'
 
-import { listModules, getModule, sourceIdOf, resolverFor, validateModule, MODULE_ID_RE } from '../extractors/registry.js'
+import { listModules, getModule, sourceIdOf, resolverFor, validateModule, MODULE_ID_RE, MODULE_CATEGORIES } from '../extractors/registry.js'
 import { clearUrlCache } from '../utils/appUtils.js'
 import {
   selectFromPlayurl, parseRoomList, normalizeRoom, mapLimit, selectTopRooms, RoomError, BILIBILI_GROUP, DEFAULT_MIN_ONLINE,
@@ -29,6 +30,8 @@ import {
   resolveRoom as resolveBiliRoom,
   claimsRef as biliClaimsRef,
   clearResolveCache as clearBiliResolveCache,
+  checkLogin as checkBiliLogin,
+  SESSDATA_REJECTED_NOTICE,
 } from '../extractors/bilibili-live/api.js'
 import { shouldFailRound, parseAreaNames, mergeRoomRefs, groupBilibiliResults } from '../extractors/bilibili-live/index.js'
 import {
@@ -102,6 +105,7 @@ import {
   resolveChannel as resolveIqiluChannel,
 } from '../extractors/iqilu/api.js'
 import {
+  CHANNEL_LIST_TIMEOUT_MS as HNNTV_LIST_TIMEOUT_MS,
   buildChannels as buildHnntvChannels,
   clearCache as clearHnntvCache,
   resolveChannel as resolveHnntvChannel,
@@ -749,14 +753,15 @@ check('深圳广电模块已注册，固定周期刷新且逐路径签名流必�
 
 check('省市广电模块卡片只显示地区名，不带平台品牌', () => {
   const expectedNames = {
+    'gdsport-events': '广东体育赛事',
     anhui: '安徽', beidou: '辽宁', chongqing: '重庆', sichuan: '四川', cztv: '浙江', dalian: '大连', fjtv: '福建', gansu: '甘肃', gdtv: '广东', gxtv: '广西',
     gztv: '广州', hbtv: '湖北', hebtv: '河北', heilongjiang: '黑龙江', hnntv: '海南', hntv: '河南',
-    iqilu: '山东', jiaxing: '嘉兴', jlntv: '吉林', jstv: '江苏', jxntv: '江西', kankanews: '上海', 'meizhou-hakka': '梅州', mgtv: '湖南', njtv: '南京', nmtv: '内蒙古',
-    'quanzhou-minnan': '泉州', 'quanzhou-county': '晋江、石狮', wuxi: '无锡', yangzhou: '扬州',
+    iqilu: '山东', hangzhou: '杭州', ningbo: '宁波', jiaxing: '嘉兴', jlntv: '吉林', jstv: '江苏', jxntv: '江西', kankanews: '上海', 'meizhou-hakka': '梅州', mgtv: '湖南', njtv: '南京', nmtv: '内蒙古',
+    'quanzhou-minnan': '泉州', 'quanzhou-county': '晋江、石狮', putian: '莆田', ningde: '宁德', wuxi: '无锡', yangzhou: '扬州',
     ningxia: '宁夏', qinghai: '青海', qtv: '青岛', shaanxi: '陕西', shanxi: '山西', sztv: '深圳', tianjin: '天津',
-    xinjiang: '新疆', xizang: '西藏', yunnan: '云南',
+    xinjiang: '新疆', xizang: '西藏', yunnan: '云南', tdm: '澳门',
   }
-  const groupOverrides = { dalian: '辽宁', gztv: '广东', sztv: '广东', jiaxing: '浙江', 'meizhou-hakka': '广东', 'quanzhou-minnan': '福建', 'quanzhou-county': '福建', wuxi: '江苏', yangzhou: '江苏' }
+  const groupOverrides = { 'gdsport-events': '广东', dalian: '辽宁', gztv: '广东', sztv: '广东', hangzhou: '浙江', ningbo: '浙江', jiaxing: '浙江', 'meizhou-hakka': '广东', 'quanzhou-minnan': '福建', 'quanzhou-county': '福建', putian: '福建', ningde: '福建', wuxi: '江苏', yangzhou: '江苏' }
   for (const [id, name] of Object.entries(expectedNames)) {
     assert.equal(getModule(id)?.name, name, `${id} 卡片标题应只保留地区名`)
     assert.equal(
@@ -942,6 +947,29 @@ try {
     assert.equal(typeof getModule('yangshipin').browserLoginFlow?.start, 'function')
   })
 
+  check('★ 要登录的模块都声明凭证失效怎么办，并能让后台提醒中心知道（ADD-CHANNELS.md「登录凭证」）', () => {
+    // 凭证一定会过期：能降级就降级接着播，播不了的频道照留，两种都必须让后台提醒中心知道。
+    // 新加的模块只要有 secret 字段或浏览器登录，就会被这里拦下来要求补齐。
+    const needsLogin = m => (m.configSchema || []).some(field => field.secret) || typeof m.browserLoginFlow?.start === 'function'
+    const loginModules = listModules().filter(needsLogin)
+    assert.ok(loginModules.length >= 6, '至少凤凰、四川、咪咕、B 站、央视频、北京')
+    const admin = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8')
+    for (const m of loginModules) {
+      const c = m.credentialCheck
+      assert.ok(c && typeof c === 'object', `${m.id} 要登录却没声明 credentialCheck`)
+      assert.ok(c.refresh === true || c.playback === true, `${m.id} 刷新时和播放时都不检查凭证，失效了后台无从得知`)
+      assert.ok(typeof c.degrade === 'string' && c.degrade.trim(), `${m.id} 没写凭证失效后播放怎么办`)
+      if (c.playback) assert.equal(typeof m.credentialRejected, 'function', `${m.id} 声明播放时检查，却没实现 credentialRejected(config)`)
+      // 登录徽标跟着失效状态变（央视频的徽标由后台实时检查登录态驱动，不在此列）
+      if (m.helper && m.helper !== 'yangshipin-login') {
+        const start = admin.indexOf(`if (key === '${m.helper}')`)
+        assert.ok(start > 0, `${m.id} 的登录助手 ${m.helper} 不在 admin.html 里`)
+        const end = admin.indexOf("if (key === '", start + 10)
+        assert.match(admin.slice(start, end > 0 ? end : undefined), /health\.credentialRejected/, `${m.id} 的登录徽标没读 health.credentialRejected`)
+      }
+    }
+  })
+
   check('模块分类透传给后台，未声明的模块默认归入免账号分类', () => {
     const modules = newManager().getState().modules
     for (const id of ['migu', 'beijing', 'fengshows', 'sichuan', 'yangshipin']) {
@@ -950,12 +978,27 @@ try {
     for (const id of ['bilibili-live', 'huya-live', 'douyu-live']) {
       assert.equal(modules.find(module => module.id === id)?.category, 'live', `${id} 应归入网络直播平台`)
     }
+    // 「海外」小节就是默认关、由用户自己打开的那几个，两边不能各说各的
+    assert.deepEqual(
+      modules.filter(module => module.category === 'overseas').map(module => module.id).sort(),
+      listModules().filter(module => module.defaultEnabled === false).map(module => module.id).sort(),
+    )
+    assert.deepEqual(modules.filter(module => module.category === 'overseas').map(module => module.id).sort(), ['overseas', 'tdm'])
+  })
+
+  check('注册表允许的每个分类，后台源管理都有对应的小节（漏了的话那类卡片整片不显示）', () => {
+    const admin = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8')
+    const start = admin.indexOf('const categories = [')
+    const block = admin.slice(start, admin.indexOf('];', start))
+    for (const id of MODULE_CATEGORIES) assert.match(block, new RegExp(`id: '${id}'`), `后台缺「${id}」小节`)
+    assert.match(admin, /\.source-badge\.overseas/, '海外小节的角标要有样式')
   })
 
   check('★ 所有非代理抓取模块首次出现默认开启，显式关闭后保持关闭', () => {
     // 跳过旧总开关迁移，只验证当前版本的模块默认值；代理模块继续听自己的 getter。
+    // 声明了 defaultEnabled:false 的（海外频道、澳门）默认关，见下一条
     const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
-    const regular = listModules().filter(module => typeof module.enabledGetter !== 'function')
+    const regular = listModules().filter(module => typeof module.enabledGetter !== 'function' && module.defaultEnabled !== false)
     assert.ok(regular.length > 0)
     assert.deepEqual(
       regular.filter(module => !manager.isModuleEnabled(module)).map(module => module.id),
@@ -967,6 +1010,22 @@ try {
     manager.load()
     assert.equal(manager.isModuleEnabled(getModule('kankanews')), false,
       '用户明确保存的关闭态不能被默认值覆盖')
+  })
+
+  check('★ 海外频道、澳门默认关闭，用户打开后保持打开；没点过的开关不落盘', () => {
+    const optIn = listModules().filter(module => module.defaultEnabled === false).map(module => module.id)
+    assert.deepEqual(optIn.sort(), ['overseas', 'tdm'], '默认关的只有面向海外的这两个；新增要想清楚')
+    const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
+    for (const id of optIn) assert.equal(manager.isModuleEnabled(getModule(id)), false, id)
+    manager.setModuleEnabled('overseas', true)
+    manager.load()
+    assert.equal(manager.isModuleEnabled(getModule('overseas')), true)
+    assert.equal(manager.isModuleEnabled(getModule('tdm')), false)
+    const saved = JSON.parse(readFileSync(manager.configPath, 'utf-8')).modules
+    assert.equal(saved.overseas.enabled, true)
+    assert.equal(saved.tdm?.enabled, undefined, '没点过的不落值，以后改这个模块的默认值时存量用户跟得上')
+    assert.equal(saved.kankanews?.enabled, undefined)
+    assert.throws(() => validateModule({ id: 'probe', name: 'probe', defaultEnabled: 'no', fetch: async () => ({ groups: [] }) }), /defaultEnabled/)
   })
 
   check('代理开关的模块不受抓取子系统总开关约束', () => {
@@ -1117,6 +1176,17 @@ try {
     const moduleState = manager.getState().modules.find(module => module.id === 'bilibili-live')
     assert.equal(moduleState.health.usingCachedChannels, true,
       '面板必须说明失败时的频道数来自上一轮缓存')
+  })
+
+  check('详情弹窗的频道名单：按分组只给名字，关掉模块后仍保留（issue #164）', () => {
+    const manager = newManager()
+    seed(manager, [...oneGroup, { name: '空组', dataList: [] }])
+    manager.setModuleEnabled('bilibili-live', false)
+    const moduleState = manager.getState().modules.find(module => module.id === 'bilibili-live')
+    assert.deepEqual(moduleState.channelGroups, [{ name: '赛事', channels: ['[原画] 主播'] }],
+      '只回名字（不带地址），空分组不列')
+    assert.deepEqual(newManager().getState().modules.find(module => module.id === 'bilibili-live').channelGroups, [],
+      '没抓到过就是空数组')
   })
 
   check('首次抓取失败且无缓存时，面板不得误报沿用缓存', () => {
@@ -1577,6 +1647,30 @@ await checkAsync('★ B 站：热门榜获取失败且无手填 → 整轮判失
   // 上一轮频道被覆盖成空且不退避。timeoutMs=1 模拟断网：现在必须抛。
   const config = resolveConfig(bili, {})
   await assert.rejects(() => bili.fetch(config, { timeoutMs: 1 }), /失败/)
+})
+
+await checkAsync('B 站：刷新时检查登录态，失效进提醒中心但频道照抓；网络失败不冤枉登录态', async () => {
+  // 乱填、过期的 SESSDATA 实测回 code -101「账号未登录」（2026-10-06）
+  const navReply = body => async (url, options) => {
+    assert.equal(String(url), 'https://api.bilibili.com/x/web-interface/nav')
+    assert.equal(options.headers.Cookie, 'SESSDATA=abc')
+    return typeof body === 'function' ? body() : Response.json(body)
+  }
+  assert.deepEqual(await checkBiliLogin('', { fetchImpl: () => assert.fail('没配登录态不该发请求') }), {})
+  assert.deepEqual(await checkBiliLogin('SESSDATA=abc', { fetchImpl: navReply({ code: 0, data: { isLogin: true } }) }), {})
+  assert.deepEqual(await checkBiliLogin('SESSDATA=abc', { fetchImpl: navReply({ code: -101, message: '账号未登录', data: { isLogin: false } }) }),
+    { rejected: SESSDATA_REJECTED_NOTICE })
+  assert.match((await checkBiliLogin('SESSDATA=abc', { fetchImpl: navReply(() => new Response('', { status: 502 })) })).warning, /检查没有完成：HTTP 502/)
+  // 生产默认是 node-fetch：body 是 Node 流、没有 cancel()，风控 412 时也要报出状态码
+  const nodeStream = { ok: false, status: 412, body: Readable.from([]) }
+  assert.match((await checkBiliLogin('SESSDATA=abc', { fetchImpl: navReply(() => nodeStream) })).warning, /检查没有完成：HTTP 412/)
+  assert.match((await checkBiliLogin('SESSDATA=abc', { fetchImpl: navReply(() => { throw new Error('connect refused') }) })).warning, /检查没有完成：connect refused/)
+  assert.match(SESSDATA_REJECTED_NOTICE, /超清/)
+
+  // 模块 fetch 把结论交给 meta.credentialRejected：一间房都没配时也照样报
+  const config = resolveConfig(bili, { sessdata: 'abc', topAreas: '', rooms: '' })
+  const fetched = await bili.fetch(config, { fetchImpl: navReply({ code: -101, data: { isLogin: false } }) })
+  assert.equal(fetched.meta.credentialRejected, SESSDATA_REJECTED_NOTICE)
 })
 
 // ---- 虎牙直播 ----
@@ -2613,6 +2707,22 @@ await checkAsync('海南：抓取七套频道，播放时签名并在有效期�
   assert.equal(first.upstreamHeaders, undefined)
   assert.equal(listCalls, 1)
   assert.equal(playCalls, 1)
+})
+
+await checkAsync('海南：频道列表接口常要 12～13 秒才回，等 20 秒，不跟随通用的单次请求超时', async () => {
+  assert.equal(HNNTV_LIST_TIMEOUT_MS, 20 * 1000)
+  clearHnntvCache()
+  // 管理器给每个模块传 timeoutMs:10000；这里把它压到 50ms，接口 150ms 才回，照样要抓到
+  const fetchImpl = async (requestUrl, options = {}) => {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(resolve, 150)
+      options.signal?.addEventListener('abort', () => { clearTimeout(timer); reject(Object.assign(new Error('aborted'), { name: 'AbortError' })) })
+    })
+    return fakeResponse({ businessCode: '00000', resultSet: hnntvRows() })
+  }
+  const result = await getModule('hnntv').fetch({}, { fetchImpl, timeoutMs: 50, now: 1720000000000 })
+  assert.equal(result.groups[0].dataList.length, 7)
+  clearHnntvCache()
 })
 
 // ---- 河南大象新闻 ----

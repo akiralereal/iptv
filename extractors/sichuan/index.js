@@ -36,9 +36,12 @@ export default {
     hint: '支持粘贴裸 access_token、Bearer 值或完整 scgc_userAccountInfo JSON。凭据只保存在服务端配置中，不写入播放列表，也不会发送给媒体 CDN。',
   }],
 
+  credentialCheck: { refresh: true, playback: false, degrade: '9 个电视台照留但播不了（官网没有游客版），活动直播不受影响' },
+
   async fetch(config, ctx = {}) {
     const accessToken = parseCredential(config?.accessToken)
     const warnings = []
+    let credentialRejected = ''
     let rows = []
     let liveRows = []
     if (!accessToken) warnings.push('尚未配置四川官网登录 Token，9 个电视频道暂不加入；公开活动直播不受影响')
@@ -50,8 +53,10 @@ export default {
         warnings.push(error?.message || String(error))
       }
       // 校验结果只做提示，不增删播放列表里的频道
-      const tokenWarning = await checkToken(rows, accessToken, options)
-      if (tokenWarning) warnings.push(tokenWarning)
+      const check = await checkToken(rows, accessToken, options)
+      if (check.warning) warnings.push(check.warning)
+      // 没查成（换签超时、502，或频道列表没取到、无从换签）不下结论，后台沿用上一轮（registry.js）
+      credentialRejected = check.rejected || (check.warning || !rows.length ? undefined : '')
     }
     try {
       liveRows = await fetchLiveEvents({ timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl })
@@ -61,7 +66,7 @@ export default {
     const dataList = [...buildChannels(rows), ...buildLiveChannels(liveRows)]
     return {
       groups: dataList.length ? [{ name: '四川', dataList }] : [],
-      meta: { skipped: [], warnings },
+      meta: { skipped: [], warnings, credentialRejected },
     }
   },
 

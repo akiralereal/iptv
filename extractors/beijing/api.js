@@ -28,6 +28,36 @@ const LIVE_MEDIA_HEADERS = Object.freeze({
   Origin: 'https://www.btime.com',
 })
 
+/**
+ * 官网不认这份 Cookie：账号接口回 code 1016「用户未登录」，取流接口回 errno 401（2026-10-06 用乱填的
+ * Cookie 实测，过期、退出登录都是这两种回应）。网络失败等其它错误不归这里，免得冤枉 Cookie。
+ */
+export class CookieRejectedError extends Error {
+  constructor() {
+    super('北京时间 Cookie 已失效，请重新登录后导入')
+    this.name = 'CookieRejectedError'
+  }
+}
+
+export const COOKIE_REJECTED_NOTICE = '北京时间官网不认当前 Cookie（已过期或已退出登录），9 个电视台暂时播不了；请在官网重新登录后重新导入 Cookie'
+
+const credentialKey = cookie => createHash('sha256').update(cookie).digest('base64url').slice(0, 12)
+
+// 播放时发现被拒的 Cookie（只存摘要）。后台据此立刻提醒，不等下一轮刷新；换了 Cookie 自然不再相等。
+let rejectedCookieKey = ''
+
+/** 后台状态接口用：当前生效的 Cookie 是否已被官网拒绝（见 registry.js 的 credentialRejected）。 */
+export function credentialRejected(config) {
+  let cookie = ''
+  try { cookie = parseCredential(config?.cookie) } catch { return '' }
+  return cookie && credentialKey(cookie) === rejectedCookieKey ? COOKIE_REJECTED_NOTICE : ''
+}
+
+/** 测试用：清掉内存里记下的被拒 Cookie。 */
+export function resetCredentialState() {
+  rejectedCookieKey = ''
+}
+
 export const BEIJING_CHANNELS = [
   { slug: 'sn', name: '北京卫视', gid: '573ib1kp5nk92irinpumbo9krlb' },
   { slug: 'wy', name: 'BRTV文艺', gid: '54db6gi5vfj8r8q1e6r89imd64s' },
@@ -112,9 +142,9 @@ export async function verifyCredential(input, options = {}) {
     headers: { Cookie: cookie, Origin: 'https://www.btime.com', Referer: BEIJING_PAGE },
   })
   const payload = JSON.parse(text)
-  if (payload?.code !== 0 || !payload?.data || Array.isArray(payload.data)) {
-    throw new Error('北京时间 Cookie 已失效，请重新登录后导入')
-  }
+  if (payload?.code === 1016) throw new CookieRejectedError()
+  if (payload?.code !== 0) throw new Error(`账号接口返回 ${payload?.code} ${payload?.message || ''}`.trim())
+  if (!payload?.data || Array.isArray(payload.data)) throw new CookieRejectedError()
   return payload.data
 }
 
@@ -204,7 +234,7 @@ function streamCandidates(data) {
 
 export function extractStream(payload) {
   if (payload?.errno !== 0 || !payload?.data) {
-    if (payload?.errno === 401) throw new Error('北京时间 Cookie 已失效，请重新登录后导入')
+    if (payload?.errno === 401) throw new CookieRejectedError()
     throw new Error(payload?.errmsg || payload?.message || '北京时间取流接口返回异常')
   }
   const candidates = streamCandidates(payload.data)
@@ -214,8 +244,7 @@ export function extractStream(payload) {
 
 async function requestPlayUrl(gid, cookie = '', options = {}) {
   const typeId = String(options.typeId || PLAY_TYPE_ID)
-  const credentialKey = cookie ? createHash('sha256').update(cookie).digest('base64url').slice(0, 12) : 'public'
-  const cacheKey = `${credentialKey}:${typeId}:${gid}`
+  const cacheKey = `${cookie ? credentialKey(cookie) : 'public'}:${typeId}:${gid}`
   const now = options.now ?? Date.now()
   const cached = signedCache.get(cacheKey)
   if (cached && now - cached.createdAt < PLAY_URL_TTL_MS) return cached.url
@@ -264,13 +293,24 @@ export async function fetchCatalog(options = {}) {
   const channels = tvPage.error ? BEIJING_CHANNELS : parseChannels(tvPage.text)
   if (tvPage.error) warnings.push(`电视台目录获取失败，暂用内置的 9 个官方频道：${tvPage.error.message}`)
   else for (const channel of channels) tvGids.set(channel.slug, channel.gid)
+  let credentialRejected = ''
   if (!cookie) warnings.push('未配置登录 Cookie，9 个电视频道暂不加入；免登录直播不受影响')
   else {
+    // 配了 Cookie 就一直保留电视台：失效时频道照留、后台提醒，不让它们从播放列表里悄悄消失
+    tvRows = channels
     try {
       await verifyCredential(cookie, options)
-      tvRows = channels
+      if (rejectedCookieKey === credentialKey(cookie)) rejectedCookieKey = ''
     } catch (error) {
-      warnings.push(error.message)
+      if (error instanceof CookieRejectedError) {
+        rejectedCookieKey = credentialKey(cookie)
+        credentialRejected = COOKIE_REJECTED_NOTICE
+      } else {
+        const reason = error?.name === 'AbortError' || error?.name === 'TimeoutError' ? '请求超时' : (error?.message || String(error))
+        warnings.push(`北京时间 Cookie 检查没有完成：${reason}`)
+        // 没查成不下结论，后台沿用上一轮（registry.js）
+        credentialRejected = undefined
+      }
     }
   }
 
@@ -285,7 +325,7 @@ export async function fetchCatalog(options = {}) {
     const skipped = events.length - publicRows.length
     if (skipped) warnings.push(`官网目录中有 ${skipped} 个活动流已失效，已自动排除`)
   }
-  return { tvRows, publicRows, warnings }
+  return { tvRows, publicRows, warnings, credentialRejected }
 }
 
 export function buildGroups({ tvRows = [], publicRows = [] }) {
@@ -313,8 +353,13 @@ export async function resolveChannel(ref, ctx = {}) {
     if (tv) {
       const cookie = parseCredential(ctx.config?.cookie)
       if (!cookie) return { url: '', desc: '北京电视台需要先在后台配置北京时间登录 Cookie' }
-      const url = await requestPlayUrl(tvGids.get(tv[1]), cookie, ctx)
-      return { url, upstreamHeaders: TV_MEDIA_HEADERS }
+      try {
+        const url = await requestPlayUrl(tvGids.get(tv[1]), cookie, ctx)
+        return { url, upstreamHeaders: TV_MEDIA_HEADERS }
+      } catch (error) {
+        if (error instanceof CookieRejectedError) rejectedCookieKey = credentialKey(cookie)
+        throw error
+      }
     }
     const event = value.match(/^beijing-live-(\d{1,4})-([a-z0-9]{1,64})$/)
     if (!event) return { url: '', desc: '北京时间频道地址格式错误' }

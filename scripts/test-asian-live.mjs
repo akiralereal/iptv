@@ -17,21 +17,35 @@ import { buildGroups, claimsRef, sourceFromRef, SOURCES } from '../extractors/as
 import { getModule, resolverFor } from '../extractors/registry.js'
 import { pruneUnclaimedCachedChannels } from '../utils/extractorManager.js'
 
-assert.deepEqual(SOURCES.map(source => source.id), ['ytn', 'nhk-world'])
+assert.deepEqual(SOURCES.map(source => source.id), ['ytn', 'nhk-world', 'cna', 'france24-en', 'france24-fr', 'world-poker-tour'])
 assert.equal(new Set(SOURCES.map(source => source.id)).size, SOURCES.length, '频道 id 必须唯一')
-assert.ok(SOURCES.every(source => source.kind && !source.streamUrl), '模块只应保留动态解析频道')
+assert.ok(SOURCES.every(source => source.kind && !source.streamUrl), '每个频道都要声明取址方式')
 assert.ok(SOURCES.every(source => source.rules.length > 0), '每个频道都必须声明媒体主机边界')
+// 只转发主清单的几台：固定官方地址，不走动态接口；也只有它们接手精选列表里的同名条目
+assert.deepEqual(SOURCES.filter(source => source.direct).map(source => [source.id, source.kind]), [['cna', 'master'], ['france24-en', 'ladder'], ['france24-fr', 'ladder'], ['world-poker-tour', 'master']])
+assert.deepEqual(SOURCES.filter(source => source.supersedesFeatured).map(source => source.id), ['cna', 'france24-en', 'france24-fr', 'world-poker-tour'])
 
 const groups = buildGroups()
-assert.deepEqual(groups.map(group => group.name), ['韩国', '日本'])
-assert.equal(groups.reduce((sum, group) => sum + group.dataList.length, 0), 2)
+assert.deepEqual(groups.map(group => group.name), ['韩国', '日本', '国际', '体育'])
+assert.equal(groups.reduce((sum, group) => sum + group.dataList.length, 0), 6)
 assert.ok(groups.flatMap(group => group.dataList).every(channel => channel.deferredRef.startsWith('asian-live-')))
-// 台标取官网自有的频道标，每台一张完整地址；频道表改动要带着 catalogVersion 走，老缓存才会重建
+// YTN、NHK 清单与媒体全代理；其余只转发主清单，写成普通入口，并标明接手精选列表的同名条目
+assert.deepEqual(groups.flatMap(group => group.dataList).map(channel => [channel.name, channel.proxyHls === true, channel.supersedesFeatured === true]), [
+  ['YTN News', true, false], ['NHK World', true, false], ['CNA', false, true], ['France 24 English', false, true], ['France 24 Français', false, true],
+  ['World Poker Tour', false, true],
+])
+// 台标取官网自有的频道标，每台一张完整地址（CNA、France 24 的官方台标在内置台标库）；频道表改动要带着 catalogVersion 走，老缓存才会重建
 assert.deepEqual(groups.flatMap(group => group.dataList).map(channel => [channel.name, channel.logo]), [
   ['YTN News', 'https://m.ytn.co.kr/img/common/ytnlogo_2024.jpg'],
   ['NHK World', 'https://www3.nhk.or.jp/nhkworld/common/site_images/nw_logo_270x270.png'],
+  ['CNA', ''],
+  ['France 24 English', ''],
+  ['France 24 Français', ''],
+  ['World Poker Tour', ''],
 ])
-assert.equal(asianLive.catalogVersion, 1)
+const logoPack = JSON.parse(readFileSync(new URL('../logo-pack/index.json', import.meta.url), 'utf8')).logos
+assert.ok(['CNA', 'France 24 English', 'France 24 Français', 'World Poker Tour'].every(name => logoPack[name]), '留空台标的几台要在内置台标库里有图')
+assert.equal(asianLive.catalogVersion, 2)
 
 assert.equal(claimsRef('asian-live-ytn'), true)
 assert.equal(claimsRef('asian-live-ytn/extra'), false)
@@ -70,7 +84,9 @@ assert.equal(directEntries.length, extinfCount, '直连区块里每条 #EXTINF �
 assert.equal(new Set(directEntries.map(entry => entry.name)).size, directEntries.length, '直连区块频道名不得重复')
 assert.equal(new Set(directEntries.map(entry => entry.url)).size, directEntries.length, '直连区块 URL 不得重复')
 assert.ok(directEntries.every(entry => /^https?:\/\//.test(entry.url)), '直连区块只接受原始 HTTP(S) 地址')
-assert.ok(SOURCES.every(source => !directEntries.some(entry => entry.name === source.name)), '动态模块不得与直连区块重复')
+// 模块频道不得与直连区块重复；接手精选列表的几台例外——过渡期留在区块里给没升级的部署（新镜像按 supersedesFeatured 收掉）
+assert.ok(SOURCES.filter(source => !source.supersedesFeatured).every(source => !directEntries.some(entry => entry.name === source.name)), '动态模块不得与直连区块重复')
+assert.ok(SOURCES.filter(source => source.supersedesFeatured).every(source => directEntries.some(entry => entry.name === source.name)), '过渡期精选列表要留着被接手的条目')
 
 assert.equal(allowUrl('https://cdn.example/live.m3u8', ['cdn.example']), 'https://cdn.example/live.m3u8')
 assert.throws(() => allowUrl('http://cdn.example/live.m3u8', ['cdn.example']))
@@ -160,10 +176,73 @@ assert.deepEqual(readCookies({
   assert.match(result.desc, /不允许访问媒体地址/)
 }
 
-assert.equal(asianLive.channelHlsMode, 'proxy')
+{
+  // NHK：主清单里同为 720p 的高码率档排第二，转发时挪到最前；独立音轨标签原样保留
+  const master = [
+    '#EXTM3U',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="program_audio_0",URI="https://media-tyo.hls.nhkworld.jp/live/a1.m3u8"',
+    '#EXT-X-STREAM-INF:BANDWIDTH=1856404,RESOLUTION=1280x720,AUDIO="program_audio_0"',
+    'https://media-tyo.hls.nhkworld.jp/live/v3.m3u8',
+    '#EXT-X-STREAM-INF:BANDWIDTH=3572008,RESOLUTION=1280x720,AUDIO="program_audio_0"',
+    'https://media-tyo.hls.nhkworld.jp/live/v2.m3u8',
+    '#EXT-X-STREAM-INF:BANDWIDTH=369547,RESOLUTION=320x180,AUDIO="program_audio_0"',
+    'https://media-tyo.hls.nhkworld.jp/live/v5.m3u8',
+    '',
+  ].join('\n')
+  const fetchImpl = async url => url === 'https://livepl.nhkworld.jp/hlslive_web.json'
+    ? new Response(JSON.stringify({ main: { jstrm: 'https://masterpl.hls.nhkworld.jp/hls/w/live/master.m3u8' } }))
+    : new Response(master)
+  const result = await createResolver({ fetchImpl }).resolve('asian-live-nhk-world')
+  assert.equal(result.relayHls, true)
+  assert.deepEqual(result.manifestText.split('\n').filter(line => line.startsWith('https://')).map(line => line.split('/').pop()), ['v2.m3u8', 'v3.m3u8', 'v5.m3u8'])
+  assert.match(result.manifestText, /^#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO/)
+}
+
+{
+  // CNA：取一次官方主清单，最高档挪到最前，不带代理请求头；子清单仍是官方地址，由播放器直连
+  const calls = []
+  const fetchImpl = async (url, init) => {
+    calls.push([url, init.headers.Referer])
+    return new Response('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=816640,RESOLUTION=480x270\nindex_1.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=8004449,RESOLUTION=1920x1080\nindex_5.m3u8\n')
+  }
+  const result = await createResolver({ fetchImpl }).resolve('asian-live-cna')
+  assert.equal(result.relayHls, true)
+  assert.equal(result.url, 'https://d2e1asnsl7br7b.cloudfront.net/7782e205e72f43aeb4a48ec97f66ebbe/index.m3u8')
+  assert.equal(result.manifestUrl, result.url)
+  assert.deepEqual(result.manifestText.split('\n').filter(line => line.endsWith('.m3u8')), ['index_5.m3u8', 'index_1.m3u8'])
+  assert.equal(result.upstreamHeaders, undefined)
+  assert.deepEqual(calls, [[result.url, undefined]])
+  // 主清单取不到、或子清单跑出官方主机：退回官方原地址（不带 relayHls，app.js 302），照样能播
+  for (const body of [new Response('', { status: 503 }), new Response('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://evil.example/x.m3u8\n')]) {
+    const fallback = await createResolver({ fetchImpl: async () => body }).resolve('asian-live-cna')
+    assert.equal(fallback.url, result.url)
+    assert.equal(fallback.relayHls, undefined)
+    assert.match(fallback.desc, /改由播放器直连/)
+  }
+}
+
+{
+  // France 24 English：官方只有两条单档清单，不发请求，拼成 1080p 在前、360p 兜底的主清单
+  const result = await createResolver({ fetchImpl: async () => { throw new Error('不该发请求') } }).resolve('asian-live-france24-en')
+  assert.equal(result.relayHls, true)
+  assert.equal(result.url, 'https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_5000.m3u8')
+  assert.equal(result.manifestText, [
+    '#EXTM3U', '#EXT-X-VERSION:3',
+    '#EXT-X-STREAM-INF:BANDWIDTH=5600000,RESOLUTION=1920x1080', 'https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_5000.m3u8',
+    '#EXT-X-STREAM-INF:BANDWIDTH=760000,RESOLUTION=640x360', 'https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_500.m3u8',
+    '',
+  ].join('\n'))
+  const french = await createResolver({ fetchImpl: async () => { throw new Error('不该发请求') } }).resolve('asian-live-france24-fr')
+  assert.deepEqual(french.manifestText.split('\n').filter(line => line.startsWith('https://')), [
+    'https://live.france24.com/hls/live/2037179-b/F24_FR_HI_HLS/master_5000.m3u8',
+    'https://live.france24.com/hls/live/2037179-b/F24_FR_HI_HLS/master_500.m3u8',
+  ])
+}
+
+assert.equal(asianLive.channelHlsMode, undefined, '代理改按频道声明')
 assert.equal(asianLive.capabilities.resolve, true)
-assert.equal((await asianLive.fetch()).groups.length, 2)
+assert.equal((await asianLive.fetch()).groups.length, 4)
 assert.equal(getModule('asian-live')?.id, 'asian-live')
 assert.equal(resolverFor('asian-live-ytn')?.id, 'asian-live')
 
-console.log('✓ 亚洲与国际直播模块仅保留动态源，直连源独立同步且解析边界测试通过')
+console.log('✓ 亚洲与国际直播模块：动态源、最高档前置的几台、直连区块与解析边界测试通过')

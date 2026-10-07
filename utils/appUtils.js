@@ -388,6 +388,8 @@ async function channel(url, urlUserId, urlToken, client, request = {}) {
 
   if (!resolved || resolved.url == "") {
     result.desc = resolved?.desc || "服务异常"
+    // 模块自己按实例归并打过黄字的拒绝（央视频取票预算）同样不逐条刷红
+    if (resolved?.silent === true) result.silent = true
     return result
   }
 

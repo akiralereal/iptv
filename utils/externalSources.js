@@ -43,6 +43,8 @@ function parseM3uContent(content) {
     // 解析 #EXTINF 行
     const groupMatch = line.match(/group-title="([^"]*)"/)
     const logoMatch = line.match(/tvg-logo="([^"]*)"/)
+    // 仓库自己的海外频道表用它标「服务端转发主清单、最高档挪到最前」的台（extractors/overseas）
+    const topFirst = /\sx-top-first="(?:1|true)"/i.test(line)
     const name = extractExtinfName(line)
 
     // 下一个非注释行是 URL；沿途的 #EXTVLCOPT 收进 opts（防盗链源靠它才播得动）
@@ -55,7 +57,8 @@ function parseM3uContent(content) {
         group: groupMatch ? groupMatch[1] : '未分组',
         logo: logoMatch ? logoMatch[1] : '',
         url: url,
-        ...(opts.length ? { opts } : {})
+        ...(opts.length ? { opts } : {}),
+        ...(topFirst ? { topFirst: true } : {})
       })
     }
   }

@@ -464,7 +464,8 @@ async function handleRequest(req, res) {
         } else if (data.action === 'remove') {
           result = removeExternalSourceAPI(data.index)
         } else if (data.action === 'update') {
-          result = await updateExternalSourceAPI(data.index || -1)
+          // 不能写 `data.index || -1`：排第一的源 index 为 0，会被当成「更新全部」
+          result = await updateExternalSourceAPI(Number.isInteger(data.index) ? data.index : -1)
         } else if (data.action === 'setM3u8') {
           result = setExternalSourceM3u8API(data.index, data.m3u8Url)
         } else if (data.action === 'importSubscription') {

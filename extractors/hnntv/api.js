@@ -5,6 +5,11 @@ import { CHANNELS } from './channels.js'
 export const CHANNEL_LIST_URL = 'https://www.hnntv.cn/api/channel?type=1'
 export const LIVE_PLAY_URL = 'https://ps.hnntv.cn/ps/livePlayUrl'
 
+// 官网频道列表接口约三成请求要等 12～13 秒才回第一个字节：2026-10-06 用 Globalping 测 40 个大陆节点
+// （电信 / 联通 / 移动家宽和几家云机房，都不走代理），27 次 0.1～1 秒、11 次 12.3～13.2 秒、2 次 15 秒
+// 内没回；DNS、建连、TLS 都只要几十毫秒，慢在服务器。按通用的 10 秒超时会隔三岔五误报抓取失败，
+// 所以这个接口单独等 20 秒，不跟随调用方传进来的通用超时。
+export const CHANNEL_LIST_TIMEOUT_MS = 20 * 1000
 const CHANNEL_REFRESH_MS = 4 * 60 * 60 * 1000
 const CHANNEL_RETRY_MS = 60 * 1000
 const STREAM_REFRESH_MS = 90 * 60 * 1000
@@ -68,7 +73,7 @@ export function buildChannels(rows) {
   }))
 }
 
-async function requestChannelList({ timeoutMs = 10000, fetchImpl = fetch } = {}) {
+async function requestChannelList({ timeoutMs = CHANNEL_LIST_TIMEOUT_MS, fetchImpl = fetch } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -210,7 +215,7 @@ export async function resolveChannel(ref, ctx = {}) {
     const match = /^hnntv-(\d{1,3})$/.exec(String(ref || ''))
     const definition = match && CHANNEL_BY_ID.get(match[1])
     if (!definition) return { url: '', desc: '海南网台频道引用格式错误' }
-    const rows = await cachedChannelList({ timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now })
+    const rows = await cachedChannelList({ fetchImpl: ctx.fetchImpl, now: ctx.now })
     const row = rows.find(item => item.id === definition.id)
     if (!row) return { url: '', desc: `${definition.name}当前不在官网频道列表中` }
     const stream = await cachedLiveStream(row, {

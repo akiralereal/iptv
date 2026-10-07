@@ -91,6 +91,15 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "澳门-Macau": {
+   "file": "澳门-Macau.png",
+   "hash": "a1d2270154",
+   "height": 62,
+   "origin": "tdm",
+   "source": "https://cdn2.tdm.com.mo/uploads/attachment/2021-09/931a1b83173c0557b46f6b7343e7e9f2.png",
+   "updated": "2026-10-06",
+   "width": 256
+  },
   "澳门莲花卫视": {
    "file": "澳门莲花卫视.png",
    "hash": "06905a02ff",
@@ -99,6 +108,51 @@
    "source": "https://www.lotustv.mo/view/assets/image/logo.png",
    "updated": "2026-09-25",
    "width": 256
+  },
+  "澳门体育": {
+   "file": "澳门体育.png",
+   "hash": "230b85c060",
+   "height": 78,
+   "origin": "tdm",
+   "source": "https://cdn2.tdm.com.mo/uploads/attachment/2021-03/0fb7aed6ff1aca16c34963fcee8eb367.png",
+   "updated": "2026-10-06",
+   "width": 256
+  },
+  "澳门资讯": {
+   "file": "澳门资讯.png",
+   "hash": "36fee14e6b",
+   "height": 78,
+   "origin": "tdm",
+   "source": "https://cdn2.tdm.com.mo/uploads/attachment/2021-03/5bde9db9db093ab310ceef6976cd0ee2.png",
+   "updated": "2026-10-06",
+   "width": 256
+  },
+  "澳门综艺": {
+   "file": "澳门综艺.png",
+   "hash": "ac9cd900b4",
+   "height": 78,
+   "origin": "tdm",
+   "source": "https://cdn2.tdm.com.mo/uploads/attachment/2021-03/3a515e0352b60f146b1c6a79ddd4c54d.png",
+   "updated": "2026-10-06",
+   "width": 256
+  },
+  "澳视澳门": {
+   "file": "澳视澳门.png",
+   "hash": "8d188a598e",
+   "height": 78,
+   "origin": "tdm",
+   "source": "https://cdn2.tdm.com.mo/uploads/attachment/2021-03/a8fbac1841a5372178278304967c69fb.png",
+   "updated": "2026-10-06",
+   "width": 256
+  },
+  "澳视葡文": {
+   "file": "澳视葡文.png",
+   "hash": "5fc0192428",
+   "height": 214,
+   "origin": "tdm",
+   "source": "https://cdn2.tdm.com.mo/uploads/attachment/2021-03/595c1e8233d7a436a0747bad38a27e81.png",
+   "updated": "2026-10-06",
+   "width": 206
   },
   "巴彦淖尔": {
    "file": "巴彦淖尔.png",
@@ -236,6 +290,17 @@
    "source": "https://img.gdtv.cn/image/202310/0.74855430504605062d1f4baae78850241OSS1696866716.png?x-oss-process=image/resize,w_400",
    "updated": "2026-09-25",
    "width": 256
+  },
+  "德化电视台": {
+   "file": "德化电视台.png",
+   "hash": "0324332464",
+   "height": 204,
+   "kind": "official",
+   "note": "德化电视台官方没有单独的频道台标：台角是红色「D」加「德化」，但官网「瓷都德化新闻网」和在线直播页都没有这张图。按所属电视台台标的规则，用德化县融媒体中心官网的站标（favicon.ico 里 189x204 的三色标，透明底），深浅界面都看得清",
+   "origin": "manual",
+   "source": "https://dehuanews.cn/favicon.ico（德化县融媒体中心官网「瓷都德化新闻网」站标）",
+   "updated": "2026-09-30",
+   "width": 189
   },
   "第一财经": {
    "file": "第一财经.png",
@@ -829,6 +894,42 @@
    "source": "https://share.96189.com/client/app/index.html#/channel/292",
    "updated": "2026-09-29",
    "width": 96
+  },
+  "杭州青少体育": {
+   "file": "杭州青少体育.png",
+   "hash": "4194499ca9",
+   "height": 256,
+   "origin": "hangzhou",
+   "source": "https://image.hoolo.tv/202008145acd1afe9fa08cd99f1e9283e28c59b2.jpg",
+   "updated": "2026-10-06",
+   "width": 256
+  },
+  "杭州生活": {
+   "file": "杭州生活.png",
+   "hash": "9e77b65d49",
+   "height": 114,
+   "origin": "hangzhou",
+   "source": "https://image.hoolo.tv/20200814e0ee32f6048e644370098512df914e05.png",
+   "updated": "2026-10-06",
+   "width": 148
+  },
+  "杭州影视": {
+   "file": "杭州影视.png",
+   "hash": "64328bff04",
+   "height": 80,
+   "origin": "hangzhou",
+   "source": "https://image.hoolo.tv/202008145170e1fff3d269abf9a3945d275eb80e.png",
+   "updated": "2026-10-06",
+   "width": 80
+  },
+  "杭州综合": {
+   "file": "杭州综合.png",
+   "hash": "51bfca3aef",
+   "height": 114,
+   "origin": "hangzhou",
+   "source": "https://image.hoolo.tv/2020081440758eac386ac9bb46ca2a07b16e5582.png",
+   "updated": "2026-10-06",
+   "width": 148
   },
   "和美乡途轮播台": {
    "file": "和美乡途轮播台.png",
@@ -1830,6 +1931,15 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "内蒙古农牧": {
+   "file": "内蒙古农牧.png",
+   "hash": "a4ce91d761",
+   "height": 256,
+   "origin": "nmtv",
+   "source": "https://cdn-bt.nmtv.cn/saas/image/2025-05/ecdf39f2-4dd6-47b6-98e3-c1eac8319cbc.png?sign=1791258721-2ax5cd4z-0-a9e52965dcf10174b649fd741e407c01",
+   "updated": "2026-10-06",
+   "width": 256
+  },
   "内蒙古农牧频道": {
    "file": "内蒙古农牧频道.png",
    "hash": "1dc4203ba8",
@@ -1837,6 +1947,15 @@
    "origin": "nmtv",
    "source": "https://cdn-bt.nmtv.cn/saas/image/2025-05/ecdf39f2-4dd6-47b6-98e3-c1eac8319cbc.png?sign=1790302896-05t32k8c-0-6c9fb3839863d4a894f9d1fac9d47ed6",
    "updated": "2026-09-25",
+   "width": 256
+  },
+  "内蒙古少儿": {
+   "file": "内蒙古少儿.png",
+   "hash": "c9a44c9050",
+   "height": 256,
+   "origin": "nmtv",
+   "source": "https://cdn-bt.nmtv.cn/saas/image/2025-05/b3244a3e-2057-4be5-acb7-48829fedc435.png?sign=1791258721-fvgn65xe-0-fecccc2ff451dfda1accb8b77cc5f08c",
+   "updated": "2026-10-06",
    "width": 256
   },
   "内蒙古少儿频道": {
@@ -1873,6 +1992,68 @@
    "origin": "nmtv",
    "source": "https://cdn-bt.nmtv.cn/saas/image/2025-05/4344ac19-3054-4e5e-9323-cf98cebaa4fe.png?sign=1790302896-h5j15rrx-0-7cc3e6971aa38bcad3cc0a72c3c61286",
    "updated": "2026-09-25",
+   "width": 256
+  },
+  "宁波都市文体": {
+   "file": "宁波都市文体.png",
+   "hash": "775e22ac7d",
+   "height": 128,
+   "kind": "library",
+   "note": "同宁波新闻综合：台徽加黑字「NBTV-3」，铺白底。iptv-org 里写的是旧名「文化娱乐频道」，编号与直播页 NBTV3 对得上。",
+   "origin": "manual",
+   "source": "https://iptv-org.github.io/api/logos.json （iptv-org 数据库频道 NBTV3.cn）",
+   "updated": "2026-10-06",
+   "width": 136
+  },
+  "宁波经济生活": {
+   "file": "宁波经济生活.png",
+   "hash": "14f9a0edb3",
+   "height": 128,
+   "kind": "library",
+   "note": "同宁波新闻综合：台徽加黑字「NBTV-2」，铺白底。iptv-org 里这台还写着旧名「社会生活频道」，官网现名经济生活频道，编号与直播页 NBTV2 对得上。",
+   "origin": "manual",
+   "source": "https://iptv-org.github.io/api/logos.json （iptv-org 数据库频道 NBTV2.cn）",
+   "updated": "2026-10-06",
+   "width": 136
+  },
+  "宁波新闻综合": {
+   "file": "宁波新闻综合.png",
+   "hash": "ea9e5f94b8",
+   "height": 128,
+   "kind": "library",
+   "note": "宁波电视台台徽（蓝红绿飞鸟）加黑字「NBTV-1」，136x128 透明 PNG。宁波广电网首页、直播页、节目单页都没有频道图标，频道资料 JSONP 的 imagePath 为空，页头只有「宁波广电网」站标。黑字在深色界面上看不清，铺白底。",
+   "origin": "manual",
+   "source": "https://iptv-org.github.io/api/logos.json （iptv-org 数据库频道 NBTV1.cn）",
+   "updated": "2026-10-06",
+   "width": 136
+  },
+  "宁波影视剧": {
+   "file": "宁波影视剧.png",
+   "hash": "74dafe86ae",
+   "height": 128,
+   "kind": "library",
+   "note": "同宁波新闻综合：台徽加黑字「NBTV-4」，铺白底。",
+   "origin": "manual",
+   "source": "https://iptv-org.github.io/api/logos.json （iptv-org 数据库频道 NBTV4.cn）",
+   "updated": "2026-10-06",
+   "width": 136
+  },
+  "宁德文化旅游": {
+   "file": "宁德文化旅游.png",
+   "hash": "ec71264092",
+   "height": 256,
+   "origin": "ningde",
+   "source": "https://app.0593tv.cn/files/jhxt/image/20251027/0bcf044dd729275633f0423ef3bd44e3.jpg",
+   "updated": "2026-09-30",
+   "width": 256
+  },
+  "宁德新闻综合": {
+   "file": "宁德新闻综合.png",
+   "hash": "00f3a674d4",
+   "height": 256,
+   "origin": "ningde",
+   "source": "https://app.0593tv.cn/files/jhxt/image/20251027/13ad1c04e01f9f254ff66ce2e6d42b2f.jpg",
+   "updated": "2026-09-30",
    "width": 256
   },
   "宁夏公共": {
@@ -1923,6 +2104,28 @@
    "source": "https://cdnproduce.yntv.cn/ysxw/HDZB_FABU/8805AF7347544A9C8ECCC6789DB4A2C2/702F785952DD4829BB0DB63CE6A8B0EE.png",
    "updated": "2026-09-25",
    "width": 256
+  },
+  "莆田文旅生活": {
+   "file": "莆田文旅生活.png",
+   "hash": "bd652b58e6",
+   "height": 254,
+   "kind": "official",
+   "note": "莆田TV 频道接口里二套的官方频道标（400x400 白底，台标加「莆田二套」）。二套 2024-08 由公共频道更名为文旅生活频道，官方没换新图。图床 image.ptbtv.com 在网宿人机验证后面，浏览器 UA 回 403，本机托管取不到，所以模块里不写、收进内置库",
+   "origin": "manual",
+   "source": "https://mapi.ptbtv.com/api/v1/channel.php（莆田TV 频道接口 channel_id=5 的 logo.square）",
+   "updated": "2026-09-30",
+   "width": 242
+  },
+  "莆田新闻综合": {
+   "file": "莆田新闻综合.png",
+   "hash": "bf420f407f",
+   "height": 185,
+   "kind": "official",
+   "note": "莆田新闻综合官方没有单独的频道台标：莆田TV 频道接口里一套的 logo / snap 是「莆田广播电视台」整台宣传图（900x500），官网直播页只有页头站标。按所属电视台台标的规则，用莆田台台标（台角同款）：从接口里二套的官方频道标（400x400 白底）截取上半部的台标，留白底，深浅界面都看得清。官网页头站标里也是这个标，但只有 85px",
+   "origin": "manual",
+   "source": "https://mapi.ptbtv.com/api/v1/channel.php（莆田TV 频道接口二套 logo.square，截取上半部的莆田台台标）",
+   "updated": "2026-09-30",
+   "width": 179
   },
   "齐鲁频道": {
    "file": "齐鲁频道.png",
@@ -2741,6 +2944,15 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "西藏藏语卫视": {
+   "file": "西藏藏语卫视.png",
+   "hash": "6e796cccd9",
+   "height": 160,
+   "origin": "xizang",
+   "source": "https://pic.vtibet.cn/cms/vrupload/img/2021/11/26/1637908504567_224_220x160.jpg",
+   "updated": "2026-10-06",
+   "width": 220
+  },
   "西藏卫视": {
    "file": "西藏卫视.png",
    "hash": "7aaedfad34",
@@ -2759,6 +2971,15 @@
    "updated": "2026-09-25",
    "width": 220
   },
+  "西湖明珠": {
+   "file": "西湖明珠.png",
+   "hash": "f2bc0b09ba",
+   "height": 256,
+   "origin": "hangzhou",
+   "source": "https://image.hoolo.tv/2020081443d00dd845ec670adae22d7d120be5d2.png",
+   "updated": "2026-10-06",
+   "width": 256
+  },
   "锡林郭勒": {
    "file": "锡林郭勒.png",
    "hash": "f2344505f1",
@@ -2767,6 +2988,17 @@
    "source": "https://cdn-bt.nmtv.cn/saas/image/2025-05/d712fede-15f3-4168-b01d-5f775521c331.png?sign=1790302896-oam0hacp-0-686960a401fed6a2415a17c7e6bf5de8",
    "updated": "2026-09-25",
    "width": 256
+  },
+  "仙游电视台": {
+   "file": "仙游电视台.png",
+   "hash": "bf420f407f",
+   "height": 185,
+   "kind": "official",
+   "note": "仙游电视台（仙游县融媒体中心）挂在莆田台的平台上播，台角是莆田台台标加「仙游」二字。莆田TV 频道接口里仙游的 logo / snap 是「莆田广播电视台」整台宣传图，官网直播页也没有频道标，按台角用莆田台台标：从接口里二套的官方频道标（400x400 白底）截取上半部，留白底",
+   "origin": "manual",
+   "source": "https://mapi.ptbtv.com/api/v1/channel.php（莆田TV 频道接口二套 logo.square，截取上半部的莆田台台标）",
+   "updated": "2026-09-30",
+   "width": 179
   },
   "香港卫视": {
    "file": "香港卫视.png",
@@ -3100,6 +3332,17 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "Al Jazeera English": {
+   "file": "Al Jazeera English.png",
+   "hash": "752759d133",
+   "height": 111,
+   "kind": "official",
+   "note": "Al Jazeera 官网页头矢量台标，原图纯白（fill #fff），浅色界面上看不见，铺黑底。官网只有这一版，favicon_aje.ico 只有 32x32。",
+   "origin": "manual",
+   "source": "https://www.aljazeera.com/live",
+   "updated": "2026-10-06",
+   "width": 256
+  },
   "Arirang": {
    "file": "Arirang.png",
    "hash": "90c982ad41",
@@ -3109,6 +3352,48 @@
    "origin": "manual",
    "source": "https://www.arirang.com/",
    "updated": "2026-09-25",
+   "width": 256
+  },
+  "beIN Sports Xtra": {
+   "file": "beIN Sports Xtra.png",
+   "hash": "601e9f5e00",
+   "height": 168,
+   "origin": "overseas",
+   "source": "https://image.xumo.com/v1/channels/channel/99991387/168x168.png?type=color_onBlack",
+   "updated": "2026-10-06",
+   "width": 168
+  },
+  "Bloomberg TV Asia": {
+   "file": "Bloomberg TV Asia.png",
+   "hash": "535cef2314",
+   "height": 80,
+   "kind": "library",
+   "note": "黑字「Bloomberg Television」字标，512x160 透明 PNG，三个地区版共用。bloomberg.com 对非浏览器请求一律 403、大陆连不上，官网直播页的台标取不到；iptv-org 给 Bloomberg TV 的就是这张。黑字在深色界面上看不清，铺白底。",
+   "origin": "manual",
+   "source": "https://iptv-org.github.io/api/logos.json （iptv-org 数据库频道 BloombergTV.us）",
+   "updated": "2026-10-06",
+   "width": 256
+  },
+  "Bloomberg TV Europe": {
+   "file": "Bloomberg TV Europe.png",
+   "hash": "535cef2314",
+   "height": 80,
+   "kind": "library",
+   "note": "同 Bloomberg TV Asia：黑字「Bloomberg Television」字标，三个地区版共用，铺白底。",
+   "origin": "manual",
+   "source": "https://iptv-org.github.io/api/logos.json （iptv-org 数据库频道 BloombergTV.us）",
+   "updated": "2026-10-06",
+   "width": 256
+  },
+  "Bloomberg TV US": {
+   "file": "Bloomberg TV US.png",
+   "hash": "535cef2314",
+   "height": 80,
+   "kind": "library",
+   "note": "同 Bloomberg TV Asia：黑字「Bloomberg Television」字标，三个地区版共用，铺白底。",
+   "origin": "manual",
+   "source": "https://iptv-org.github.io/api/logos.json （iptv-org 数据库频道 BloombergTV.us）",
+   "updated": "2026-10-06",
    "width": 256
   },
   "BRTV i生活": {
@@ -3693,6 +3978,17 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "DW English": {
+   "file": "DW English.png",
+   "hash": "0b5889fb5d",
+   "height": 180,
+   "kind": "official",
+   "note": "DW 官网 apple-touch 图标（180x180，蓝底白圈 DW），直播页 <link rel=icon> 引用。",
+   "origin": "manual",
+   "source": "https://www.dw.com/en/live-tv/channel-english",
+   "updated": "2026-10-06",
+   "width": 180
+  },
   "Estrella TV": {
    "file": "Estrella TV.png",
    "hash": "6be2a36749",
@@ -3830,6 +4126,17 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "Gusto TV": {
+   "file": "Gusto TV.png",
+   "hash": "40321e7185",
+   "height": 168,
+   "kind": "platform",
+   "note": "Xumo 频道卡（168x168，黑色「gustotv」字标，透明底），浅色版；本频道的直播地址也取自 Xumo。gustotv.com 对非浏览器请求回 403。黑字在深色界面上看不清，铺白底。",
+   "origin": "manual",
+   "source": "https://play.xumo.com/networks/gustotv/99991328",
+   "updated": "2026-10-06",
+   "width": 168
+  },
   "History Hit": {
    "file": "History Hit.png",
    "hash": "97c35de4dc",
@@ -3894,6 +4201,17 @@
    "origin": "manual",
    "source": "https://gizmo.rakuten.tv/v3/live_channels?classification_id=18&device_identifier=web&locale=en&market_code=uk&per_page=50 （Rakuten TV 英国区直播频道接口，频道 id mystery-tv）",
    "updated": "2026-09-25",
+   "width": 256
+  },
+  "NASA+": {
+   "file": "NASA+.png",
+   "hash": "a5a12c7140",
+   "height": 214,
+   "kind": "official",
+   "note": "NASA+ 没有单独的频道台标：plus.nasa.gov 的图标都是 nasa-png-placeholder 占位图。按所属机构台标的规则，用 NASA+ 页面引用的 NASA 官方矢量徽标（蓝圆红箭，nasa.gov 主题资源）。",
+   "origin": "manual",
+   "source": "https://plus.nasa.gov/",
+   "updated": "2026-10-06",
    "width": 256
   },
   "NEWS1": {
@@ -4036,6 +4354,17 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "Thai PBS": {
+   "file": "Thai PBS.png",
+   "hash": "e1a0b312bf",
+   "height": 192,
+   "kind": "official",
+   "note": "Thai PBS 官网 PWA 图标（192x192，橙底白色飞鸟台标），官网直播页 <link rel=icon> 引用；同目录的横版 thaipbs-logo-horizontal-white.png 是纯白字。",
+   "origin": "manual",
+   "source": "https://www.thaipbs.or.th/live",
+   "updated": "2026-10-06",
+   "width": 192
+  },
   "Totalmusic Concerts": {
    "file": "Totalmusic Concerts.png",
    "hash": "b6b1e7fce2",
@@ -4056,6 +4385,17 @@
    "origin": "manual",
    "source": "Samsung TV Plus 印度区频道表（https://i.mjh.nz/SamsungTVPlus/.channels.json.gz，频道 IN8000085E「TRACE Sport Stars」）",
    "updated": "2026-09-25",
+   "width": 256
+  },
+  "TRT World": {
+   "file": "TRT World.png",
+   "hash": "dc5759d668",
+   "height": 256,
+   "kind": "official",
+   "note": "TRT World 官网直播页图标（文件名写 48，实际 732x732），深灰圆底加银蓝圆环台标，透明底。",
+   "origin": "manual",
+   "source": "https://www.trtworld.com/live/europe",
+   "updated": "2026-10-06",
    "width": 256
   },
   "TVBS亚洲": {
@@ -4212,6 +4552,11 @@
   "gztv/gztv-3001": "广州综合",
   "gztv/gztv-3002": "广州新闻",
   "gztv/gztv-3003": "广州南国都市4K",
+  "hangzhou/hangzhou-film": "杭州影视",
+  "hangzhou/hangzhou-general": "杭州综合",
+  "hangzhou/hangzhou-life": "杭州生活",
+  "hangzhou/hangzhou-pearl": "西湖明珠",
+  "hangzhou/hangzhou-youth": "杭州青少体育",
   "hbtv/hbtv-431": "湖北卫视",
   "hbtv/hbtv-432": "湖北经视",
   "hbtv/hbtv-433": "湖北综合",
@@ -4319,6 +4664,12 @@
   "mgtv/mgtv-344": "湖南娱乐",
   "mgtv/mgtv-346": "湖南都市",
   "mgtv/mgtv-484": "湖南电视剧",
+  "ningbo/ningbo-city": "宁波都市文体",
+  "ningbo/ningbo-drama": "宁波影视剧",
+  "ningbo/ningbo-economy": "宁波经济生活",
+  "ningbo/ningbo-news": "宁波新闻综合",
+  "ningde/#宁德文化旅游": "宁德文化旅游",
+  "ningde/#宁德新闻综合": "宁德新闻综合",
   "ningxia/#宁夏公共": "宁夏公共",
   "ningxia/#宁夏卫视": "宁夏卫视",
   "ningxia/#宁夏文旅": "宁夏文旅",
@@ -4326,7 +4677,7 @@
   "njtv/#南京十八·生活": "南京十八·生活",
   "njtv/#南京文旅纪录": "南京文旅纪录",
   "njtv/#南京新闻综合": "南京新闻综合",
-  "nmtv/nmtv-agriculture": "内蒙古农牧频道",
+  "nmtv/nmtv-agriculture": "内蒙古农牧",
   "nmtv/nmtv-alxa": "阿拉善",
   "nmtv/nmtv-baotou": "包头",
   "nmtv/nmtv-bayannur": "巴彦淖尔",
@@ -4336,7 +4687,7 @@
   "nmtv/nmtv-hinggan": "兴安盟",
   "nmtv/nmtv-hohhot": "呼和浩特",
   "nmtv/nmtv-hulunbuir": "呼伦贝尔",
-  "nmtv/nmtv-kids": "内蒙古少儿频道",
+  "nmtv/nmtv-kids": "内蒙古少儿",
   "nmtv/nmtv-mongolian-culture": "内蒙古蒙古语文化频道",
   "nmtv/nmtv-mongolian-satellite": "内蒙古蒙古语卫视",
   "nmtv/nmtv-news-general": "内蒙古新闻综合",
@@ -4346,6 +4697,42 @@
   "nmtv/nmtv-ulanqab": "乌兰察布",
   "nmtv/nmtv-wuhai": "乌海",
   "nmtv/nmtv-xilingol": "锡林郭勒",
+  "overseas/#ACCDN": "ACCDN",
+  "overseas/#Arirang": "Arirang",
+  "overseas/#beIN Sports Xtra": "beIN Sports Xtra",
+  "overseas/#Court TV": "Court TV",
+  "overseas/#Documentary+": "Documentary+",
+  "overseas/#Estrella TV": "Estrella TV",
+  "overseas/#FashionTV Paris L'Original": "FashionTV Paris L'Original",
+  "overseas/#FIFA+": "FIFA+",
+  "overseas/#FloRacing": "FloRacing",
+  "overseas/#France 24 Español": "France 24 Español",
+  "overseas/#FUEL TV": "FUEL TV",
+  "overseas/#Global Fashion Channel": "Global Fashion Channel",
+  "overseas/#Graham Norton": "Graham Norton",
+  "overseas/#History Hit": "History Hit",
+  "overseas/#InTravel": "InTravel",
+  "overseas/#Mediaset Italia": "Mediaset Italia",
+  "overseas/#MovieSphere": "MovieSphere",
+  "overseas/#MTRSPT1": "MTRSPT1",
+  "overseas/#Mystery TV": "Mystery TV",
+  "overseas/#NEWS1": "NEWS1",
+  "overseas/#Pac-12 Insider": "Pac-12 Insider",
+  "overseas/#Qello Concerts": "Qello Concerts",
+  "overseas/#Rai Italia": "Rai Italia",
+  "overseas/#Rai World Premium": "Rai World Premium",
+  "overseas/#Sky Racing 1": "Sky Racing 1",
+  "overseas/#Sky Racing 2": "Sky Racing 2",
+  "overseas/#SportsGrid": "SportsGrid",
+  "overseas/#Tennis Channel International": "Tennis Channel International",
+  "overseas/#Terra Mater WILD": "Terra Mater WILD",
+  "overseas/#Totalmusic Concerts": "Totalmusic Concerts",
+  "overseas/#Trace Sport Stars": "Trace Sport Stars",
+  "overseas/#Wipeout Xtra": "Wipeout Xtra",
+  "overseas/#World of Freesports": "World of Freesports",
+  "putian/putian-culture": "莆田文旅生活",
+  "putian/putian-news": "莆田新闻综合",
+  "putian/putian-xianyou": "仙游电视台",
   "qinghai/qinghai-amdo": "安多卫视",
   "quanzhou-county/#晋江电视台": "晋江电视台",
   "quanzhou-county/#石狮新闻综合": "石狮新闻综合",
@@ -4375,6 +4762,8 @@
   "shanxi/shanxi-xinzhou-general": "忻州综合",
   "shanxi/shanxi-yangquan-news": "阳泉新闻综合",
   "shanxi/shanxi-yuncheng-1": "运城-1",
+  "sichuan/sichuan-1016554": "四川经济频道",
+  "sichuan/sichuan-1844567123037646849": "四川新闻频道",
   "sztv/sztv-24725": "深圳卫视4K",
   "sztv/sztv-7867": "深圳卫视",
   "sztv/sztv-7868": "深圳都市",
@@ -4382,6 +4771,12 @@
   "sztv/sztv-7880": "深圳电视剧",
   "sztv/sztv-7881": "深圳少儿",
   "sztv/sztv-7944": "深圳国际",
+  "tdm/tdm-ctvp": "澳视澳门",
+  "tdm/tdm-info": "澳门资讯",
+  "tdm/tdm-ptvp": "澳视葡文",
+  "tdm/tdm-satellite": "澳门-Macau",
+  "tdm/tdm-sports": "澳门体育",
+  "tdm/tdm-variety": "澳门综艺",
   "tianjin/tianjin-arts": "天津文艺",
   "tianjin/tianjin-city": "天津都市",
   "tianjin/tianjin-education": "天津教育",
@@ -4403,7 +4798,7 @@
   "xinjiang/xjtv-8": "新疆少儿",
   "xizang/xizang-film-culture": "西藏影视文化",
   "xizang/xizang-satellite": "西藏卫视",
-  "xizang/xizang-tibetan": "藏语卫视",
+  "xizang/xizang-tibetan": "西藏藏语卫视",
   "yangshipin/ysp-ahws": "安徽卫视",
   "yangshipin/ysp-bjws": "北京卫视",
   "yangshipin/ysp-cctv1": "CCTV1综合",

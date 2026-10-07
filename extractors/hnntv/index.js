@@ -17,7 +17,8 @@ export default {
   epg,
 
   async fetch(_config, ctx = {}) {
-    const rows = await fetchChannelList({ timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl })
+    // 不传 ctx.timeoutMs（通用 10 秒）：这个接口常要 12～13 秒，等 CHANNEL_LIST_TIMEOUT_MS（见 api.js）
+    const rows = await fetchChannelList({ fetchImpl: ctx.fetchImpl })
     primeChannelCache(rows, ctx.now ?? Date.now())
     const channels = buildChannels(rows)
     if (!channels.length) throw new Error('海南网台接口成功，但没有找到七套正式电视频道（官网可能已改版）')

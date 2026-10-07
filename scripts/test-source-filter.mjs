@@ -227,6 +227,23 @@ check('体育组里外部订阅的频道排在地方官方体育频道之后，�
   ])
 })
 
+check('体育组里海外频道模块（trailing）的台排在组尾：地方官方体育频道、精选列表之后', () => {
+  // 咪咕关着时（海外部署常见），海外频道模块是体育组里第一个模块，不处理就会排到最前
+  const output = consolidateLocalSportsChannels([
+    { name: '体育', dataList: [
+      { name: 'Sky Racing 1', sourceId: 'xt:overseas', trailing: true },
+      { name: 'FUEL TV', sourceId: 'xt:overseas', trailing: true },
+      { name: '纬来体育', sourceId: 'bi:vl-sports' },
+      { name: 'World Poker Tour', sourceId: 'ext:iptv', source: 'external', builtInSubscription: true },
+    ] },
+    { name: '广东', dataList: [{ name: '广东体育', sourceId: 'xt:gdtv' }] },
+    { name: '上海', dataList: [{ name: '五星体育', sourceId: 'xt:kankanews' }] },
+  ])
+  assert.deepEqual(output.find(group => group.name === '体育').dataList.map(channel => channel.name), [
+    '纬来体育', '广东体育', '五星体育', 'World Poker Tour', 'Sky Racing 1', 'FUEL TV',
+  ])
+})
+
 // 用户自配线路（自建订阅、本地文件/粘贴、直连、「复制到分组」副本）不被地方官方同台线路替换或删除。
 // 精选订阅的频道由 getValidChannels 打 builtInSubscription，仍按原规则去重。
 const labels = (output, name) => (output.find(group => group.name === name)?.dataList || [])

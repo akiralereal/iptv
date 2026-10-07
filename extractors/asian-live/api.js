@@ -1,5 +1,6 @@
 import fetch from 'node-fetch'
 
+import { buildMasterPlaylist, topVariantFirst } from '../../utils/hlsTopFirst.js'
 import { sourceFromRef } from './channels.js'
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
@@ -151,6 +152,39 @@ function createUpstreamHeaders(baseHeaders, cookies, rules) {
   }
 }
 
+/**
+ * 地址固定、只需把最高档挪到最前的频道（CNA、France 24 English / Français、World Poker Tour）：只给播放器一份主清单，
+ * 子清单和分片由播放器直连官方 CDN。主清单取不到时退回官方原地址（302），和以前直连一样能播。
+ */
+async function resolveTopFirst(source, request) {
+  if (source.kind === 'ladder') {
+    const urls = source.variants.map(variant => allowUrl(variant.url, source.rules))
+    return {
+      url: urls[0],
+      desc: `${source.name} 播放地址获取成功`,
+      relayHls: true,
+      manifestText: buildMasterPlaylist(source.variants.map((variant, index) => ({ ...variant, url: urls[index] }))),
+      manifestUrl: urls[0],
+    }
+  }
+  const masterUrl = allowUrl(source.masterUrl, source.rules)
+  try {
+    const manifest = await fetchText(masterUrl, { ...request, timeoutMs: Math.min(request.timeoutMs, 8000), rules: source.rules })
+    validateHls(manifest.text, manifest.url, source.rules)
+    if (!manifest.text.includes('#EXT-X-STREAM-INF')) throw new Error('官方地址不再是主清单')
+    return {
+      url: manifest.url,
+      desc: `${source.name} 播放地址获取成功`,
+      relayHls: true,
+      manifestText: topVariantFirst(manifest.text),
+      manifestUrl: manifest.url,
+    }
+  } catch (error) {
+    // 不带 relayHls：app.js 直接 302 到官方主清单，播放器照旧自己选档
+    return { url: masterUrl, desc: `${source.name} 主清单暂时取不到，改由播放器直连：${error?.message || String(error)}` }
+  }
+}
+
 export function createResolver({ fetchImpl = fetch } = {}) {
   const streamCache = new Map()
   const pending = new Map()
@@ -186,6 +220,7 @@ export function createResolver({ fetchImpl = fetch } = {}) {
       timeoutMs: ctx.timeoutMs || 15_000,
       now: ctx.now,
     }
+    if (source.direct) return resolveTopFirst(source, request)
     try {
       const streamUrl = await streamUrlFor(source, request)
       const referer = source.referer || source.page
@@ -202,7 +237,8 @@ export function createResolver({ fetchImpl = fetch } = {}) {
         url: manifest.url,
         desc: `${source.name} 播放地址获取成功`,
         relayHls: true,
-        manifestText: manifest.text,
+        // NHK 主清单里同为 720p 的高码率档排第二，挪到最前；YTN 是单档媒体清单，原样不动
+        manifestText: topVariantFirst(manifest.text),
         manifestUrl: manifest.url,
         upstreamHeaders,
         upstreamUrlTransform: raw => allowUrl(raw, source.rules),

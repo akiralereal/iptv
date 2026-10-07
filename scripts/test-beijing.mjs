@@ -7,14 +7,17 @@ import {
   BEIJING_LIVE_PAGE,
   BEIJING_PAGE,
   BEIJING_PLAY_API,
+  COOKIE_REJECTED_NOTICE,
   buildGroups,
   claimsRef,
   clearCache,
+  credentialRejected,
   fetchCatalog,
   officialMediaUrl,
   parseChannels,
   parseCredential,
   parseLiveEvents,
+  resetCredentialState,
   resolveChannel,
   signPlayRequest,
 } from '../extractors/beijing/api.js'
@@ -37,19 +40,23 @@ function playPayload(url, encoded = false) {
   return { errno: 0, data: { video_stream: [{ stream_url: stream }] } }
 }
 
-function fixture({ accountOk = true } = {}) {
+// 官网不认 Cookie 时的真实回应（2026-10-06 用乱填的 Cookie 实测）：账号接口 code 1016，取流接口 errno 401
+const ACCOUNT_REJECTED = { code: 1016, message: '用户未登录', data: [] }
+
+function fixture({ account = { code: 0, data: { nickname: '测试用户' } }, playRejected = false } = {}) {
   const calls = []
   const fetchImpl = async (raw, options = {}) => {
     const url = new URL(raw)
     calls.push({ url, headers: options.headers || {} })
     if (url.href === BEIJING_PAGE) return response(tvHtml)
     if (url.href === BEIJING_LIVE_PAGE) return response(liveHtml)
-    if (url.href === BEIJING_ACCOUNT_API) return response(accountOk ? { code: 0, data: { nickname: '测试用户' } } : { code: 401, data: [] })
+    if (url.href === BEIJING_ACCOUNT_API) return response(account)
     if (url.origin + url.pathname === BEIJING_PLAY_API) {
       const gid = url.searchParams.get('id')
       const typeId = url.searchParams.get('type_id')
       const timestamp = url.searchParams.get('timestamp')
       assert.equal(url.searchParams.get('sign'), signPlayRequest(gid, timestamp, typeId))
+      if (playRejected && typeId === '151') return response({ errno: 401, errmsg: '用户未登录' })
       return response(playPayload(liveUrl(gid), typeId === '151'))
     }
     if (url.href === liveUrl('eventone')) return response('#EXTM3U\n#EXTINF:6,\nsegment.ts\n')
@@ -113,13 +120,42 @@ test('有效登录加入 9 个电视台，公开直播自动排除失效项目',
   assert.ok(mediaCalls.every(call => !('Cookie' in call.headers) && call.headers.Origin === 'https://www.btime.com' && call.headers.Referer === BEIJING_LIVE_PAGE))
 })
 
-test('Cookie 过期时仅隐藏电视台，免登录直播继续输出', async () => {
-  clearCache()
-  const f = fixture({ accountOk: false })
-  const catalog = await fetchCatalog({ cookie, fetchImpl: f.fetchImpl, timeoutMs: 1000 })
-  assert.equal(catalog.tvRows.length, 0)
+test('Cookie 过期时电视台照留并提醒，免登录直播继续输出；检查通过即清除', async () => {
+  clearCache(); resetCredentialState()
+  const catalog = await fetchCatalog({ cookie, fetchImpl: fixture({ account: ACCOUNT_REJECTED }).fetchImpl, timeoutMs: 1000 })
+  // 不让 9 个台从播放列表里悄悄消失：照留，靠后台提醒中心告诉用户
+  assert.equal(catalog.tvRows.length, 9)
   assert.equal(catalog.publicRows.length, 1)
-  assert.match(catalog.warnings.join('\n'), /Cookie 已失效/)
+  assert.equal(catalog.credentialRejected, COOKIE_REJECTED_NOTICE)
+  assert.doesNotMatch(catalog.warnings.join('\n'), /Cookie/)
+  assert.equal(credentialRejected({ cookie }), COOKIE_REJECTED_NOTICE)
+  assert.equal(credentialRejected({ cookie: 'lf=1; usid=other' }), '')
+
+  const fetched = await beijing.fetch({ cookie }, { fetchImpl: fixture({ account: ACCOUNT_REJECTED }).fetchImpl })
+  assert.equal(fetched.meta.credentialRejected, COOKIE_REJECTED_NOTICE)
+  assert.deepEqual(fetched.groups.map(group => [group.name, group.dataList.length]), [['北京', 9], ['北京景观', 1]])
+
+  const valid = await fetchCatalog({ cookie, fetchImpl: fixture().fetchImpl, timeoutMs: 1000 })
+  assert.equal(valid.credentialRejected, '')
+  assert.equal(credentialRejected({ cookie }), '')
+})
+
+test('账号接口别的错误只说检查没做完，不冤枉 Cookie，电视台照留', async () => {
+  clearCache(); resetCredentialState()
+  const catalog = await fetchCatalog({ cookie, fetchImpl: fixture({ account: { code: 500, message: '服务繁忙', data: [] } }).fetchImpl, timeoutMs: 1000 })
+  assert.equal(catalog.tvRows.length, 9)
+  assert.equal(catalog.credentialRejected, undefined, '没查成不下结论，后台沿用上一轮')
+  assert.match(catalog.warnings.join('\n'), /北京时间 Cookie 检查没有完成：账号接口返回 500 服务繁忙/)
+  assert.equal(credentialRejected({ cookie }), '')
+})
+
+test('播放时取流接口回 401 立刻记为失效，后台不用等下一轮刷新', async () => {
+  clearCache(); resetCredentialState()
+  const result = await resolveChannel('beijing-tv-sn', { config: { cookie }, fetchImpl: fixture({ playRejected: true }).fetchImpl, now: 1777777777000 })
+  assert.equal(result.url, '')
+  assert.match(result.desc, /Cookie 已失效/)
+  assert.equal(credentialRejected({ cookie }), COOKIE_REJECTED_NOTICE)
+  resetCredentialState()
 })
 
 test('电视台与公开活动按需取址，登录 Cookie 不传给媒体 CDN', async () => {

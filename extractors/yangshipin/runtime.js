@@ -30,22 +30,63 @@ const LOGIN_LINK_MARKER = dataPath('yangshipin/login-linked.json')
 const LOGIN_KEEPALIVE_INTERVAL_MS = 6 * 60 * 60_000
 const LOGIN_KEEPALIVE_INITIAL_DELAY_MS = 90_000
 
+/**
+ * 登录态失效记录。关联过的账号被官网判成未登录、或 VIP 权益掉了时写下，后台提醒中心据此提醒
+ * （见 registry.js 的 credentialRejected）；重新登录 / 导入成功即删除。关联标记在失效那一刻就被
+ * 删掉了，不另记的话「曾经登录过、现在掉了」这件事无从得知。只存原因、昵称和时间，不含凭据；
+ * 落盘是为了重启后还记得。
+ */
+const LOGIN_LOST_MARKER = dataPath('yangshipin/login-lost.json')
+export const LOGIN_LOST_NOTICE = `央视频登录态已失效（官网没认出关联过的账号），${AUTH_CHANNEL_BY_ID.size} 个会员频道暂时播不了；请在后台重新登录或导入登录态`
+export const VIP_LOST_NOTICE = `央视频账号的 VIP 权益已失效，${AUTH_CHANNEL_BY_ID.size} 个会员频道暂时播不了；续费后在后台点「检查登录态」`
+
 function readLoginLink() {
   try { return JSON.parse(readFileSync(LOGIN_LINK_MARKER, 'utf8')) } catch { return null }
 }
 
+function readLoginLost() {
+  try { return JSON.parse(readFileSync(LOGIN_LOST_MARKER, 'utf8')) } catch { return null }
+}
+
+function writeLoginLost(reason, nickname, wasVip) {
+  const previous = readLoginLost()
+  mkdirSync(dirname(LOGIN_LOST_MARKER), { recursive: true })
+  writeFileSync(LOGIN_LOST_MARKER, JSON.stringify({
+    reason, nickname: String(nickname || ''), wasVip: wasVip === true || previous?.wasVip === true,
+    lostAt: previous?.lostAt || new Date().toISOString(),
+  }, null, 2))
+}
+
+function clearLoginLost() {
+  if (existsSync(LOGIN_LOST_MARKER)) unlinkSync(LOGIN_LOST_MARKER)
+}
+
+/** 后台状态接口用：关联过的央视频账号现在是否已失效。央视频没有配置项，config 用不上。 */
+export function credentialRejected() {
+  const lost = readLoginLost()
+  if (!lost) return ''
+  return lost.reason === 'vip' ? VIP_LOST_NOTICE : LOGIN_LOST_NOTICE
+}
+
 function rememberLoginLink(status) {
   try {
+    const previous = readLoginLink()
     if (status?.authenticated) {
       mkdirSync(dirname(LOGIN_LINK_MARKER), { recursive: true })
       writeFileSync(LOGIN_LINK_MARKER, JSON.stringify({
-        linkedAt: readLoginLink()?.linkedAt || new Date().toISOString(),
+        linkedAt: previous?.linkedAt || new Date().toISOString(),
         verifiedAt: new Date().toISOString(),
         nickname: String(status.account?.nickname || ''),
         vip: status.account?.vip === true,
       }, null, 2))
+      // VIP 从有到无才提醒，一直不是 VIP 的账号不算失效；掉了之后要等 VIP 回来才消
+      // 登录掉了又重新登录、但已不是 VIP 的，同样算 VIP 失效（失效记录里留着原先是不是 VIP）
+      if (status.account?.vip === true) clearLoginLost()
+      else if (previous?.vip === true || readLoginLost()?.wasVip === true) writeLoginLost('vip', status.account?.nickname, true)
+      else clearLoginLost()
       scheduleLoginKeepalive()
     } else if (existsSync(LOGIN_LINK_MARKER)) {
+      writeLoginLost('login', previous?.nickname, previous?.vip)
       unlinkSync(LOGIN_LINK_MARKER)
     }
   } catch (error) {
@@ -406,4 +447,5 @@ export const runtime = {
   vipBridge,
   browserLogin,
   loginLink: { markerPath: LOGIN_LINK_MARKER, read: readLoginLink, remember: rememberLoginLink },
+  loginLost: { markerPath: LOGIN_LOST_MARKER, read: readLoginLost },
 }

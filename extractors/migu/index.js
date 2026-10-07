@@ -33,6 +33,7 @@ import { dataList } from "../../utils/fetchList.js"
 import { resolve, clearCache } from "./resolve.js"
 import { enableMigu } from "../../config.js"
 import { setSystemFlagAPI } from "../../utils/systemConfigAPI.js"
+import { checkAccount, credentialRejected } from "./account.js"
 
 /**
  * 跨分组去重：同一个 pID 只留在**最先出现**的那个分组里；
@@ -249,7 +250,7 @@ export default {
         { value: 7, label: '原画 (1080p+ · 需VIP)' },
         { value: 9, label: '4K (2160p · 需VIP)' },
       ],
-      hint: '实际画质受咪咕账号档位限制：游客（不填账号）最高 540p；填免费咪咕账号可到 720p；蓝光 1080p / 原画 / 4K 需 VIP',
+      hint: '实际画质受咪咕账号档位限制：游客（不填账号）最高 540p；填免费咪咕账号可到 720p；蓝光 1080p / 原画 / 4K 需 VIP。选 4K 时，含电视端权益的会员在有「投屏专享」的赛事上会拿到 4K 投屏流',
     },
     {
       key: 'enableH265',
@@ -292,6 +293,8 @@ export default {
   // bookmarklet 代码，拆开反而更碎。
   helper: 'migu-bookmarklet',
 
+  credentialCheck: { refresh: true, playback: true, degrade: 'Token 失效时咪咕照样给流，按游客播放（最高 540p）' },
+
   legacySystemConfigKeys: ['userId', 'token', 'rateType', 'enableHDR', 'enableH265', 'enableClientDispatch'],
 
   // 开关代理到 config.js 的 enableMigu：它被 updateData / channelMerger / app.js 等
@@ -321,7 +324,9 @@ export default {
 
   clearResolveCache: clearCache,
 
-  async fetch() {
+  credentialRejected,
+
+  async fetch(config = {}) {
     const { cates, failed } = await dataList()
 
     // 咪咕接口返回的就是 [{name, dataList}] 形状，与注册表契约天然同构，
@@ -347,14 +352,23 @@ export default {
       throw new Error(`咪咕分类数据本轮全部抓取失败（${failed.length} 个分类）：网络不可达或接口异常`)
     }
 
+    // 配了账号就拿第一个频道试要一次地址，看咪咕还认不认这个 Token（失效时只提醒，播放自动按游客）
+    const probe = deduped.find(g => g.dataList.length)?.dataList[0]?.pID
+    const account = await checkAccount(config, probe, { enableHDR: false, enableH265: false })
+
     return {
       groups: deduped,
       meta: {
         skipped: [],
         // 部分分类失败不算整轮失败，但要让「源管理」的健康状态看得见，
         // 不能像原来那样只在日志里刷一行就完事。
-        warnings: failed.map(name => `分类「${name}」本轮抓取失败，该分类频道缺失`),
+        warnings: [
+          ...failed.map(name => `分类「${name}」本轮抓取失败，该分类频道缺失`),
+          ...(account.warning ? [account.warning] : []),
+        ],
         requested: count,
+        // 没查成不下结论，后台沿用上一轮（registry.js）
+        credentialRejected: account.warning ? undefined : (account.rejected || ''),
       },
     }
   },

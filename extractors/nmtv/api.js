@@ -11,19 +11,24 @@ const CHANNEL_LIST_TTL_MS = 30 * 1000
 const MEDIA_HOSTS = new Set(['play1-qk.nmtv.cn', 'livestream-bt.nmtv.cn'])
 const IMAGE_HOST = 'cdn-bt.nmtv.cn'
 
-function channel(ref, upstreamId, name, fallbackUrl = '') {
-  return Object.freeze({ ref, upstreamId, name, fallbackUrl })
+// rawName 是官网频道列表里的 title，按它认台标和直播地址；name 是播放列表里的台名。
+// 官网省级频道只写「新闻综合」「少儿频道」这类通用名，补上「内蒙古」再输出（issue #157）：
+// 少儿频道会按关键词复制进「少儿」分组，外部节目单也按带省名的台名对频道。盟市台的城市名本身不会撞，照原样。
+function channel(ref, upstreamId, rawName, { name = rawName, fallbackUrl = '' } = {}) {
+  return Object.freeze({ ref, upstreamId, rawName, name, fallbackUrl })
 }
 
 export const CHANNELS = Object.freeze([
-  channel('nmtv-satellite', 3621481, '内蒙古卫视', 'http://play1-qk.nmtv.cn/live/1769652018126032.m3u8'),
+  channel('nmtv-satellite', 3621481, '内蒙古卫视', { fallbackUrl: 'http://play1-qk.nmtv.cn/live/1769652018126032.m3u8' }),
   channel('nmtv-mongolian-satellite', 2315, '内蒙古蒙古语卫视'),
-  channel('nmtv-news-general', 2316, '新闻综合'),
-  channel('nmtv-economy-life', 2317, '经济生活'),
-  channel('nmtv-kids', 2318, '少儿频道'),
-  channel('nmtv-culture-sports', 2319, '文体娱乐'),
-  channel('nmtv-agriculture', 2320, '农牧频道'),
-  channel('nmtv-mongolian-culture', 2321, '内蒙古蒙古语文化频道', 'http://play1-qk.nmtv.cn/live/1769652109096027.m3u8'),
+  channel('nmtv-news-general', 2316, '新闻综合', { name: '内蒙古新闻综合' }),
+  channel('nmtv-economy-life', 2317, '经济生活', { name: '内蒙古经济生活' }),
+  channel('nmtv-kids', 2318, '少儿频道', { name: '内蒙古少儿' }),
+  channel('nmtv-culture-sports', 2319, '文体娱乐', { name: '内蒙古文体娱乐' }),
+  channel('nmtv-agriculture', 2320, '农牧频道', { name: '内蒙古农牧' }),
+  channel('nmtv-mongolian-culture', 2321, '内蒙古蒙古语文化频道', {
+    fallbackUrl: 'http://play1-qk.nmtv.cn/live/1769652109096027.m3u8',
+  }),
   channel('nmtv-hohhot', 2331, '呼和浩特'),
   channel('nmtv-baotou', 2358, '包头'),
   channel('nmtv-wuhai', 2355, '乌海'),
@@ -165,7 +170,7 @@ async function cachedPortalChannels(options = {}) {
 
 function entryFor(channel, entries) {
   return entries.find(item => Number(item?.id) === channel.upstreamId
-    && String(item?.title || '').trim() === channel.name)
+    && String(item?.title || '').trim() === channel.rawName)
 }
 
 function streamFor(channel, entries) {

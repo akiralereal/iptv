@@ -160,13 +160,16 @@ export function removeExternalSourceAPI(index) {
  */
 export async function updateExternalSourceAPI(index) {
   try {
-    if (index === -1) {
-      // 更新所有源
-      return await externalSourceManager.updateAllSources()
-    } else {
-      // 更新单个源
-      return await externalSourceManager.updateSource(index)
+    const result = index === -1
+      ? await externalSourceManager.updateAllSources()   // 更新所有源
+      : await externalSourceManager.updateSource(index)  // 更新单个源
+    // 抓到的新地址只写进了 external-sources.json；频道管理与播放列表读的是生成好的
+    // interface.txt，不重新生成的话要等下一次整点更新才出现
+    const changed = Array.isArray(result) ? result.some(r => r.success) : result?.success
+    if (changed) {
+      await update(0, { regenerateOnly: true }).catch(err => console.error('抓取后重新生成播放列表失败:', err))
     }
+    return result
   } catch (error) {
     return {
       success: false,

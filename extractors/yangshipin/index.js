@@ -2,7 +2,7 @@
 import { buildChannels, claimsRef } from './channels.js'
 import epg from './epg.js'
 import { clearCache, resolveChannel } from './resolver.js'
-import { browserLoginFlow, claimsLocalPath, handleLocalRequest, shutdown } from './runtime.js'
+import { browserLoginFlow, claimsLocalPath, credentialRejected, handleLocalRequest, shutdown } from './runtime.js'
 
 export default {
   id: 'yangshipin',
@@ -28,11 +28,15 @@ export default {
   // 一被限连正在看的人也一起 403）。HEAD 探活 app.js 已本地应答，GET 这一半交给客户端批量探测
   // 防护本地拒绝，见 utils/clientScanGuard.js。这只管公开频道（走 resolve）；10 个会员频道走本地
   // 媒体路由，由 runtime.js 的 vipBurstRefusal 接上同一本账。
+  // 按客户端的账拦不住多设备各扫几个、两秒一台的慢扫，出口一旦被限连换新票都 403（issue #162）：
+  // resolver.js 另有实例级取票预算（TICKET_BUDGET）兜底，只拦冷启动，正在播的不受影响。
   resolveBurstGuard: true,
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,
   refreshDescription: '自动管理：公开频道播放时刷新短效地址并让分片直连 CDN；VIP 频道由本机官网浏览器持续解扰并输出兼容 HLS。',
   helper: 'yangshipin-login',
+  // 刷新（每天一次）不查；登录态由 6 小时保活、会员台播放、后台检查读账号时发现，经 credentialRejected 上报
+  credentialCheck: { refresh: false, playback: true, degrade: '10 个会员频道照留但播不了（没有游客版），63 个公开频道不受影响' },
   configSchema: [],
   // 官网节目单，按频道表里的 livePid 取；与取流链路互不依赖（见 epg.js）
   epg,
@@ -42,6 +46,8 @@ export default {
   },
 
   claimsRef,
+  // 登录态失效由保活 / 会员台播放 / 后台检查读账号时发现（runtime.js 的失效记录），这里交给提醒中心
+  credentialRejected,
   resolve: resolveChannel,
   clearResolveCache: clearCache,
   browserLoginFlow,

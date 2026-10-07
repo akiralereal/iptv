@@ -326,7 +326,7 @@ try {
   })
 
   await check('客户端批量探测：同一客户端连续 GET 多个公开频道，第 6 个起本地拒绝、不再打上游；别的客户端不受影响', async () => {
-    // 央视频取票走全局 fetch，这里桩成 403：前几路会真的进解析链（并失败），拒绝的一路不该碰它
+    // 新频道桩成 403；前面测过的 CCTV2 则仍有共享刷新窗口内的有效清单。
     const realFetch = globalThis.fetch
     let upstream = 0
     globalThis.fetch = async () => { upstream++; return new Response('denied', { status: 403 }) }
@@ -337,7 +337,9 @@ try {
         const response = await request(`/${PASS}/relay/ysp-${ref}.m3u8`, { headers: { 'User-Agent': 'scan-test/1.0' } })
         outcomes.push({ status: response.status, body: response.body.toString(), hit: upstream > before })
       }
-      assert.ok(outcomes.slice(0, 5).every(o => o.hit), '前 5 个台正常进解析链')
+      assert.ok(outcomes.slice(0, 5).filter((_, i) => i !== 1).every(o => o.hit), '前 5 个台中的新频道正常进解析链')
+      assert.match(outcomes[1].body, /^#EXTM3U/, '已经在播的 CCTV2 继续拿有效清单')
+      assert.equal(outcomes[1].hit, false, '有效共享清单不因扫描重复打上游')
       assert.ok(outcomes.slice(5).every(o => !o.hit), '第 6 个起一枪都不打上游')
       assert.ok(outcomes.slice(5).every(o => o.status === 200 && o.body.includes('批量探测')), '拒绝仍是 code 200 + 中文原因')
       const before = upstream

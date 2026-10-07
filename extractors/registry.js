@@ -17,8 +17,14 @@
  *   name                  string  后台显示名
  *   description           string  后台一句话说明
  *   category              string  可选；后台源管理分组。'account' 表示带账号/
- *                                 授权能力，'live' 表示网络直播平台；不声明即
+ *                                 授权能力，'live' 表示网络直播平台，'overseas' 表示
+ *                                 面向大陆以外、默认关闭的海外模块；不声明即
  *                                 'standard'（免账号的普通官方抓取模块）
+ *   defaultEnabled        boolean 可选；用户没在卡片上点过开关时开不开，不声明即开。
+ *                                 只有面向海外、在大陆连不上或常卡顿的模块写 false
+ *                                 （海外频道、澳门），由用户自己打开；各模块在海外的
+ *                                 实测见仓库根目录 OVERSEAS.md。v4.29.0 及以前已有的模块
+ *                                 在存量配置里多已落成 enabled:true，改它们的默认值要另写迁移
  *   capabilities          object  { cache: 'disk'|'memory'|'none',
  *                                   resolve: boolean, epg: boolean }
  *   catalogVersion        number  可选；代码内置频道表变更时递增。缓存版本不一致会在
@@ -43,6 +49,13 @@
  *                                 FLV resolve 须返回 validateMediaUrl 校验官方调度跳转。
  *   capabilities.catchup boolean 可选；false 表示纯直播，不透传回看查询参数。
  *   configSchema          array   字段描述，后台据此渲染表单、后端据此校验
+ *   credentialCheck       object  要登录的模块（有 secret 字段或 browserLoginFlow）必需：
+ *                                 { refresh: 刷新时检查凭证并报 meta.credentialRejected,
+ *                                   playback: 播放时发现并经 credentialRejected(config) 上报,
+ *                                   degrade: 一句话，凭证失效后播放怎么办 }。
+ *                                 规矩：能降级到游客档就降级接着播；没有游客版的频道照留、
+ *                                 不许从播放列表悄悄消失；两种都必须让后台提醒中心知道。
+ *                                 见 ADD-CHANNELS.md「登录凭证」，测试在 test-extractors.mjs
  *
  *   async fetch(config, ctx) → { groups: [{ name, dataList }], meta }
  *       必需。返回**分组树**而不是扁平频道数组——channelMerger 的合并算法是
@@ -50,6 +63,14 @@
  *       groupTitle→分组 的映射重新发明一遍。
  *       一个模块可以返回多个分组（咪咕将来的「体育赛事」就是同一模块的第二批
  *       分组，不是另一个源）。
+ *       meta: { skipped, warnings, credentialRejected? }。credentialRejected 是
+ *       官网不认当前登录凭证时给用户看的一句话（空串 = 查过、没问题；不给 / undefined =
+ *       这轮没查成，比如超时、502，后台沿用上一轮的结论），后台登录态徽标、
+ *       模块卡片和「源管理」导航红点据此提醒；凭证被拒只提示，不该让 fetch 失败。
+ *
+ *   credentialRejected(config) → string
+ *       可选。播放时才发现凭证被拒的模块用它把结论立刻交给后台，不等下一轮刷新；
+ *       config 是生效配置，凭证换了就该返回空串。不能抛异常。
  *
  *   async resolve(ref, ctx) → { url, desc, segmentTransform?, upstreamHeaders?,
  *                                upstreamUrlTransform?, manifestText?, manifestUrl? }
@@ -116,8 +137,12 @@
  *   proxyHls   可选；清单和分片都经本机代理
  *   relayHls   可选；只由本机刷新/改写清单，分片仍由播放器直连 CDN
  *   catchup    可选 'none'，显式关闭该台继承订阅头的全局回看能力
+ *   trailing   可选 true，海外台：排到所在分组最后，跟在各台官方频道与精选列表等外部订阅
+ *              之后（extractors/overseas）
  *   supplement 可选 true，补充频道：追加在同组所有模块频道之后，不决定分组位置
  *              （咪咕并进地区分组的频道，见 extractors/migu 的 MIGU_LOCAL_SUPPLEMENTS）
+ *   supersedesFeatured 可选 true，模块接手了精选频道（IPTV.m3u）里的这台：同组同名的精选频道条目
+ *              在输出时收掉（精选列表的条目留给没升级的部署；channelMerger.dropSupersededFeatured）
  *
  * sourceId / source 由 extractorManager 统一盖章，模块不用自己填——
  * `xt:` 这个前缀格式是注册表层的事，模块不该知道。
@@ -137,7 +162,9 @@ import fjtv from './fjtv/index.js'
 import fengshows from './fengshows/index.js'
 import gansu from './gansu/index.js'
 import gdtv from './gdtv/index.js'
+import gdsportEvents from './gdsport-events/index.js'
 import gztv from './gztv/index.js'
+import hangzhou from './hangzhou/index.js'
 import gzstv from './gzstv/index.js'
 import gxtv from './gxtv/index.js'
 import hebtv from './hebtv/index.js'
@@ -159,9 +186,12 @@ import lotustv from './lotustv/index.js'
 import meizhouHakka from './meizhou-hakka/index.js'
 import mgtv from './mgtv/index.js'
 import migu from './migu/index.js'
+import ningbo from './ningbo/index.js'
+import ningde from './ningde/index.js'
 import ningxia from './ningxia/index.js'
 import njtv from './njtv/index.js'
 import nmtv from './nmtv/index.js'
+import putian from './putian/index.js'
 import qtv from './qtv/index.js'
 import qinghai from './qinghai/index.js'
 import quanzhouMinnan from './quanzhou-minnan/index.js'
@@ -177,11 +207,13 @@ import xizang from './xizang/index.js'
 import wuxi from './wuxi/index.js'
 import yangzhou from './yangzhou/index.js'
 import yunnan from './yunnan/index.js'
+import tdm from './tdm/index.js'
+import overseas from './overseas/index.js'
 
 // 模块 id 会进 sourceId 并写进 EXTINF 属性值，不消毒就是注入面。
 // 与 utils/configBackupAPI.js 的文件名白名单同款约束。
 export const MODULE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/
-export const MODULE_CATEGORIES = new Set(['account', 'live', 'standard'])
+export const MODULE_CATEGORIES = new Set(['account', 'live', 'standard', 'overseas'])
 
 const MODULES = [
   // 顺序即后台展示顺序，也是 channelMerger 的合并顺序（先到的分组优先保留）
@@ -190,6 +222,7 @@ const MODULES = [
   fengshows,
   hkstv,
   lotustv,
+  tdm,
   asianLive,
   bilibiliLive,
   douyinLive,
@@ -203,12 +236,15 @@ const MODULES = [
   dalian,
   gansu,
   gdtv,
+  gdsportEvents,
   gztv,
   gzstv,
   gxtv,
   fjtv,
   quanzhouMinnan,
   quanzhouCounty,
+  putian,
+  ningde,
   jlntv,
   jxntv,
   hebtv,
@@ -217,6 +253,8 @@ const MODULES = [
   hnntv,
   hntv,
   cztv,
+  hangzhou,
+  ningbo,
   jiaxing,
   jstv,
   wuxi,
@@ -240,6 +278,8 @@ const MODULES = [
   livechina,
   ipanda,
   mgtv,
+  // 海外频道排最后：并进体育、文旅等现有分组时，跟在各台官方频道后面
+  overseas,
 ]
 
 /**
@@ -252,6 +292,9 @@ export function validateModule(module) {
   }
   if (typeof module.fetch !== 'function') {
     throw new Error(`抓取模块 ${module.id} 没有实现 fetch()`)
+  }
+  if (module.defaultEnabled != null && typeof module.defaultEnabled !== 'boolean') {
+    throw new Error(`抓取模块 ${module.id} 的 defaultEnabled 必须是布尔值`)
   }
   if (module.category != null && !MODULE_CATEGORIES.has(module.category)) {
     throw new Error(`抓取模块 ${module.id} 的 category 非法: ${JSON.stringify(module.category)}`)

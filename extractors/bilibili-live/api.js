@@ -306,6 +306,36 @@ async function passportGet(path, params, timeoutMs, cookie = '') {
   }
 }
 
+export const SESSDATA_REJECTED_NOTICE = 'B 站不认当前 SESSDATA（已过期或已退出登录），直播画质已自动降到「超清」；请在后台重新扫码登录'
+
+/**
+ * 刷新时用登录态问一次 B 站「当前是谁」（/x/web-interface/nav）。登录态失效时 B 站照样给流、
+ * 只是画质封顶超清，播放时分不出来，不查的话用户根本察觉不到。乱填、过期的 SESSDATA
+ * 实测都回 code -101「账号未登录」、isLogin false（2026-10-06）。
+ * 返回 { rejected } / { warning } / {}；网络失败只算检查没做完，不冤枉登录态。
+ */
+export async function checkLogin(cookie, { timeoutMs = 10000, fetchImpl } = {}) {
+  if (!cookie) return {}
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await (fetchImpl || fetch)('https://api.bilibili.com/x/web-interface/nav', {
+      headers: { 'User-Agent': UA, Referer: 'https://www.bilibili.com/', Accept: 'application/json', Cookie: cookie },
+      signal: controller.signal,
+    })
+    if (!response.ok) { await response.body?.cancel?.().catch(() => {}); return { warning: `B 站登录态检查没有完成：HTTP ${response.status}` } }
+    const body = await response.json()
+    if (body?.code === -101 || (body?.code === 0 && body?.data?.isLogin === false)) return { rejected: SESSDATA_REJECTED_NOTICE }
+    if (body?.code === 0) return {}
+    return { warning: `B 站登录态检查没有完成：${body?.message || body?.code}` }
+  } catch (error) {
+    const reason = error?.name === 'AbortError' ? `超时 ${timeoutMs}ms` : (error?.message || String(error))
+    return { warning: `B 站登录态检查没有完成：${reason}` }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /**
  * B 站的直播大区清单（网游 / 手游 / 单机游戏 / 娱乐 / 电台 / 虚拟主播 / 聊天室 / 生活）。
  *

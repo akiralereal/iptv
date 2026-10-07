@@ -16,7 +16,8 @@
  * 缓存放在模块里而不是外壳里：它缓存的 content 是咪咕的响应体（登录态信息由此
  * 而来），3 小时也是签名有效期这个平台属性，不是通用的 HTTP 缓存策略。
  */
-import { get302URL, getAndroidURL, getAndroidURL720p, printStreamInfo } from "./androidURL.js"
+import { get302URL, getAndroidURL, getAndroidURL720p, printStreamInfo, sendsAccount } from "./androidURL.js"
+import { noteAuth } from "./account.js"
 import { printDebug } from "../../utils/colorOut.js"
 
 // 键是裸 pid。过期条目只是不命中、不回收——这是搬家前的行为，不加 LRU/上限，
@@ -72,6 +73,8 @@ export async function resolve(ref, ctx = {}) {
   const rateType = config.rateType ?? 3
   const enableClientDispatch = config.enableClientDispatch === true
   const qualityOpts = { enableHDR: config.enableHDR, enableH265: config.enableH265 }
+  // 可注入的取流请求函数，只给回归测试用（scripts/test-migu-account.mjs）；正常播放不带
+  if (ctx.fetchUrl) qualityOpts.fetchUrl = ctx.fetchUrl
 
   const cached = readCache(pid)
   if (cached) return cached
@@ -83,6 +86,9 @@ export async function resolve(ref, ctx = {}) {
       resObj = await getAndroidURL720p(pid, qualityOpts)
     } else {
       resObj = await getAndroidURL(userId, token, pid, rateType, qualityOpts)
+      // 账号失效时咪咕照样给流、只是按游客给：记下来让后台提醒（见 account.js）。
+      // 标清不带账号去要，回的必然是未登录，不算数
+      if (sendsAccount(userId, token, rateType)) noteAuth(userId, token, config, resObj?.content)
     }
   } catch (error) {
     console.log(error)

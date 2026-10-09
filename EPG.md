@@ -72,6 +72,7 @@
 | `hangzhou` | 杭州 | 无官方节目单 | — | — | — | 葫芦网看电视页内嵌的节目表全天是 24 条整点「精彩节目」占位（页面切日期用的 /m2o/program_switch.php 回空），频道接口的 cur_program 同样是「精彩节目」、use_self_program 为 0；mapi.hoolo.tv 上试过 program.php、program_list.php、channel_program.php 都被 openresty 403；央视网试过 hangzhou / hangzhou1 / hztv / hztv1 / xihumingzhu 都是 params error，央视频、咪咕也没收 |
 | `ningbo` | 宁波 | 无官方节目单 | — | — | — | 宁波广电网的「电视节目单」是每周一篇文章，节目表是一套、二套两张图片（没有三套、四套），没有可读的数据；频道资料 JSONP 只有地址；央视网 nbtv1–nbtv5 有数据，但每天一模一样（9 月 1 日与 10 月 6 日逐条相同），还是「看看看」「汇市直通车」这些旧栏目，和官方本周节目表对不上（官方 7:05 宁波新闻重播、18:30 看点），是冻结模板，不用 |
 | `jiaxing` | 嘉兴 | 无官方节目单 | — | — | — | 趣看播放器的节目表接口 qukanvideo.com/h5/channel/view/item/list?liveId=&day= 只有已播出的日子有数据（且多为「无版权」时段块），今天、明天都是空数组，和辽宁北斗一样只是回看列表；央视网试过 jiaxing / jiaxing1 / jxtv 都是 params error，央视频、咪咕也没收 |
+| `taizhou` | 台州（天台和合） | 无官方节目单 | — | — | — | 和合天台 App 的看电视页只提供直播入口及栏目回看；趣看官方播放器今明两天均显示暂无数据，channel/view/item/list?liveId=1783497905770300&day= 的两天响应均为空数组；央视网 tiantai、tiantai1、tttv 返回 params error，所查央视频、咪咕公开目录未收录 |
 | `jstv` | 江苏 | 已接入 | 10/10 | 1 | live-lizhi.jstv.com/api/Channel/Epg | 匿名 JWT；频道要用导航里的 extraId |
 | `wuxi` | 无锡 | 已接入 | 5/5 | 2 | bb-mapi.wifiwx.com/api/open/wxbb/ds_program.php | 无锡博报分享页节目表弹窗同款，appid/appkey 写在网页公开脚本里；start_time 是 unix 秒、toff 是时长，首尾相接；每天末尾有 toff 为 0 的收尾标记、同一时刻偶有重复，丢掉；明天排到傍晚；太湖明珠网官网节目单挂在 360 磐云 JS 验证后面、页面只有「精彩节目」占位，不用 |
 | `yangzhou` | 扬州 | 已接入 | 4/4 | 2 | vapp.96189.com/setsail/external/externalService?service=getProgramList | 扬州发布 App H5 频道页同款，params 是 JSON（channelId、起止 yyyyMMddHHmmss 北京时间）；按「与当天有重叠」返回，会带前一天跨零点的那档，按开始时间筛；开播前不到一分钟的国歌丢掉；明天排到傍晚、后天为空 |

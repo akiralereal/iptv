@@ -47,6 +47,7 @@ function toChannel(room) {
     name: room.name || `虎牙 ${room.roomId}`,
     deferredRef: `huya-${room.roomId}`,
     // 防盗链请求头由本机清单中继发送；不下发给播放器，TXT/TVBox 订阅也能保留。
+    // 清单由模块每次播放请求取回并随结果交给中继，线路被拒时才能当场换线。
     relayHls: true,
     logo: room.logo || '',
     groupTitle: HUYA_GROUP,
@@ -56,7 +57,7 @@ function toChannel(room) {
 export default {
   id: 'huya-live',
   name: '虎牙直播',
-  description: '按分类加入虎牙热门直播间，也可手动指定房间；播放时即时生成短期有效地址。',
+  description: '按分类加入虎牙热门直播间，也可手动指定房间；播放时即时生成短期有效地址，线路被 CDN 拒绝时自动换线。',
   category: 'live',
   capabilities: { cache: 'disk', resolve: true, epg: false },
   defaultRefreshMinutes: 30,

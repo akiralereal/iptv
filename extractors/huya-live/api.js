@@ -1,6 +1,7 @@
 /** 虎牙直播：分类页解析、房间信息读取与 HLS 播放签名。 */
 import { createHash } from 'node:crypto'
 import fetch from 'node-fetch'
+import { printYellow } from '../../utils/colorOut.js'
 
 export const HUYA_GROUP = '虎牙'
 export const REFERER = 'https://www.huya.com/'
@@ -16,9 +17,16 @@ export const AREA_PAGES = Object.freeze({
   娱乐: 'https://www.huya.com/g/100022',
 })
 
-const RESOLVE_TTL_MS = 60 * 1000
-const resolveCache = new Map()
-const resolvePending = new Map()
+const RESOLVE_TTL_MS = 60 * 1000          // 房间页与签名地址复用时长
+const LINE_REJECT_MS = 5 * 60 * 1000      // 被 CDN 拒绝的线路冷却时长
+const ROOM_RETRY_MS = 10 * 1000           // 所有线路都被拒后，多久再去试一轮；连续失败逐次翻倍
+const ROOM_RETRY_MAX_MS = 2 * 60 * 1000
+const MANIFEST_TIMEOUT_MS = 8000
+const roomCache = new Map()      // room:quality -> { expiresAt, name, presenterUid, bitrate, lines, signed }
+const roomPending = new Map()
+const rejectedLines = new Map()  // room -> Map<cdn, until>
+const preferredLine = new Map()  // room -> 上次能播的线路
+const roomFailUntil = new Map()  // room -> { until, desc, streak }
 
 export class HuyaError extends Error {
   constructor(message) {
@@ -332,17 +340,168 @@ export function signHlsUrl(streamInfo, presenterUid, bitrate = 2000, now = Date.
   return url.href
 }
 
-async function resolveFresh(room, ctx) {
-  const data = await fetchRoom(room, { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl })
-  const bitrate = selectBitrate(data.bitrates, ctx.config?.quality ?? 2000)
-  const stream = data.streams.find(item => item?.sHlsUrl && item?.sHlsAntiCode)
-  if (!stream) throw new HuyaError(`虎牙房间 ${room} 当前没有 HLS 流`)
-  return {
-    url: signHlsUrl(stream, data.presenterUid, bitrate, ctx.now ?? Date.now()),
-    desc: `虎牙「${data.name}」${bitrate ? `${bitrate}K` : '原画'}地址获取成功`,
-    relayHls: true,
-    upstreamHeaders: { Referer: REFERER, 'User-Agent': UA },
+async function fetchManifest(url, { timeoutMs = MANIFEST_TIMEOUT_MS, fetchImpl = fetch } = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetchImpl(url, {
+      headers: { 'User-Agent': UA, Referer: REFERER, Accept: 'application/vnd.apple.mpegurl,*/*' },
+      redirect: 'follow',
+      signal: controller.signal,
+    })
+    const text = await response.text()
+    return { status: response.status, text, finalUrl: response.url || url }
+  } catch (error) {
+    const reason = error?.name === 'AbortError' ? `超时 ${timeoutMs}ms` : (error?.message || String(error))
+    throw new HuyaError(reason)
+  } finally {
+    clearTimeout(timer)
   }
+}
+
+/** 只看分片的响应状态，正文不读完：TX 线路有过「清单 200、分片 403」。 */
+async function probeSegment(url, { timeoutMs = MANIFEST_TIMEOUT_MS, fetchImpl = fetch } = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetchImpl(url, {
+      headers: { 'User-Agent': UA, Referer: REFERER },
+      redirect: 'follow',
+      signal: controller.signal,
+    })
+    const status = response.status
+    try { await (response.body?.cancel?.() ?? response.body?.destroy?.()) } catch { /* 丢弃正文即可 */ }
+    return status
+  } catch (error) {
+    const reason = error?.name === 'AbortError' ? `超时 ${timeoutMs}ms` : (error?.message || String(error))
+    throw new HuyaError(reason)
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+export function lastSegmentUrl(manifest, base) {
+  const lines = String(manifest || '').split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#'))
+  if (!lines.length) return ''
+  try { return new URL(lines[lines.length - 1], base).href } catch { return '' }
+}
+
+async function loadRoom(room, quality, ctx) {
+  const now = Number(ctx.now ?? Date.now())
+  const key = `${room}:${quality}`
+  const cached = roomCache.get(key)
+  if (cached && cached.expiresAt > now) return cached
+
+  let pending = roomPending.get(key)
+  if (!pending) {
+    pending = (async () => {
+      const data = await fetchRoom(room, { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl })
+      const bitrate = selectBitrate(data.bitrates, quality)
+      const lines = data.streams
+        .filter(item => item?.sHlsUrl && item?.sHlsAntiCode)
+        .map((stream, index) => ({ cdn: String(stream.sCdnType || `line${index + 1}`), stream }))
+      if (!lines.length) throw new HuyaError(`虎牙房间 ${room} 当前没有 HLS 流`)
+      const entry = { expiresAt: now + RESOLVE_TTL_MS, name: data.name, presenterUid: data.presenterUid, bitrate, lines, signed: new Map() }
+      roomCache.set(key, entry)
+      return entry
+    })().finally(() => {
+      if (roomPending.get(key) === pending) roomPending.delete(key)
+    })
+    roomPending.set(key, pending)
+  }
+  return pending
+}
+
+function signedLineUrl(entry, line, now) {
+  let url = entry.signed.get(line.cdn)
+  if (!url) {
+    url = signHlsUrl(line.stream, entry.presenterUid, entry.bitrate, now)
+    entry.signed.set(line.cdn, url)
+  }
+  return url
+}
+
+function rejectLine(room, cdn, now) {
+  let map = rejectedLines.get(room)
+  if (!map) {
+    map = new Map()
+    rejectedLines.set(room, map)
+  }
+  map.set(cdn, now + LINE_REJECT_MS)
+}
+
+/**
+ * 候选线路顺序：上次能播的线路优先，其余按房间页顺序；冷却中的线路跳过。
+ * 全部都在冷却时退回全部线路——总要试一条，万一 CDN 已经恢复。
+ */
+export function orderLines(lines, preferred, rejected, now) {
+  const ordered = [...lines].sort((a, b) => (a.cdn === preferred ? -1 : 0) - (b.cdn === preferred ? -1 : 0))
+  const available = ordered.filter(line => !(rejected?.get(line.cdn) > now))
+  return available.length ? available : ordered
+}
+
+/**
+ * 实测（2026-10-09）：房间页首选的 AL 线路播两三分钟后会对同一出口整条 403，之后续签照样被拒，
+ * 而同一房间页里的其它线路从同一出口仍然能播；TX 线路还出现过「清单 200、分片 403」。
+ * 所以每次播放请求都由这里取回清单：清单被拒就立刻换下一条线路并把被拒线路冷却 5 分钟，
+ * 新换上的线路先探一片分片再交给播放器；清单直接随结果交回，本机中继不必再取一次。
+ */
+async function resolveFresh(room, ctx) {
+  const now = Number(ctx.now ?? Date.now())
+  const quality = Number(ctx.config?.quality ?? 2000)
+  // 整个房间刚被判定全线不可用：短时间内直接回同一结论，别替播放器的连环重试去打上游
+  const failed = roomFailUntil.get(room)
+  if (failed && failed.until > now) throw new HuyaError(failed.desc)
+  const entry = await loadRoom(room, quality, ctx)
+  const options = { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl }
+  const preferred = preferredLine.get(room)
+  const candidates = orderLines(entry.lines, preferred, rejectedLines.get(room), now)
+  const failures = []
+  for (const line of candidates) {
+    const url = signedLineUrl(entry, line, now)
+    let reason = ''
+    try {
+      const manifest = await fetchManifest(url, options)
+      if (manifest.status !== 200) reason = `清单 HTTP ${manifest.status}`
+      else if (!manifest.text.trimStart().startsWith('#EXTM3U')) reason = '清单不是 HLS'
+      else {
+        if (line.cdn !== preferred) {
+          const segment = lastSegmentUrl(manifest.text, manifest.finalUrl)
+          const status = segment ? await probeSegment(segment, options) : 200
+          if (status !== 200) reason = `分片 HTTP ${status}`
+        }
+        if (!reason) {
+          roomFailUntil.delete(room)
+          if (line.cdn !== preferred) {
+            preferredLine.set(room, line.cdn)
+            if (failures.length) printYellow(`虎牙「${entry.name}」${failures.join('、')}，已切换到 ${line.cdn} 线路`)
+          }
+          return {
+            url,
+            desc: `虎牙「${entry.name}」${entry.bitrate ? `${entry.bitrate}K` : '原画'}地址获取成功（${line.cdn} 线路）`,
+            relayHls: true,
+            manifestText: manifest.text,
+            manifestUrl: manifest.finalUrl,
+            upstreamHeaders: { Referer: REFERER, 'User-Agent': UA },
+          }
+        }
+      }
+    } catch (error) {
+      reason = error?.message || String(error)
+    }
+    failures.push(`${line.cdn} 线路${reason}`)
+    rejectLine(room, line.cdn, now)
+    entry.signed.delete(line.cdn)
+    if (line.cdn === preferred) preferredLine.delete(room)
+  }
+  // 有的线路「首次取清单放行、再取就拒」，会让房间在换线成功与全线失败之间来回抖：
+  // 连续全线失败时把重试间隔逐次翻倍，别拿播放器的轮询节奏去打上游、也别刷屏
+  const desc = `虎牙「${entry.name}」所有线路都不可用：${failures.join('、')}`
+  const streak = (roomFailUntil.get(room)?.streak || 0) + 1
+  const delay = Math.min(ROOM_RETRY_MS * 2 ** (streak - 1), ROOM_RETRY_MAX_MS)
+  roomFailUntil.set(room, { until: now + delay, desc, streak })
+  printYellow(`${desc}，${Math.round(delay / 1000)} 秒后再试`)
+  throw new HuyaError(desc)
 }
 
 export async function resolveRoom(ref, ctx = {}) {
@@ -350,31 +509,16 @@ export async function resolveRoom(ref, ctx = {}) {
     const match = /^huya-([a-z0-9_-]{1,64})$/i.exec(String(ref || ''))
     if (!match) return { url: '', desc: '虎牙房间引用格式错误' }
     const room = normalizeRoom(match[1])
-    const now = Number(ctx.now ?? Date.now())
-    const quality = Number(ctx.config?.quality ?? 2000)
-    const key = `${room}:${quality}`
-    const cached = resolveCache.get(key)
-    if (cached && cached.expiresAt > now) return cached.value
-
-    let pending = resolvePending.get(key)
-    if (!pending) {
-      pending = resolveFresh(room, ctx)
-        .then(value => {
-          resolveCache.set(key, { value, expiresAt: now + RESOLVE_TTL_MS })
-          return value
-        })
-        .finally(() => {
-          if (resolvePending.get(key) === pending) resolvePending.delete(key)
-        })
-      resolvePending.set(key, pending)
-    }
-    return await pending
+    return await resolveFresh(room, ctx)
   } catch (error) {
     return { url: '', desc: error?.message || '虎牙播放地址获取失败' }
   }
 }
 
 export function clearResolveCache() {
-  resolveCache.clear()
-  resolvePending.clear()
+  roomCache.clear()
+  roomPending.clear()
+  rejectedLines.clear()
+  preferredLine.clear()
+  roomFailUntil.clear()
 }

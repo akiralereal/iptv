@@ -46,6 +46,8 @@ import {
   resolveRoom as resolveHuyaRoom,
   selectBitrate as selectHuyaBitrate,
   signHlsUrl as signHuyaHlsUrl,
+  lastSegmentUrl as huyaLastSegmentUrl,
+  orderLines as orderHuyaLines,
 } from '../extractors/huya-live/api.js'
 import { mergeRooms as mergeHuyaRooms, parseAreaNames as parseHuyaAreaNames } from '../extractors/huya-live/index.js'
 import {
@@ -1794,7 +1796,43 @@ check('虎牙：默认配置控制数量与人气，所有频道固定放入虎�
   assert.equal(HUYA_GROUP, '虎牙')
 })
 
-await checkAsync('虎牙：模块抓取赛事卡片，播放时才刷新签名并要求清单中继', async () => {
+const huyaTwoLineHtml = `
+<script>var hyPlayerConfig = {
+  stream: ${JSON.stringify({
+    data: [{
+      gameLiveInfo: { uid: 123456, profileRoom: 660101, introduction: '虎牙双线直播', nick: '测试主播' },
+      gameStreamInfoList: [
+        { sCdnType: 'AL', sStreamName: 'abc', sHlsUrl: 'http://al.hls.huya.com/src', sHlsUrlSuffix: 'm3u8', sHlsAntiCode: huyaAntiCode },
+        { sCdnType: 'TX', sStreamName: 'abc', sHlsUrl: 'http://tx.hls.huya.com/src', sHlsUrlSuffix: 'm3u8', sHlsAntiCode: huyaAntiCode },
+        { sCdnType: 'HS', sStreamName: 'abc', sHlsUrl: 'http://hs.hls.huya.com/src', sHlsUrlSuffix: 'm3u8', sHlsAntiCode: huyaAntiCode },
+      ],
+    }],
+    vMultiStreamInfo: [{ iBitRate: 0 }, { iBitRate: 2000 }],
+  })}
+};</script>`
+
+const huyaManifest = '#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-MEDIA-SEQUENCE:10\n#EXT-X-TARGETDURATION:4\n#EXTINF:3.0,\nabc_2000-1.ts?x=1\n#EXTINF:3.0,\nabc_2000-2.ts?x=1\n'
+
+// 按主机路由的假上游：房间页回 html；各线路清单/分片按 rules 回状态码，并记录请求次数
+function huyaUpstream(html, rules = {}) {
+  const hits = { page: 0, manifest: {}, segment: {} }
+  const fetchImpl = async raw => {
+    const url = new URL(String(raw))
+    const respond = (status, text) => ({ ok: status === 200, status, url: url.href, text: async () => text, body: null })
+    if (url.hostname === 'www.huya.com') { hits.page++; return respond(200, html) }
+    const line = url.hostname.split('.')[0].toUpperCase()
+    if (url.pathname.endsWith('.m3u8')) {
+      hits.manifest[line] = (hits.manifest[line] || 0) + 1
+      const status = rules[line]?.manifest ?? 200
+      return respond(status, status === 200 ? huyaManifest : '<html>403 Forbidden</html>')
+    }
+    hits.segment[line] = (hits.segment[line] || 0) + 1
+    return respond(rules[line]?.segment ?? 200, '')
+  }
+  return { fetchImpl, hits }
+}
+
+await checkAsync('虎牙：模块抓取赛事卡片，播放时才刷新签名、取回清单并要求清单中继', async () => {
   clearHuyaResolveCache()
   const response = text => ({ ok: true, status: 200, text: async () => text })
   const config = resolveConfig(huya, {})
@@ -1807,17 +1845,67 @@ await checkAsync('虎牙：模块抓取赛事卡片，播放时才刷新签名�
   assert.equal(fetched.groups[0].dataList[0].relayHls, true)
   assert.equal(fetched.groups[0].dataList[0].opts, undefined, 'LunaTV 导入时 EXTINF 后必须紧跟地址')
 
-  const resolved = await resolveHuyaRoom('huya-660101', {
-    now: 1700000000000,
-    config,
-    fetchImpl: async url => {
-      assert.equal(String(url), 'https://www.huya.com/660101')
-      return response(huyaPlayerHtml)
-    },
-  })
+  const upstream = huyaUpstream(huyaPlayerHtml)
+  const resolved = await resolveHuyaRoom('huya-660101', { now: 1700000000000, config, fetchImpl: upstream.fetchImpl })
   assert.match(resolved.url, /^https:\/\/al\.hls\.huya\.com\/src\/abc\.m3u8\?/)
   assert.equal(resolved.relayHls, true)
   assert.equal(resolved.upstreamHeaders.Referer, 'https://www.huya.com/')
+  assert.equal(resolved.manifestText, huyaManifest, '清单随结果交回，中继不必再取一次')
+  assert.equal(resolved.manifestUrl, resolved.url)
+  assert.equal(upstream.hits.segment.AL, 1, '新选中的线路先探一片分片')
+
+  const again = await resolveHuyaRoom('huya-660101', { now: 1700000005000, config, fetchImpl: upstream.fetchImpl })
+  assert.equal(again.url, resolved.url, '60 秒内复用同一签名地址')
+  assert.equal(upstream.hits.page, 1, '房间页 60 秒内只取一次')
+  assert.equal(upstream.hits.manifest.AL, 2, '每次播放请求都重新取清单')
+  assert.equal(upstream.hits.segment.AL, 1, '已选中的线路不再逐次探分片')
+})
+
+await checkAsync('虎牙：首选线路清单被拒即换下一条线路，分片被拒的线路同样跳过，被拒线路 5 分钟内不再碰', async () => {
+  clearHuyaResolveCache()
+  const config = resolveConfig(huya, {})
+  const upstream = huyaUpstream(huyaTwoLineHtml, { AL: { manifest: 403 }, TX: { segment: 403 } })
+  const first = await resolveHuyaRoom('huya-660101', { now: 1700000000000, config, fetchImpl: upstream.fetchImpl })
+  assert.match(first.url, /^https:\/\/hs\.hls\.huya\.com\/src\/abc\.m3u8\?/, 'AL 清单 403、TX 分片 403，落到 HS')
+  assert.match(first.desc, /HS 线路/)
+  assert.deepEqual(upstream.hits.manifest, { AL: 1, TX: 1, HS: 1 })
+  assert.deepEqual(upstream.hits.segment, { TX: 1, HS: 1 })
+
+  const second = await resolveHuyaRoom('huya-660101', { now: 1700000004000, config, fetchImpl: upstream.fetchImpl })
+  assert.equal(second.url, first.url)
+  assert.deepEqual(upstream.hits.manifest, { AL: 1, TX: 1, HS: 2 }, '冷却中的线路不再重试，直接用上次能播的')
+
+  const later = await resolveHuyaRoom('huya-660101', { now: 1700000000000 + 6 * 60 * 1000, config, fetchImpl: upstream.fetchImpl })
+  assert.match(later.url, /hs\.hls\.huya\.com/, '冷却过后仍优先上次能播的线路')
+  assert.equal(upstream.hits.manifest.AL, 1)
+})
+
+await checkAsync('虎牙：全部线路被拒时回失败，10 秒内不再替播放器重试上游，连败后间隔翻倍', async () => {
+  clearHuyaResolveCache()
+  const config = resolveConfig(huya, {})
+  const upstream = huyaUpstream(huyaTwoLineHtml, { AL: { manifest: 403 }, TX: { manifest: 403 }, HS: { manifest: 403 } })
+  const failed = await resolveHuyaRoom('huya-660101', { now: 1700000000000, config, fetchImpl: upstream.fetchImpl })
+  assert.equal(failed.url, '')
+  assert.match(failed.desc, /所有线路都不可用.*AL 线路清单 HTTP 403/)
+  const retry = await resolveHuyaRoom('huya-660101', { now: 1700000003000, config, fetchImpl: upstream.fetchImpl })
+  assert.equal(retry.url, '')
+  assert.deepEqual(upstream.hits.manifest, { AL: 1, TX: 1, HS: 1 }, '10 秒内连环重试不打上游')
+  const after = await resolveHuyaRoom('huya-660101', { now: 1700000012000, config, fetchImpl: upstream.fetchImpl })
+  assert.equal(after.url, '')
+  assert.deepEqual(upstream.hits.manifest, { AL: 2, TX: 2, HS: 2 }, '10 秒后全部线路再试一轮')
+  await resolveHuyaRoom('huya-660101', { now: 1700000012000 + 15 * 1000, config, fetchImpl: upstream.fetchImpl })
+  assert.deepEqual(upstream.hits.manifest, { AL: 2, TX: 2, HS: 2 }, '连续第二次全线失败后间隔翻倍到 20 秒')
+  await resolveHuyaRoom('huya-660101', { now: 1700000012000 + 21 * 1000, config, fetchImpl: upstream.fetchImpl })
+  assert.deepEqual(upstream.hits.manifest, { AL: 3, TX: 3, HS: 3 })
+})
+
+check('虎牙：线路排序与分片地址解析', () => {
+  const lines = [{ cdn: 'AL' }, { cdn: 'TX' }, { cdn: 'HS' }]
+  assert.deepEqual(orderHuyaLines(lines, 'HS', new Map(), 0).map(line => line.cdn), ['HS', 'AL', 'TX'])
+  assert.deepEqual(orderHuyaLines(lines, '', new Map([['AL', 10]]), 5).map(line => line.cdn), ['TX', 'HS'])
+  assert.deepEqual(orderHuyaLines(lines, '', new Map([['AL', 10], ['TX', 10], ['HS', 10]]), 5).map(line => line.cdn), ['AL', 'TX', 'HS'], '全在冷却时退回全部')
+  assert.equal(huyaLastSegmentUrl(huyaManifest, 'https://al.hls.huya.com/src/abc.m3u8?a=1'), 'https://al.hls.huya.com/src/abc_2000-2.ts?x=1')
+  assert.equal(huyaLastSegmentUrl('#EXTM3U\n', 'https://al.hls.huya.com/src/abc.m3u8'), '')
 })
 
 // ---- 斗鱼直播 ----

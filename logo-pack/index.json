@@ -2874,6 +2874,17 @@
    "updated": "2026-09-25",
    "width": 180
   },
+  "天台和合频道": {
+   "file": "天台和合频道.png",
+   "hash": "8455091e1e",
+   "height": 58,
+   "kind": "official",
+   "note": "天台县广播电视台官方没有单独的频道台标：和合天台 App「看电视」页的频道卡是一张「欢迎点击观看」的点击横幅，不是台标。按所属电视台台标的规则，用天台县融媒体中心官网「天台新闻网」站标左侧的彩色图标（原图 235x80、白底，裁出 58x58 图标并去白底），深浅界面都看得清",
+   "origin": "manual",
+   "source": "https://www.ttcmzx.cn/material/logo.png（天台县融媒体中心官网「天台新闻网」站标）",
+   "updated": "2026-10-09",
+   "width": 58
+  },
   "通化新闻综合": {
    "file": "通化新闻综合.png",
    "hash": "f53132e681",
@@ -4857,6 +4868,7 @@
   "sztv/sztv-7880": "深圳电视剧",
   "sztv/sztv-7881": "深圳少儿",
   "sztv/sztv-7944": "深圳国际",
+  "taizhou/taizhou-tiantai-hehe": "天台和合频道",
   "tdm/tdm-ctvp": "澳视澳门",
   "tdm/tdm-info": "澳门资讯",
   "tdm/tdm-ptvp": "澳视葡文",

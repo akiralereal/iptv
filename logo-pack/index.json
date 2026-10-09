@@ -2145,6 +2145,51 @@
    "updated": "2026-09-25",
    "width": 90
   },
+  "青岛都市": {
+   "file": "青岛都市.png",
+   "hash": "d67ce29213",
+   "height": 37,
+   "origin": "qingdao",
+   "source": "https://www.qtv.com.cn/shouye/images/stationlogo.png",
+   "updated": "2026-10-09",
+   "width": 256
+  },
+  "青岛教育": {
+   "file": "青岛教育.png",
+   "hash": "d67ce29213",
+   "height": 37,
+   "origin": "qingdao",
+   "source": "https://www.qtv.com.cn/shouye/images/stationlogo.png",
+   "updated": "2026-10-09",
+   "width": 256
+  },
+  "青岛生活服务": {
+   "file": "青岛生活服务.png",
+   "hash": "d67ce29213",
+   "height": 37,
+   "origin": "qingdao",
+   "source": "https://www.qtv.com.cn/shouye/images/stationlogo.png",
+   "updated": "2026-10-09",
+   "width": 256
+  },
+  "青岛新闻综合": {
+   "file": "青岛新闻综合.png",
+   "hash": "d67ce29213",
+   "height": 37,
+   "origin": "qingdao",
+   "source": "https://www.qtv.com.cn/shouye/images/stationlogo.png",
+   "updated": "2026-10-09",
+   "width": 256
+  },
+  "青岛影视": {
+   "file": "青岛影视.png",
+   "hash": "d67ce29213",
+   "height": 37,
+   "origin": "qingdao",
+   "source": "https://www.qtv.com.cn/shouye/images/stationlogo.png",
+   "updated": "2026-10-09",
+   "width": 256
+  },
   "青海都市": {
    "file": "青海都市.png",
    "hash": "a1815121a2",
@@ -4766,6 +4811,11 @@
   "putian/putian-culture": "莆田文旅生活",
   "putian/putian-news": "莆田新闻综合",
   "putian/putian-xianyou": "仙游电视台",
+  "qingdao/qingdao-1": "青岛新闻综合",
+  "qingdao/qingdao-2": "青岛生活服务",
+  "qingdao/qingdao-3": "青岛影视",
+  "qingdao/qingdao-4": "青岛都市",
+  "qingdao/qingdao-5": "青岛教育",
   "qinghai/qinghai-amdo": "安多卫视",
   "qinghai/qinghai-qhds": "青海都市",
   "qinghai/qinghai-qhsh": "青海经济生活",

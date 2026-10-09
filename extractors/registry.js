@@ -167,6 +167,7 @@ import gztv from './gztv/index.js'
 import hangzhou from './hangzhou/index.js'
 import gzstv from './gzstv/index.js'
 import gxtv from './gxtv/index.js'
+import qingdao from './qingdao/index.js'
 import hebtv from './hebtv/index.js'
 import heilongjiang from './heilongjiang/index.js'
 import hbtv from './hbtv/index.js'
@@ -272,6 +273,7 @@ const MODULES = [
   xinjiang,
   xizang,
   yunnan,
+  qingdao,
   qtv,
   kankanews,
   songjiang,

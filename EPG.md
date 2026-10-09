@@ -88,7 +88,8 @@
 | `xinjiang` | 新疆 | 已接入 | 6/7 | 2 | slstapi.xjtvs.com.cn/api/TVLiveV100/TVGuideList | 新疆少儿官方为空 |
 | `xizang` | 西藏 | 无官方节目单 | — | — | — | 珠峰云接口只给每台「正在播出」一条（卡片 date/enddate）；频道详情 videolive 的 ifschedule=0、节目列表全空，官网没有电视直播页。开着央视频时西藏卫视与它同名，共用央视频的节目单 |
 | `yunnan` | 云南 | 已接入 | 4/7 | 2 | yntv-api.yntv.cn/index/jmd/getJmd | 防火墙要浏览器 UA + yntv.cn Referer；七彩云端三路没有节目单 |
-| `qtv` | 青岛 | 不适用 | — | — | — | 城市景观机位 |
+| `qingdao` | 青岛 | 已接入 | 5/5 | 1 | video10.qtv.com.cn/api/v1/bls_adapters?channel={号}&days=1&callback=… | 官网播放页的 JSONP，channel 是播放页的频道号（QTV-1…4 为 1…4，QTV-5 为 6）；必须带官网 Referer + Origin 否则 403，连续探十来次会被按 IP 拦几分钟；days 填几都回「过去 7 天 + 今天」整天，没有明天，所以只取今天 |
+| `qtv` | 青岛景观 | 不适用 | — | — | — | 城市景观机位 |
 | `kankanews` | 上海 | 已接入 | 6/13 | 2 | kapi.kankanews.com/content/pc/tv/programs | MD5 签名头；魔都眼、新纪实官方没有；5 路景观不适用 |
 | `songjiang` | 上海松江 | 不适用 | — | — | — | 慢直播 |
 | `livechina` | 央视直播中国 | 不适用 | — | — | — | 景观直播 |

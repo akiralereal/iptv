@@ -3,8 +3,9 @@ import { fetchChannels, QTV_CHANNELS } from './api.js'
 
 export default {
   id: 'qtv',
-  name: '青岛',
-  description: '五四广场、奥帆中心及三路主干道官方城市直播。',
+  // 电视频道在「青岛」模块（extractors/qingdao），这张卡只管城市景观机位
+  name: '青岛景观',
+  description: '五四广场、奥帆中心及三路主干道官方城市直播；QTV-1 到 QTV-5 电视频道在「青岛」模块。',
   capabilities: { cache: 'disk', resolve: false, epg: false },
   outputGroupName: '青岛',
   preserveGroupSuffixes: ['景观'],

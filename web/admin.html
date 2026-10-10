@@ -2478,6 +2478,27 @@
         }
         select:not([multiple]):disabled { cursor: not-allowed; opacity: .6; }
 
+        /* 消息推送：渠道卡片网格。渠道多了也不会一条条往下排 */
+        .notify-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+        .notify-card {
+            display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px;
+            border: 1px solid var(--ui-line, #e8ecef); border-radius: 10px; background: var(--ui-surface, #fff);
+        }
+        .notify-card.is-off { opacity: .6; }
+        .notify-card-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .notify-card-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .notify-card-meta { font-size: 12px; color: #888; }
+        .notify-card-status { font-size: 12px; color: #999; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
+        .notify-card-status .ok { color: #389e0d; }
+        .notify-card-status .fail { color: #cf1322; }
+        .notify-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
+        .notify-card-add {
+            display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 120px;
+            border: 1px dashed var(--ui-line-strong, #cfd8dc); border-radius: 10px; background: transparent;
+            color: var(--ui-text-secondary, #5b6b80); font-size: 14px; cursor: pointer;
+        }
+        .notify-card-add:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+
         /* 消息推送：样式选择与预览 */
         .notify-template-options { display: flex; gap: 8px; flex-wrap: wrap; }
         .notify-template-option {
@@ -4444,7 +4465,7 @@
 
                     <div id="notifyList" style="margin-top:14px;"></div>
 
-                    <div id="notifyForm" style="margin-top:12px; padding:12px; border:1px dashed #d9e2ec; border-radius:6px;">
+                    <div id="notifyForm" hidden style="margin-top:12px; padding:12px; border:1px dashed #d9e2ec; border-radius:6px;">
                         <div id="notifyFormTitle" style="font-weight:600; color:#333; margin-bottom:8px;">添加推送渠道</div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
                             <div style="min-width:170px;">
@@ -4464,7 +4485,7 @@
                         <div id="notifyFields" style="margin-top:8px; display:grid; gap:8px;"></div>
                         <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
                             <button class="btn btn-sm btn-success" id="notifySaveBtn" onclick="saveNotifyChannel()">➕ 添加渠道</button>
-                            <button class="btn btn-sm" id="notifyCancelBtn" onclick="resetNotifyForm()" style="display:none;">取消编辑</button>
+                            <button class="btn btn-sm" id="notifyCancelBtn" onclick="closeNotifyForm()">取消</button>
                         </div>
                     </div>
                 </div>
@@ -6245,31 +6266,53 @@
             if (!box) return;
             const channels = notifyState.channels || [];
             if (!channels.length) {
+                // 一个都没有时表单直接展开，不用先找按钮
                 box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有推送渠道。在下面选类型、填机器人地址，添加后点「发测试消息」确认能收到。</div>';
+                openNotifyForm(false);
                 return;
             }
-            box.innerHTML = channels.map(c => {
+            const when = at => new Date(at).toLocaleString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            box.innerHTML = `<div class="notify-grid">${channels.map(c => {
                 const type = notifyTypeOf(c.type);
                 const r = c.lastResult;
-                const result = !r ? '还没发过'
-                    : `${new Date(r.at).toLocaleString()} ${r.ok ? '<span style="color:#389e0d;">发送成功</span>' : `<span style="color:#cf1322;">发送失败：${escapeHtml(r.message || '')}</span>`}`;
-                return `
-                <div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;${c.enabled === false ? 'opacity:.6;' : ''}">
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                        <label style="display:flex;align-items:center;gap:6px;">
-                            <input type="checkbox" ${c.enabled !== false ? 'checked' : ''} onchange="toggleNotifyChannel('${c.id}', this.checked)">
-                            <strong>${escapeHtml(c.name)}</strong>
-                            <span style="font-size:12px;color:#888;">${escapeHtml(type ? type.name : c.type)} · ${escapeHtml(notifyTemplateName(c))}</span>
-                        </label>
-                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                            <button class="btn btn-sm" onclick="testNotifyChannel('${c.id}', this)">发测试消息</button>
-                            <button class="btn btn-sm" onclick="editNotifyChannel('${c.id}')">编辑</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteNotifyChannel('${c.id}')">删除</button>
-                        </div>
+                const status = !r ? '还没发过'
+                    : `${when(r.at)} ${r.ok ? '<span class="ok">发送成功</span>' : `<span class="fail">发送失败：${escapeHtml(r.message || '')}</span>`}`;
+                const statusTitle = r && !r.ok ? ` title="${escapeHtml(r.message || '')}"` : '';
+                return `<div class="notify-card${c.enabled === false ? ' is-off' : ''}">
+                    <label class="notify-card-head">
+                        <input type="checkbox" ${c.enabled !== false ? 'checked' : ''} onchange="toggleNotifyChannel('${c.id}', this.checked)" title="启用 / 停用">
+                        <strong title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</strong>
+                    </label>
+                    <div class="notify-card-meta">${escapeHtml(type ? type.name : c.type)} · ${escapeHtml(notifyTemplateName(c))}${c.enabled === false ? ' · 已停用' : ''}</div>
+                    <div class="notify-card-status"${statusTitle}>最近一次：${status}</div>
+                    <div class="notify-card-actions">
+                        <button class="btn btn-sm" onclick="testNotifyChannel('${c.id}', this)">发测试消息</button>
+                        <button class="btn btn-sm" onclick="editNotifyChannel('${c.id}')">编辑</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteNotifyChannel('${c.id}')">删除</button>
                     </div>
-                    <div style="font-size:12px;color:#999;margin-top:6px;">最近一次：${result}</div>
                 </div>`;
-            }).join('');
+            }).join('')}
+                <button type="button" class="notify-card-add" onclick="openNotifyForm(true)">＋ 添加推送渠道</button>
+            </div>`;
+            // 有渠道后取消按钮才有意义（没有渠道时表单常驻）
+            const cancel = document.getElementById('notifyCancelBtn');
+            if (cancel) cancel.style.display = '';
+        }
+
+        function openNotifyForm(scroll) {
+            const form = document.getElementById('notifyForm');
+            if (!form) return;
+            form.hidden = false;
+            const cancel = document.getElementById('notifyCancelBtn');
+            if (cancel) cancel.style.display = (notifyState.channels || []).length ? '' : 'none';
+            if (scroll) form.scrollIntoView({ block: 'center' });
+        }
+
+        /** 收起表单：有渠道时收起，没有渠道时只清空 */
+        function closeNotifyForm() {
+            resetNotifyForm();
+            const form = document.getElementById('notifyForm');
+            if (form && (notifyState.channels || []).length) form.hidden = true;
         }
 
         /** 渠道实际用的样式：这个类型不支持所选样式时按详细发（与服务端 templateOf 一致） */
@@ -6362,7 +6405,6 @@
             notifyTemplate = 'detailed';
             document.getElementById('notifyFormTitle').textContent = '添加推送渠道';
             document.getElementById('notifySaveBtn').textContent = '➕ 添加渠道';
-            document.getElementById('notifyCancelBtn').style.display = 'none';
             renderNotifyFields();
         }
 
@@ -6377,9 +6419,8 @@
             notifyTemplate = channel.template || 'detailed';
             document.getElementById('notifyFormTitle').textContent = `编辑「${channel.name}」`;
             document.getElementById('notifySaveBtn').textContent = '保存修改';
-            document.getElementById('notifyCancelBtn').style.display = '';
             renderNotifyFields();
-            document.getElementById('notifyForm').scrollIntoView({ block: 'center' });
+            openNotifyForm(true);
         }
 
         async function saveNotifyChannel() {
@@ -6390,8 +6431,8 @@
             if (r.success) {
                 const wasEditing = !!notifyEditingId;
                 notifyState = r.data;
-                resetNotifyForm();
                 renderNotify();
+                closeNotifyForm();
                 showStatus(wasEditing ? '已保存' : '已添加，点「发测试消息」确认能收到', 'success');
             } else showStatus(r.message || '保存失败', 'error');
         }
@@ -6421,7 +6462,7 @@
             const r = await notifyPost({ action: 'remove', id });
             if (r.success) {
                 notifyState = r.data;
-                if (notifyEditingId === id) resetNotifyForm();
+                if (notifyEditingId === id) closeNotifyForm();
                 renderNotify();
                 toastSaved('已删除');
             } else showStatus(r.message || '删除失败', 'error');

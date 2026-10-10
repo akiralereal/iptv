@@ -26,6 +26,7 @@ import { getEpgSourcesAPI, setEpgEnabledAPI, addEpgSourceAPI, updateEpgSourceAPI
          removeEpgSourceAPI, expireEpgSourcesAPI } from "./utils/epgSourcesAPI.js";
 import { userManager } from "./utils/userManager.js";
 import { getUsersAPI, addUserAPI, updateUserAPI, removeUserAPI, regenUserTokenAPI } from "./utils/usersAPI.js";
+import { getAlertsAPI, getAlertTracker } from "./utils/alerts.js";
 import { getAliasesAPI, setAliasRuleAPI, removeAliasRuleAPI } from "./utils/aliasesAPI.js";
 import { getGroupRulesAPI, setGroupRuleAPI, removeGroupRuleAPI, moveGroupRuleAPI } from "./utils/groupRulesAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
@@ -549,6 +550,14 @@ async function handleRequest(req, res) {
         res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
         res.end(JSON.stringify({ success: false, message: error.message }));
       }
+      return
+    }
+
+    // 提醒中心（utils/alerts.js）：服务端算好的「需要处理的提醒」，后台顶部提醒条与红点据此显示
+    if (routePath === '/api/alerts' && method === 'GET') {
+      const result = await getAlertsAPI()
+      res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify(result));
       return
     }
 
@@ -1585,6 +1594,8 @@ server.listen(port, async () => {
       printRed("源更新检查失败")
     } finally {
       sourceTickRunning = false
+      // 刷新刚出结论（抓取失败 / 凭证被拒），不等下一分钟的定时评估
+      getAlertTracker().evaluate().catch(() => {})
     }
   }, sourceTickMs); // 每 5 分钟检查一次：让各源的 refreshInterval 被准时执行（此前每小时才 check，间隔不精确）—— issue #73
 
@@ -1616,6 +1627,11 @@ server.listen(port, async () => {
   }
 
   void refreshBuiltInSourcesAfterStartup()
+
+  // 提醒中心：首份播放列表生成后开始评估，之后每分钟一次。只读各模块已经记下的结论，
+  // 不联网；播放时发现的凭证失效（央视频保活、四川换签等）也靠这一步被服务端知道
+  getAlertTracker().evaluate().catch(() => {})
+  getAlertTracker().start()
 
   // 启动后检查：如果有订阅源首次获取失败（parsedChannels 为空），60秒后自动重试
   setTimeout(async () => {

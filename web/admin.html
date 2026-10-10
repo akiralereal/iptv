@@ -5136,61 +5136,41 @@
         // ===== 提醒中心 =====
         // 后台各处「现在确实有问题、用户能处理」的事汇总到页面顶部一个入口：顶部不论几条都只占一行，
         // 逐条说明和处理按钮在「需要处理的提醒」弹窗里。纯说明性的提示（环境变量覆盖、空白模式）
-        // 不收；各页原位的提示照旧保留，这里是汇总不是搬走。新增一类提醒只需在 collectAlerts 里加一段。
-        let usersPassSet = true;   // /api/users 回传的 passSet，loadUsers 回填
+        // 不收；各页原位的提示照旧保留，这里是汇总不是搬走。
+        // 判断哪些算提醒在服务端（utils/alerts.js 的 collectAlerts），这里只拉 /api/alerts 显示：
+        // 页面和将来的消息推送看的是同一份列表。新增一类提醒改服务端，不改这里。
+        let usersPassSet = true;   // /api/users 回传的 passSet，loadUsers 回填（用户管理页顶部提示用）
         let currentAlerts = [];    // 本次渲染的提醒，按钮按下标取
+        let alertsRefreshTimer = null;
 
-        /**
-         * 每条：{ level: 'error'|'warning', title: 顶部一行用的短句, text: 列表里的说明,
-         *        action: 按钮文字, run: 点按钮做什么, where: 红点挂在哪（对应 data-alert-where） }
-         */
-        function collectAlerts() {
-            const alerts = [];
-            if (extractorsState && extractorsState.corrupt) {
-                alerts.push({ level: 'error', where: 'extractors', title: '抓取模块配置文件损坏', action: '查看',
-                    text: '配置文件损坏，已保留原文件并另存 .corrupt 副本；修复前模块的所有改动都会被拒绝，以免覆盖原数据。',
-                    run: () => openAlertTarget('extractors') });
-            }
-            for (const m of (extractorsState && extractorsState.modules) || []) {
-                if (!m.enabled) continue;
-                const h = m.health || {};
-                if (h.credentialRejected) {
-                    alerts.push({ level: 'error', where: 'extractors', title: `${m.name}登录凭证已失效`, action: '去更新',
-                        text: h.credentialRejected, run: () => openAlertTarget('module', m.id) });
-                } else if (h.status === 'failed' || h.status === 'risk') {
-                    const kept = h.usingCachedChannels ? `；暂时沿用上次抓到的 ${h.channelCount || 0} 个频道` : '';
-                    alerts.push({ level: 'error', where: 'extractors', title: `${m.name}${h.status === 'risk' ? '被风控' : '抓取失败'}`, action: '查看',
-                        text: `${h.lastError || '最近一次抓取没有成功'}${kept}。会自动重试；长期失败又用不到的话，可以关掉这个模块。`,
-                        run: () => openAlertTarget('module', m.id) });
-                }
-            }
-            if (epgConfig && epgConfig.enabled !== false) {
-                for (const src of epgConfig.sources || []) {
-                    if (src.enabled === false) continue;
-                    const name = src.name || '未命名';
-                    if (epgLegacyUrls.includes(String(src.url || '').trim())) {
-                        alerts.push({ level: 'warning', where: 'epg', title: `EPG 源「${name}」已停用`, action: '去设置',
-                            text: '这是停用的老默认源：51zmt 只剩央视和卫视，erw 已停止免费下载。节目单现由咪咕和各模块的官方接口提供，这条留着只会挂上过期节目单，建议删掉。',
-                            run: () => openAlertTarget('epg') });
-                    } else if (typeof src.lastStatus === 'string' && src.lastStatus.indexOf('失败') >= 0) {
-                        alerts.push({ level: 'error', where: 'epg', title: `EPG 源「${name}」抓取失败`, action: '去设置',
-                            text: src.lastStatus, run: () => openAlertTarget('epg') });
-                    }
-                }
-            }
-            // 只在已经加了一人一源用户时提醒：没加用户、不设密码是很多局域网用户的正常用法，不该常亮
-            if (!usersPassSet && ((usersConfig && usersConfig.users) || []).length) {
-                alerts.push({ level: 'warning', where: 'system', title: '没设访问密码，一人一源没生效', action: '去设置',
-                    text: '已经添加了一人一源用户，但没设访问密码：去掉令牌的地址谁都能直接用，后台也没上锁。设置访问密码后，已发出去的 /u/<令牌>/… 链接不受影响。',
-                    run: () => openAlertTarget('password') });
-            }
-            const rank = a => a.level === 'error' ? 0 : 1;
-            return alerts.sort((a, b) => rank(a) - rank(b));
+        /** 服务端提醒的跳转目标 → 点按钮做什么 */
+        function alertRun(target) {
+            const kind = (target && target.kind) || 'extractors';
+            return () => openAlertTarget(kind, target && target.moduleId);
         }
 
-        /** 重算全部提醒：顶部提醒条、标签红点、提醒列表。任何一份相关数据变了都调它。 */
+        /**
+         * 重算全部提醒：顶部提醒条、标签红点、提醒列表。任何一份相关数据变了都调它。
+         * 多处数据接连加载时会连着调好几次，合并成一次请求。
+         */
         function renderAlerts() {
-            currentAlerts = collectAlerts();
+            clearTimeout(alertsRefreshTimer);
+            alertsRefreshTimer = setTimeout(refreshAlerts, 150);
+        }
+
+        async function refreshAlerts() {
+            try {
+                const res = await fetch(API_PREFIX + '/api/alerts');
+                const payload = await res.json();
+                if (!payload || !payload.success || !Array.isArray(payload.data)) return;
+                currentAlerts = payload.data.map(a => ({ ...a, run: alertRun(a.target) }));
+                paintAlerts();
+            } catch (e) {
+                console.error('加载提醒失败', e);   // 拉不到就保持上一次的显示
+            }
+        }
+
+        function paintAlerts() {
             const errors = currentAlerts.filter(a => a.level === 'error').length;
 
             // 红点挂在问题所在的标签上（顶层标签和二级标签都标），鼠标停上去看是哪几条
@@ -5231,6 +5211,7 @@
         }
 
         function openAlertCenter() {
+            paintAlerts();     // 先显示手上的，再拉一次最新的
             renderAlerts();
             const modal = document.getElementById('alertCenterModal');
             if (!modal) return;

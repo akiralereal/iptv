@@ -628,25 +628,64 @@ class ExtractorManager {
 
   // ---- 后台读写 ----
 
+  /**
+   * 后台展示用的健康状态：缓存里的记账 + 两项派生值。getState 与 alertSnapshot 共用，
+   * 保证后台卡片和提醒中心（utils/alerts.js）对「失败 / 凭证被拒」的判断永远一致。
+   */
+  #displayHealth(module, effective, cacheEntry) {
+    const cachedChannelCount = cacheEntry.groups.reduce(
+      (sum, group) => sum + (group?.dataList?.length || 0), 0)
+    const health = {
+      ...emptyHealth(),
+      ...cacheEntry.health,
+      // 失败状态下的 channelCount 描述的是仍在输出的上次成功缓存，不是本轮结果。
+      // 显式告诉前端，避免卡片出现「失败 · 16 频道」却不解释链接为何还在。
+      usingCachedChannels: ['failed', 'risk'].includes(cacheEntry.health.status)
+        && cachedChannelCount > 0,
+      // 刷新时的检查结果之外，播放时才发现凭证被拒的模块也要立刻反映到后台，不等下一轮刷新
+      credentialRejected: (cacheEntry.health.credentialConfigKey === credentialConfigKey(effective)
+        ? cacheEntry.health.credentialRejected : '') || liveCredentialRejected(module, effective),
+    }
+    delete health.credentialConfigKey
+    return health
+  }
+
+  /**
+   * 提醒中心用的轻量快照（utils/alerts.js 每分钟读一次）。只读内存里已经记下的结论，
+   * **不联网、不触发任何检查**——央视频「读账号」要开浏览器页，那是它自己保活的事。
+   * configKey 是生效配置的截断摘要，只给服务端判断「凭证换过了」，不回传前端。
+   */
+  alertSnapshot() {
+    return {
+      corrupt: this.corrupt ? { message: this.corrupt.message } : null,
+      modules: listModules().map(module => {
+        const effective = this.effectiveConfig(module)
+        const health = this.#displayHealth(module, effective, this.#cacheEntry(module.id))
+        return {
+          id: module.id,
+          name: module.name,
+          category: module.category || 'standard',
+          enabled: this.isModuleEnabled(module),
+          configKey: credentialConfigKey(effective),
+          health: {
+            status: health.status,
+            lastError: health.lastError,
+            lastAttemptAt: health.lastAttemptAt,
+            channelCount: health.channelCount,
+            usingCachedChannels: health.usingCachedChannels,
+            credentialRejected: health.credentialRejected,
+          },
+        }
+      }),
+    }
+  }
+
   getState() {
     const modules = listModules().map(module => {
       const entry = this.#entry(module.id)
       const cacheEntry = this.#cacheEntry(module.id)
-      const cachedChannelCount = cacheEntry.groups.reduce(
-        (sum, group) => sum + (group?.dataList?.length || 0), 0)
       const effective = this.effectiveConfig(module)
-      const health = {
-        ...emptyHealth(),
-        ...cacheEntry.health,
-        // 失败状态下的 channelCount 描述的是仍在输出的上次成功缓存，不是本轮结果。
-        // 显式告诉前端，避免卡片出现「失败 · 16 频道」却不解释链接为何还在。
-        usingCachedChannels: ['failed', 'risk'].includes(cacheEntry.health.status)
-          && cachedChannelCount > 0,
-        // 刷新时的检查结果之外，播放时才发现凭证被拒的模块也要立刻反映到后台，不等下一轮刷新
-        credentialRejected: (cacheEntry.health.credentialConfigKey === credentialConfigKey(effective)
-          ? cacheEntry.health.credentialRejected : '') || liveCredentialRejected(module, effective),
-      }
-      delete health.credentialConfigKey
+      const health = this.#displayHealth(module, effective, cacheEntry)
       const enabled = this.isModuleEnabled(module)
       const { config, secretsSet } = redactConfig(module, effective)
       // 值来自环境变量而非后台时要让用户知道，否则会遇到「后台看着是空的、

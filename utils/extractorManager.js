@@ -671,6 +671,7 @@ class ExtractorManager {
             status: health.status,
             lastError: health.lastError,
             lastAttemptAt: health.lastAttemptAt,
+            consecutiveFailures: health.consecutiveFailures,
             channelCount: health.channelCount,
             usingCachedChannels: health.usingCachedChannels,
             credentialRejected: health.credentialRejected,

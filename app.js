@@ -27,6 +27,7 @@ import { getEpgSourcesAPI, setEpgEnabledAPI, addEpgSourceAPI, updateEpgSourceAPI
 import { userManager } from "./utils/userManager.js";
 import { getUsersAPI, addUserAPI, updateUserAPI, removeUserAPI, regenUserTokenAPI } from "./utils/usersAPI.js";
 import { getAlertsAPI, getAlertTracker } from "./utils/alerts.js";
+import { getNotifyAPI, postNotifyAPI, getNotifier } from "./utils/notify.js";
 import { getAliasesAPI, setAliasRuleAPI, removeAliasRuleAPI } from "./utils/aliasesAPI.js";
 import { getGroupRulesAPI, setGroupRuleAPI, removeGroupRuleAPI, moveGroupRuleAPI } from "./utils/groupRulesAPI.js";
 import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
@@ -558,6 +559,28 @@ async function handleRequest(req, res) {
       const result = await getAlertsAPI()
       res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
       res.end(JSON.stringify(result));
+      return
+    }
+
+    // 消息推送渠道（utils/notify.js）：企微 / 飞书 / 钉钉 / Telegram / Bark / 通用 Webhook
+    if (routePath === '/api/notify' && method === 'GET') {
+      const result = await getNotifyAPI()
+      res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify(result));
+      return
+    }
+
+    if (routePath === '/api/notify' && method === 'POST') {
+      try {
+        const data = JSON.parse(await readBody(req))
+        const result = await postNotifyAPI(data)
+        // 测试发送失败是正常结果（地址填错），不算服务端错误
+        res.writeHead(result.success || data.action === 'test' ? 200 : 400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify(result));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: false, message: error.message }));
+      }
       return
     }
 
@@ -1630,6 +1653,9 @@ server.listen(port, async () => {
 
   // 提醒中心：首份播放列表生成后开始评估，之后每分钟一次。只读各模块已经记下的结论，
   // 不联网；播放时发现的凭证失效（央视频保活、四川换签等）也靠这一步被服务端知道
+  // 消息推送挂在每次评估之后（老问题不推、抓取失败连续两次才推，规则见 utils/notify.js）
+  const notifier = await getNotifier()
+  getAlertTracker().onEvaluate(evaluation => notifier.handleEvaluation(evaluation))
   getAlertTracker().evaluate().catch(() => {})
   getAlertTracker().start()
 

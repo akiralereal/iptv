@@ -59,6 +59,8 @@ export function collectAlerts({ extractors, epg, epgLegacyUrls = [], passSet = t
         id: `module-failed:${m.id}`, level: 'error', where: 'extractors',
         title: `${m.name}${h.status === 'risk' ? '被风控' : '抓取失败'}`, action: '查看',
         text: `${h.lastError || '最近一次抓取没有成功'}${kept}。会自动重试；长期失败又用不到的话，可以关掉这个模块。`,
+        // 连续失败次数：后台照旧一次就显示，消息推送要连续两次才发（一闪而过的不打扰）
+        failures: Math.max(1, Number(h.consecutiveFailures) || 0),
         target: { kind: 'module', moduleId: m.id }, ...owner,
       })
     }
@@ -158,6 +160,7 @@ export class AlertTracker {
     this.now = opts.now || (() => Date.now())
     this.log = opts.log !== false
     this.listeners = new Set()
+    this.evaluateListeners = new Set()
     this.current = []
     this.running = null
     this.timer = null
@@ -186,6 +189,16 @@ export class AlertTracker {
   onChange(listener) {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
+  }
+
+  /**
+   * 每次评估完都通知（不论有没有变化）：listener({ alerts, activeIds, raised, resolved, initial })。
+   * alerts 带 configKey 以外的全部字段；activeIds 是「已报过、还没确认恢复」的提醒 id。
+   * 消息推送用它：推送有自己的门槛（抓取失败要连续两次），不能只靠状态变化那一刻。
+   */
+  onEvaluate(listener) {
+    this.evaluateListeners.add(listener)
+    return () => this.evaluateListeners.delete(listener)
   }
 
   /** 当前提醒（最近一次评估的结果，给后台用）。 */
@@ -253,7 +266,12 @@ export class AlertTracker {
         try { listener({ raised, resolved, initial }) } catch { /* 订阅方出错不影响评估 */ }
       }
     }
-    return { alerts: this.list(), raised, resolved, initial }
+    const result = { alerts: this.list(), activeIds: Object.keys(this.active), raised, resolved, initial }
+    // 不等推送：发消息要联网，后台拉 /api/alerts 不能被它拖慢；推送方自己串行
+    for (const listener of this.evaluateListeners) {
+      Promise.resolve().then(() => listener(result)).catch(() => { /* 推送出错不影响评估 */ })
+    }
+    return result
   }
 
   #moduleResolved(prev, module) {

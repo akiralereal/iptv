@@ -23,6 +23,8 @@ built-in-sources-cache.json
 extractors.json
 extractor-cache.json
 alerts-state.json
+notify-channels.json
+notify-state.json
 extractors.json.corrupt
 built-in-sources-remote.json
 pe-cache.json

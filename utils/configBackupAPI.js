@@ -35,6 +35,7 @@ const FIXED_FILES = [
   'group-keyword-rules.json',
   'users.json',
   'extractors.json',          // 抓取模块的开关与配置（抓取结果在 extractor-cache.json，不进备份）
+  'notify-channels.json',     // 消息推送渠道（含机器人地址 / Token，敏感；推送记录在 notify-state.json，不进备份）
 ]
 
 // 配置档独立配置的动态文件名：my-playlist-config.<档id>.json。

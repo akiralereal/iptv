@@ -4209,6 +4209,7 @@
                     <button class="mode-switch-btn" onclick="switchSettingsTab(2)">自动分组</button>
                     <button class="mode-switch-btn" onclick="switchSettingsTab(3)">EPG 聚合<span class="attention-dot" data-alert-where="epg" role="img" hidden></span></button>
                     <button class="mode-switch-btn" onclick="switchSettingsTab(4)">用户管理</button>
+                    <button class="mode-switch-btn" onclick="switchSettingsTab(5)">消息推送</button>
                 </div>
 
                 <div class="settings-subpanel active" id="settingsSub0">
@@ -4256,7 +4257,7 @@
                 <!-- 配置备份 / 迁移（issue #99） -->
                 <div class="settings-backup" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee;">
                     <div style="font-size:16px; font-weight:600; color:#333;">配置备份 / 迁移</div>
-                    <div class="system-config-hint">一键把全部配置（系统配置、外部源、我的频道与各配置档、EPG 源、别名 / 分组规则、用户令牌）导出为单个备份文件；换机 / 重装后导入即可恢复。<strong>⚠️ 导出文件包含咪咕账号与访问密码，请勿随意发给他人</strong>；自定义台标 <code>logos/</code> 文件夹不在包内，如有请单独拷贝。</div>
+                    <div class="system-config-hint">一键把全部配置（系统配置、外部源、我的频道与各配置档、EPG 源、别名 / 分组规则、用户令牌、消息推送）导出为单个备份文件；换机 / 重装后导入即可恢复。<strong>⚠️ 导出文件包含咪咕账号、访问密码与推送机器人地址，请勿随意发给他人</strong>；自定义台标 <code>logos/</code> 文件夹不在包内，如有请单独拷贝。</div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px;">
                         <button class="btn btn-primary" onclick="exportConfigBackup()">导出配置</button>
                         <input type="file" id="configImportFile" accept=".json,application/json" style="max-width: 260px;">
@@ -4388,6 +4389,42 @@
                             <select id="userNewProfile" style="width:100%;"></select>
                         </div>
                         <button class="btn btn-sm btn-success" onclick="addUser()">➕ 新增用户</button>
+                    </div>
+                </div>
+                </div>
+                <div class="settings-subpanel" id="settingsSub5">
+                <!-- 消息推送（utils/notify.js）：提醒中心的新提醒 / 已恢复发到群机器人或手机 -->
+                <div class="settings-editor-card" style="margin-top: 4px;">
+                    <div>
+                        <div style="font-size:16px; font-weight:600; color:#333;">消息推送</div>
+                        <div class="system-config-hint">后台顶部「需要处理的提醒」出现新的一条（登录凭证失效、模块抓取失败、EPG 源失败等）或问题恢复时，发一条消息到企业微信、飞书、钉钉、Telegram、Bark 或你自己的 Webhook，不用开着后台也能知道。只发消息，不接收任何指令。</div>
+                    </div>
+                    <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
+                        <div>• 抓取失败要<strong>连续失败两次</strong>才发，一闪而过的不打扰；其他提醒出现即发，恢复时再发一条「已恢复」；</div>
+                        <div>• 升级前就已存在的提醒不发；同一个问题没恢复前只发一次；</div>
+                        <div>• Telegram 的接口在大陆连不上：部署在大陆需给容器设 <code>HTTPS_PROXY</code>，或在「API 地址」填自己的反代；</div>
+                        <div>• 机器人地址和 Token 存在数据目录 <code>notify-channels.json</code>，会随「配置备份」一起导出，别把备份发给别人。</div>
+                    </div>
+
+                    <div id="notifyList" style="margin-top:14px;"></div>
+
+                    <div id="notifyForm" style="margin-top:12px; padding:12px; border:1px dashed #d9e2ec; border-radius:6px;">
+                        <div id="notifyFormTitle" style="font-weight:600; color:#333; margin-bottom:8px;">添加推送渠道</div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+                            <div style="min-width:170px;">
+                                <label style="display:block; font-size:12px; color:#888;">类型</label>
+                                <select id="notifyType" style="width:100%;" onchange="renderNotifyFields()"></select>
+                            </div>
+                            <div style="flex:1; min-width:140px;">
+                                <label style="display:block; font-size:12px; color:#888;">名称</label>
+                                <input type="text" id="notifyName" placeholder="例如 家里的飞书群" style="width:100%;">
+                            </div>
+                        </div>
+                        <div id="notifyFields" style="margin-top:8px; display:grid; gap:8px;"></div>
+                        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+                            <button class="btn btn-sm btn-success" id="notifySaveBtn" onclick="saveNotifyChannel()">➕ 添加渠道</button>
+                            <button class="btn btn-sm" id="notifyCancelBtn" onclick="resetNotifyForm()" style="display:none;">取消编辑</button>
+                        </div>
                     </div>
                 </div>
                 </div>
@@ -4591,6 +4628,7 @@
             if (index === 2) {
                 loadEpgSources();
                 loadUsers();
+                loadNotify();
                 loadAliases();
                 loadGroupRules();
             }
@@ -6128,6 +6166,167 @@
             }).join('');
         }
 
+        // ===== 消息推送（utils/notify.js）=====
+        let notifyState = { channels: [], types: [] };
+        let notifyEditingId = null;
+
+        async function loadNotify() {
+            try {
+                const res = await fetch(API_PREFIX + '/api/notify');
+                const payload = await res.json();
+                if (payload && payload.success && payload.data) {
+                    notifyState = payload.data;
+                    renderNotify();
+                }
+            } catch (e) { console.error('加载消息推送失败', e); }
+        }
+
+        async function notifyPost(body) {
+            const res = await fetch(API_PREFIX + '/api/notify', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+            });
+            return res.json();
+        }
+
+        function notifyTypeOf(id) {
+            return (notifyState.types || []).find(t => t.id === id);
+        }
+
+        function renderNotify() {
+            const typeSelect = document.getElementById('notifyType');
+            if (typeSelect && !typeSelect.options.length) {
+                typeSelect.innerHTML = (notifyState.types || [])
+                    .map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('');
+                renderNotifyFields();
+            }
+            const box = document.getElementById('notifyList');
+            if (!box) return;
+            const channels = notifyState.channels || [];
+            if (!channels.length) {
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有推送渠道。在下面选类型、填机器人地址，添加后点「发测试消息」确认能收到。</div>';
+                return;
+            }
+            box.innerHTML = channels.map(c => {
+                const type = notifyTypeOf(c.type);
+                const r = c.lastResult;
+                const result = !r ? '还没发过'
+                    : `${new Date(r.at).toLocaleString()} ${r.ok ? '<span style="color:#389e0d;">发送成功</span>' : `<span style="color:#cf1322;">发送失败：${escapeHtml(r.message || '')}</span>`}`;
+                return `
+                <div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;${c.enabled === false ? 'opacity:.6;' : ''}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <label style="display:flex;align-items:center;gap:6px;">
+                            <input type="checkbox" ${c.enabled !== false ? 'checked' : ''} onchange="toggleNotifyChannel('${c.id}', this.checked)">
+                            <strong>${escapeHtml(c.name)}</strong>
+                            <span style="font-size:12px;color:#888;">${escapeHtml(type ? type.name : c.type)}</span>
+                        </label>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button class="btn btn-sm" onclick="testNotifyChannel('${c.id}', this)">发测试消息</button>
+                            <button class="btn btn-sm" onclick="editNotifyChannel('${c.id}')">编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteNotifyChannel('${c.id}')">删除</button>
+                        </div>
+                    </div>
+                    <div style="font-size:12px;color:#999;margin-top:6px;">最近一次：${result}</div>
+                </div>`;
+            }).join('');
+        }
+
+        /** 按所选类型画字段。编辑时敏感字段留空 = 不改，占位里注明已设置。 */
+        function renderNotifyFields() {
+            const type = notifyTypeOf(document.getElementById('notifyType').value);
+            const box = document.getElementById('notifyFields');
+            if (!type || !box) return;
+            const editing = notifyEditingId ? (notifyState.channels || []).find(c => c.id === notifyEditingId) : null;
+            box.innerHTML = type.fields.map(f => {
+                const isSet = editing && editing.secretsSet && editing.secretsSet[f.key];
+                const value = editing && !f.secret ? (editing[f.key] || '') : '';
+                const placeholder = isSet ? '已设置，留空保持不变' : (f.placeholder || '');
+                return `<div>
+                    <label style="display:block; font-size:12px; color:#888;">${escapeHtml(f.label)}${f.required ? '' : '（可选）'}</label>
+                    <input type="${f.secret ? 'password' : 'text'}" data-notify-field="${escapeHtml(f.key)}" value="${escapeHtml(value)}"
+                           placeholder="${escapeHtml(placeholder)}" autocomplete="off" style="width:100%;">
+                </div>`;
+            }).join('');
+        }
+
+        function readNotifyForm() {
+            const fields = {};
+            document.querySelectorAll('#notifyFields [data-notify-field]').forEach(input => {
+                fields[input.dataset.notifyField] = input.value;
+            });
+            return { type: document.getElementById('notifyType').value, name: document.getElementById('notifyName').value, fields };
+        }
+
+        function resetNotifyForm() {
+            notifyEditingId = null;
+            const typeSelect = document.getElementById('notifyType');
+            typeSelect.disabled = false;
+            document.getElementById('notifyName').value = '';
+            document.getElementById('notifyFormTitle').textContent = '添加推送渠道';
+            document.getElementById('notifySaveBtn').textContent = '➕ 添加渠道';
+            document.getElementById('notifyCancelBtn').style.display = 'none';
+            renderNotifyFields();
+        }
+
+        function editNotifyChannel(id) {
+            const channel = (notifyState.channels || []).find(c => c.id === id);
+            if (!channel) return;
+            notifyEditingId = id;
+            const typeSelect = document.getElementById('notifyType');
+            typeSelect.value = channel.type;
+            typeSelect.disabled = true;   // 换类型等于换一个渠道，删了重加
+            document.getElementById('notifyName').value = channel.name || '';
+            document.getElementById('notifyFormTitle').textContent = `编辑「${channel.name}」`;
+            document.getElementById('notifySaveBtn').textContent = '保存修改';
+            document.getElementById('notifyCancelBtn').style.display = '';
+            renderNotifyFields();
+            document.getElementById('notifyForm').scrollIntoView({ block: 'center' });
+        }
+
+        async function saveNotifyChannel() {
+            const form = readNotifyForm();
+            const r = notifyEditingId
+                ? await notifyPost({ action: 'update', id: notifyEditingId, fields: { name: form.name, ...form.fields } })
+                : await notifyPost({ action: 'add', channel: { type: form.type, name: form.name, ...form.fields } });
+            if (r.success) {
+                const wasEditing = !!notifyEditingId;
+                notifyState = r.data;
+                resetNotifyForm();
+                renderNotify();
+                showStatus(wasEditing ? '已保存' : '已添加，点「发测试消息」确认能收到', 'success');
+            } else showStatus(r.message || '保存失败', 'error');
+        }
+
+        async function toggleNotifyChannel(id, enabled) {
+            const r = await notifyPost({ action: 'update', id, fields: { enabled } });
+            if (r.success) { notifyState = r.data; renderNotify(); toastSaved(); }
+            else { showStatus(r.message || '操作失败', 'error'); loadNotify(); }
+        }
+
+        async function testNotifyChannel(id, button) {
+            if (button) { button.disabled = true; button.textContent = '发送中…'; }
+            try {
+                const r = await notifyPost({ action: 'test', id });
+                if (r.data) notifyState = r.data;
+                renderNotify();
+                showStatus(r.message || (r.success ? '测试消息已发出' : '发送失败'), r.success ? 'success' : 'error', r.success ? 3000 : 6000);
+            } catch (e) {
+                showStatus('发送失败：' + e.message, 'error');
+                renderNotify();
+            }
+        }
+
+        async function deleteNotifyChannel(id) {
+            const channel = (notifyState.channels || []).find(c => c.id === id);
+            if (!confirm(`删除推送渠道「${channel ? channel.name : ''}」？`)) return;
+            const r = await notifyPost({ action: 'remove', id });
+            if (r.success) {
+                notifyState = r.data;
+                if (notifyEditingId === id) resetNotifyForm();
+                renderNotify();
+                toastSaved('已删除');
+            } else showStatus(r.message || '删除失败', 'error');
+        }
+
         async function usersPost(body) {
             const res = await fetch(API_PREFIX + '/api/users', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
@@ -6676,6 +6875,9 @@
 
                 // 加载用户管理（一人一源）；失败不影响其余加载
                 loadUsers();
+
+                // 加载消息推送渠道；失败不影响其余加载
+                loadNotify();
 
                 // 加载频道别名规则（issue #56）；失败不影响其余加载
                 loadAliases();

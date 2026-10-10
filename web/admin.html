@@ -2499,6 +2499,16 @@
         }
         .notify-card-add:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
 
+        /* 消息推送弹窗：内容多（字段 + 样式预览），限高后内部滚动，按钮固定在底部 */
+        .notify-modal-content { width: 620px; max-width: 92%; max-height: 88vh; display: flex; flex-direction: column; padding: 24px 24px 0; }
+        .notify-modal-content h3 { margin: 0 32px 14px 0; }
+        .notify-modal-body { overflow-y: auto; flex: 1 1 auto; padding-bottom: 16px; }
+        .notify-modal-body input { margin-bottom: 0; }
+        .notify-modal-body { padding-right: 6px; }
+        .notify-modal-body .notify-template-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+        .notify-modal-body .notify-preview { max-width: none; }
+        .notify-modal-actions { flex: 0 0 auto; margin: 0 -24px; padding: 14px 24px; border-top: 1px solid var(--ui-line, #eef1f6); }
+
         /* 消息推送：样式选择与预览 */
         .notify-template-options { display: flex; gap: 8px; flex-wrap: wrap; }
         .notify-template-option {
@@ -3963,6 +3973,36 @@
         </div>
     </div>
 
+    <!-- 消息推送：添加 / 编辑渠道 -->
+    <div class="modal" id="notifyModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="notifyFormTitle">
+        <div class="modal-content notify-modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeNotifyForm()" aria-label="关闭">×</button>
+            <h3 id="notifyFormTitle">添加推送渠道</h3>
+            <div class="notify-modal-body">
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+                            <div style="min-width:170px;">
+                                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">类型</label>
+                                <select id="notifyType" style="width:100%;" onchange="renderNotifyFields()"></select>
+                            </div>
+                            <div style="flex:1; min-width:140px;">
+                                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">名称</label>
+                                <input type="text" id="notifyName" placeholder="例如 家里的飞书群" style="width:100%;">
+                            </div>
+                        </div>
+                        <div id="notifyFields" style="margin-top:8px; display:grid; gap:8px;"></div>
+                        <div style="margin-top:14px;">
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">消息样式</label>
+                            <div class="notify-template-options" id="notifyTemplates" role="radiogroup" aria-label="消息样式"></div>
+                            <div class="notify-preview" id="notifyPreview" aria-label="消息样式预览"></div>
+                        </div>
+            </div>
+            <div class="modal-actions notify-modal-actions">
+                <button type="button" class="btn btn-sm" onclick="closeNotifyForm()">取消</button>
+                <button type="button" class="btn btn-sm btn-success" id="notifySaveBtn" onclick="saveNotifyChannel()">添加渠道</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Bookmarklet 添加引导弹窗 -->
     <!-- B 站扫码登录（issue：SESSDATA 是 HttpOnly，咪咕那种书签读 cookie 的招在这里行不通） -->
     <div class="modal" id="biliQrModal">
@@ -4465,29 +4505,6 @@
 
                     <div id="notifyList" style="margin-top:14px;"></div>
 
-                    <div id="notifyForm" hidden style="margin-top:12px; padding:12px; border:1px dashed #d9e2ec; border-radius:6px;">
-                        <div id="notifyFormTitle" style="font-weight:600; color:#333; margin-bottom:8px;">添加推送渠道</div>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-                            <div style="min-width:170px;">
-                                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">类型</label>
-                                <select id="notifyType" style="width:100%;" onchange="renderNotifyFields()"></select>
-                            </div>
-                            <div style="flex:1; min-width:140px;">
-                                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">名称</label>
-                                <input type="text" id="notifyName" placeholder="例如 家里的飞书群" style="width:100%;">
-                            </div>
-                        </div>
-                        <div style="margin-top:8px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">消息样式</label>
-                            <div class="notify-template-options" id="notifyTemplates" role="radiogroup" aria-label="消息样式"></div>
-                            <div class="notify-preview" id="notifyPreview" aria-label="消息样式预览"></div>
-                        </div>
-                        <div id="notifyFields" style="margin-top:8px; display:grid; gap:8px;"></div>
-                        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-                            <button class="btn btn-sm btn-success" id="notifySaveBtn" onclick="saveNotifyChannel()">➕ 添加渠道</button>
-                            <button class="btn btn-sm" id="notifyCancelBtn" onclick="closeNotifyForm()">取消</button>
-                        </div>
-                    </div>
                 </div>
                 </div>
             </div>
@@ -6265,10 +6282,10 @@
             const box = document.getElementById('notifyList');
             if (!box) return;
             const channels = notifyState.channels || [];
+            const addCard = `<button type="button" class="notify-card-add" onclick="openNotifyForm()">＋ 添加推送渠道</button>`;
             if (!channels.length) {
-                // 一个都没有时表单直接展开，不用先找按钮
-                box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有推送渠道。在下面选类型、填机器人地址，添加后点「发测试消息」确认能收到。</div>';
-                openNotifyForm(false);
+                box.innerHTML = `<div class="system-config-hint" style="margin:0 0 10px;">还没有推送渠道。点下面添加，选类型、填机器人地址，添加后点「发测试消息」确认能收到。</div>
+                    <div class="notify-grid">${addCard}</div>`;
                 return;
             }
             const when = at => new Date(at).toLocaleString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -6292,28 +6309,40 @@
                     </div>
                 </div>`;
             }).join('')}
-                <button type="button" class="notify-card-add" onclick="openNotifyForm(true)">＋ 添加推送渠道</button>
+                ${addCard}
             </div>`;
-            // 有渠道后取消按钮才有意义（没有渠道时表单常驻）
-            const cancel = document.getElementById('notifyCancelBtn');
-            if (cancel) cancel.style.display = '';
         }
 
-        function openNotifyForm(scroll) {
-            const form = document.getElementById('notifyForm');
-            if (!form) return;
-            form.hidden = false;
-            const cancel = document.getElementById('notifyCancelBtn');
-            if (cancel) cancel.style.display = (notifyState.channels || []).length ? '' : 'none';
-            if (scroll) form.scrollIntoView({ block: 'center' });
+        /** 打开添加 / 编辑弹窗。添加时先清空表单；编辑时由 editNotifyChannel 填好再调。 */
+        function openNotifyForm(editing = false) {
+            if (!editing) resetNotifyForm();
+            const modal = document.getElementById('notifyModal');
+            if (!modal) return;
+            modal.style.display = 'block';
+            modal.setAttribute('aria-hidden', 'false');
+            setTimeout(() => {
+                const first = document.getElementById(editing ? 'notifyName' : 'notifyType');
+                if (first) first.focus();
+            }, 0);
         }
 
-        /** 收起表单：有渠道时收起，没有渠道时只清空 */
         function closeNotifyForm() {
+            const modal = document.getElementById('notifyModal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.setAttribute('aria-hidden', 'true');
+            }
             resetNotifyForm();
-            const form = document.getElementById('notifyForm');
-            if (form && (notifyState.channels || []).length) form.hidden = true;
         }
+
+        // 推送弹窗：点遮罩或按 Esc 关闭
+        document.addEventListener('click', event => {
+            if (event.target === document.getElementById('notifyModal')) closeNotifyForm();
+        });
+        document.addEventListener('keydown', event => {
+            const modal = document.getElementById('notifyModal');
+            if (event.key === 'Escape' && modal && modal.style.display === 'block') closeNotifyForm();
+        });
 
         /** 渠道实际用的样式：这个类型不支持所选样式时按详细发（与服务端 templateOf 一致） */
         function notifyEffectiveTemplate(typeId, template) {
@@ -6401,10 +6430,11 @@
             notifyEditingId = null;
             const typeSelect = document.getElementById('notifyType');
             typeSelect.disabled = false;
+            if (typeSelect.options.length) typeSelect.selectedIndex = 0;   // 新加的渠道默认第一个类型（飞书）
             document.getElementById('notifyName').value = '';
             notifyTemplate = 'detailed';
             document.getElementById('notifyFormTitle').textContent = '添加推送渠道';
-            document.getElementById('notifySaveBtn').textContent = '➕ 添加渠道';
+            document.getElementById('notifySaveBtn').textContent = '添加渠道';
             renderNotifyFields();
         }
 

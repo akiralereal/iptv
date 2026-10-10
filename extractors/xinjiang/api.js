@@ -232,7 +232,9 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
     for (const candidate of candidates) {
       try {
         const script = await requestText(candidate, { ...options, hosts: WEB_HOSTS })
-        if (!script.text.includes('TVChannelList') || !script.text.includes('random_string')) continue
+        // 键名已被混淆进字符串表，不能再按 random_string 之类的字面量筛；
+        // 只认真正不会变的两样：直播接口路径和 RSA 公钥模板。
+        if (!script.text.includes('TVChannelList') || !script.text.includes('BEGIN PUBLIC KEY')) continue
         return {
           material: extractSigningMaterial(script.text, date),
           date,

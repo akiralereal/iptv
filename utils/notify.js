@@ -32,16 +32,16 @@ const MAX_TEXT = 1800   // 企微 text 上限 2048 字节左右，留余量；�
  * 字段 key 同时是 notify-channels.json 里的键名。
  */
 export const CHANNEL_TYPES = {
-  wecom: {
-    name: '企业微信群机器人',
-    fields: [{ key: 'url', label: 'Webhook 地址', secret: true, required: true, placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…' }],
-  },
   feishu: {
     name: '飞书群机器人',
     fields: [
       { key: 'url', label: 'Webhook 地址', secret: true, required: true, placeholder: 'https://open.feishu.cn/open-apis/bot/v2/hook/…' },
       { key: 'secret', label: '签名校验密钥（机器人开了「签名校验」才填）', secret: true },
     ],
+  },
+  wecom: {
+    name: '企业微信群机器人',
+    fields: [{ key: 'url', label: 'Webhook 地址', secret: true, required: true, placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…' }],
   },
   dingtalk: {
     name: '钉钉群机器人',

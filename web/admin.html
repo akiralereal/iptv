@@ -4412,7 +4412,7 @@
                 <div class="settings-editor-card" style="margin-top: 4px;">
                     <div>
                         <div style="font-size:16px; font-weight:600; color:#333;">消息推送</div>
-                        <div class="system-config-hint">后台顶部「需要处理的提醒」出现新的一条（登录凭证失效、模块抓取失败、EPG 源失败等）或问题恢复时，发一条消息到企业微信、飞书、钉钉、Telegram、Bark 或你自己的 Webhook，不用开着后台也能知道。只发消息，不接收任何指令。</div>
+                        <div class="system-config-hint">后台顶部「需要处理的提醒」出现新的一条（登录凭证失效、模块抓取失败、EPG 源失败等）或问题恢复时，发一条消息到飞书、企业微信、钉钉、Telegram、Bark 或你自己的 Webhook，不用开着后台也能知道。只发消息，不接收任何指令。</div>
                     </div>
                     <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
                         <div>• 抓取失败要<strong>连续失败两次</strong>才发，一闪而过的不打扰；其他提醒出现即发，恢复时再发一条「已恢复」；</div>
@@ -4427,11 +4427,11 @@
                         <div id="notifyFormTitle" style="font-weight:600; color:#333; margin-bottom:8px;">添加推送渠道</div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
                             <div style="min-width:170px;">
-                                <label style="display:block; font-size:12px; color:#888;">类型</label>
+                                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">类型</label>
                                 <select id="notifyType" style="width:100%;" onchange="renderNotifyFields()"></select>
                             </div>
                             <div style="flex:1; min-width:140px;">
-                                <label style="display:block; font-size:12px; color:#888;">名称</label>
+                                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">名称</label>
                                 <input type="text" id="notifyName" placeholder="例如 家里的飞书群" style="width:100%;">
                             </div>
                         </div>
@@ -6256,7 +6256,7 @@
                 const value = editing && !f.secret ? (editing[f.key] || '') : '';
                 const placeholder = isSet ? '已设置，留空保持不变' : (f.placeholder || '');
                 return `<div>
-                    <label style="display:block; font-size:12px; color:#888;">${escapeHtml(f.label)}${f.required ? '' : '（可选）'}</label>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${escapeHtml(f.label)}${f.required ? '' : '（可选）'}</label>
                     <input type="${f.secret ? 'password' : 'text'}" data-notify-field="${escapeHtml(f.key)}" value="${escapeHtml(value)}"
                            placeholder="${escapeHtml(placeholder)}" autocomplete="off" style="width:100%;">
                 </div>`;

@@ -4483,6 +4483,9 @@
                         <div style="font-size:16px; font-weight:600; color:#333;">用户管理（一人一源）</div>
                         <div class="system-config-hint">给每个家人 / 朋友生成独立的源地址 <code>/u/&lt;令牌&gt;/m3u</code>，可单独停用、泄露可追溯，且<strong>令牌进不了本后台</strong>。不新增用户则对现有链接零影响。</div>
                     </div>
+                    <div style="margin-top:12px;">
+                        <button type="button" class="btn btn-success" onclick="openUserModal()">＋ 新增用户</button>
+                    </div>
 
                     <!-- 没设访问密码时裸地址对所有人开放，令牌挡不住任何人（issue #141）；由 /api/users 的 passSet 决定显隐 -->
                     <div id="userPassWarning" style="display:none; margin-top:10px; padding:12px 14px; background:#fff7e6; border:1px solid #ffd591; border-left:4px solid #fa8c16; border-radius:6px; color:#874d00; font-size:13px; line-height:1.7;">
@@ -4500,9 +4503,6 @@
                         <div>• 「绑定档」可给不同人不同频道，不选就是默认全量。</div>
                     </div>
 
-                    <div style="margin-top:14px;">
-                        <button type="button" class="btn btn-sm btn-success" onclick="openUserModal()">＋ 新增用户</button>
-                    </div>
                     <div id="userList" style="margin-top:12px;"></div>
                 </div>
                 </div>
@@ -6226,7 +6226,7 @@
             if (!box) return;
             const users = usersConfig.users || [];
             if (!users.length) {
-                box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有用户。点上面「＋ 新增用户」，新增后会得到一个独立的 /u/&lt;令牌&gt;/m3u 源地址，发给对应的人即可。</div>';
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有用户。点页面上方「＋ 新增用户」，新增后会得到一个独立的 /u/&lt;令牌&gt;/m3u 源地址，发给对应的人即可。</div>';
                 return;
             }
             box.innerHTML = users.map(u => {

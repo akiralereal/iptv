@@ -3319,6 +3319,23 @@
         .system-config-item label { margin-bottom: 8px; color: var(--ui-text); font-size: 14px; font-weight: 700; }
         .system-config-hint { margin-top: 8px; color: var(--ui-muted); font-size: 12px; line-height: 1.6; }
         .system-config-actions { gap: 10px; margin-top: 4px; justify-content: flex-end; }
+        /* 系统配置按用途分区：区块成卡，区块里的字段不再各自套卡 */
+        .sys-section {
+            margin-bottom: 18px; padding: 20px;
+            border: 1px solid var(--ui-glass-edge); border-radius: var(--ui-radius-card);
+            background: var(--ui-glass-card); box-shadow: var(--ui-shadow-card);
+        }
+        .sys-section-head { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--ui-line); }
+        .sys-section-title { font-size: 16px; font-weight: 600; color: var(--ui-text); }
+        .sys-section-desc { margin-top: 4px; font-size: 12px; color: var(--ui-muted); }
+        .sys-section .system-config-grid { margin-bottom: 0; gap: 18px 24px; }
+        .sys-section .system-config-item { padding: 0; border: 0; background: none; box-shadow: none; }
+        .sys-section .system-config-item label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .sys-section .system-config-item label.sys-check-label { font-weight: 600; cursor: pointer; }
+        .sys-section .system-config-item label.sys-check-label input { width: auto; min-height: 0; margin: 0; }
+        .sys-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500; line-height: 1.6; white-space: nowrap; cursor: help; }
+        .sys-badge.is-restart { color: #ad4e00; background: #fff4e5; border: 1px solid #ffd8a8; }
+        .sys-badge.is-address { color: #36597a; background: #eef4fb; border: 1px solid #cfe0f2; }
         .settings-backup {
             margin-top: 26px !important;
             padding: 20px !important;
@@ -4426,40 +4443,56 @@
                 <div class="settings-subpanel active" id="settingsSub0">
                 <div id="envOverrideWarning" style="display: none; margin: 10px 0; padding: 12px 14px; background: #fff7e6; border: 1px solid #ffd591; border-left: 4px solid #fa8c16; border-radius: 6px; color: #874d00; font-size: 13px; line-height: 1.7;"></div>
 
-                <div class="system-config-grid">
-                    <div class="system-config-item">
-                        <label>服务端口</label>
-                        <input type="number" id="sysPort" oninput="setSaveDirty('sysconfig')" placeholder="1905">
-                        <div class="system-config-hint">⚠️ 本页唯二需要<strong>重启服务</strong>才生效的设置之一（另一个是下方的「节目单更新间隔」）；其余项保存即生效。Docker 部署还需同步改端口映射。</div>
+                <section class="sys-section">
+                    <div class="sys-section-head">
+                        <div class="sys-section-title">访问与安全</div>
+                        <div class="sys-section-desc">服务怎么被访问：端口、对外地址、访问密码和后台路径。</div>
                     </div>
-                    <div class="system-config-item">
-                        <label>公网地址</label>
-                        <input type="text" id="sysHost" oninput="setSaveDirty('sysconfig')" placeholder="http://example.com:xxxx">
-                        <div class="system-config-hint">选填。填 <code>http(s)://…</code> 完整地址时<strong>原样使用</strong>（不写端口即 80/443，适合内网穿透/反向代理）；只填 ip/域名则自动补 http:// 和上方的服务端口</div>
+                    <div class="system-config-grid">
+                        <div class="system-config-item">
+                            <label>服务端口 <span class="sys-badge is-restart" title="保存后要重启服务才生效，可直接点下方「保存并重启」">需重启</span></label>
+                            <input type="number" id="sysPort" oninput="setSaveDirty('sysconfig')" placeholder="1905">
+                            <div class="system-config-hint">Docker 部署还需同步改端口映射。</div>
+                        </div>
+                        <div class="system-config-item">
+                            <label>公网地址</label>
+                            <input type="text" id="sysHost" oninput="setSaveDirty('sysconfig')" placeholder="http://example.com:xxxx">
+                            <div class="system-config-hint">选填。填 <code>http(s)://…</code> 完整地址时<strong>原样使用</strong>（不写端口即 80/443，适合内网穿透/反向代理）；只填 ip/域名则自动补 http:// 和上方的服务端口</div>
+                        </div>
+                        <div class="system-config-item">
+                            <label>访问密码 <span class="sys-badge is-address" title="保存后后台和订阅地址会变，页面会自动跳到新地址">改后地址会变</span></label>
+                            <input type="text" id="sysPass" oninput="setSaveDirty('sysconfig')" placeholder="留空表示无密码">
+                            <div class="system-config-hint">设置后访问格式：http://ip:port/密码/...</div>
+                        </div>
+                        <div class="system-config-item">
+                            <label>管理页面路径 <span class="sys-badge is-address" title="保存后后台和订阅地址会变，页面会自动跳到新地址">改后地址会变</span></label>
+                            <input type="text" id="sysAdminPath" oninput="setSaveDirty('sysconfig')" placeholder="admin">
+                            <div class="system-config-hint">自定义后台地址（默认 admin），如填 <code>console</code> 则用 <code>/console</code> 访问，<code>/admin</code> 将失效（api / player / favicon.ico 为保留字）</div>
+                        </div>
                     </div>
-                    <div class="system-config-item">
-                        <label>访问密码</label>
-                        <input type="text" id="sysPass" oninput="setSaveDirty('sysconfig')" placeholder="留空表示无密码">
-                        <div class="system-config-hint">设置后访问格式：http://ip:port/密码/...</div>
+                </section>
+
+                <section class="sys-section">
+                    <div class="sys-section-head">
+                        <div class="sys-section-title">更新与显示</div>
+                        <div class="sys-section-desc">多久全量更新一次，以及频道名怎么显示。</div>
                     </div>
-                    <div class="system-config-item">
-                        <label>管理页面路径</label>
-                        <input type="text" id="sysAdminPath" oninput="setSaveDirty('sysconfig')" placeholder="admin">
-                        <div class="system-config-hint">自定义后台地址（默认 admin），如填 <code>console</code> 则用 <code>/console</code> 访问，<code>/admin</code> 将失效；保存后需用新地址访问（api / player / favicon.ico 为保留字）</div>
+                    <div class="system-config-grid">
+                        <div class="system-config-item">
+                            <label>节目单更新间隔（小时） <span class="sys-badge is-restart" title="保存后要重启服务才生效，可直接点下方「保存并重启」">需重启</span></label>
+                            <input type="number" id="sysProgramInterval" oninput="setSaveDirty('sysconfig')" placeholder="8">
+                            <div class="system-config-hint" style="color:#d4380d;">⚠️ 咪咕频道 / EPG / 体育的全量更新间隔。<strong>如果填写了咪咕 Token（登录账号），建议设置 8 小时以上</strong>——过于频繁请求可能触发风控、影响账号。</div>
+                        </div>
+                        <div class="system-config-item">
+                            <label class="sys-check-label">
+                                <input type="checkbox" id="sysEnableDisplayNameUnify" onchange="setSaveDirty('sysconfig')">
+                                统一频道显示名（合并不同源的同台命名）
+                            </label>
+                            <div class="system-config-hint">开启后，把不同订阅源里同一个台的不同写法（如 <code>CCTV1</code> / <code>CCTV-1</code> / <code>CCTV1综合</code>）<strong>按内置规则自动统一成同一个显示名</strong>（CCTV 系列、清晰度后缀等已内置）。默认关；手动重命名优先级更高；规则兜不住的写法可在「频道别名」标签里加规则。</div>
+                        </div>
                     </div>
-                    <div class="system-config-item">
-                        <label>节目单更新间隔（小时）</label>
-                        <input type="number" id="sysProgramInterval" oninput="setSaveDirty('sysconfig')" placeholder="8">
-                        <div class="system-config-hint" style="color:#d4380d;">⚠️ 咪咕频道 / EPG / 体育的全量更新间隔。<strong>如果填写了咪咕 Token（登录账号），建议设置 8 小时以上</strong>——过于频繁请求可能触发风控、影响账号；修改后需点顶部「重启服务」才生效。</div>
-                    </div>
-                    <div class="system-config-item">
-                        <label>
-                            <input type="checkbox" id="sysEnableDisplayNameUnify" onchange="setSaveDirty('sysconfig')">
-                            统一频道显示名（合并不同源的同台命名）
-                        </label>
-                        <div class="system-config-hint">开启后，把不同订阅源里同一个台的不同写法（如 <code>CCTV1</code> / <code>CCTV-1</code> / <code>CCTV1综合</code>）<strong>按内置规则自动统一成同一个显示名</strong>（CCTV 系列、清晰度后缀等已内置）。默认关；手动重命名优先级更高；规则兜不住的写法可在「频道别名」标签里加规则。保存后即时生效。</div>
-                    </div>
-                </div>
+                </section>
+                <div class="system-config-hint" style="margin:0 0 10px; text-align:right;">标了「需重启」的项保存后要重启服务才生效；其余项保存即生效。</div>
                 <div class="system-config-actions">
                     <button class="btn btn-success" data-save-scope="sysconfig" onclick="saveSystemConfig()">保存系统配置</button>
                     <button class="btn btn-primary" data-save-scope="sysconfig" onclick="saveAndRestartService()" title="保存成功后自动重启服务，让需重启的配置一步生效">保存并重启</button>

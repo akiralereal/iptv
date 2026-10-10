@@ -53,12 +53,16 @@ const apiPayload = () => ({
 
 const { publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
 const pem = publicKey.export({ type: 'spki', format: 'pem' }).trim()
+// 官网真实形态：字符串数组 + 带偏移的解码器 + 加载时按自检表达式旋转数组。
+// 数组源码顺序被预先转过，自检表达式只有转满 12 档才对得上，正好覆盖「必须定出唯一旋转」这条。
+// date / random_string / random_number 三个键名都藏在表里，官网已不再留 .random_string= 这类字面量。
 const signingBundle = `
-function Seeds(){const t=["noise","random_string","2029-01-01","date","abcdefghijklmnopqrstuvwxyzABCDEFGH","random_number"];return Seeds=function(){return t},Seeds()}
+function Seeds(){const t=["date","abcdefghijklmnopqrstuvwxyzABCDEFGH","random_number","2029-01-03","2029-01-02","2029-01-05","24","36","48","60","noise2","noise3","noise","random_string","2029-01-01"];return Seeds=function(){return t},Seeds()}
 function decode(x,y){return x=x-400,Seeds()[x]}
 const T=decode;
+(function(t,e){const n=decode,r=t();for(;;)try{if(parseInt(n(409))/1*parseInt(n(410))/2+parseInt(n(411))/4*(-parseInt(n(412))/8)+-parseInt(n(402))/1===e)break;r.push(r.shift())}catch(s){r.push(r.shift())}})(Seeds,-1687);
 const row={};row[T(403)]=T(402);row[T(401)]=T(404);row[T(405)]=4;
-const inline={};inline[T(403)]="2029-01-03",inline.random_string=T(404),inline[T(405)]=7;
+const inline={};inline[T(403)]="2029-01-03",inline[T(401)]=T(404),inline[T(405)]=7;
 const rows=[row,inline],endpoint="TVChannelList",key=\`${pem}\`;
 `
 
@@ -116,6 +120,28 @@ check('当天日期直接写成字面量、不在字符串表里时也能解析'
   assert.equal(material.date, '2029-01-03')
   assert.equal(material.random_string, 'abcdefghijklmnopqrstuvwxyzABCDEFGH')
   assert.equal(material.random_number, 7)
+})
+
+// 回归：官网 2026-10 把三个键名都藏进了字符串表、数组加载时还要先转 12 档。
+// 旧实现靠「枚举所有旋转找第一条当天记录」猜，结果会拿错档——日期对上、token 却是别的日期的，
+// 接口回「签名Token已失效」。这里要求必须由自检表达式定出唯一旋转，且换档就取不到。
+check('字符串表被旋转过时只认自检表达式定出的那一档，不许拼出跨日期的错配', () => {
+  const solved = extractSigningMaterial(signingBundle, '2029-01-01')
+  assert.equal(solved.random_number, 4, '第一组用的是转表后的 random_number')
+  // 同样的日期字面量 + 另一个键值组合：只有转对表才凑得齐
+  const other = extractSigningMaterial(signingBundle, '2029-01-03')
+  assert.equal(other.random_number, 7)
+  assert.notEqual(solved.random_number, other.random_number)
+
+  // 自检目标被改动（等于官网换了一档）时，应当找不到配置而不是退回乱猜
+  const tampered = signingBundle.replace('})(Seeds,-1687);', '})(Seeds,999999);')
+  assert.throws(() => extractSigningMaterial(tampered, '2029-01-01'), /没有 2029-01-01 的配置/)
+  // 数组长度不足以转满 12 档时同样解不出，不许给出半个结果
+  const short = signingBundle.replace(
+    '["date","abcdefghijklmnopqrstuvwxyzABCDEFGH","random_number","2029-01-03","2029-01-02","2029-01-05","24","36","48","60","noise2","noise3","noise","random_string","2029-01-01"]',
+    '["noise","random_string","random_number"]',
+  )
+  assert.throws(() => extractSigningMaterial(short, '2029-01-01'), /没有 2029-01-01 的配置/)
 })
 
 check('接口签名、上海日期和 Nuxt 脚本发现均受严格约束', () => {
@@ -271,4 +297,4 @@ await checkAsync('当前节目被标禁播时说明是这档节目限播，不�
   assert.notEqual((await resolver.resolve('xjtv-4', { now })).url, '')
 })
 
-console.log(`\n全部通过：${passed}/10 ✅`)
+console.log(`\n全部通过：${passed}/11 ✅`)

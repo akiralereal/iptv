@@ -2463,6 +2463,27 @@
             box-shadow: var(--ui-ring);
         }
 
+        /* 推送类型下拉：浏览器自带箭头贴着右边框，换成自绘箭头并留出右侧间距 */
+        select.notify-type-select {
+            appearance: none;
+            -webkit-appearance: none;
+            padding-right: 36px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%236b7a8c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 12px 12px;
+            cursor: pointer;
+        }
+        select.notify-type-select:focus {
+            /* 全局聚焦样式用 background 简写换成白底，会把箭头一起清掉 */
+            background-color: #fff;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%236b7a8c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 12px 12px;
+        }
+        select.notify-type-select:disabled { cursor: not-allowed; opacity: .7; }
+
         /* 表单控件 */
         input[type="text"], input[type="number"], input[type="password"], input[type="url"],
         input[type="file"], select, textarea,
@@ -4413,7 +4434,7 @@
                         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
                             <div style="min-width:170px;">
                                 <label style="display:block; font-size:12px; color:#888;">类型</label>
-                                <select id="notifyType" style="width:100%;" onchange="renderNotifyFields()"></select>
+                                <select id="notifyType" class="notify-type-select" style="width:100%;" onchange="renderNotifyFields()"></select>
                             </div>
                             <div style="flex:1; min-width:140px;">
                                 <label style="display:block; font-size:12px; color:#888;">名称</label>

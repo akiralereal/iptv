@@ -3741,7 +3741,8 @@
             .channel-detail-logo .btn { justify-self: start; min-width: 84px; }
             #channelDetailModal .modal-actions { padding: 14px 20px; }
         }
-        input::placeholder, textarea::placeholder { color: #607365; }
+        /* 占位文字要明显浅于填进去的内容，不然看着像已经填了值 */
+        input::placeholder, textarea::placeholder { color: #a3ada6; opacity: 1; }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { transition: none !important; }
         }

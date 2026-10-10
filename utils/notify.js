@@ -204,7 +204,12 @@ export async function sendToChannel(channel, message, { fetchImpl = proxyAwareFe
     const error = responseError(channel.type, res.status, payload)
     return error ? { ok: false, message: scrub(error, channel) } : { ok: true, message: '' }
   } catch (error) {
-    const reason = error?.name === 'AbortError' ? `${SEND_TIMEOUT_MS / 1000} 秒没有响应` : (error?.cause?.code || error?.message || '发送失败')
+    // undici 只给一句「fetch failed」，真正原因（域名解析失败、连接被拒、超时）在 cause 里
+    const cause = error?.cause
+    const detail = [cause?.code, cause?.message].filter(Boolean).join(' ')
+    const reason = error?.name === 'AbortError'
+      ? `${SEND_TIMEOUT_MS / 1000} 秒没有响应`
+      : (detail ? `连不上推送服务（${detail}）` : (error?.message || '发送失败'))
     return { ok: false, message: scrub(reason, channel) }
   } finally {
     clearTimeout(timer)

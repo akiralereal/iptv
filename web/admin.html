@@ -2499,6 +2499,8 @@
         }
         .notify-card-add:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
 
+        .user-modal-content { width: 440px; max-width: 92%; }
+        .user-modal-content h3 { margin: 0 32px 16px 0; }
         /* 消息推送弹窗：内容多（字段 + 样式预览），限高后内部滚动，按钮固定在底部 */
         .notify-modal-content { width: 620px; max-width: 92%; max-height: 88vh; display: flex; flex-direction: column; padding: 24px 24px 0; }
         .notify-modal-content h3 { margin: 0 32px 14px 0; }
@@ -3973,6 +3975,30 @@
         </div>
     </div>
 
+    <!-- 用户管理：新增用户 -->
+    <div class="modal" id="userModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="userModalTitle">
+        <div class="modal-content user-modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeUserModal()" aria-label="关闭">×</button>
+            <h3 id="userModalTitle">新增用户</h3>
+            <div style="display:grid; gap:12px;">
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">用户名称</label>
+                    <input type="text" id="userNewName" placeholder="例如 客厅电视 / 张三" style="width:100%; margin-bottom:0;"
+                           onkeydown="if (event.key === 'Enter' &amp;&amp; !event.isComposing) addUser()">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">绑定档（频道内容）</label>
+                    <select id="userNewProfile" style="width:100%;"></select>
+                    <div class="system-config-hint" style="margin:6px 0 0;">不选就是默认全量；选了某个档，这个人只看到那个档里的频道。</div>
+                </div>
+            </div>
+            <div class="modal-actions" style="margin-top:18px;">
+                <button type="button" class="btn btn-sm" onclick="closeUserModal()">取消</button>
+                <button type="button" class="btn btn-sm btn-success" onclick="addUser()">新增用户</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 消息推送：添加 / 编辑渠道 -->
     <div class="modal" id="notifyModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="notifyFormTitle">
         <div class="modal-content notify-modal-content">
@@ -4465,7 +4491,7 @@
 
                     <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
                         <div style="font-weight:600; color:#333; margin-bottom:4px;">怎么用</div>
-                        <div>① 点「➕ 新增用户」，给每个人起个名（如「客厅电视」「老王」）；</div>
+                        <div>① 点「＋ 新增用户」，给每个人起个名（如「客厅电视」「老王」）；</div>
                         <div>② 用每行的「复制 m3u」把各自的源地址发给对应的人；</div>
                         <div>③ 谁的链接泄露 / 不想给了 → 关掉那一行的开关（或「重置令牌」），<strong>只影响他一个</strong>，其他人照常。</div>
                         <div style="font-weight:600; color:#333; margin:8px 0 4px;">注意</div>
@@ -4474,19 +4500,10 @@
                         <div>• 「绑定档」可给不同人不同频道，不选就是默认全量。</div>
                     </div>
 
-                    <div id="userList" style="margin-top:14px;"></div>
-
-                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-                        <div style="flex:1; min-width:140px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">用户名称</label>
-                            <input type="text" id="userNewName" placeholder="例如 客厅电视 / 张三" style="width:100%;">
-                        </div>
-                        <div style="min-width:150px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">绑定档（频道内容）</label>
-                            <select id="userNewProfile" style="width:100%;"></select>
-                        </div>
-                        <button class="btn btn-sm btn-success" onclick="addUser()">➕ 新增用户</button>
+                    <div style="margin-top:14px;">
+                        <button type="button" class="btn btn-sm btn-success" onclick="openUserModal()">＋ 新增用户</button>
                     </div>
+                    <div id="userList" style="margin-top:12px;"></div>
                 </div>
                 </div>
                 <div class="settings-subpanel" id="settingsSub5">
@@ -6209,7 +6226,7 @@
             if (!box) return;
             const users = usersConfig.users || [];
             if (!users.length) {
-                box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有用户。新增后会得到一个独立的 /u/&lt;令牌&gt;/m3u 源地址，发给对应的人即可。</div>';
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有用户。点上面「＋ 新增用户」，新增后会得到一个独立的 /u/&lt;令牌&gt;/m3u 源地址，发给对应的人即可。</div>';
                 return;
             }
             box.innerHTML = users.map(u => {
@@ -6505,13 +6522,37 @@
             return res.json();
         }
 
+        function openUserModal() {
+            document.getElementById('userNewName').value = '';
+            fillUserProfileSelect(document.getElementById('userNewProfile'), '');
+            const modal = document.getElementById('userModal');
+            modal.style.display = 'block';
+            modal.setAttribute('aria-hidden', 'false');
+            setTimeout(() => document.getElementById('userNewName').focus(), 0);
+        }
+
+        function closeUserModal() {
+            const modal = document.getElementById('userModal');
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        // 新增用户弹窗：点遮罩或按 Esc 关闭
+        document.addEventListener('click', event => {
+            if (event.target === document.getElementById('userModal')) closeUserModal();
+        });
+        document.addEventListener('keydown', event => {
+            const modal = document.getElementById('userModal');
+            if (event.key === 'Escape' && modal && modal.style.display === 'block') closeUserModal();
+        });
+
         async function addUser() {
             const name = document.getElementById('userNewName').value;
             const profile = document.getElementById('userNewProfile').value;
             const r = await usersPost({ action: 'add', user: { name, profile } });
             if (r.success) {
                 usersConfig = r.data; renderUsers();
-                document.getElementById('userNewName').value = '';
+                closeUserModal();
                 showStatus('已新增用户，可复制其源地址发给对方', 'success');
             } else showStatus(r.message || '新增失败', 'error');
         }

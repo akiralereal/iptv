@@ -2501,6 +2501,14 @@
 
         .user-modal-content { width: 440px; max-width: 92%; }
         .user-modal-content h3 { margin: 0 32px 16px 0; }
+        /* 设置页通用的添加 / 编辑弹窗 */
+        .form-modal-content { width: 480px; max-width: 92%; max-height: 88vh; overflow-y: auto; }
+        .form-modal-content h3 { margin: 0 32px 16px 0; }
+        .form-modal-body { display: grid; gap: 12px; }
+        .form-modal-body input { margin-bottom: 0; }
+        .form-modal-body input[type="checkbox"] { width: auto; min-height: 0; flex: 0 0 auto; padding: 0; }
+        .form-modal-actions { margin-top: 18px; }
+        .form-modal input[readonly] { background: var(--ui-surface-strong, #f3f5f7); color: #888; cursor: not-allowed; }
         /* 消息推送弹窗：内容多（字段 + 样式预览），限高后内部滚动，按钮固定在底部 */
         .notify-modal-content { width: 620px; max-width: 92%; max-height: 88vh; display: flex; flex-direction: column; padding: 24px 24px 0; }
         .notify-modal-content h3 { margin: 0 32px 14px 0; }
@@ -3975,16 +3983,96 @@
         </div>
     </div>
 
+    <!-- 设置页的添加 / 编辑弹窗（频道别名、自动分组、EPG 源）；开关见 openFormModal / closeFormModal -->
+    <div class="modal form-modal" id="aliasModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="aliasModalTitle">
+        <div class="modal-content form-modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeFormModal('aliasModal')" aria-label="关闭">×</button>
+            <h3 id="aliasModalTitle">添加别名规则</h3>
+            <div class="form-modal-body">
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">规范名（统一后的名字）</label>
+                    <input type="text" id="aliasNewCanonical" placeholder="例如 CCTV5体育" style="width:100%;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">别名（多个用逗号分隔）</label>
+                    <input type="text" id="aliasNewList" placeholder="例如 央视5套, 体育频道" style="width:100%;" onkeydown="submitOnEnter(event, addAliasRule)">
+                    <div class="system-config-hint" style="margin:6px 0 0;">名字是这些别名之一的频道，显示名统一成上面的规范名。</div>
+                </div>
+            </div>
+            <div class="modal-actions form-modal-actions">
+                <button type="button" class="btn btn-sm" onclick="closeFormModal('aliasModal')">取消</button>
+                <button type="button" class="btn btn-sm btn-success" id="aliasSaveBtn" onclick="addAliasRule()">添加规则</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal form-modal" id="groupRuleModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="groupRuleModalTitle">
+        <div class="modal-content form-modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeFormModal('groupRuleModal')" aria-label="关闭">×</button>
+            <h3 id="groupRuleModalTitle">添加分组规则</h3>
+            <div class="form-modal-body">
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">分组名</label>
+                    <input type="text" id="groupRuleName" placeholder="例如 央视" style="width:100%;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">关键字（多个用逗号分隔）</label>
+                    <input type="text" id="groupRuleKeywords" placeholder="例如 CCTV, 央视" style="width:100%;" onkeydown="submitOnEnter(event, addGroupRule)">
+                    <div class="system-config-hint" style="margin:6px 0 0;">「未分组」里名字含其中任一关键字的频道，自动归到这个分组。</div>
+                </div>
+            </div>
+            <div class="modal-actions form-modal-actions">
+                <button type="button" class="btn btn-sm" onclick="closeFormModal('groupRuleModal')">取消</button>
+                <button type="button" class="btn btn-sm btn-success" id="groupRuleSaveBtn" onclick="addGroupRule()">添加规则</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal form-modal" id="epgModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="epgModalTitle">
+        <div class="modal-content form-modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeFormModal('epgModal')" aria-label="关闭">×</button>
+            <h3 id="epgModalTitle">添加 EPG 源</h3>
+            <div class="form-modal-body">
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">名称</label>
+                    <input type="text" id="epgNewName" placeholder="例如 我的EPG" style="width:100%;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">XMLTV 地址（支持 .xml / .xml.gz）</label>
+                    <input type="text" id="epgNewUrl" placeholder="http://.../epg.xml.gz" style="width:100%;">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">更新间隔（分钟）</label>
+                        <input type="number" id="epgNewInterval" value="720" style="width:100%;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">优先级（数字小的优先）</label>
+                        <input type="number" id="epgNewPriority" value="10" style="width:100%;">
+                    </div>
+                </div>
+                <label style="display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#555; cursor:pointer;">
+                    <input type="checkbox" id="epgNewOverride" style="margin-top:3px;">
+                    <span>优先于官方节目单<br><span style="font-size:12px; color:#888;">勾上后，这个源当前有节目的频道优先用它，咪咕和各模块的官方节目单让出来；不勾只补官方没有的频道。</span></span>
+                </label>
+            </div>
+            <div class="modal-actions form-modal-actions">
+                <button type="button" class="btn btn-sm" onclick="closeFormModal('epgModal')">取消</button>
+                <button type="button" class="btn btn-sm btn-success" onclick="addEpgSource()">添加源</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 用户管理：新增用户 -->
-    <div class="modal" id="userModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="userModalTitle">
+    <div class="modal form-modal" id="userModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="userModalTitle">
         <div class="modal-content user-modal-content">
-            <button type="button" class="extractor-modal-close" onclick="closeUserModal()" aria-label="关闭">×</button>
+            <button type="button" class="extractor-modal-close" onclick="closeFormModal('userModal')" aria-label="关闭">×</button>
             <h3 id="userModalTitle">新增用户</h3>
             <div style="display:grid; gap:12px;">
                 <div>
                     <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">用户名称</label>
                     <input type="text" id="userNewName" placeholder="例如 客厅电视 / 张三" style="width:100%; margin-bottom:0;"
-                           onkeydown="if (event.key === 'Enter' &amp;&amp; !event.isComposing) addUser()">
+                           onkeydown="submitOnEnter(event, addUser)">
                 </div>
                 <div>
                     <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">绑定档（频道内容）</label>
@@ -3993,7 +4081,7 @@
                 </div>
             </div>
             <div class="modal-actions" style="margin-top:18px;">
-                <button type="button" class="btn btn-sm" onclick="closeUserModal()">取消</button>
+                <button type="button" class="btn btn-sm" onclick="closeFormModal('userModal')">取消</button>
                 <button type="button" class="btn btn-sm btn-success" onclick="addUser()">新增用户</button>
             </div>
         </div>
@@ -4369,7 +4457,7 @@
                             <input type="checkbox" id="sysEnableDisplayNameUnify" onchange="setSaveDirty('sysconfig')">
                             统一频道显示名（合并不同源的同台命名）
                         </label>
-                        <div class="system-config-hint">开启后，把不同订阅源里同一个台的不同写法（如 <code>CCTV1</code> / <code>CCTV-1</code> / <code>CCTV1综合</code>）<strong>按内置规则自动统一成同一个显示名</strong>（CCTV 系列、清晰度后缀等已内置）。默认关；手动重命名优先级更高；规则兜不住的写法可在下方「频道别名」里加规则。保存后即时生效。</div>
+                        <div class="system-config-hint">开启后，把不同订阅源里同一个台的不同写法（如 <code>CCTV1</code> / <code>CCTV-1</code> / <code>CCTV1综合</code>）<strong>按内置规则自动统一成同一个显示名</strong>（CCTV 系列、清晰度后缀等已内置）。默认关；手动重命名优先级更高；规则兜不住的写法可在「频道别名」标签里加规则。保存后即时生效。</div>
                     </div>
                 </div>
                 <div class="system-config-actions">
@@ -4396,18 +4484,10 @@
                         <div style="font-size:16px; font-weight:600; color:#333;">频道别名（统一命名规则）</div>
                         <div class="system-config-hint">给上面的「统一频道显示名」加自定义规则：把若干<strong>别名</strong>都归到一个<strong>规范名</strong>下（如 规范名 <code>CCTV5体育</code>，别名 <code>央视5套, 体育频道</code>）。内置规则（CCTV 系列、清晰度后缀等）已覆盖大部分，这里只补兜不住的写法。保存后下次刷新播放列表即生效。</div>
                     </div>
-                    <div id="aliasList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
-                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-                        <div style="min-width:150px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">规范名（统一后的名字）</label>
-                            <input type="text" id="aliasNewCanonical" placeholder="例如 CCTV5体育" style="width:100%;">
-                        </div>
-                        <div style="flex:1; min-width:200px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">别名（多个用逗号分隔）</label>
-                            <input type="text" id="aliasNewList" placeholder="例如 央视5套, 体育频道" style="width:100%;">
-                        </div>
-                        <button class="btn btn-sm btn-success" onclick="addAliasRule()">➕ 添加规则</button>
+                    <div style="margin-top:12px;">
+                        <button type="button" class="btn btn-success" onclick="openAliasModal()">＋ 添加规则</button>
                     </div>
+                    <div id="aliasList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
                 </div>
                 </div>
                 <div class="settings-subpanel" id="settingsSub2">
@@ -4417,18 +4497,10 @@
                         <div style="font-size:16px; font-weight:600; color:#333;">关键字自动分组</div>
                         <div class="system-config-hint">自定义订阅源里没写分组的频道会落到「未分组」，每次刷新又回到未分组。这里按<strong>频道名关键字</strong>配规则，名字含关键字的<strong>未分组</strong>频道会自动归到对应分组（多条规则按从上到下、首条命中生效）——刷新也不丢，且<strong>不影响源已分好的分组、手动移动优先</strong>。如 分组 <code>央视</code> ← 关键字 <code>CCTV, 央视</code>。保存后下次刷新播放列表即生效。</div>
                     </div>
-                    <div id="groupRuleList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
-                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-                        <div style="min-width:150px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">分组名</label>
-                            <input type="text" id="groupRuleName" placeholder="例如 央视" style="width:100%;">
-                        </div>
-                        <div style="flex:1; min-width:200px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">关键字（多个用逗号分隔，名字含其一即归此组）</label>
-                            <input type="text" id="groupRuleKeywords" placeholder="例如 CCTV, 央视" style="width:100%;">
-                        </div>
-                        <button class="btn btn-sm btn-success" onclick="addGroupRule()">➕ 添加规则</button>
+                    <div style="margin-top:12px;">
+                        <button type="button" class="btn btn-success" onclick="openGroupRuleModal()">＋ 添加规则</button>
                     </div>
+                    <div id="groupRuleList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
                 </div>
                 </div>
                 <div class="settings-subpanel" id="settingsSub3">
@@ -4437,38 +4509,19 @@
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                         <div>
                             <div style="font-size:16px; font-weight:600; color:#333;">EPG 节目单源（聚合）</div>
-                            <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕和各模块官方节目单都没覆盖的频道补节目单。默认已开启，但不带内置外部源，需要更广覆盖时在下面自己加。勾了「优先于官方节目单」的源，对它当前有节目的频道会覆盖咪咕和各模块的官方节目单（源停更只剩旧数据时自动让回官方）。改动即时保存、无需重启，下次更新生效（或点「立即刷新」）。</div>
+                            <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕和各模块官方节目单都没覆盖的频道补节目单。默认已开启，但不带内置外部源，需要更广覆盖时点「＋ 添加 EPG 源」自己加。勾了「优先于官方节目单」的源，对它当前有节目的频道会覆盖咪咕和各模块的官方节目单（源停更只剩旧数据时自动让回官方）。改动即时保存、无需重启，下次更新生效（或点「立即刷新」）。</div>
                         </div>
                         <label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
                             <input type="checkbox" id="epgEnabled" onchange="setEpgEnabled(this.checked)">
                             启用 EPG 聚合
                         </label>
                     </div>
+                    <div style="margin-top:12px;">
+                        <button type="button" class="btn btn-success" onclick="openEpgModal()">＋ 添加 EPG 源</button>
+                    </div>
 
                     <div id="epgSourceList" style="margin-top:14px;"></div>
 
-                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-                        <div style="flex:1; min-width:120px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">名称</label>
-                            <input type="text" id="epgNewName" placeholder="例如 我的EPG" style="width:100%;">
-                        </div>
-                        <div style="flex:2; min-width:200px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">XMLTV 地址（支持 .xml / .xml.gz）</label>
-                            <input type="text" id="epgNewUrl" placeholder="http://.../epg.xml.gz" style="width:100%;">
-                        </div>
-                        <div style="width:110px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">间隔(分钟)</label>
-                            <input type="number" id="epgNewInterval" value="720" style="width:100%;">
-                        </div>
-                        <div style="width:90px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">优先级</label>
-                            <input type="number" id="epgNewPriority" value="10" style="width:100%;">
-                        </div>
-                        <label title="勾上后，这个源当前有节目的频道优先用它，咪咕和各模块的官方节目单让出来" style="display:flex; align-items:center; gap:4px; font-size:12px; color:#888; padding-bottom:6px;">
-                            <input type="checkbox" id="epgNewOverride"> 优先于官方节目单
-                        </label>
-                        <button class="btn btn-sm btn-success" onclick="addEpgSource()">➕ 添加源</button>
-                    </div>
 
                     <div style="margin-top:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                         <button class="btn btn-sm" onclick="refreshEpgNow()">立即刷新并应用</button>
@@ -6089,7 +6142,7 @@
             if (cb) cb.checked = epgConfig.enabled !== false;
             const sources = epgConfig.sources || [];
             if (!sources.length) {
-                box.innerHTML = '<div class="system-config-hint" style="margin:0;">暂无 EPG 源，可在下方添加。</div>';
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">暂无 EPG 源，点上方「＋ 添加 EPG 源」添加。</div>';
                 return;
             }
             box.innerHTML = sources.map((s, i) => `
@@ -6128,6 +6181,15 @@
             else { showStatus(r.message || '操作失败', 'error'); loadEpgSources(); }
         }
 
+        function openEpgModal() {
+            document.getElementById('epgNewName').value = '';
+            document.getElementById('epgNewUrl').value = '';
+            document.getElementById('epgNewInterval').value = '720';
+            document.getElementById('epgNewPriority').value = '10';
+            document.getElementById('epgNewOverride').checked = false;
+            openFormModal('epgModal', 'epgNewName');
+        }
+
         async function addEpgSource() {
             const source = {
                 name: document.getElementById('epgNewName').value,
@@ -6139,9 +6201,7 @@
             const r = await epgPost({ action: 'add', source });
             if (r.success) {
                 epgConfig = r.data; renderEpgSources();
-                document.getElementById('epgNewName').value = '';
-                document.getElementById('epgNewUrl').value = '';
-                document.getElementById('epgNewOverride').checked = false;
+                closeFormModal('epgModal');
                 showStatus('已添加 EPG 源，下次更新生效（或点「立即刷新」）', 'success');
             } else {
                 showStatus(r.message || '添加失败', 'error');
@@ -6522,29 +6582,43 @@
             return res.json();
         }
 
-        function openUserModal() {
-            document.getElementById('userNewName').value = '';
-            fillUserProfileSelect(document.getElementById('userNewProfile'), '');
-            const modal = document.getElementById('userModal');
+        // ===== 设置页通用弹窗（新增用户、频道别名、自动分组、EPG 源）=====
+        function openFormModal(id, focusId) {
+            const modal = document.getElementById(id);
+            if (!modal) return;
             modal.style.display = 'block';
             modal.setAttribute('aria-hidden', 'false');
-            setTimeout(() => document.getElementById('userNewName').focus(), 0);
+            setTimeout(() => { const el = document.getElementById(focusId); if (el) el.focus(); }, 0);
         }
 
-        function closeUserModal() {
-            const modal = document.getElementById('userModal');
+        function closeFormModal(id) {
+            const modal = document.getElementById(id);
+            if (!modal) return;
             modal.style.display = 'none';
             modal.setAttribute('aria-hidden', 'true');
         }
 
-        // 新增用户弹窗：点遮罩或按 Esc 关闭
+        /** 回车提交；中文输入法选字时的回车不算 */
+        function submitOnEnter(event, fn) {
+            if (event.key === 'Enter' && !event.isComposing) fn();
+        }
+
+        // 点遮罩或按 Esc 关闭
         document.addEventListener('click', event => {
-            if (event.target === document.getElementById('userModal')) closeUserModal();
+            if (event.target.classList && event.target.classList.contains('form-modal')) closeFormModal(event.target.id);
         });
         document.addEventListener('keydown', event => {
-            const modal = document.getElementById('userModal');
-            if (event.key === 'Escape' && modal && modal.style.display === 'block') closeUserModal();
+            if (event.key !== 'Escape') return;
+            document.querySelectorAll('.form-modal').forEach(modal => {
+                if (modal.style.display === 'block') closeFormModal(modal.id);
+            });
         });
+
+        function openUserModal() {
+            document.getElementById('userNewName').value = '';
+            fillUserProfileSelect(document.getElementById('userNewProfile'), '');
+            openFormModal('userModal', 'userNewName');
+        }
 
         async function addUser() {
             const name = document.getElementById('userNewName').value;
@@ -6552,7 +6626,7 @@
             const r = await usersPost({ action: 'add', user: { name, profile } });
             if (r.success) {
                 usersConfig = r.data; renderUsers();
-                closeUserModal();
+                closeFormModal('userModal');
                 showStatus('已新增用户，可复制其源地址发给对方', 'success');
             } else showStatus(r.message || '新增失败', 'error');
         }
@@ -6622,29 +6696,37 @@
             return res.json();
         }
 
+        /** 添加规则：清空表单打开弹窗 */
+        function openAliasModal() {
+            const c = document.getElementById('aliasNewCanonical');
+            c.value = ''; c.readOnly = false;
+            document.getElementById('aliasNewList').value = '';
+            document.getElementById('aliasModalTitle').textContent = '添加别名规则';
+            document.getElementById('aliasSaveBtn').textContent = '添加规则';
+            openFormModal('aliasModal', 'aliasNewCanonical');
+        }
+
         async function addAliasRule() {
             const canonical = document.getElementById('aliasNewCanonical').value;
             const aliases = document.getElementById('aliasNewList').value;
+            const editing = document.getElementById('aliasNewCanonical').readOnly;
             const r = await aliasesPost({ action: 'setRule', canonical, aliases });
             if (r.success) {
                 aliasesData = r.data; renderAliases();
-                document.getElementById('aliasNewCanonical').value = '';
-                document.getElementById('aliasNewList').value = '';
-                showStatus('已添加规则，下次刷新播放列表生效', 'success');
-            } else showStatus(r.message || '添加失败', 'error');
+                closeFormModal('aliasModal');
+                showStatus(editing ? '已保存，下次刷新播放列表生效' : '已添加规则，下次刷新播放列表生效', 'success');
+            } else showStatus(r.message || '保存失败', 'error');
         }
 
-        // 编辑一条规则（issue #56）：把规则回填到下方输入框，改完点「添加规则」即按规范名覆盖更新（后端 setRule 为 upsert）
+        // 编辑一条规则（issue #56）：后端 setRule 按规范名覆盖更新，所以编辑时规范名锁定——改了就成了另一条规则
         function editAliasRule(canonical) {
             const aliases = Array.isArray(aliasesData[canonical]) ? aliasesData[canonical] : [];
-            const cEl = document.getElementById('aliasNewCanonical');
-            const aEl = document.getElementById('aliasNewList');
-            if (!cEl || !aEl) return;
-            cEl.value = canonical;
-            aEl.value = aliases.join(', ');
-            cEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            aEl.focus();
-            showStatus('已载入到下方，可修改后点「添加规则」保存（同名规范名会覆盖更新）', 'info');
+            const c = document.getElementById('aliasNewCanonical');
+            c.value = canonical; c.readOnly = true;
+            document.getElementById('aliasNewList').value = aliases.join(', ');
+            document.getElementById('aliasModalTitle').textContent = `编辑「${canonical}」`;
+            document.getElementById('aliasSaveBtn').textContent = '保存修改';
+            openFormModal('aliasModal', 'aliasNewList');
         }
 
         async function removeAliasRule(canonical) {
@@ -6699,26 +6781,37 @@
             return res.json();
         }
 
+        function openGroupRuleModal() {
+            const g = document.getElementById('groupRuleName');
+            g.value = ''; g.readOnly = false;
+            document.getElementById('groupRuleKeywords').value = '';
+            document.getElementById('groupRuleModalTitle').textContent = '添加分组规则';
+            document.getElementById('groupRuleSaveBtn').textContent = '添加规则';
+            openFormModal('groupRuleModal', 'groupRuleName');
+        }
+
         async function addGroupRule() {
             const group = document.getElementById('groupRuleName').value;
             const keywords = document.getElementById('groupRuleKeywords').value;
+            const editing = document.getElementById('groupRuleName').readOnly;
             const r = await groupRulesPost({ action: 'setRule', group, keywords });
             if (r.success) {
                 groupRulesData = r.data; renderGroupRules();
-                document.getElementById('groupRuleName').value = '';
-                document.getElementById('groupRuleKeywords').value = '';
-                showStatus('已添加规则，下次刷新播放列表生效', 'success');
-            } else showStatus(r.message || '添加失败', 'error');
+                closeFormModal('groupRuleModal');
+                showStatus(editing ? '已保存，下次刷新播放列表生效' : '已添加规则，下次刷新播放列表生效', 'success');
+            } else showStatus(r.message || '保存失败', 'error');
         }
 
+        // 后端按分组名覆盖更新，编辑时分组名锁定
         function editGroupRule(group) {
             const rule = groupRulesData.find(r => r.group === group);
             if (!rule) return;
-            document.getElementById('groupRuleName').value = rule.group;
+            const g = document.getElementById('groupRuleName');
+            g.value = rule.group; g.readOnly = true;
             document.getElementById('groupRuleKeywords').value = (rule.keywords || []).join(', ');
-            document.getElementById('groupRuleName').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            document.getElementById('groupRuleKeywords').focus();
-            showStatus('已载入到下方，可修改后点「添加规则」保存（同名分组会覆盖更新）', 'info');
+            document.getElementById('groupRuleModalTitle').textContent = `编辑「${rule.group}」`;
+            document.getElementById('groupRuleSaveBtn').textContent = '保存修改';
+            openFormModal('groupRuleModal', 'groupRuleKeywords');
         }
 
         async function moveGroupRule(group, direction) {

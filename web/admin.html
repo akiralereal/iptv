@@ -3623,6 +3623,10 @@
             .source-subtabs > .mode-switch-btn { min-width: 0; white-space: normal; }
             .settings-subtabs > .mode-switch-btn:last-child:nth-child(odd),
             .source-subtabs > .mode-switch-btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+            /* 设置页 7 个标签：手机上排三列（3 行），两列要 4 行太高；最后单出来的一个占满一行 */
+            .settings-subtabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .settings-subtabs > .mode-switch-btn:last-child:nth-child(odd) { grid-column: auto; }
+            .settings-subtabs > .mode-switch-btn:last-child:nth-child(3n+1) { grid-column: 1 / -1; }
             .system-config-item { padding: 15px; }
             .settings-backup { padding: 16px !important; }
             .modal-content, .confirm-dialog { width: calc(100% - 28px) !important; min-width: 0; padding: 22px; }
@@ -4438,6 +4442,7 @@
                     <button class="mode-switch-btn" onclick="switchSettingsTab(3)">EPG 聚合<span class="attention-dot" data-alert-where="epg" role="img" hidden></span></button>
                     <button class="mode-switch-btn" onclick="switchSettingsTab(4)">用户管理</button>
                     <button class="mode-switch-btn" onclick="switchSettingsTab(5)">消息推送</button>
+                    <button class="mode-switch-btn" onclick="switchSettingsTab(6)">备份迁移</button>
                 </div>
 
                 <div class="settings-subpanel active" id="settingsSub0">
@@ -4498,17 +4503,6 @@
                     <button class="btn btn-primary" data-save-scope="sysconfig" onclick="saveAndRestartService()" title="保存成功后自动重启服务，让需重启的配置一步生效">保存并重启</button>
                 </div>
 
-                <!-- 配置备份 / 迁移（issue #99） -->
-                <div class="settings-backup" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee;">
-                    <div style="font-size:16px; font-weight:600; color:#333;">配置备份 / 迁移</div>
-                    <div class="system-config-hint">一键把全部配置（系统配置、外部源、我的频道与各配置档、EPG 源、别名 / 分组规则、用户令牌、消息推送）导出为单个备份文件；换机 / 重装后导入即可恢复。<strong>⚠️ 导出文件包含咪咕账号、访问密码与推送机器人地址，请勿随意发给他人</strong>；自定义台标 <code>logos/</code> 文件夹不在包内，如有请单独拷贝。</div>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px;">
-                        <button class="btn btn-primary" onclick="exportConfigBackup()">导出配置</button>
-                        <input type="file" id="configImportFile" accept=".json,application/json" style="max-width: 260px;">
-                        <button class="btn btn-warning" onclick="importConfigBackup()">导入配置</button>
-                    </div>
-                    <div class="system-config-hint" style="margin-top:6px;">导入会<strong>覆盖当前同名配置</strong>（导入前会自动把当前配置备份到数据目录 <code>config-pre-import-backup.json</code>，写坏可手动恢复）；导入后多数配置即时生效，端口修改需重启。</div>
-                </div>
                 </div>
                 <div class="settings-subpanel" id="settingsSub1">
                 <!-- 频道别名（issue #56）：自定义批量统一规则 -->
@@ -4603,11 +4597,24 @@
                         <div>• 抓取失败要<strong>连续失败两次</strong>才发，一闪而过的不打扰；其他提醒出现即发，恢复时再发一条「已恢复」；</div>
                         <div>• 升级前就已存在的提醒不发；同一个问题没恢复前只发一次；</div>
                         <div>• Telegram 的接口在大陆连不上：部署在大陆需给容器设 <code>HTTPS_PROXY</code>，或在「API 地址」填自己的反代；</div>
-                        <div>• 机器人地址和 Token 存在数据目录 <code>notify-channels.json</code>，会随「配置备份」一起导出，别把备份发给别人。</div>
+                        <div>• 机器人地址和 Token 存在数据目录 <code>notify-channels.json</code>，会随「备份迁移」里的配置导出一起导出，别把备份发给别人。</div>
                     </div>
 
                     <div id="notifyList" style="margin-top:14px;"></div>
 
+                </div>
+                </div>
+                <div class="settings-subpanel" id="settingsSub6">
+                <!-- 配置备份 / 迁移（issue #99） -->
+                <div class="settings-backup settings-editor-card" style="margin-top: 4px;">
+                    <div style="font-size:16px; font-weight:600; color:#333;">配置备份 / 迁移</div>
+                    <div class="system-config-hint">一键把全部配置（系统配置、外部源、我的频道与各配置档、EPG 源、别名 / 分组规则、用户令牌、消息推送）导出为单个备份文件；换机 / 重装后导入即可恢复。<strong>⚠️ 导出文件包含咪咕账号、访问密码与推送机器人地址，请勿随意发给他人</strong>；自定义台标 <code>logos/</code> 文件夹不在包内，如有请单独拷贝。</div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px;">
+                        <button class="btn btn-primary" onclick="exportConfigBackup()">导出配置</button>
+                        <input type="file" id="configImportFile" accept=".json,application/json" style="max-width: 260px;">
+                        <button class="btn btn-warning" onclick="importConfigBackup()">导入配置</button>
+                    </div>
+                    <div class="system-config-hint" style="margin-top:6px;">导入会<strong>覆盖当前同名配置</strong>（导入前会自动把当前配置备份到数据目录 <code>config-pre-import-backup.json</code>，写坏可手动恢复）；导入后多数配置即时生效，端口修改需重启。</div>
                 </div>
                 </div>
             </div>

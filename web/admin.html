@@ -4291,11 +4291,11 @@
                     <div id="aliasList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
                     <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
                         <div style="min-width:150px;">
-                            <label style="display:block; font-size:12px; color:#888;">规范名（统一后的名字）</label>
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">规范名（统一后的名字）</label>
                             <input type="text" id="aliasNewCanonical" placeholder="例如 CCTV5体育" style="width:100%;">
                         </div>
                         <div style="flex:1; min-width:200px;">
-                            <label style="display:block; font-size:12px; color:#888;">别名（多个用逗号分隔）</label>
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">别名（多个用逗号分隔）</label>
                             <input type="text" id="aliasNewList" placeholder="例如 央视5套, 体育频道" style="width:100%;">
                         </div>
                         <button class="btn btn-sm btn-success" onclick="addAliasRule()">➕ 添加规则</button>
@@ -4312,11 +4312,11 @@
                     <div id="groupRuleList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
                     <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
                         <div style="min-width:150px;">
-                            <label style="display:block; font-size:12px; color:#888;">分组名</label>
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">分组名</label>
                             <input type="text" id="groupRuleName" placeholder="例如 央视" style="width:100%;">
                         </div>
                         <div style="flex:1; min-width:200px;">
-                            <label style="display:block; font-size:12px; color:#888;">关键字（多个用逗号分隔，名字含其一即归此组）</label>
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">关键字（多个用逗号分隔，名字含其一即归此组）</label>
                             <input type="text" id="groupRuleKeywords" placeholder="例如 CCTV, 央视" style="width:100%;">
                         </div>
                         <button class="btn btn-sm btn-success" onclick="addGroupRule()">➕ 添加规则</button>
@@ -4341,19 +4341,19 @@
 
                     <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
                         <div style="flex:1; min-width:120px;">
-                            <label style="display:block; font-size:12px; color:#888;">名称</label>
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">名称</label>
                             <input type="text" id="epgNewName" placeholder="例如 我的EPG" style="width:100%;">
                         </div>
                         <div style="flex:2; min-width:200px;">
-                            <label style="display:block; font-size:12px; color:#888;">XMLTV 地址（支持 .xml / .xml.gz）</label>
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">XMLTV 地址（支持 .xml / .xml.gz）</label>
                             <input type="text" id="epgNewUrl" placeholder="http://.../epg.xml.gz" style="width:100%;">
                         </div>
                         <div style="width:110px;">
-                            <label style="display:block; font-size:12px; color:#888;">间隔(分钟)</label>
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">间隔(分钟)</label>
                             <input type="number" id="epgNewInterval" value="720" style="width:100%;">
                         </div>
                         <div style="width:90px;">
-                            <label style="display:block; font-size:12px; color:#888;">优先级</label>
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">优先级</label>
                             <input type="number" id="epgNewPriority" value="10" style="width:100%;">
                         </div>
                         <label title="勾上后，这个源当前有节目的频道优先用它，咪咕和各模块的官方节目单让出来" style="display:flex; align-items:center; gap:4px; font-size:12px; color:#888; padding-bottom:6px;">
@@ -4396,11 +4396,11 @@
 
                     <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
                         <div style="flex:1; min-width:140px;">
-                            <label style="display:block; font-size:12px; color:#888;">用户名称</label>
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">用户名称</label>
                             <input type="text" id="userNewName" placeholder="例如 客厅电视 / 张三" style="width:100%;">
                         </div>
                         <div style="min-width:150px;">
-                            <label style="display:block; font-size:12px; color:#888;">绑定档（频道内容）</label>
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">绑定档（频道内容）</label>
                             <select id="userNewProfile" style="width:100%;"></select>
                         </div>
                         <button class="btn btn-sm btn-success" onclick="addUser()">➕ 新增用户</button>
@@ -4759,7 +4759,7 @@
                     `<option value="${escapeHtml(o.value)}" ${String(config[field.key]) === String(o.value) ? 'selected' : ''}>${escapeHtml(o.label ?? o.value)}</option>`
                 ).join('');
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888;">${label}</label>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
                     <select id="${id}" onchange="setSaveDirty('xt:${moduleId}')" style="min-width:180px;">${opts}</select>
                     ${hint}${envNote}</div>`;
             }
@@ -4779,14 +4779,14 @@
                     </label>`;
                 }).join('');
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#555; font-weight:600;">${label}</label>
+                    <label style="display:block; font-size:12px; color:#555; font-weight:600; margin-bottom:6px;">${label}</label>
                     <input type="hidden" id="${id}" value="${escapeHtml(value)}">
                     <div class="xt-multiselect" id="${choicesId}" role="group" aria-label="${label}">${choices}</div>
                     ${hint}${envNote}</div>`;
             }
             if (field.type === 'int') {
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888;">${label}</label>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
                     <input type="number" id="${id}" oninput="setSaveDirty('xt:${moduleId}')" value="${escapeHtml(config[field.key] != null ? config[field.key] : '')}" style="width:140px;">
                     ${hint}${envNote}</div>`;
             }
@@ -4799,7 +4799,7 @@
                     ? `<button class="btn btn-sm" type="button" onclick="markSecretCleared('${moduleId}','${field.key}')" title="清空已保存的凭据（点「保存配置」生效）">清除</button>`
                     : '';
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888;">${label}</label>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
                     <div style="display:flex; gap:6px; align-items:center;">
                         <input type="password" id="${id}" oninput="this.removeAttribute('data-cleared'); setSaveDirty('xt:${moduleId}')" value="" placeholder="${escapeHtml(ph)}" autocomplete="new-password" style="flex:1; min-width:0;">
                         ${clearBtn}
@@ -4808,12 +4808,12 @@
             }
             if (field.multiline) {
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888;">${label}</label>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
                     <textarea id="${id}" oninput="setSaveDirty('xt:${moduleId}')" rows="6" placeholder="${escapeHtml(field.placeholder || '')}" style="width:100%; font-family:monospace;">${escapeHtml(config[field.key] || '')}</textarea>
                     ${hint}${envNote}</div>`;
             }
             return `<div style="margin-bottom:12px;">
-                <label style="display:block; font-size:12px; color:#888;">${label}</label>
+                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
                 <input type="text" id="${id}" oninput="setSaveDirty('xt:${moduleId}')" value="${escapeHtml(config[field.key] || '')}" placeholder="${escapeHtml(field.placeholder || '')}" style="width:100%;">
                 ${hint}${envNote}</div>`;
         }
@@ -5531,7 +5531,7 @@
                         ${escapeHtml(m.refreshDescription || '模块会根据播放地址有效期自动更新，无需手动设置。')}
                     </div>` : `
                     <div style="margin-bottom:12px;">
-                        <label style="display:block; font-size:12px; color:#888;">刷新间隔（分钟）</label>
+                        <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">刷新间隔（分钟）</label>
                         <input type="number" min="${m.minRefreshMinutes || 1}" max="${m.maxRefreshMinutes || 1440}" id="xf-${escapeHtml(m.id)}-__refresh" oninput="setSaveDirty('xt:${escapeHtml(m.id)}')" value="${m.refreshMinutes}" style="width:140px;">
                         <div style="font-size:12px; color:#888; margin-top:3px;">允许范围 ${m.minRefreshMinutes || 1}–${m.maxRefreshMinutes || 1440} 分钟，默认 ${m.defaultRefreshMinutes} 分钟。${m.id === 'bilibili-live' ? '只决定多久重新挑一次直播间（热门榜换人、主播下播）；播放地址在播放时实时换取，与此无关。过短容易触发风控。' : m.id === 'douyin-live' ? '只决定多久重新选一次房间；播放器刷新订阅不会强制重抓。播放时会获取当前地址。' : ''}</div>
                     </div>`}

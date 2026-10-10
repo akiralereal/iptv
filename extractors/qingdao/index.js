@@ -11,7 +11,7 @@ export default {
   description: '青岛新闻综合、生活服务、影视、都市、教育五路官网直播（QTV-1 到 QTV-5）。官网分片带播放器自用的封装加密，由本机代理边下边解；五四广场等城市景观在「青岛景观」模块。',
   capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   catalogVersion: 1,
-  outputGroupName: '青岛',
+  outputGroupName: '山东',
   defaultRefreshMinutes: 360,
   refreshConfigurable: false,
   refreshDescription: '自动管理：地址固定，每 360 分钟探一次官网清单确认在播；单路取不到只记警告，频道照留。',

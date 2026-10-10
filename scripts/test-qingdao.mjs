@@ -154,7 +154,7 @@ await checkAsync('注册表：青岛模块声明与城市景观模块分开，�
   assert.ok(module)
   validateModule(module)
   assert.equal(module.name, '青岛')
-  assert.equal(module.outputGroupName, '青岛')
+  assert.equal(module.outputGroupName, '山东')
   assert.deepEqual(module.capabilities, { cache: 'disk', resolve: true, epg: true, catchup: false })
   assert.equal(module.catalogVersion, 1)
   assert.equal(module.refreshConfigurable, false)
@@ -167,10 +167,10 @@ await checkAsync('注册表：青岛模块声明与城市景观模块分开，�
   const result = await module.fetch({}, { fetchImpl: async () => textResponse(MANIFEST) })
   assert.deepEqual(result.groups.map(group => group.dataList.length), [5])
   assert.deepEqual(result.meta.warnings, [])
-  // 城市景观仍是独立模块，分组名「青岛景观」不被电视频道的「青岛」吞掉
+  // 城市景观仍是独立模块，分组名「青岛景观」不被电视频道的「山东」吞掉
   const scenic = getModule('qtv')
   assert.equal(scenic.name, '青岛景观')
-  assert.equal(scenic.outputGroupName, '青岛')
+  assert.equal(scenic.outputGroupName, '山东')
   assert.deepEqual(scenic.preserveGroupSuffixes, ['景观'])
 })
 

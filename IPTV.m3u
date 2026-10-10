@@ -113,3 +113,10 @@ https://live-auth.51kandianshi.com/szgd/csztv4k_4k.m3u8
 #EXTINF:-1 group-title="福建",德化电视台
 https://play.cmptp.fjgdwl.com/live/63a563ec75764af588f3215b0afa2588.m3u8
 # === END 德化融媒体直连源 ===
+
+# === BEGIN 西宁广电直连源 ===
+# 说明：西宁广播电视台官网「西宁网络电视台」新闻综合直播页（www.xntv.tv/xnxwpd）写死的固定 HLS 地址，不带签名、不看 Referer 与 UA，播放器直连官方 CDN（2026-10-08 实测 1080p/25fps、H.264/AAC 约 2.2M，Globalping 大陆、香港、东京、新加坡、美国、德国探针都能取到清单）。
+# 生活服务频道官网直播位已空（2026-04-20 停播）。官网没有节目单；台标收在内置台标库。issue #169。
+#EXTINF:-1 group-title="青海",西宁新闻综合
+https://liveout.xntv.tv/a65jur/96iln2.m3u8
+# === END 西宁广电直连源 ===

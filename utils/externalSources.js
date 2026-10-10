@@ -5,7 +5,7 @@ import { dataPath } from "./paths.js"
 import { enableBuiltInSubscriptions } from "../config.js"
 import { printBlue, printGreen, printGrey, printRed, printYellow } from "./colorOut.js"
 import { extractM3u8FromWeb, validateM3u8 } from "./webSourceExtractor.js"
-import { collectOptsUntilUrl } from "./channelOpts.js"
+import { collectOptsUntilUrl, cleanUserAgent, withUserAgent } from "./channelOpts.js"
 import { FailureBackoff } from "./refreshBackoff.js"
 import fetch from 'node-fetch'
 
@@ -261,10 +261,17 @@ function describeFetchError(error) {
   return error?.code || error?.cause?.code || error?.cause?.message || error?.message || '未知错误'
 }
 
+// 拉订阅的默认 UA；订阅源设置里填了 User-Agent 就用填的（issue #170）
+const DEFAULT_SUBSCRIPTION_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+
 /**
  * 从远程 URL 获取并解析 m3u 播放列表（支持 GitHub 镜像回退）
+ *
+ * @param {object} [options]
+ * @param {string} [options.userAgent] 自定义 UA；不合法或留空用默认值
  */
-async function fetchAndParseM3u(subscriptionUrl) {
+async function fetchAndParseM3u(subscriptionUrl, { userAgent } = {}) {
+  const ua = cleanUserAgent(userAgent) || DEFAULT_SUBSCRIPTION_UA
   const isGithubRaw = subscriptionUrl.includes('raw.githubusercontent.com')
   const mirrors = isGithubRaw ? GITHUB_RAW_MIRRORS : [(url) => url]
 
@@ -281,7 +288,7 @@ async function fetchAndParseM3u(subscriptionUrl) {
       const response = await fetch(targetUrl, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'User-Agent': ua,
           ...authHeaders
         }
       })
@@ -788,7 +795,7 @@ class ExternalSourceManager {
 
     try {
       printBlue(`更新订阅源: ${source.name} (${source.subscriptionUrl})`)
-      const channels = await fetchAndParseM3u(source.subscriptionUrl)
+      const channels = await fetchAndParseM3u(source.subscriptionUrl, { userAgent: source.userAgent })
 
       const cur = this.relocateSource(source)
       if (!cur) return { success: false, message: '源已被删除，放弃写入订阅结果' }
@@ -963,7 +970,10 @@ class ExternalSourceManager {
         // 内置「精选频道」与地方官方同台时可被去重；其余外部源都是用户自己配的，
         // channelMerger 的内容组归并据此不替换、不删除（邮件反馈：粘贴的少儿组播被顶掉）
         const builtInSubscription = isBuiltInSubscriptionSource(source)
+        // 「播放时也带上」：在这里补而不是解析时补——开关一改、保存即生效，不必重新拉订阅（issue #170）
+        const playbackUa = source.playWithUserAgent === true ? source.userAgent : ''
         source.parsedChannels.forEach(ch => {
+          const opts = withUserAgent(ch.opts, playbackUa, ch.url)
           const group = resolveSubscriptionGroup(ch, source)
           if (!groupMap.has(group)) {
             groupMap.set(group, {
@@ -978,7 +988,7 @@ class ExternalSourceManager {
             groupTitle: group,
             sourceId: source.id ? `ext:${source.id}` : undefined,  // 源归属（issue #29/#68）
             ...(builtInSubscription ? { builtInSubscription: true } : {}),
-            ...(ch.opts && ch.opts.length ? { opts: ch.opts } : {})
+            ...(opts && opts.length ? { opts } : {})
           })
         })
         return

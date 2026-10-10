@@ -658,12 +658,12 @@ export function generateTxt(groups) {
   let content = ''
   
   groups.forEach(group => {
-    content += `${group.name},#genre#\n`
-    group.channels.forEach(channel => {
-      // txt 只有「频道名,地址」两列，放不下请求头——依赖 opts 的频道写进去必定 403，跳过
-      if (needsOpts(channel)) return
-      content += `${channel.name},${channel.url}\n`
-    })
+    // txt 只有「频道名,地址」两列，放不下请求头——依赖 opts 的频道写进去必定 403，跳过
+    const lines = group.channels
+      .filter(channel => !needsOpts(channel))
+      .map(channel => `${channel.name},${channel.url}\n`)
+    // 整组都被跳过时连分组头也不写，免得 TVBox 里多一个空分类（订阅源勾了「播放时也带上 UA」常见，issue #170）
+    if (lines.length) content += `${group.name},#genre#\n` + lines.join('')
   })
   
   return content

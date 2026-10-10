@@ -2145,6 +2145,73 @@
    "updated": "2026-09-25",
    "width": 90
   },
+  "青岛都市": {
+   "file": "青岛都市.png",
+   "hash": "d67ce29213",
+   "height": 37,
+   "origin": "qingdao",
+   "source": "https://www.qtv.com.cn/shouye/images/stationlogo.png",
+   "updated": "2026-10-09",
+   "width": 256
+  },
+  "青岛教育": {
+   "file": "青岛教育.png",
+   "hash": "d67ce29213",
+   "height": 37,
+   "origin": "qingdao",
+   "source": "https://www.qtv.com.cn/shouye/images/stationlogo.png",
+   "updated": "2026-10-09",
+   "width": 256
+  },
+  "青岛生活服务": {
+   "file": "青岛生活服务.png",
+   "hash": "d67ce29213",
+   "height": 37,
+   "origin": "qingdao",
+   "source": "https://www.qtv.com.cn/shouye/images/stationlogo.png",
+   "updated": "2026-10-09",
+   "width": 256
+  },
+  "青岛新闻综合": {
+   "file": "青岛新闻综合.png",
+   "hash": "d67ce29213",
+   "height": 37,
+   "origin": "qingdao",
+   "source": "https://www.qtv.com.cn/shouye/images/stationlogo.png",
+   "updated": "2026-10-09",
+   "width": 256
+  },
+  "青岛影视": {
+   "file": "青岛影视.png",
+   "hash": "d67ce29213",
+   "height": 37,
+   "origin": "qingdao",
+   "source": "https://www.qtv.com.cn/shouye/images/stationlogo.png",
+   "updated": "2026-10-09",
+   "width": 256
+  },
+  "青海都市": {
+   "file": "青海都市.png",
+   "hash": "a1815121a2",
+   "height": 124,
+   "kind": "library",
+   "note": "官方没有分频道台标：长云网云直播接口里三台的 indexpic 是同一张青海台绿色气泡台标，分不出频道。库里这张是「青海 HD 都市频道」台角样式，绿色气泡与 2026-10-08 直播画面台角一致；原图频道名是白字，铺深色底",
+   "origin": "manual",
+   "source": "taksssss/tv 台标库 https://github.com/taksssss/tv/blob/main/icon/青海都市.png",
+   "updated": "2026-10-08",
+   "width": 256
+  },
+  "青海经济生活": {
+   "file": "青海经济生活.png",
+   "hash": "b9476cdd92",
+   "height": 124,
+   "kind": "library",
+   "note": "官方没有分频道台标：长云网云直播接口里青海卫视、经视、都市三台的 indexpic 是同一张青海台绿色气泡台标，分不出频道。库里这张是「青海 HD 经视频道」台角样式（经济生活频道旧称经视，平台专题名仍叫「青海经视」），绿色气泡与 2026-10-08 直播画面台角一致；原图频道名是白字，铺深色底",
+   "origin": "manual",
+   "source": "taksssss/tv 台标库 https://github.com/taksssss/tv/blob/main/icon/青海经视.png",
+   "updated": "2026-10-08",
+   "width": 256
+  },
   "青海卫视": {
    "file": "青海卫视.png",
    "hash": "55e8aec4f1",
@@ -2807,6 +2874,17 @@
    "updated": "2026-09-25",
    "width": 180
   },
+  "天台和合频道": {
+   "file": "天台和合频道.png",
+   "hash": "e4250940e6",
+   "height": 192,
+   "kind": "official",
+   "note": "和合天台 App「看电视」页的官方频道卡是一张 720×360 的「天台和合频道 / 欢迎点击观看」点击横幅，正中的橙色风车就是这路频道的台标（与播出画面左上角的台角一致），裁出风车并去白底；横幅在风车中心叠了一个播放键，官方没有不带播放键的图，照原样保留",
+   "origin": "manual",
+   "source": "https://img.tmuyun.com/assets/20191015/1571127453029_5da5809db19850201dbf0b38.jpeg（和合天台 App 看电视页 app.ttcmzx.cn/client/lightPage.html?tenant_id=5&id=61 的频道卡）",
+   "updated": "2026-10-09",
+   "width": 200
+  },
   "通化新闻综合": {
    "file": "通化新闻综合.png",
    "hash": "f53132e681",
@@ -2979,6 +3057,17 @@
    "source": "https://image.hoolo.tv/2020081443d00dd845ec670adae22d7d120be5d2.png",
    "updated": "2026-10-06",
    "width": 256
+  },
+  "西宁新闻综合": {
+   "file": "西宁新闻综合.png",
+   "hash": "8aa6c5796d",
+   "height": 194,
+   "kind": "library",
+   "note": "官网 xntv.tv 只有 32×32 的站标（favicon.ico，同一个蓝黄弧线标）和横版「西宁网络电视台」网站标，没有频道台标。库里这张是西宁台标加「新闻综合」，与 2026-10-08 直播画面台角一致（维基百科条目的 316×316 台标同形、注明出自 xntv.tv）；原图频道名是白字，铺深色底",
+   "origin": "manual",
+   "source": "taksssss/tv 台标库 https://github.com/taksssss/tv/blob/main/icon/西宁综合.png",
+   "updated": "2026-10-08",
+   "width": 195
   },
   "锡林郭勒": {
    "file": "锡林郭勒.png",
@@ -4733,7 +4822,15 @@
   "putian/putian-culture": "莆田文旅生活",
   "putian/putian-news": "莆田新闻综合",
   "putian/putian-xianyou": "仙游电视台",
+  "qingdao/qingdao-1": "青岛新闻综合",
+  "qingdao/qingdao-2": "青岛生活服务",
+  "qingdao/qingdao-3": "青岛影视",
+  "qingdao/qingdao-4": "青岛都市",
+  "qingdao/qingdao-5": "青岛教育",
   "qinghai/qinghai-amdo": "安多卫视",
+  "qinghai/qinghai-qhds": "青海都市",
+  "qinghai/qinghai-qhsh": "青海经济生活",
+  "qinghai/qinghai-qhws": "青海卫视",
   "quanzhou-county/#晋江电视台": "晋江电视台",
   "quanzhou-county/#石狮新闻综合": "石狮新闻综合",
   "quanzhou-minnan/quanzhou-minnan-tv": "泉州闽南语",
@@ -4771,6 +4868,7 @@
   "sztv/sztv-7880": "深圳电视剧",
   "sztv/sztv-7881": "深圳少儿",
   "sztv/sztv-7944": "深圳国际",
+  "taizhou/taizhou-tiantai-hehe": "天台和合频道",
   "tdm/tdm-ctvp": "澳视澳门",
   "tdm/tdm-info": "澳门资讯",
   "tdm/tdm-ptvp": "澳视葡文",

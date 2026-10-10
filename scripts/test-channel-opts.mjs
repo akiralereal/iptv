@@ -154,6 +154,15 @@ check('txt：依赖 opts 的频道整条跳过，普通频道照常输出', () =
   assert.ok(out.includes('普通的,http://h/b.m3u8'))
 })
 
+check('txt：整组都依赖 opts 时不留空分组头，其余分组照常', () => {
+  const out = generateTxt([
+    { name: '全带头', channels: [{ name: 'A', url: 'http://h/a.m3u8', opts: ['http-user-agent=x'] }] },
+    { name: '空组', channels: [] },
+    { name: '普通', channels: [{ name: 'B', url: 'http://h/b.m3u8' }] },
+  ])
+  assert.equal(out, '普通,#genre#\nB,http://h/b.m3u8\n')
+})
+
 check('needsOpts：只认清洗后仍有效的 opts', () => {
   assert.equal(needsOpts({ url: 'x' }), false)
   assert.equal(needsOpts({ opts: [] }), false)
@@ -161,4 +170,4 @@ check('needsOpts：只认清洗后仍有效的 opts', () => {
   assert.equal(needsOpts({ opts: [`http-referrer=${REF}`] }), true)
 })
 
-console.log(`\n全部通过：${passed}/16 ✅`)
+console.log(`\n全部通过：${passed}/17 ✅`)

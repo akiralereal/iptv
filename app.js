@@ -35,6 +35,7 @@ import { readConfig, saveConfig, parseInterfaceTxt, collectGroupConflicts, apply
 import { updateBuiltInSources, updateExternalSources, updateExtractors, externalSourceManager, builtInSourceManager } from "./utils/channelMerger.js";
 import { GITHUB_RAW_MIRRORS, isBuiltInSubscriptionSource } from "./utils/externalSources.js";
 import { startProbe, getProbeStatus, cancelProbe } from "./utils/sourceProbe.js";
+import { cleanUserAgent, userAgentOf } from "./utils/channelOpts.js";
 import { SYSTEM_ASSET_PATHS, readAnnouncementAsset } from "./utils/announcement.js";
 
 // 全代理/兼容模式（issue #98）的服务端可观测性。上一版的日志设计在实战里分不清三种情况
@@ -482,7 +483,11 @@ async function handleRequest(req, res) {
           } else {
             const channels = []
             if (src.mode === 'subscription' && Array.isArray(src.parsedChannels)) {
-              for (const ch of src.parsedChannels) channels.push({ name: ch.name, url: ch.url, group: ch.group })
+              // 按播放器会发的 UA 探：频道自带的优先，其次订阅源里填的（issue #170）
+              const sourceUa = cleanUserAgent(src.userAgent)
+              for (const ch of src.parsedChannels) {
+                channels.push({ name: ch.name, url: ch.url, group: ch.group, userAgent: userAgentOf(ch.opts) || sourceUa })
+              }
             } else if (src.m3u8Url) {
               // 直连/抓取模式：检测当前 m3u8 地址
               channels.push({ name: src.name || '未命名源', url: src.m3u8Url, group: src.group })

@@ -95,8 +95,8 @@ jobs:
         env:
           TAGS: |
             akiralereal/iptv:latest
-            akiralereal/iptv:4.30.0
-            akiralereal/iptv:4.30
+            akiralereal/iptv:4.32.0
+            akiralereal/iptv:4.32
             akiralereal/iptv:4
         run: |
           docker buildx imagetools create \

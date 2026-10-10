@@ -4408,7 +4408,7 @@
                                 <strong>当前版本</strong>
                             </div>
                             <div class="about-version-body">
-                                <span id="versionText">v4.30.0</span>
+                                <span id="versionText">v4.32.0</span>
                                 <button class="btn btn-sm" onclick="checkUpdate()" id="checkUpdateBtn">检查更新</button>
                             </div>
                             <div id="updateInfo" class="about-update-info" style="display: none;"></div>
@@ -7463,6 +7463,16 @@
                             <div class="form-hint">选择文件或粘贴内容后，点下方「导入并保存」即可解析入库；本地导入不发起网络请求</div>
                             `}
                             ${channelInfo}
+                        </div>
+                        <div class="external-field">
+                            <label>User-Agent（可选）</label>
+                            <input type="text" value="${escapeHtml(source.userAgent || '')}" oninput="updateExternalField(${index}, 'userAgent', this.value)" placeholder="留空用默认；按订阅提供方的要求填，例：okhttp/3.15">
+                            <div class="form-hint">${source.localImport ? '本地导入不联网，这里的 UA 只在勾选下方「播放时也带上」后用于播放。' : '有些订阅要特定 UA 才返回列表，填了就用它拉取；改完点「导入并保存」重新拉一次。'}</div>
+                            <label style="margin-top: 6px;">
+                                <input type="checkbox" ${source.playWithUserAgent === true ? 'checked' : ''} onchange="updateExternalField(${index}, 'playWithUserAgent', this.checked)">
+                                播放时也带上这个 UA
+                            </label>
+                            <div class="form-hint">勾选后，本源频道在 m3u 里都带上 <code>#EXTVLCOPT:http-user-agent</code>，需要播放器认这一行（VLC、Kodi 等）；订阅里已自带 UA 的频道保持不变。带请求头的频道 TXT 格式放不下，会从 TXT 订阅里跳过。</div>
                         </div>
                         <div class="external-field">
                             <label>默认分组</label>

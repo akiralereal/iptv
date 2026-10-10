@@ -21,7 +21,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 // 单任务态：同一时刻只允许一个检测任务（避免多任务并发探测互相挤占带宽导致误判；也保持轻量）
 let task = null
 
-async function probeOnce(url, signal) {
+async function probeOnce(url, signal, userAgent) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
   const onOuterAbort = () => ctrl.abort()
@@ -32,7 +32,7 @@ async function probeOnce(url, signal) {
       method: 'GET',
       redirect: 'follow',
       signal: ctrl.signal,
-      headers: { 'User-Agent': UA },
+      headers: { 'User-Agent': userAgent || UA },
     })
     res.body?.cancel?.().catch(() => {}) // 不下载流体，拿到状态即可
     const alive = res.status >= 200 && res.status < 400
@@ -48,13 +48,14 @@ async function probeOnce(url, signal) {
 }
 
 // 带重试：任一次成功即判活；连续失败才判死（过滤临时抖动，减少误判）
-async function probe(url, signal) {
+// userAgent：频道自带或订阅源里填的 UA（issue #170），没有就用默认浏览器 UA
+async function probe(url, signal, userAgent) {
   // rtmp/rtp/udp/rtsp 等非 HTTP 协议无法探测，跳过并保留（不判死）
   if (!url || !/^https?:\/\//i.test(url)) return { status: 'skip', code: 'non-http', ttfbMs: null }
   let last
   for (let attempt = 1; attempt <= RETRIES; attempt++) {
     if (signal?.aborted) return { status: 'skip', code: 'cancelled', ttfbMs: null }
-    last = await probeOnce(url, signal)
+    last = await probeOnce(url, signal, userAgent)
     if (last.status === 'alive') return last
     if (attempt < RETRIES) await sleep(RETRY_DELAY_MS)
   }
@@ -67,7 +68,7 @@ async function runProbeTask(t, channels, signal) {
     while (idx < channels.length && !signal.aborted) {
       const cur = idx++
       const ch = channels[cur]
-      const r = await probe(ch.url, signal)
+      const r = await probe(ch.url, signal, ch.userAgent)
       t.results[cur] = { name: ch.name || '', url: ch.url || '', group: ch.group || '', ...r }
       t.done++
     }
@@ -78,7 +79,7 @@ async function runProbeTask(t, channels, signal) {
 
 /**
  * 启动检测（异步后台跑，用 getProbeStatus 轮询进度与结果）
- * channels: [{name, url, group?}]
+ * channels: [{name, url, group?, userAgent?}]
  */
 export function startProbe(sourceIndex, sourceName, channels) {
   if (task && task.running) {

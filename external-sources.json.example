@@ -39,6 +39,8 @@
     "updateOnStartup": "重启时是否更新（全局控制平台抓取源，单个控制外部源，默认true）",
     "autoRefresh": "是否自动刷新该源（默认true）",
     "refreshInterval": "自动刷新间隔（分钟，默认60）",
-    "mode": "源模式：direct(直连) / fetch(抓取) / subscription(订阅m3u播放列表)"
+    "mode": "源模式：direct(直连) / fetch(抓取) / subscription(订阅m3u播放列表)",
+    "userAgent": "订阅模式：拉订阅用的 User-Agent（可选，留空用默认浏览器 UA；有些订阅要特定 UA 才返回列表）",
+    "playWithUserAgent": "订阅模式：为 true 时给本源 http(s) 频道补 #EXTVLCOPT:http-user-agent（频道自带 UA 的不变；带请求头的频道不进 TXT 订阅）"
   }
 }

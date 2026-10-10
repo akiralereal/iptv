@@ -1,10 +1,15 @@
 /**
- * 青海：青海藏语网络广播电视台官网的安多卫视（ཨ་མདོ་བརྙན་འཕྲིན།）。
+ * 青海：青海广电「云直播」平台上的四路电视——长云网的青海卫视、经济生活、都市，
+ * 和青海藏语网络广播电视台官网的安多卫视（ཨ་མདོ་བརྙན་འཕྲིན།）。
  *
- * 链路——官网电视直播页 www.qhtb.cn/zy/onlin/onlin_tv/ 是「云直播」平台（cloudlive-manage，
- *   与福建省级同一套）的前端：页面脚本里写着频道专题 id（current_channel）和站点 app_secret，
- *   播放器拿这两样调 mapi.qhbtv.com.cn 的 api/topic/detail，取 topic_camera[].streams[].hls——
- *   live.qhbtv.com.cn 上带 timestamp/encrypt 的清单地址。
+ * 链路——两家都是「云直播」平台（cloudlive-manage，与福建省级同一套）的前端，播放器调
+ *   mapi.qhbtv.com.cn 的 api/topic/detail，取 topic_camera[].streams[].hls——live.qhbtv.com.cn 上
+ *   带 timestamp/encrypt 的清单地址；两家只是认租户的参数不同（见 channels.js）：
+ *   - 藏语台官网电视直播页 www.qhtb.cn/zy/onlin/onlin_tv/ 的脚本里写着频道专题 id（current_channel）
+ *     和站点 app_secret，带 tenant_id=0&app_secret=… 调用。
+ *   - 长云网 H5 直播页带 company_id=1075&signature=…；签名是 md5(company_id + unix 秒) 再把
+ *     10 位时间戳两位一组塞回第 0/7/14/21/30 位（H5 脚本 getSigntrue）。2026-10-08 实测接口并不校验它：
+ *     过期一天、乱填、不带都照样返回，只认 company_id；仍照页面的样子现算一个带上。
  *
  * 签名——接口每次现签一条，timestamp 写的是「当前 + 7200 秒」（unix 秒）。CDN 并不在那一刻拒绝：
  *   同一条签名发出 2 小时 13 分（已过 timestamp 13 分钟）时清单与分片仍是 200，真正的上限没测到；
@@ -19,17 +24,21 @@
  *   所以走 relay：本机每次轮询用缓存的签名地址中继清单，签名换新在服务端完成，
  *   `?relay=2` 仍可升级为全代理。
  *
- * 页面参数——专题 id 与 app_secret 都是页面里写死的常量，不是按访问下发的令牌。页面约 20 KB，
+ * 页面参数（只有安多卫视）——专题 id 与 app_secret 都是页面里写死的常量，不是按访问下发的令牌。页面约 20 KB，
  *   只在换签名时顺带看一眼、一天最多读一次，读不到沿用上次读到的、十分钟后再试；从没读到过、
  *   或读到的参数取不出这一路（页面默认频道换成了别的专题），就用频道表里的内置值。
+ *   长云网三台不读页面：专题 id 与 company_id 都是常量，直接按频道表调接口。
  *
  * 地域——官网页面、接口与 CDN 只对大陆网络开放：Globalping 香港、东京、新加坡、洛杉矶、
- *   法兰克福探针全部连接超时，北京探针正常。
+ *   法兰克福探针全部连接超时，北京探针正常。长云网三台与安多卫视同一接口、同一 CDN。
  */
+import { createHash } from 'node:crypto'
+
 import { proxyAwareFetch } from '../../utils/systemProxy.js'
-import { CHANNELS, QHTB_TV_PAGE, SITE_APP_SECRET } from './channels.js'
+import { CHANNELS, QHBTV_COMPANY_ID, QHBTV_H5_PAGE, QHTB_TV_PAGE, SITE_APP_SECRET } from './channels.js'
 
 export const QHTB_ORIGIN = 'https://www.qhtb.cn'
+export const QHBTV_H5_ORIGIN = 'https://h5.qhbtv.com.cn'
 export const TOPIC_DETAIL_API = 'https://mapi.qhbtv.com.cn/cloudlive-manage-mapi/api/topic/detail'
 
 const MEDIA_HOST = 'live.qhbtv.com.cn'
@@ -51,6 +60,11 @@ const FALLBACK_USABLE_MS = 10 * 60 * 1000
 const MAX_RESPONSE_BYTES = 1024 * 1024
 const TOPIC_ID_RE = /^\d{10,24}$/
 const APP_SECRET_RE = /^[0-9a-f]{32}$/
+const COMPANY_ID_RE = /^\d{1,10}$/
+// 报错时说是哪家：藏语台官网，还是长云网
+const SITE_LABEL = Object.freeze({ qhtb: '青海藏语台', qhbtv: '长云网' })
+// 媒体主机是两家共用的
+const MEDIA_LABEL = '青海广电'
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
 
@@ -63,7 +77,7 @@ function safeUrl(raw, label) {
   try {
     return new URL(String(raw || '').trim())
   } catch {
-    throw new Error(`青海藏语台返回了无效${label}地址`)
+    throw new Error(`${MEDIA_LABEL}返回了无效${label}地址`)
   }
 }
 
@@ -73,7 +87,7 @@ function mediaStreamName(url) {
     && !url.username && !url.password && ['', '443'].includes(url.port) && !url.hash
   const match = ok && (/^\/([a-z0-9]{1,32})\/[a-z0-9]{1,16}\/live\.m3u8$/.exec(url.pathname)
     || /^\/([a-z0-9]{1,32})_[a-z0-9]{1,16}\/\d{1,16}\/\d{1,16}\.ts$/.exec(url.pathname))
-  if (!match) throw new Error('青海藏语台返回了非官方媒体地址')
+  if (!match) throw new Error(`${MEDIA_LABEL}返回了非官方媒体地址`)
   return match[1]
 }
 
@@ -83,7 +97,7 @@ function mediaStreamName(url) {
  */
 export function officialAssetUrl(raw) {
   const url = safeUrl(raw, '媒体')
-  if (!STREAM_NAMES.has(mediaStreamName(url))) throw new Error('青海藏语台返回了频道表以外的媒体地址')
+  if (!STREAM_NAMES.has(mediaStreamName(url))) throw new Error(`${MEDIA_LABEL}返回了频道表以外的媒体地址`)
   return url.href
 }
 
@@ -107,12 +121,33 @@ export function buildDetailUrl({ topicId, appSecret }) {
   return url.href
 }
 
-function parseJson(payload, label) {
+/** 长云网 H5 的 getSigntrue：md5(company_id + unix 秒)，再把 10 位时间戳两位一组盖到第 0/7/14/21/30 位。 */
+export function companySignature(companyId, now) {
+  const seconds = String(Math.round(Number(now) / 1000))
+  const sign = createHash('md5').update(`${companyId}${seconds}`).digest('hex').split('')
+  for (const [at, from] of [[0, 0], [7, 2], [14, 4], [21, 6], [30, 8]]) {
+    sign.splice(at, 2, seconds[from], seconds[from + 1])
+  }
+  return sign.join('')
+}
+
+export function buildCompanyDetailUrl({ topicId, companyId = QHBTV_COMPANY_ID, now }) {
+  if (!TOPIC_ID_RE.test(String(topicId)) || !COMPANY_ID_RE.test(String(companyId))) {
+    throw new Error('长云网频道参数格式无效')
+  }
+  const url = new URL(TOPIC_DETAIL_API)
+  url.searchParams.set('id', topicId)
+  url.searchParams.set('company_id', companyId)
+  url.searchParams.set('signature', companySignature(companyId, now))
+  return url.href
+}
+
+function parseJson(payload, label, site) {
   if (typeof payload !== 'string') return payload
   try {
     return JSON.parse(payload.trim())
   } catch {
-    throw new Error(`青海藏语台${label}没有返回有效 JSON`)
+    throw new Error(`${site}${label}没有返回有效 JSON`)
   }
 }
 
@@ -121,15 +156,16 @@ function parseJson(payload, label) {
  * 页面默认频道若换成了广播，接口给的是另一个流名，在这里就被拒掉。
  */
 export function parseDetail(payload, channel) {
-  const data = parseJson(payload, '频道接口')
+  const site = SITE_LABEL[channel.tenant]
+  const data = parseJson(payload, '频道接口', site)
   // 出错时 HTTP 仍是 200，正文 { error_code, error_message, result: [] }；成功时没有 error_code
   if (data?.error_code != null && Number(data.error_code) !== 200) {
-    throw new Error(`青海藏语台频道接口拒绝：${data.error_message || data.error_code}`)
+    throw new Error(`${site}频道接口拒绝：${data.error_message || data.error_code}`)
   }
   const streams = (Array.isArray(data?.topic_camera) ? data.topic_camera : [])
     .flatMap(camera => (Array.isArray(camera?.streams) ? camera.streams : []))
   const hls = streams.map(stream => stream?.hls).filter(value => typeof value === 'string')
-  if (!hls.length) throw new Error(`青海藏语台没有返回${channel.name}的直播地址`)
+  if (!hls.length) throw new Error(`${site}没有返回${channel.name}的直播地址`)
   const official = hls.flatMap(value => {
     try {
       const url = new URL(value)
@@ -138,9 +174,9 @@ export function parseDetail(payload, channel) {
       return []
     }
   })
-  if (!official.length) throw new Error('青海藏语台返回了非官方媒体地址')
+  if (!official.length) throw new Error(`${site}返回了非官方媒体地址`)
   const own = official.find(url => mediaStreamName(url) === channel.stream)
-  if (!own) throw new Error(`青海藏语台返回的不是${channel.name}的直播流`)
+  if (!own) throw new Error(`${site}返回的不是${channel.name}的直播流`)
   if (!/^[0-9a-f]{32}$/i.test(own.searchParams.get('encrypt') || '')
       || !/^\d{9,11}$/.test(own.searchParams.get('timestamp') || '')) {
     throw new Error(`${channel.name}播放地址缺少有效签名`)
@@ -161,19 +197,25 @@ export function signatureWindow(url, now) {
   }
 }
 
-async function readText(response, label) {
+async function readText(response, label, site) {
   const declared = Number(response.headers?.get?.('content-length'))
   if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
     await response.body?.cancel?.().catch(() => {})
-    throw new Error(`青海藏语台${label}响应过大`)
+    throw new Error(`${site}${label}响应过大`)
   }
   const text = await response.text()
-  if (text.length > MAX_RESPONSE_BYTES) throw new Error(`青海藏语台${label}响应过大`)
-  if (!response.ok) throw new Error(`青海藏语台${label} HTTP ${response.status}`)
+  if (text.length > MAX_RESPONSE_BYTES) throw new Error(`${site}${label}响应过大`)
+  if (!response.ok) throw new Error(`${site}${label} HTTP ${response.status}`)
   return text
 }
 
-async function requestText(url, label, { timeoutMs = 15000, fetchImpl = proxyAwareFetch } = {}) {
+// 两家各自的前端页面：请求头照它们的样子带
+const PAGE_HEADERS = Object.freeze({
+  qhtb: { Referer: QHTB_TV_PAGE, Origin: QHTB_ORIGIN },
+  qhbtv: { Referer: QHBTV_H5_PAGE, Origin: QHBTV_H5_ORIGIN },
+})
+
+async function requestText(url, label, tenant, { timeoutMs = 15000, fetchImpl = proxyAwareFetch } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -183,12 +225,11 @@ async function requestText(url, label, { timeoutMs = 15000, fetchImpl = proxyAwa
       // 页面和接口实测都不校验来源头与 UA；照官网页面的样子带上，不给它们多一个拒绝的理由
       headers: {
         Accept: 'application/json, text/html, */*',
-        Referer: QHTB_TV_PAGE,
-        Origin: QHTB_ORIGIN,
+        ...PAGE_HEADERS[tenant],
         'User-Agent': UA,
       },
     })
-    return await readText(response, label)
+    return await readText(response, label, SITE_LABEL[tenant])
   } finally {
     clearTimeout(timer)
   }
@@ -203,7 +244,7 @@ function playerParams(options, now) {
   if (page.refreshAt > now) return Promise.resolve(page.value)
   if (!pagePending) {
     const pageOptions = { ...options, timeoutMs: Math.min(options.timeoutMs, PAGE_TIMEOUT_MS) }
-    const promise = requestText(QHTB_TV_PAGE, '官网直播页', pageOptions)
+    const promise = requestText(QHTB_TV_PAGE, '官网直播页', 'qhtb', pageOptions)
       .then(parsePlayerPage)
       .then(
         value => { page = { value, refreshAt: now + PAGE_REFRESH_MS }; return value },
@@ -216,6 +257,10 @@ function playerParams(options, now) {
 }
 
 async function loadStream(channel, options, now) {
+  if (channel.tenant === 'qhbtv') {
+    const url = buildCompanyDetailUrl({ topicId: channel.topicId, now })
+    return parseDetail(await requestText(url, '频道接口', 'qhbtv', options), channel)
+  }
   const builtin = { topicId: channel.topicId, appSecret: SITE_APP_SECRET }
   const fromPage = await playerParams(options, now)
   const candidates = [fromPage, builtin].filter((params, index, list) => params && list.findIndex(other => (
@@ -224,7 +269,7 @@ async function loadStream(channel, options, now) {
   let lastError
   for (const params of candidates) {
     try {
-      return parseDetail(await requestText(buildDetailUrl(params), '频道接口', options), channel)
+      return parseDetail(await requestText(buildDetailUrl(params), '频道接口', 'qhtb', options), channel)
     } catch (error) {
       lastError = error
     }
@@ -268,7 +313,8 @@ export function buildChannels() {
   return CHANNELS.map(channel => ({
     name: channel.name,
     deferredRef: channel.ref,
-    logo: channel.logo,
+    // 留空的由内置台标库补（见 channels.js）
+    ...(channel.logo ? { logo: channel.logo } : {}),
     groupTitle: '青海',
     opts: ['network-caching=3000'],
     catchup: 'none',
@@ -296,7 +342,7 @@ export async function resolveChannel(ref, ctx = {}) {
     const reason = error?.name === 'AbortError'
       ? `超时 ${options.timeoutMs}ms`
       : (error?.message || String(error))
-    return { url: '', desc: `青海藏语台链接请求失败：${reason}` }
+    return { url: '', desc: `${SITE_LABEL[channel.tenant]}链接请求失败：${reason}` }
   }
 }
 

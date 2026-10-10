@@ -6,16 +6,19 @@ import {
   CHANNELS,
   TOPIC_DETAIL_API,
   buildChannels,
+  buildCompanyDetailUrl,
   buildDetailUrl,
   claimsRef,
   clearCache,
+  companySignature,
   officialAssetUrl,
   parseDetail,
   parsePlayerPage,
   resolveChannel,
   signatureWindow,
 } from '../extractors/qinghai/api.js'
-import { QHTB_TV_PAGE, SITE_APP_SECRET } from '../extractors/qinghai/channels.js'
+import { QHBTV_COMPANY_ID, QHBTV_H5_PAGE, QHTB_TV_PAGE, SITE_APP_SECRET } from '../extractors/qinghai/channels.js'
+import qinghaiEpg from '../extractors/qinghai/epg.js'
 import { getModule, resolverFor } from '../extractors/registry.js'
 
 let passed = 0
@@ -28,10 +31,15 @@ const json = (body, status = 200) => new Response(
 
 const AMDO_TOPIC = '824587377543962624'
 const RADIO_TOPIC = '824587553121722368'
+const QHWS_TOPIC = '786181204964564992'
+const QHSH_TOPIC = '786227316454875136'
+const QHDS_TOPIC = '786227009616371712'
 const MINUTE = 60 * 1000
 // 2026-09-25 02:47（上海）
 const NOW = Date.parse('2026-09-24T18:47:00Z')
-const amdo = CHANNELS[0]
+const byRef = ref => CHANNELS.find(channel => channel.ref === ref)
+const amdo = byRef('qinghai-amdo')
+const economy = byRef('qinghai-qhsh')
 
 // 形状照官网直播页裁剪：换台函数里那行不带引号的赋值在前，默认频道那行在后
 const page = (topicId = AMDO_TOPIC, appSecret = SITE_APP_SECRET) => `<!DOCTYPE html><html><head>
@@ -80,10 +88,13 @@ const detail = (hls = signed(), extraCameras = []) => ({
 })
 
 /**
- * 模拟官网：页面与频道接口。topics 是「专题 id → 该专题当前的 hls」，app_secret 不对回平台的错误正文。
+ * 模拟官网：页面与频道接口。topics 是「专题 id → 该专题当前的 hls」，app_secret 不对回平台的错误正文；
+ * companyTopics 是长云网租户（company_id=1075）的专题，按 company_id 认租户、不看签名（与实测一致）。
  * 每个请求记进 log，页面记 'page'，接口记 'detail:<id>'。
  */
-const site = ({ pageHtml = page(), pageStatus = 200, topics = { [AMDO_TOPIC]: signed() }, apiDown = false } = {}, log = []) => async (url, init = {}) => {
+const site = ({
+  pageHtml = page(), pageStatus = 200, topics = { [AMDO_TOPIC]: signed() }, companyTopics = {}, apiDown = false,
+} = {}, log = []) => async (url, init = {}) => {
   const target = new URL(String(url))
   assert.equal(init.redirect, 'manual')
   if (target.href === QHTB_TV_PAGE) {
@@ -94,6 +105,12 @@ const site = ({ pageHtml = page(), pageStatus = 200, topics = { [AMDO_TOPIC]: si
   const id = target.searchParams.get('id')
   log.push(`detail:${id}`)
   if (apiDown) return json('bad gateway', 502)
+  if (target.searchParams.has('company_id')) {
+    assert.equal(init.headers.Referer, QHBTV_H5_PAGE)
+    const hls = target.searchParams.get('company_id') === QHBTV_COMPANY_ID && companyTopics[id]
+    return hls ? json(detail(hls)) : json({ error_code: 20001, error_message: '该直播不存在', result: [] })
+  }
+  assert.equal(init.headers.Referer, QHTB_TV_PAGE)
   if (!target.searchParams.get('app_secret')) return json({ error_code: 10001, error_message: '签名错误1', result: [] })
   if (target.searchParams.get('app_secret') !== SITE_APP_SECRET) {
     return json({ error_code: 10002, error_message: '客户信息不存在', result: [] })
@@ -103,27 +120,37 @@ const site = ({ pageHtml = page(), pageStatus = 200, topics = { [AMDO_TOPIC]: si
 
 console.log('青海模块测试')
 
-check('模块注册为免账号的青海 relay 模块，不挂节目单', () => {
+check('模块注册为免账号的青海 relay 模块，节目单只挂青海卫视', () => {
   assert.equal(getModule('qinghai'), qinghai)
   assert.equal(qinghai.name, '青海')
   assert.equal(qinghai.outputGroupName, '青海')
   assert.equal(qinghai.channelHlsMode, 'relay')
   assert.equal(qinghai.relayProxyCompatible, true)
   assert.equal(qinghai.capabilities.catchup, false)
-  assert.equal(qinghai.capabilities.epg, false)
-  assert.equal(qinghai.epg, undefined, '官网节目单只有整点占位')
-  assert.equal(qinghai.catalogVersion, 1)
+  assert.equal(qinghai.capabilities.epg, true)
+  assert.equal(qinghai.epg, qinghaiEpg)
+  assert.deepEqual(qinghaiEpg.channels(), [{ ref: 'qinghai-qhws', name: '青海卫视', key: 'qinghai' }],
+    '平台节目单只有整点占位，青海卫视取央视网')
+  assert.equal(qinghai.catalogVersion, 2)
   assert.deepEqual(qinghai.configSchema, [])
   assert.equal(resolverFor('qinghai-amdo'), qinghai)
+  assert.equal(resolverFor('qinghai-qhws'), qinghai)
+  assert.equal(resolverFor('qinghai-qhws')?.epg, qinghaiEpg)
   assert.equal(resolverFor('qinghai-amdo/extra'), null)
 })
 
-await checkAsync('唯一一路安多卫视，台标用频道接口下发的官方图标', async () => {
-  assert.deepEqual(CHANNELS.map(channel => [channel.ref, channel.name, channel.topicId, channel.stream]), [
-    ['qinghai-amdo', '安多卫视', AMDO_TOPIC, 'qhzyds'],
+await checkAsync('长云网三台加安多卫视；安多卫视台标用频道接口下发的官方图标，另三台留给内置台标库', async () => {
+  assert.deepEqual(CHANNELS.map(channel => [channel.ref, channel.name, channel.tenant, channel.topicId, channel.stream]), [
+    ['qinghai-qhws', '青海卫视', 'qhbtv', QHWS_TOPIC, 'qhws'],
+    ['qinghai-amdo', '安多卫视', 'qhtb', AMDO_TOPIC, 'qhzyds'],
+    ['qinghai-qhsh', '青海经济生活', 'qhbtv', QHSH_TOPIC, 'qhsh'],
+    ['qinghai-qhds', '青海都市', 'qhbtv', QHDS_TOPIC, 'qhds'],
   ])
   const channels = buildChannels()
-  assert.deepEqual(channels, [{
+  const plain = (name, deferredRef) => ({
+    name, deferredRef, groupTitle: '青海', opts: ['network-caching=3000'], catchup: 'none',
+  })
+  assert.deepEqual(channels, [plain('青海卫视', 'qinghai-qhws'), {
     name: '安多卫视',
     deferredRef: 'qinghai-amdo',
     // 与 api/topic/detail 的 indexpic 同一地址
@@ -131,13 +158,14 @@ await checkAsync('唯一一路安多卫视，台标用频道接口下发的官�
     groupTitle: '青海',
     opts: ['network-caching=3000'],
     catchup: 'none',
-  }])
+  }, plain('青海经济生活', 'qinghai-qhsh'), plain('青海都市', 'qinghai-qhds')])
   assert.deepEqual(await qinghai.fetch(), {
     groups: [{ name: '青海', dataList: channels }],
     meta: { skipped: [], warnings: [] },
   })
   assert.equal(claimsRef('qinghai-amdo'), true)
-  assert.equal(claimsRef('qinghai-qhws'), false)
+  assert.equal(claimsRef('qinghai-qhws'), true)
+  assert.equal(claimsRef('qinghai-qhzygb'), false)
   assert.equal(claimsRef(undefined), false)
 })
 
@@ -160,6 +188,19 @@ check('频道接口地址带齐专题 id、tenant_id 与 app_secret，参数格�
   assert.throws(() => buildDetailUrl({ topicId: AMDO_TOPIC, appSecret: 'ABC' }), /参数格式无效/)
 })
 
+check('长云网签名照 H5 的 getSigntrue 算：md5 后把时间戳两位一组盖回去；接口地址带 company_id 不带 app_secret', () => {
+  // 对照值用长云网 H5 脚本的原算法算出（unix 秒 1791466000 / 1791466001）
+  assert.equal(companySignature('1075', 1791466000000), '17cefba91d47a1464b27960376613900')
+  assert.equal(companySignature('1075', 1791466000600), '179f1059182e4246ecd2960ea8e02b01', '按秒四舍五入')
+  const url = new URL(buildCompanyDetailUrl({ topicId: QHSH_TOPIC, now: 1791466000000 }))
+  assert.equal(`${url.origin}${url.pathname}`, TOPIC_DETAIL_API)
+  assert.deepEqual(Object.fromEntries(url.searchParams), {
+    id: QHSH_TOPIC, company_id: '1075', signature: '17cefba91d47a1464b27960376613900',
+  })
+  assert.throws(() => buildCompanyDetailUrl({ topicId: '1&x=2', now: NOW }), /长云网频道参数格式无效/)
+  assert.throws(() => buildCompanyDetailUrl({ topicId: QHSH_TOPIC, companyId: '10&75', now: NOW }), /长云网频道参数格式无效/)
+})
+
 check('频道详情只收本频道流名下带齐签名的直播清单', () => {
   assert.equal(parseDetail(JSON.stringify(detail()), amdo), signed())
   // 多一个机位也按流名找本频道那条
@@ -173,11 +214,18 @@ check('频道详情只收本频道流名下带齐签名的直播清单', () => {
   assert.throws(() => parseDetail({ error_code: 10001, error_message: '签名错误1', result: [] }, amdo), /接口拒绝：签名错误1/)
   assert.throws(() => parseDetail({ ...detail(), topic_camera: [] }, amdo), /没有返回安多卫视的直播地址/)
   assert.throws(() => parseDetail('<html>', amdo), /有效 JSON/)
+  // 长云网三台同一套校验，报错说是长云网
+  assert.equal(parseDetail(detail(signed('qhsh')), economy), signed('qhsh'))
+  assert.throws(() => parseDetail(detail(signed('qhds')), economy), /长云网返回的不是青海经济生活的直播流/)
+  assert.throws(() => parseDetail({ error_code: 20001, error_message: '该直播不存在', result: [] }, economy),
+    /长云网频道接口拒绝：该直播不存在/)
 })
 
 check('媒体白名单只放行媒体主机上本频道的直播清单与分片', () => {
   for (const good of [
     signed(),
+    signed('qhws'),
+    'https://live.qhbtv.com.cn/qhsh_sd/1791464432/1791466522251.ts?timestamp=20261008213522&encrypt=3791c49f7116c941079b5fccb29f58eb',
     'https://live.qhbtv.com.cn/qhzyds_sd/1790273167/1790275617626.ts?timestamp=20260925024657&encrypt=c3a0016964b90942ebd52c1553ab1a9a',
   ]) assert.equal(officialAssetUrl(good), good)
   for (const bad of [
@@ -193,7 +241,7 @@ check('媒体白名单只放行媒体主机上本频道的直播清单与分片'
     'https://live.qhbtv.com.cn/qhzyds/sd/live.m3u8#x',
     'https://mapi.qhbtv.com.cn/qhzyds/sd/live.m3u8',
     'not a url',
-  ]) assert.throws(() => officialAssetUrl(bad), /青海藏语台/)
+  ]) assert.throws(() => officialAssetUrl(bad), /青海广电/)
 })
 
 check('换新时刻按签名里标称的过期时刻排，读不出或本机钟偏了就走保守窗口', () => {
@@ -239,6 +287,31 @@ await checkAsync('播放时取签名地址：页面一天读一次，签名半�
 
   await resolveChannel('qinghai-amdo', { fetchImpl, now: NOW + 25 * 60 * MINUTE })
   assert.deepEqual(log.slice(3), ['page', `detail:${AMDO_TOPIC}`], '一天后重读页面')
+})
+
+await checkAsync('长云网三台按频道表直接调接口、不读藏语台页面，签名同样缓存半小时', async () => {
+  clearCache()
+  const log = []
+  const companyTopics = { [QHWS_TOPIC]: signed('qhws'), [QHSH_TOPIC]: signed('qhsh'), [QHDS_TOPIC]: signed('qhds') }
+  const fetchImpl = site({ companyTopics }, log)
+  for (const [ref, stream] of [['qinghai-qhws', 'qhws'], ['qinghai-qhsh', 'qhsh'], ['qinghai-qhds', 'qhds']]) {
+    const result = await resolveChannel(ref, { fetchImpl, now: NOW })
+    assert.equal(result.url, signed(stream))
+    assert.equal(result.relayHls, true)
+    assert.equal(result.upstreamUrlTransform, officialAssetUrl)
+  }
+  assert.match((await resolveChannel('qinghai-qhsh', { fetchImpl, now: NOW })).desc, /青海经济生活当前直播地址获取成功/)
+  assert.deepEqual(log, [`detail:${QHWS_TOPIC}`, `detail:${QHSH_TOPIC}`, `detail:${QHDS_TOPIC}`])
+  await resolveChannel('qinghai-qhsh', { fetchImpl, now: NOW + 29 * MINUTE })
+  assert.equal(log.length, 3)
+  await resolveChannel('qinghai-qhsh', { fetchImpl, now: NOW + 30 * MINUTE })
+  assert.deepEqual(log.slice(3), [`detail:${QHSH_TOPIC}`])
+
+  // 专题下线：照实报错，说是长云网
+  clearCache()
+  const gone = await resolveChannel('qinghai-qhds', { fetchImpl: site({}), now: NOW })
+  assert.equal(gone.url, '')
+  assert.match(gone.desc, /^长云网链接请求失败：长云网频道接口拒绝：该直播不存在/)
 })
 
 await checkAsync('并发的首批播放请求共用一次页面与接口请求', async () => {
@@ -316,7 +389,7 @@ await checkAsync('接口故障时在签名到期前沿用上次成功地址并�
 
 await checkAsync('非法引用与网络异常只返回说明，不向请求处理器抛错', async () => {
   clearCache()
-  const malformed = await resolveChannel('qinghai-qhws', {
+  const malformed = await resolveChannel('qinghai-qhzygb', {
     fetchImpl: async () => { throw new Error('不应请求') },
   })
   assert.equal(malformed.url, '')

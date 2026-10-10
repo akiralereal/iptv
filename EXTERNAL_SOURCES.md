@@ -85,6 +85,11 @@ const m3u8Url = await extractM3u8FromWeb("https://www.example.com/tv.html", {
 }
 ```
 
+订阅模式（`"mode": "subscription"`）的源另有两个可选字段，后台订阅源卡片里的「User-Agent」一栏就是它们：
+
+- `userAgent`：拉订阅时用的 User-Agent，留空用默认浏览器 UA。有些订阅要特定 UA 才肯返回列表，按订阅提供方的要求填。失效检测也用它去探这个源的频道
+- `playWithUserAgent`：为 `true` 时，本源每个 http(s) 频道在 m3u 里都带上 `#EXTVLCOPT:http-user-agent=<userAgent>`，由播放器在播放时发出（需要播放器支持这一行，如 VLC、Kodi）。订阅里已自带 UA 的频道保持不变；带请求头的频道 TXT 格式放不下，不会出现在 TXT 订阅里
+
 ## API 接口
 
 ### 获取外部源配置

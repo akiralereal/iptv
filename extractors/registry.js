@@ -167,6 +167,7 @@ import gztv from './gztv/index.js'
 import hangzhou from './hangzhou/index.js'
 import gzstv from './gzstv/index.js'
 import gxtv from './gxtv/index.js'
+import qingdao from './qingdao/index.js'
 import hebtv from './hebtv/index.js'
 import heilongjiang from './heilongjiang/index.js'
 import hbtv from './hbtv/index.js'
@@ -179,6 +180,7 @@ import jlntv from './jlntv/index.js'
 import jxntv from './jxntv/index.js'
 import jstv from './jstv/index.js'
 import jiaxing from './jiaxing/index.js'
+import taizhou from './taizhou/index.js'
 import iqilu from './iqilu/index.js'
 import kankanews from './kankanews/index.js'
 import livechina from './livechina/index.js'
@@ -256,6 +258,7 @@ const MODULES = [
   hangzhou,
   ningbo,
   jiaxing,
+  taizhou,
   jstv,
   wuxi,
   yangzhou,
@@ -272,6 +275,7 @@ const MODULES = [
   xinjiang,
   xizang,
   yunnan,
+  qingdao,
   qtv,
   kankanews,
   songjiang,

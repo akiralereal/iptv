@@ -70,6 +70,22 @@ export const CHANNEL_TYPES = {
 
 const MASK = '••••••'
 
+/**
+ * 消息样式，每个渠道单独选。卡片只给有富文本消息的四家：飞书发彩色标题的消息卡片，
+ * 企业微信 / 钉钉发 Markdown，Telegram 发 HTML 加粗。别的类型选了卡片按详细发。
+ */
+export const TEMPLATES = {
+  detailed: { name: '详细', description: '标题、每条提醒的说明、来自哪台服务器' },
+  compact: { name: '简洁', description: '每条提醒一行，不带说明' },
+  card: { name: '卡片', description: '加粗标题、分段排版；飞书是带颜色标题栏的卡片', types: ['feishu', 'wecom', 'dingtalk', 'telegram'] },
+}
+
+export function templateOf(channel) {
+  const template = TEMPLATES[channel?.template] ? channel.template : 'detailed'
+  const allowed = TEMPLATES[template].types
+  return allowed && !allowed.includes(channel.type) ? 'detailed' : template
+}
+
 function isHttpUrl(value) {
   try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
 }
@@ -100,6 +116,7 @@ function normalizeChannel(raw) {
     name: trimStr(raw.name).slice(0, 40) || CHANNEL_TYPES[type].name,
     enabled: raw.enabled !== false,
   }
+  if (TEMPLATES[raw.template] && raw.template !== 'detailed') channel.template = raw.template
   for (const field of CHANNEL_TYPES[type].fields) {
     const value = trimStr(raw[field.key])
     if (value) channel[field.key] = value.slice(0, 1000)
@@ -124,15 +141,90 @@ function hmacBase64(key, data) {
   return createHmac('sha256', key).update(data).digest('base64')
 }
 
+function clip(text) {
+  return text.length > MAX_TEXT ? `${text.slice(0, MAX_TEXT)}…` : text
+}
+
+const icon = alert => alert.level === 'error' ? '❗' : '⚠️'
+
+/** 标题：一条就用它的标题，多条说条数。 */
+export function messageTitle(message) {
+  if (message.test) return '【iPTV】测试消息'
+  const { raised = [], resolved = [] } = message
+  if (raised.length) return `【iPTV】${raised.length === 1 ? raised[0].title : `${raised.length} 条新提醒`}`
+  return `【iPTV】${resolved.length === 1 ? `已恢复：${resolved[0].title}` : `${resolved.length} 条提醒已恢复`}`
+}
+
+const testText = message => `收到这条说明「${message.channelName || '推送渠道'}」配置正确。以后登录凭证失效、模块连续抓取失败等需要处理的事会发到这里。`
+
+/** 纯文本正文（详细 / 简洁）。 */
+export function plainText(message, template = 'detailed') {
+  const footer = message.host ? `\n\n来自 ${message.host}` : ''
+  if (message.test) return clip(testText(message) + footer)
+  const { raised = [], resolved = [] } = message
+  const lines = template === 'compact'
+    ? [...raised.map(a => `${icon(a)} ${a.title}`), ...resolved.map(a => `✅ 已恢复：${a.title}`)].join('\n')
+    : [...raised.map(a => `${icon(a)} ${a.title}\n${a.text}`), ...resolved.map(a => `✅ 已恢复：${a.title}`)].join('\n\n')
+  return clip(lines + footer)
+}
+
+const escapeHtml = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+/** 卡片样式各家的正文。flavor：feishu（卡片 markdown）/ wecom / dingtalk（Markdown）/ telegram（HTML）。 */
+function richBody(message, flavor) {
+  const bold = text => flavor === 'telegram' ? `<b>${escapeHtml(text)}</b>` : `**${text}**`
+  const plain = text => flavor === 'telegram' ? escapeHtml(text) : text
+  const blocks = message.test
+    ? [plain(testText(message))]
+    : [
+        ...(message.raised || []).map(a => `${bold(`${icon(a)} ${a.title}`)}\n${plain(a.text)}`),
+        ...(message.resolved || []).map(a => bold(`✅ 已恢复：${a.title}`)),
+      ]
+  return clip(blocks.join('\n\n'))
+}
+
+function footerLine(message, flavor) {
+  if (!message.host) return ''
+  if (flavor === 'telegram') return `\n\n<i>来自 ${escapeHtml(message.host)}</i>`
+  if (flavor === 'wecom') return `\n\n<font color="comment">来自 ${message.host}</font>`
+  return `\n\n> 来自 ${message.host}`
+}
+
+/** 飞书卡片标题栏颜色：有错误红、只有警告橙、只有恢复 / 测试绿。 */
+function headerColor(message) {
+  const raised = message.raised || []
+  if (raised.some(a => a.level === 'error')) return 'red'
+  if (raised.length) return 'orange'
+  return 'green'
+}
+
+function feishuBody(message, template) {
+  const title = messageTitle(message)
+  if (template !== 'card') return { msg_type: 'text', content: { text: `${title}\n${plainText(message, template)}` } }
+  const elements = [{ tag: 'markdown', content: richBody(message, 'feishu') }]
+  if (message.host) elements.push({ tag: 'note', elements: [{ tag: 'plain_text', content: `来自 ${message.host}` }] })
+  return {
+    msg_type: 'interactive',
+    card: {
+      config: { wide_screen_mode: true },
+      header: { template: headerColor(message), title: { tag: 'plain_text', content: title } },
+      elements,
+    },
+  }
+}
+
 /** 组一个请求：{ url, body }。纯函数，测试直接看它。 */
 export function buildRequest(channel, message, now = Date.now()) {
-  const text = message.text.length > MAX_TEXT ? `${message.text.slice(0, MAX_TEXT)}…` : message.text
-  const full = `${message.title}\n${text}`
+  const template = templateOf(channel)
+  const title = messageTitle(message)
+  const full = `${title}\n${plainText(message, template)}`
   switch (channel.type) {
     case 'wecom':
-      return { url: channel.url, body: { msgtype: 'text', text: { content: full } } }
+      return template === 'card'
+        ? { url: channel.url, body: { msgtype: 'markdown', markdown: { content: `**${title}**\n\n${richBody(message, 'wecom')}${footerLine(message, 'wecom')}` } } }
+        : { url: channel.url, body: { msgtype: 'text', text: { content: full } } }
     case 'feishu': {
-      const body = { msg_type: 'text', content: { text: full } }
+      const body = feishuBody(message, template)
       if (channel.secret) {
         // 飞书：以「时间戳\n密钥」为 HMAC key、对空串签名
         const timestamp = String(Math.floor(now / 1000))
@@ -148,17 +240,31 @@ export function buildRequest(channel, message, now = Date.now()) {
         const sign = encodeURIComponent(hmacBase64(channel.secret, `${timestamp}\n${channel.secret}`))
         url += `${url.includes('?') ? '&' : '?'}timestamp=${timestamp}&sign=${sign}`
       }
-      return { url, body: { msgtype: 'text', text: { content: full } } }
+      return template === 'card'
+        ? { url, body: { msgtype: 'markdown', markdown: { title, text: `### ${title}\n\n${richBody(message, 'dingtalk')}${footerLine(message, 'dingtalk')}` } } }
+        : { url, body: { msgtype: 'text', text: { content: full } } }
     }
     case 'telegram': {
       const base = (channel.apiBase || 'https://api.telegram.org').replace(/\/+$/, '')
-      return { url: `${base}/bot${channel.botToken}/sendMessage`, body: { chat_id: channel.chatId, text: full, disable_web_page_preview: true } }
+      const body = template === 'card'
+        ? { chat_id: channel.chatId, parse_mode: 'HTML', text: `<b>${escapeHtml(title)}</b>\n\n${richBody(message, 'telegram')}${footerLine(message, 'telegram')}` }
+        : { chat_id: channel.chatId, text: full }
+      return { url: `${base}/bot${channel.botToken}/sendMessage`, body: { ...body, disable_web_page_preview: true } }
     }
     case 'bark':
-      return { url: channel.url, body: { title: message.title, body: text, group: 'iPTV' } }
+      return { url: channel.url, body: { title, body: plainText(message, template), group: 'iPTV' } }
     case 'webhook':
     default:
-      return { url: channel.url, body: { title: message.title, text, raised: message.raised || [], resolved: message.resolved || [], sentAt: new Date(now).toISOString() } }
+      return {
+        url: channel.url,
+        body: {
+          title, text: plainText(message, template),
+          raised: (message.raised || []).map(({ id, level, title: t, text }) => ({ id, level, title: t, text })),
+          resolved: (message.resolved || []).map(({ id, title: t }) => ({ id, title: t })),
+          test: !!message.test,
+          sentAt: new Date(now).toISOString(),
+        },
+      }
   }
 }
 
@@ -216,22 +322,25 @@ export async function sendToChannel(channel, message, { fetchImpl = proxyAwareFe
   }
 }
 
-/** 一轮的消息正文。host 只用来标明是哪台服务器，不带访问密码。 */
+/**
+ * 一轮要发的内容（还没排版）：新提醒、已恢复、来自哪台服务器。排版按各渠道的样式在 buildRequest 里做。
+ * host 只用来标明是哪台服务器，不带访问密码。title / text 是详细样式的纯文本，方便日志和测试。
+ */
 export function formatMessage({ raised = [], resolved = [] }, host = '') {
-  const lines = []
-  for (const alert of raised) lines.push(`${alert.level === 'error' ? '❗' : '⚠️'} ${alert.title}\n${alert.text}`)
-  for (const alert of resolved) lines.push(`✅ 已恢复：${alert.title}`)
-  const count = raised.length
-  const title = count
-    ? `【iPTV】${count === 1 ? raised[0].title : `${count} 条新提醒`}`
-    : `【iPTV】${resolved.length === 1 ? `已恢复：${resolved[0].title}` : `${resolved.length} 条提醒已恢复`}`
-  const footer = host ? `\n\n来自 ${host}` : ''
-  return {
-    title,
-    text: lines.join('\n\n') + footer,
-    raised: raised.map(({ id, level, title: t, text }) => ({ id, level, title: t, text })),
-    resolved: resolved.map(({ id, title: t }) => ({ id, title: t })),
+  const message = { raised, resolved, host }
+  return { ...message, title: messageTitle(message), text: plainText(message, 'detailed') }
+}
+
+/** 后台表单里的样式预览用的示例：一条错误提醒 + 一条已恢复。 */
+export function samplePreviews(host = '') {
+  const message = {
+    host: host || 'http://192.168.1.10:1905',
+    raised: [{ level: 'error', title: '央视频登录凭证已失效', text: '央视频登录态已失效（官网没认出关联过的账号），10 个会员频道暂时播不了；请在后台重新登录或导入登录态' }],
+    resolved: [{ title: '广东抓取失败' }],
   }
+  const previews = {}
+  for (const template of ['detailed', 'compact']) previews[template] = `${messageTitle(message)}\n${plainText(message, template)}`
+  return { message: { ...message, title: messageTitle(message) }, previews }
 }
 
 export class Notifier {
@@ -309,6 +418,7 @@ export class Notifier {
     const merged = { ...current }
     if (fields.name !== undefined) merged.name = fields.name
     if (fields.enabled !== undefined) merged.enabled = fields.enabled !== false
+    if (fields.template !== undefined) merged.template = fields.template
     for (const field of CHANNEL_TYPES[current.type].fields) {
       if (fields[field.key] === undefined) continue
       const value = trimStr(fields[field.key])
@@ -335,11 +445,7 @@ export class Notifier {
   async testChannel(id) {
     const channel = this.loadChannels().find(item => item.id === id)
     if (!channel) throw new Error('推送渠道不存在')
-    const host = this.host()
-    const result = await sendToChannel(channel, {
-      title: '【iPTV】测试消息',
-      text: `收到这条说明「${channel.name}」配置正确。以后登录凭证失效、模块连续抓取失败等需要处理的事会发到这里。${host ? `\n\n来自 ${host}` : ''}`,
-    }, { fetchImpl: this.fetchImpl })
+    const result = await sendToChannel(channel, { test: true, channelName: channel.name, host: this.host() }, { fetchImpl: this.fetchImpl })
     this.#recordResults({ [channel.id]: result })
     return result
   }
@@ -429,8 +535,12 @@ export async function getNotifier() {
 export async function getNotifyAPI() {
   try {
     const notifier = await getNotifier()
-    const types = Object.entries(CHANNEL_TYPES).map(([id, type]) => ({ id, name: type.name, fields: type.fields }))
-    return { success: true, data: { channels: notifier.publicChannels(), types } }
+    const types = Object.entries(CHANNEL_TYPES).map(([id, type]) => ({
+      id, name: type.name, fields: type.fields,
+      templates: Object.entries(TEMPLATES).filter(([, t]) => !t.types || t.types.includes(id)).map(([key]) => key),
+    }))
+    const templates = Object.entries(TEMPLATES).map(([id, t]) => ({ id, name: t.name, description: t.description }))
+    return { success: true, data: { channels: notifier.publicChannels(), types, templates, sample: samplePreviews(notifier.host()) } }
   } catch (error) {
     return { success: false, message: error.message }
   }

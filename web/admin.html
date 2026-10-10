@@ -2478,6 +2478,26 @@
         }
         select:not([multiple]):disabled { cursor: not-allowed; opacity: .6; }
 
+        /* 消息推送：样式选择与预览 */
+        .notify-template-options { display: flex; gap: 8px; flex-wrap: wrap; }
+        .notify-template-option {
+            display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; min-width: 120px;
+            border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius-control);
+            background: var(--ui-surface); cursor: pointer; text-align: left; font-size: 13px; color: var(--ui-text);
+        }
+        .notify-template-option small { color: #888; font-size: 11.5px; }
+        .notify-template-option.active { border-color: var(--ui-accent); box-shadow: var(--ui-ring); font-weight: 600; }
+        .notify-preview { margin-top: 8px; max-width: 460px; border: 1px solid #e5e9f0; border-radius: 8px; background: #fff; overflow: hidden; font-size: 13px; line-height: 1.6; color: #1f2329; }
+        .notify-preview-label { padding: 4px 10px; font-size: 11.5px; color: #888; background: #f7f9fc; border-bottom: 1px solid #eef1f6; }
+        .notify-preview-text { margin: 0; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; font-family: inherit; }
+        .notify-preview-card-head { padding: 10px 12px; color: #fff; font-weight: 600; }
+        .notify-preview-card-head.red { background: #f54a45; }
+        .notify-preview-card-head.orange { background: #ff8800; }
+        .notify-preview-card-head.green { background: #34c724; }
+        .notify-preview-card-body { padding: 10px 12px; display: grid; gap: 8px; }
+        .notify-preview-card-body p { margin: 0; white-space: pre-wrap; word-break: break-word; }
+        .notify-preview-card-note { padding: 0 12px 10px; font-size: 12px; color: #8f959e; }
+
         /* 表单控件 */
         input[type="text"], input[type="number"], input[type="password"], input[type="url"],
         input[type="file"], select, textarea,
@@ -4435,6 +4455,11 @@
                                 <input type="text" id="notifyName" placeholder="例如 家里的飞书群" style="width:100%;">
                             </div>
                         </div>
+                        <div style="margin-top:8px;">
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">消息样式</label>
+                            <div class="notify-template-options" id="notifyTemplates" role="radiogroup" aria-label="消息样式"></div>
+                            <div class="notify-preview" id="notifyPreview" aria-label="消息样式预览"></div>
+                        </div>
                         <div id="notifyFields" style="margin-top:8px; display:grid; gap:8px;"></div>
                         <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
                             <button class="btn btn-sm btn-success" id="notifySaveBtn" onclick="saveNotifyChannel()">➕ 添加渠道</button>
@@ -6182,8 +6207,9 @@
         }
 
         // ===== 消息推送（utils/notify.js）=====
-        let notifyState = { channels: [], types: [] };
+        let notifyState = { channels: [], types: [], templates: [] };
         let notifyEditingId = null;
+        let notifyTemplate = 'detailed';
 
         async function loadNotify() {
             try {
@@ -6232,7 +6258,7 @@
                         <label style="display:flex;align-items:center;gap:6px;">
                             <input type="checkbox" ${c.enabled !== false ? 'checked' : ''} onchange="toggleNotifyChannel('${c.id}', this.checked)">
                             <strong>${escapeHtml(c.name)}</strong>
-                            <span style="font-size:12px;color:#888;">${escapeHtml(type ? type.name : c.type)}</span>
+                            <span style="font-size:12px;color:#888;">${escapeHtml(type ? type.name : c.type)} · ${escapeHtml(notifyTemplateName(c))}</span>
                         </label>
                         <div style="display:flex;gap:6px;flex-wrap:wrap;">
                             <button class="btn btn-sm" onclick="testNotifyChannel('${c.id}', this)">发测试消息</button>
@@ -6245,8 +6271,64 @@
             }).join('');
         }
 
+        /** 渠道实际用的样式：这个类型不支持所选样式时按详细发（与服务端 templateOf 一致） */
+        function notifyEffectiveTemplate(typeId, template) {
+            const type = notifyTypeOf(typeId);
+            const allowed = (type && type.templates) || ['detailed'];
+            return allowed.includes(template) ? template : 'detailed';
+        }
+
+        function notifyTemplateName(channel) {
+            const id = notifyEffectiveTemplate(channel.type, channel.template || 'detailed');
+            const t = (notifyState.templates || []).find(x => x.id === id);
+            return t ? t.name : '详细';
+        }
+
+        /** 样式按钮（只列这个类型支持的）+ 预览 */
+        function renderNotifyTemplates() {
+            const typeId = document.getElementById('notifyType').value;
+            const type = notifyTypeOf(typeId);
+            const box = document.getElementById('notifyTemplates');
+            if (!type || !box) return;
+            notifyTemplate = notifyEffectiveTemplate(typeId, notifyTemplate);
+            box.innerHTML = (notifyState.templates || [])
+                .filter(t => (type.templates || []).includes(t.id))
+                .map(t => `<button type="button" role="radio" aria-checked="${t.id === notifyTemplate}"
+                        class="notify-template-option${t.id === notifyTemplate ? ' active' : ''}" onclick="selectNotifyTemplate('${t.id}')">
+                        <span>${escapeHtml(t.name)}</span><small>${escapeHtml(t.description)}</small></button>`).join('');
+            renderNotifyPreview(typeId);
+        }
+
+        function selectNotifyTemplate(id) {
+            notifyTemplate = id;
+            renderNotifyTemplates();
+        }
+
+        /** 预览用服务端给的示例（一条错误提醒 + 一条已恢复）；文字样式直接用服务端排好的正文 */
+        function renderNotifyPreview(typeId) {
+            const box = document.getElementById('notifyPreview');
+            const sample = notifyState.sample;
+            if (!box || !sample) return;
+            const label = `<div class="notify-preview-label">预览（示例消息）</div>`;
+            if (notifyTemplate !== 'card') {
+                box.innerHTML = label + `<pre class="notify-preview-text">${escapeHtml(sample.previews[notifyTemplate] || '')}</pre>`;
+                return;
+            }
+            const m = sample.message;
+            const items = [
+                ...m.raised.map(a => `<p><strong>${a.level === 'error' ? '❗' : '⚠️'} ${escapeHtml(a.title)}</strong>\n${escapeHtml(a.text)}</p>`),
+                ...m.resolved.map(a => `<p><strong>✅ 已恢复：${escapeHtml(a.title)}</strong></p>`),
+            ].join('');
+            const head = typeId === 'feishu'
+                ? `<div class="notify-preview-card-head red">${escapeHtml(m.title)}</div>`
+                : `<div class="notify-preview-card-body" style="padding-bottom:0;"><p><strong>${escapeHtml(m.title)}</strong></p></div>`;
+            box.innerHTML = label + head + `<div class="notify-preview-card-body">${items}</div>`
+                + `<div class="notify-preview-card-note">来自 ${escapeHtml(m.host)}</div>`;
+        }
+
         /** 按所选类型画字段。编辑时敏感字段留空 = 不改，占位里注明已设置。 */
         function renderNotifyFields() {
+            renderNotifyTemplates();
             const type = notifyTypeOf(document.getElementById('notifyType').value);
             const box = document.getElementById('notifyFields');
             if (!type || !box) return;
@@ -6268,7 +6350,7 @@
             document.querySelectorAll('#notifyFields [data-notify-field]').forEach(input => {
                 fields[input.dataset.notifyField] = input.value;
             });
-            return { type: document.getElementById('notifyType').value, name: document.getElementById('notifyName').value, fields };
+            return { type: document.getElementById('notifyType').value, name: document.getElementById('notifyName').value, template: notifyTemplate, fields };
         }
 
         function resetNotifyForm() {
@@ -6276,6 +6358,7 @@
             const typeSelect = document.getElementById('notifyType');
             typeSelect.disabled = false;
             document.getElementById('notifyName').value = '';
+            notifyTemplate = 'detailed';
             document.getElementById('notifyFormTitle').textContent = '添加推送渠道';
             document.getElementById('notifySaveBtn').textContent = '➕ 添加渠道';
             document.getElementById('notifyCancelBtn').style.display = 'none';
@@ -6290,6 +6373,7 @@
             typeSelect.value = channel.type;
             typeSelect.disabled = true;   // 换类型等于换一个渠道，删了重加
             document.getElementById('notifyName').value = channel.name || '';
+            notifyTemplate = channel.template || 'detailed';
             document.getElementById('notifyFormTitle').textContent = `编辑「${channel.name}」`;
             document.getElementById('notifySaveBtn').textContent = '保存修改';
             document.getElementById('notifyCancelBtn').style.display = '';
@@ -6300,8 +6384,8 @@
         async function saveNotifyChannel() {
             const form = readNotifyForm();
             const r = notifyEditingId
-                ? await notifyPost({ action: 'update', id: notifyEditingId, fields: { name: form.name, ...form.fields } })
-                : await notifyPost({ action: 'add', channel: { type: form.type, name: form.name, ...form.fields } });
+                ? await notifyPost({ action: 'update', id: notifyEditingId, fields: { name: form.name, template: form.template, ...form.fields } })
+                : await notifyPost({ action: 'add', channel: { type: form.type, name: form.name, template: form.template, ...form.fields } });
             if (r.success) {
                 const wasEditing = !!notifyEditingId;
                 notifyState = r.data;

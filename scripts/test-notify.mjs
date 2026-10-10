@@ -61,15 +61,17 @@ const evalOf = (alerts, extra = {}) => ({ alerts, activeIds: alerts.map(a => a.i
 console.log('消息推送回归测试')
 
 // ── 消息格式与签名 ─────────────────────────────────────────────────────────
-const message = { title: '【iPTV】标题', text: '正文' }
+const message = { raised: [{ id: 'a', level: 'error', title: '标题', text: '正文' }], resolved: [], host: '' }
+const FULL = '【iPTV】标题\n❗ 标题\n正文'
 
-await test('企微 / Bark / 通用 Webhook 的请求体', () => {
-  assert.deepEqual(buildRequest({ type: 'wecom', url: 'https://w/x' }, message).body, { msgtype: 'text', text: { content: '【iPTV】标题\n正文' } })
-  assert.deepEqual(buildRequest({ type: 'bark', url: 'https://api.day.app/K' }, message).body, { title: '【iPTV】标题', body: '正文', group: 'iPTV' })
-  const hook = buildRequest({ type: 'webhook', url: 'https://h' }, { ...message, raised: [{ id: 'a' }] }, 0).body
+await test('企微 / Bark / 通用 Webhook 的请求体（默认详细样式）', () => {
+  assert.deepEqual(buildRequest({ type: 'wecom', url: 'https://w/x' }, message).body, { msgtype: 'text', text: { content: FULL } })
+  assert.deepEqual(buildRequest({ type: 'bark', url: 'https://api.day.app/K' }, message).body, { title: '【iPTV】标题', body: '❗ 标题\n正文', group: 'iPTV' })
+  const hook = buildRequest({ type: 'webhook', url: 'https://h' }, message, 0).body
   assert.equal(hook.title, '【iPTV】标题')
-  assert.deepEqual(hook.raised, [{ id: 'a' }])
+  assert.deepEqual(hook.raised, [{ id: 'a', level: 'error', title: '标题', text: '正文' }])
   assert.deepEqual(hook.resolved, [])
+  assert.equal(hook.test, false)
   assert.equal(hook.sentAt, '1970-01-01T00:00:00.000Z')
 })
 
@@ -78,8 +80,11 @@ await test('飞书签名：以「时间戳\\n密钥」为 key、对空串 HMAC-S
   const { body } = buildRequest({ type: 'feishu', url: 'https://f', secret: 'S' }, message, now)
   assert.equal(body.timestamp, '1700000000')
   assert.equal(body.sign, createHmac('sha256', '1700000000\nS').update('').digest('base64'))
-  assert.deepEqual(body.content, { text: '【iPTV】标题\n正文' })
+  assert.deepEqual(body.content, { text: FULL })
   assert.equal('sign' in buildRequest({ type: 'feishu', url: 'https://f' }, message).body, false, '没填密钥不签名')
+  const card = buildRequest({ type: 'feishu', url: 'https://f', secret: 'S', template: 'card' }, message, now).body
+  assert.equal(card.msg_type, 'interactive')
+  assert.ok(card.sign, '卡片也签名')
 })
 
 await test('钉钉加签：以密钥为 key、对「毫秒时间戳\\n密钥」签名并拼进地址', () => {
@@ -93,14 +98,68 @@ await test('Telegram：默认官方地址，可换反代（去掉末尾斜杠）
   const official = buildRequest({ type: 'telegram', botToken: '1:A', chatId: '-100' }, message)
   assert.equal(official.url, 'https://api.telegram.org/bot1:A/sendMessage')
   assert.equal(official.body.chat_id, '-100')
+  assert.equal('parse_mode' in official.body, false)
   assert.equal(buildRequest({ type: 'telegram', botToken: '1:A', chatId: '1', apiBase: 'https://tg.example.com/' }, message).url,
     'https://tg.example.com/bot1:A/sendMessage')
 })
 
 await test('正文过长截断', () => {
-  const long = buildRequest({ type: 'wecom', url: 'https://w' }, { title: 't', text: 'x'.repeat(5000) }).body.text.content
+  const long = buildRequest({ type: 'wecom', url: 'https://w' }, { raised: [{ level: 'error', title: 't', text: 'x'.repeat(5000) }] }).body.text.content
   assert.ok(long.length < 1900)
   assert.ok(long.endsWith('…'))
+})
+
+// ── 消息样式 ───────────────────────────────────────────────────────────────
+const two = {
+  host: 'http://nas:1905',
+  raised: [{ id: 'c', level: 'error', title: '央视频登录凭证已失效', text: '要重新登录 <b>' }],
+  resolved: [{ id: 'r', title: '广东抓取失败' }],
+}
+
+await test('简洁样式：每条一行、不带说明', () => {
+  const content = buildRequest({ type: 'wecom', url: 'https://w', template: 'compact' }, two).body.text.content
+  assert.equal(content, '【iPTV】央视频登录凭证已失效\n❗ 央视频登录凭证已失效\n✅ 已恢复：广东抓取失败\n\n来自 http://nas:1905')
+})
+
+await test('卡片样式：飞书是带颜色标题栏的消息卡片', () => {
+  const { card } = buildRequest({ type: 'feishu', url: 'https://f', template: 'card' }, two).body
+  assert.equal(card.header.template, 'red')
+  assert.equal(card.header.title.content, '【iPTV】央视频登录凭证已失效')
+  assert.equal(card.elements[0].tag, 'markdown')
+  assert.match(card.elements[0].content, /^\*\*❗ 央视频登录凭证已失效\*\*\n要重新登录/)
+  assert.match(card.elements[0].content, /\*\*✅ 已恢复：广东抓取失败\*\*$/)
+  assert.deepEqual(card.elements[1], { tag: 'note', elements: [{ tag: 'plain_text', content: '来自 http://nas:1905' }] })
+  const recovered = buildRequest({ type: 'feishu', url: 'https://f', template: 'card' }, { resolved: [{ title: 'x' }] }).body.card
+  assert.equal(recovered.header.template, 'green')
+  const warning = buildRequest({ type: 'feishu', url: 'https://f', template: 'card' }, { raised: [{ level: 'warning', title: 'w', text: '' }] }).body.card
+  assert.equal(warning.header.template, 'orange')
+})
+
+await test('卡片样式：企微 / 钉钉发 Markdown，Telegram 发 HTML 并转义', () => {
+  const wecom = buildRequest({ type: 'wecom', url: 'https://w', template: 'card' }, two).body
+  assert.equal(wecom.msgtype, 'markdown')
+  assert.match(wecom.markdown.content, /^\*\*【iPTV】央视频登录凭证已失效\*\*\n\n\*\*❗/)
+  assert.match(wecom.markdown.content, /<font color="comment">来自 http:\/\/nas:1905<\/font>$/)
+  const ding = buildRequest({ type: 'dingtalk', url: 'https://d', template: 'card' }, two).body
+  assert.equal(ding.msgtype, 'markdown')
+  assert.equal(ding.markdown.title, '【iPTV】央视频登录凭证已失效')
+  assert.match(ding.markdown.text, /^### 【iPTV】/)
+  const tg = buildRequest({ type: 'telegram', botToken: '1:A', chatId: '1', template: 'card' }, two).body
+  assert.equal(tg.parse_mode, 'HTML')
+  assert.match(tg.text, /^<b>【iPTV】央视频登录凭证已失效<\/b>/)
+  assert.match(tg.text, /要重新登录 &lt;b&gt;/, '正文里的尖括号要转义，否则 Telegram 拒收')
+})
+
+await test('Bark / 通用 Webhook 选了卡片按详细发；测试消息各样式都能排', () => {
+  const bark = buildRequest({ type: 'bark', url: 'https://api.day.app/K', template: 'card' }, two).body
+  assert.match(bark.body, /^❗ 央视频登录凭证已失效\n要重新登录/)
+  for (const template of ['detailed', 'compact', 'card']) {
+    const body = buildRequest({ type: 'feishu', url: 'https://f', template }, { test: true, channelName: '家', host: 'h' }).body
+    const text = JSON.stringify(body)
+    assert.match(text, /测试消息/)
+    assert.match(text, /「家」配置正确/)
+    if (template === 'card') assert.equal(body.card.header.template, 'green')
+  }
 })
 
 await test('「HTTP 200 但其实失败」按各家的返回判断；错误里不带地址和 Token', async () => {
@@ -244,6 +303,21 @@ await test('添加校验必填与地址格式；后台列表打码；编辑时�
   assert.deepEqual(n.publicChannels(), [])
 })
 
+await test('样式随渠道保存、可修改；未知样式与不支持卡片的类型退回详细', async () => {
+  const { templateOf } = await import('../utils/notify.js')
+  const n = makeNotifier()
+  const id = n.addChannel({ type: 'feishu', url: 'https://f/hook', template: 'card' })
+  assert.equal(n.publicChannels()[0].template, 'card')
+  n.updateChannel(id, { template: 'compact' })
+  assert.equal(n.publicChannels()[0].template, 'compact')
+  n.updateChannel(id, { template: 'detailed' })
+  assert.equal('template' in JSON.parse(readFileSync(n.channelsPath, 'utf-8')).channels[0], false, '默认值不落盘')
+  n.updateChannel(id, { template: 'fancy' })
+  assert.equal(templateOf(n.publicChannels()[0]), 'detailed')
+  assert.equal(templateOf({ type: 'bark', template: 'card' }), 'detailed')
+  assert.equal(templateOf({ type: 'telegram', template: 'card' }), 'card')
+})
+
 await test('测试消息：发到指定渠道并记录结果', async () => {
   const fetchImpl = fakeFetch()
   const n = makeNotifier(fetchImpl, 'http://nas:1905')
@@ -251,7 +325,7 @@ await test('测试消息：发到指定渠道并记录结果', async () => {
   const result = await n.testChannel(id)
   assert.equal(result.ok, true)
   assert.equal(fetchImpl.calls[0].body.title, '【iPTV】测试消息')
-  assert.match(fetchImpl.calls[0].body.body, /手机/)
+  assert.match(fetchImpl.calls[0].body.body, /「手机」配置正确/)
   assert.match(fetchImpl.calls[0].body.body, /来自 http:\/\/nas:1905/)
   assert.equal(n.publicChannels()[0].lastResult.ok, true)
 })

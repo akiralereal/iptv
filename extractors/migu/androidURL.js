@@ -41,9 +41,11 @@ function getSaltAndSign(md5) {
 // fetchUrl 在超时/网络不通/非 JSON 响应时返回 undefined，部分风控/限流响应则没有 body 字段——
 // 此前直接读 respData.rid / respData.body 会抛 "Cannot read properties of undefined" 刷日志。
 // 统一返回干净的失败结果：channel() 会把 message 展示出来并按 1 分钟短缓存自动重试。
+// 海外部署不会走到这句：咪咕在海外照样回应，只是回「不可在当前地区播放」。咪咕会按单个
+// 服务器 IP 拒绝连接（issue #171，两位用户同机房换公网 IP 即恢复），所以提示里给出换 IP。
 function miguFetchFail(respData) {
   const message = (respData && (respData.message || respData.desc))
-    || "咪咕接口请求失败：网络超时或不可达（服务器挂代理、海外部署、DNS 异常最常见），请检查服务器到 miguvideo.com 的网络"
+    || "咪咕接口请求失败：网络超时或不可达（服务器挂代理、DNS 异常最常见；也可能是服务器 IP 被咪咕拒绝，换个公网 IP 试试），请检查服务器到 miguvideo.com 的网络"
   return { url: "", rateType: 0, content: { message, raw: respData } }
 }
 

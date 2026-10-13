@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const WORKFLOW = '.github/workflows/push_docker.yaml'
-const FILES = ['bump-version.js', 'package.json', 'package-lock.json', 'README.md', 'web/admin.html', WORKFLOW]
+const FILES = ['bump-version.js', 'package.json', 'package-lock.json', 'README.md', 'CHANGELOG.md', 'web/admin.html', WORKFLOW]
 
 const tagsIn = (yaml) => [...yaml.matchAll(/akiralereal\/iptv:([\w.]+)/g)].map(m => m[1])
 

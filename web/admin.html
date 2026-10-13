@@ -2463,6 +2463,82 @@
             box-shadow: var(--ui-ring);
         }
 
+        /* 下拉框统一用自绘箭头：浏览器自带的箭头贴着右边框画。
+           几处下拉用行内 padding 简写、几处聚焦样式用 background 简写换白底，都会盖掉箭头或右侧留白，
+           所以这几项用 !important。多选列表（multiple）没有箭头，不动。 */
+        select:not([multiple]) {
+            appearance: none;
+            -webkit-appearance: none;
+            padding-right: 30px !important;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%236b7a8c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 11px center !important;
+            background-size: 12px 12px !important;
+            cursor: pointer;
+        }
+        select:not([multiple]):disabled { cursor: not-allowed; opacity: .6; }
+
+        /* 消息推送：渠道卡片网格。渠道多了也不会一条条往下排 */
+        .notify-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+        .notify-card {
+            display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px;
+            border: 1px solid var(--ui-line, #e8ecef); border-radius: 10px; background: var(--ui-surface, #fff);
+        }
+        .notify-card.is-off { opacity: .6; }
+        .notify-card-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .notify-card-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .notify-card-meta { font-size: 12px; color: #888; }
+        .notify-card-status { font-size: 12px; color: #999; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
+        .notify-card-status .ok { color: #389e0d; }
+        .notify-card-status .fail { color: #cf1322; }
+        .notify-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
+        .notify-card-add {
+            display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 120px;
+            border: 1px dashed var(--ui-line-strong, #cfd8dc); border-radius: 10px; background: transparent;
+            color: var(--ui-text-secondary, #5b6b80); font-size: 14px; cursor: pointer;
+        }
+        .notify-card-add:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+
+        .user-modal-content { width: 440px; max-width: 92%; }
+        .user-modal-content h3 { margin: 0 32px 16px 0; }
+        /* 设置页通用的添加 / 编辑弹窗 */
+        .form-modal-content { width: 480px; max-width: 92%; max-height: 88vh; overflow-y: auto; }
+        .form-modal-content h3 { margin: 0 32px 16px 0; }
+        .form-modal-body { display: grid; gap: 12px; }
+        .form-modal-body input { margin-bottom: 0; }
+        .form-modal-body input[type="checkbox"] { width: auto; min-height: 0; flex: 0 0 auto; padding: 0; }
+        .form-modal-actions { margin-top: 18px; }
+        .form-modal input[readonly] { background: var(--ui-surface-strong, #f3f5f7); color: #888; cursor: not-allowed; }
+        /* 消息推送弹窗：内容多（字段 + 样式预览），限高后内部滚动，按钮固定在底部 */
+        .notify-modal-content { width: 620px; max-width: 92%; max-height: 88vh; display: flex; flex-direction: column; padding: 24px 24px 0; }
+        .notify-modal-content h3 { margin: 0 32px 14px 0; }
+        .notify-modal-body { overflow-y: auto; flex: 1 1 auto; padding-bottom: 16px; }
+        .notify-modal-body input { margin-bottom: 0; }
+        .notify-modal-body { padding-right: 6px; }
+        .notify-modal-body .notify-template-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+        .notify-modal-body .notify-preview { max-width: none; }
+        .notify-modal-actions { flex: 0 0 auto; margin: 0 -24px; padding: 14px 24px; border-top: 1px solid var(--ui-line, #eef1f6); }
+
+        /* 消息推送：样式选择与预览 */
+        .notify-template-options { display: flex; gap: 8px; flex-wrap: wrap; }
+        .notify-template-option {
+            display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; min-width: 120px;
+            border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius-control);
+            background: var(--ui-surface); cursor: pointer; text-align: left; font-size: 13px; color: var(--ui-text);
+        }
+        .notify-template-option small { color: #888; font-size: 11.5px; }
+        .notify-template-option.active { border-color: var(--ui-accent); box-shadow: var(--ui-ring); font-weight: 600; }
+        .notify-preview { margin-top: 8px; max-width: 460px; border: 1px solid #e5e9f0; border-radius: 8px; background: #fff; overflow: hidden; font-size: 13px; line-height: 1.6; color: #1f2329; }
+        .notify-preview-label { padding: 4px 10px; font-size: 11.5px; color: #888; background: #f7f9fc; border-bottom: 1px solid #eef1f6; }
+        .notify-preview-text { margin: 0; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; font-family: inherit; }
+        .notify-preview-card-head { padding: 10px 12px; color: #fff; font-weight: 600; }
+        .notify-preview-card-head.red { background: #f54a45; }
+        .notify-preview-card-head.orange { background: #ff8800; }
+        .notify-preview-card-head.green { background: #34c724; }
+        .notify-preview-card-body { padding: 10px 12px; display: grid; gap: 8px; }
+        .notify-preview-card-body p { margin: 0; white-space: pre-wrap; word-break: break-word; }
+        .notify-preview-card-note { padding: 0 12px 10px; font-size: 12px; color: #8f959e; }
+
         /* 表单控件 */
         input[type="text"], input[type="number"], input[type="password"], input[type="url"],
         input[type="file"], select, textarea,
@@ -2827,8 +2903,9 @@
             border-radius: 999px;
             background: var(--ui-violet-soft);
         }
-        /* 搜索结果行（issue #159）：只读、整行可点，右侧标出所在分组 */
+        /* 搜索结果行（issue #159）：整行可点（跳到分组；批量模式下是勾选，issue #176），右侧标出所在分组 */
         .my-playlist-channel.search-result { gap: 10px; cursor: pointer; }
+        .my-playlist-channel.search-result.locked { cursor: default; }
         .channel-group-tag {
             flex: 0 0 auto;
             max-width: 45%;
@@ -3243,6 +3320,23 @@
         .system-config-item label { margin-bottom: 8px; color: var(--ui-text); font-size: 14px; font-weight: 700; }
         .system-config-hint { margin-top: 8px; color: var(--ui-muted); font-size: 12px; line-height: 1.6; }
         .system-config-actions { gap: 10px; margin-top: 4px; justify-content: flex-end; }
+        /* 系统配置按用途分区：区块成卡，区块里的字段不再各自套卡 */
+        .sys-section {
+            margin-bottom: 18px; padding: 20px;
+            border: 1px solid var(--ui-glass-edge); border-radius: var(--ui-radius-card);
+            background: var(--ui-glass-card); box-shadow: var(--ui-shadow-card);
+        }
+        .sys-section-head { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--ui-line); }
+        .sys-section-title { font-size: 16px; font-weight: 600; color: var(--ui-text); }
+        .sys-section-desc { margin-top: 4px; font-size: 12px; color: var(--ui-muted); }
+        .sys-section .system-config-grid { margin-bottom: 0; gap: 18px 24px; }
+        .sys-section .system-config-item { padding: 0; border: 0; background: none; box-shadow: none; }
+        .sys-section .system-config-item label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .sys-section .system-config-item label.sys-check-label { font-weight: 600; cursor: pointer; }
+        .sys-section .system-config-item label.sys-check-label input { width: auto; min-height: 0; margin: 0; }
+        .sys-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500; line-height: 1.6; white-space: nowrap; cursor: help; }
+        .sys-badge.is-restart { color: #ad4e00; background: #fff4e5; border: 1px solid #ffd8a8; }
+        .sys-badge.is-address { color: #36597a; background: #eef4fb; border: 1px solid #cfe0f2; }
         .settings-backup {
             margin-top: 26px !important;
             padding: 20px !important;
@@ -3530,6 +3624,10 @@
             .source-subtabs > .mode-switch-btn { min-width: 0; white-space: normal; }
             .settings-subtabs > .mode-switch-btn:last-child:nth-child(odd),
             .source-subtabs > .mode-switch-btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+            /* 设置页 7 个标签：手机上排三列（3 行），两列要 4 行太高；最后单出来的一个占满一行 */
+            .settings-subtabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .settings-subtabs > .mode-switch-btn:last-child:nth-child(odd) { grid-column: auto; }
+            .settings-subtabs > .mode-switch-btn:last-child:nth-child(3n+1) { grid-column: 1 / -1; }
             .system-config-item { padding: 15px; }
             .settings-backup { padding: 16px !important; }
             .modal-content, .confirm-dialog { width: calc(100% - 28px) !important; min-width: 0; padding: 22px; }
@@ -3706,7 +3804,8 @@
             .channel-detail-logo .btn { justify-self: start; min-width: 84px; }
             #channelDetailModal .modal-actions { padding: 14px 20px; }
         }
-        input::placeholder, textarea::placeholder { color: #607365; }
+        /* 占位文字要明显浅于填进去的内容，不然看着像已经填了值 */
+        input::placeholder, textarea::placeholder { color: #a3ada6; opacity: 1; }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { transition: none !important; }
         }
@@ -3903,6 +4002,140 @@
             <button type="button" class="extractor-modal-close" onclick="closeAlertCenter()" aria-label="关闭提醒列表">×</button>
             <h3 id="alertCenterTitle">需要处理的提醒</h3>
             <div class="alert-center-list" id="alertCenterList"></div>
+        </div>
+    </div>
+
+    <!-- 设置页的添加 / 编辑弹窗（频道别名、自动分组、EPG 源）；开关见 openFormModal / closeFormModal -->
+    <div class="modal form-modal" id="aliasModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="aliasModalTitle">
+        <div class="modal-content form-modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeFormModal('aliasModal')" aria-label="关闭">×</button>
+            <h3 id="aliasModalTitle">添加别名规则</h3>
+            <div class="form-modal-body">
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">规范名（统一后的名字）</label>
+                    <input type="text" id="aliasNewCanonical" placeholder="例如 CCTV5体育" style="width:100%;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">别名（多个用逗号分隔）</label>
+                    <input type="text" id="aliasNewList" placeholder="例如 央视5套, 体育频道" style="width:100%;" onkeydown="submitOnEnter(event, addAliasRule)">
+                    <div class="system-config-hint" style="margin:6px 0 0;">名字是这些别名之一的频道，显示名统一成上面的规范名。</div>
+                </div>
+            </div>
+            <div class="modal-actions form-modal-actions">
+                <button type="button" class="btn btn-sm" onclick="closeFormModal('aliasModal')">取消</button>
+                <button type="button" class="btn btn-sm btn-success" id="aliasSaveBtn" onclick="addAliasRule()">添加规则</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal form-modal" id="groupRuleModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="groupRuleModalTitle">
+        <div class="modal-content form-modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeFormModal('groupRuleModal')" aria-label="关闭">×</button>
+            <h3 id="groupRuleModalTitle">添加分组规则</h3>
+            <div class="form-modal-body">
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">分组名</label>
+                    <input type="text" id="groupRuleName" placeholder="例如 央视" style="width:100%;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">关键字（多个用逗号分隔）</label>
+                    <input type="text" id="groupRuleKeywords" placeholder="例如 CCTV, 央视" style="width:100%;" onkeydown="submitOnEnter(event, addGroupRule)">
+                    <div class="system-config-hint" style="margin:6px 0 0;">「未分组」里名字含其中任一关键字的频道，自动归到这个分组。</div>
+                </div>
+            </div>
+            <div class="modal-actions form-modal-actions">
+                <button type="button" class="btn btn-sm" onclick="closeFormModal('groupRuleModal')">取消</button>
+                <button type="button" class="btn btn-sm btn-success" id="groupRuleSaveBtn" onclick="addGroupRule()">添加规则</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal form-modal" id="epgModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="epgModalTitle">
+        <div class="modal-content form-modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeFormModal('epgModal')" aria-label="关闭">×</button>
+            <h3 id="epgModalTitle">添加 EPG 源</h3>
+            <div class="form-modal-body">
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">名称</label>
+                    <input type="text" id="epgNewName" placeholder="例如 我的EPG" style="width:100%;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">XMLTV 地址（支持 .xml / .xml.gz）</label>
+                    <input type="text" id="epgNewUrl" placeholder="http://.../epg.xml.gz" style="width:100%;">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">更新间隔（分钟）</label>
+                        <input type="number" id="epgNewInterval" value="720" style="width:100%;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">优先级（数字小的优先）</label>
+                        <input type="number" id="epgNewPriority" value="10" style="width:100%;">
+                    </div>
+                </div>
+                <label style="display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#555; cursor:pointer;">
+                    <input type="checkbox" id="epgNewOverride" style="margin-top:3px;">
+                    <span>优先于官方节目单<br><span style="font-size:12px; color:#888;">勾上后，这个源当前有节目的频道优先用它，咪咕和各模块的官方节目单让出来；不勾只补官方没有的频道。</span></span>
+                </label>
+            </div>
+            <div class="modal-actions form-modal-actions">
+                <button type="button" class="btn btn-sm" onclick="closeFormModal('epgModal')">取消</button>
+                <button type="button" class="btn btn-sm btn-success" onclick="addEpgSource()">添加源</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用户管理：新增用户 -->
+    <div class="modal form-modal" id="userModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="userModalTitle">
+        <div class="modal-content user-modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeFormModal('userModal')" aria-label="关闭">×</button>
+            <h3 id="userModalTitle">新增用户</h3>
+            <div style="display:grid; gap:12px;">
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">用户名称</label>
+                    <input type="text" id="userNewName" placeholder="例如 客厅电视 / 张三" style="width:100%; margin-bottom:0;"
+                           onkeydown="submitOnEnter(event, addUser)">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">绑定档（频道内容）</label>
+                    <select id="userNewProfile" style="width:100%;"></select>
+                    <div class="system-config-hint" style="margin:6px 0 0;">不选就是默认全量；选了某个档，这个人只看到那个档里的频道。</div>
+                </div>
+            </div>
+            <div class="modal-actions" style="margin-top:18px;">
+                <button type="button" class="btn btn-sm" onclick="closeFormModal('userModal')">取消</button>
+                <button type="button" class="btn btn-sm btn-success" onclick="addUser()">新增用户</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 消息推送：添加 / 编辑渠道 -->
+    <div class="modal" id="notifyModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="notifyFormTitle">
+        <div class="modal-content notify-modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeNotifyForm()" aria-label="关闭">×</button>
+            <h3 id="notifyFormTitle">添加推送渠道</h3>
+            <div class="notify-modal-body">
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+                            <div style="min-width:170px;">
+                                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">类型</label>
+                                <select id="notifyType" style="width:100%;" onchange="renderNotifyFields()"></select>
+                            </div>
+                            <div style="flex:1; min-width:140px;">
+                                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">名称</label>
+                                <input type="text" id="notifyName" placeholder="例如 家里的飞书群" style="width:100%;">
+                            </div>
+                        </div>
+                        <div id="notifyFields" style="margin-top:8px; display:grid; gap:8px;"></div>
+                        <div style="margin-top:14px;">
+                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">消息样式</label>
+                            <div class="notify-template-options" id="notifyTemplates" role="radiogroup" aria-label="消息样式"></div>
+                            <div class="notify-preview" id="notifyPreview" aria-label="消息样式预览"></div>
+                        </div>
+            </div>
+            <div class="modal-actions notify-modal-actions">
+                <button type="button" class="btn btn-sm" onclick="closeNotifyForm()">取消</button>
+                <button type="button" class="btn btn-sm btn-success" id="notifySaveBtn" onclick="saveNotifyChannel()">添加渠道</button>
+            </div>
         </div>
     </div>
 
@@ -4209,61 +4442,68 @@
                     <button class="mode-switch-btn" onclick="switchSettingsTab(2)">自动分组</button>
                     <button class="mode-switch-btn" onclick="switchSettingsTab(3)">EPG 聚合<span class="attention-dot" data-alert-where="epg" role="img" hidden></span></button>
                     <button class="mode-switch-btn" onclick="switchSettingsTab(4)">用户管理</button>
+                    <button class="mode-switch-btn" onclick="switchSettingsTab(5)">消息推送</button>
+                    <button class="mode-switch-btn" onclick="switchSettingsTab(6)">备份迁移</button>
                 </div>
 
                 <div class="settings-subpanel active" id="settingsSub0">
                 <div id="envOverrideWarning" style="display: none; margin: 10px 0; padding: 12px 14px; background: #fff7e6; border: 1px solid #ffd591; border-left: 4px solid #fa8c16; border-radius: 6px; color: #874d00; font-size: 13px; line-height: 1.7;"></div>
 
-                <div class="system-config-grid">
-                    <div class="system-config-item">
-                        <label>服务端口</label>
-                        <input type="number" id="sysPort" oninput="setSaveDirty('sysconfig')" placeholder="1905">
-                        <div class="system-config-hint">⚠️ 本页唯二需要<strong>重启服务</strong>才生效的设置之一（另一个是下方的「节目单更新间隔」）；其余项保存即生效。Docker 部署还需同步改端口映射。</div>
+                <section class="sys-section">
+                    <div class="sys-section-head">
+                        <div class="sys-section-title">访问与安全</div>
+                        <div class="sys-section-desc">服务怎么被访问：端口、对外地址、访问密码和后台路径。</div>
                     </div>
-                    <div class="system-config-item">
-                        <label>公网地址</label>
-                        <input type="text" id="sysHost" oninput="setSaveDirty('sysconfig')" placeholder="http://example.com:xxxx">
-                        <div class="system-config-hint">选填。填 <code>http(s)://…</code> 完整地址时<strong>原样使用</strong>（不写端口即 80/443，适合内网穿透/反向代理）；只填 ip/域名则自动补 http:// 和上方的服务端口</div>
+                    <div class="system-config-grid">
+                        <div class="system-config-item">
+                            <label>服务端口 <span class="sys-badge is-restart" title="保存后要重启服务才生效，可直接点下方「保存并重启」">需重启</span></label>
+                            <input type="number" id="sysPort" oninput="setSaveDirty('sysconfig')" placeholder="1905">
+                            <div class="system-config-hint">Docker 部署还需同步改端口映射。</div>
+                        </div>
+                        <div class="system-config-item">
+                            <label>公网地址</label>
+                            <input type="text" id="sysHost" oninput="setSaveDirty('sysconfig')" placeholder="http://example.com:xxxx">
+                            <div class="system-config-hint">选填。填 <code>http(s)://…</code> 完整地址时<strong>原样使用</strong>（不写端口即 80/443，适合内网穿透/反向代理）；只填 ip/域名则自动补 http:// 和上方的服务端口</div>
+                        </div>
+                        <div class="system-config-item">
+                            <label>访问密码 <span class="sys-badge is-address" title="保存后后台和订阅地址会变，页面会自动跳到新地址">改后地址会变</span></label>
+                            <input type="text" id="sysPass" oninput="setSaveDirty('sysconfig')" placeholder="留空表示无密码">
+                            <div class="system-config-hint">设置后访问格式：http://ip:port/密码/...</div>
+                        </div>
+                        <div class="system-config-item">
+                            <label>管理页面路径 <span class="sys-badge is-address" title="保存后后台和订阅地址会变，页面会自动跳到新地址">改后地址会变</span></label>
+                            <input type="text" id="sysAdminPath" oninput="setSaveDirty('sysconfig')" placeholder="admin">
+                            <div class="system-config-hint">自定义后台地址（默认 admin），如填 <code>console</code> 则用 <code>/console</code> 访问，<code>/admin</code> 将失效（api / player / favicon.ico 为保留字）</div>
+                        </div>
                     </div>
-                    <div class="system-config-item">
-                        <label>访问密码</label>
-                        <input type="text" id="sysPass" oninput="setSaveDirty('sysconfig')" placeholder="留空表示无密码">
-                        <div class="system-config-hint">设置后访问格式：http://ip:port/密码/...</div>
+                </section>
+
+                <section class="sys-section">
+                    <div class="sys-section-head">
+                        <div class="sys-section-title">更新与显示</div>
+                        <div class="sys-section-desc">多久全量更新一次，以及频道名怎么显示。</div>
                     </div>
-                    <div class="system-config-item">
-                        <label>管理页面路径</label>
-                        <input type="text" id="sysAdminPath" oninput="setSaveDirty('sysconfig')" placeholder="admin">
-                        <div class="system-config-hint">自定义后台地址（默认 admin），如填 <code>console</code> 则用 <code>/console</code> 访问，<code>/admin</code> 将失效；保存后需用新地址访问（api / player / favicon.ico 为保留字）</div>
+                    <div class="system-config-grid">
+                        <div class="system-config-item">
+                            <label>节目单更新间隔（小时） <span class="sys-badge is-restart" title="保存后要重启服务才生效，可直接点下方「保存并重启」">需重启</span></label>
+                            <input type="number" id="sysProgramInterval" oninput="setSaveDirty('sysconfig')" placeholder="8">
+                            <div class="system-config-hint" style="color:#d4380d;">⚠️ 咪咕频道 / EPG / 体育的全量更新间隔。<strong>如果填写了咪咕 Token（登录账号），建议设置 8 小时以上</strong>——过于频繁请求可能触发风控、影响账号。</div>
+                        </div>
+                        <div class="system-config-item">
+                            <label class="sys-check-label">
+                                <input type="checkbox" id="sysEnableDisplayNameUnify" onchange="setSaveDirty('sysconfig')">
+                                统一频道显示名（合并不同源的同台命名）
+                            </label>
+                            <div class="system-config-hint">开启后，把不同订阅源里同一个台的不同写法（如 <code>CCTV1</code> / <code>CCTV-1</code> / <code>CCTV1综合</code>）<strong>按内置规则自动统一成同一个显示名</strong>（CCTV 系列、清晰度后缀等已内置）。默认关；手动重命名优先级更高；规则兜不住的写法可在「频道别名」标签里加规则。</div>
+                        </div>
                     </div>
-                    <div class="system-config-item">
-                        <label>节目单更新间隔（小时）</label>
-                        <input type="number" id="sysProgramInterval" oninput="setSaveDirty('sysconfig')" placeholder="8">
-                        <div class="system-config-hint" style="color:#d4380d;">⚠️ 咪咕频道 / EPG / 体育的全量更新间隔。<strong>如果填写了咪咕 Token（登录账号），建议设置 8 小时以上</strong>——过于频繁请求可能触发风控、影响账号；修改后需点顶部「重启服务」才生效。</div>
-                    </div>
-                    <div class="system-config-item">
-                        <label>
-                            <input type="checkbox" id="sysEnableDisplayNameUnify" onchange="setSaveDirty('sysconfig')">
-                            统一频道显示名（合并不同源的同台命名）
-                        </label>
-                        <div class="system-config-hint">开启后，把不同订阅源里同一个台的不同写法（如 <code>CCTV1</code> / <code>CCTV-1</code> / <code>CCTV1综合</code>）<strong>按内置规则自动统一成同一个显示名</strong>（CCTV 系列、清晰度后缀等已内置）。默认关；手动重命名优先级更高；规则兜不住的写法可在下方「频道别名」里加规则。保存后即时生效。</div>
-                    </div>
-                </div>
-                <div class="system-config-actions">
+                </section>
+                <div class="system-config-hint" style="margin:0 0 10px;">标了「需重启」的项保存后要重启服务才生效；其余项保存即生效。</div>
+                <div class="system-config-actions" style="justify-content:flex-start;">
                     <button class="btn btn-success" data-save-scope="sysconfig" onclick="saveSystemConfig()">保存系统配置</button>
                     <button class="btn btn-primary" data-save-scope="sysconfig" onclick="saveAndRestartService()" title="保存成功后自动重启服务，让需重启的配置一步生效">保存并重启</button>
                 </div>
 
-                <!-- 配置备份 / 迁移（issue #99） -->
-                <div class="settings-backup" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee;">
-                    <div style="font-size:16px; font-weight:600; color:#333;">配置备份 / 迁移</div>
-                    <div class="system-config-hint">一键把全部配置（系统配置、外部源、我的频道与各配置档、EPG 源、别名 / 分组规则、用户令牌）导出为单个备份文件；换机 / 重装后导入即可恢复。<strong>⚠️ 导出文件包含咪咕账号与访问密码，请勿随意发给他人</strong>；自定义台标 <code>logos/</code> 文件夹不在包内，如有请单独拷贝。</div>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px;">
-                        <button class="btn btn-primary" onclick="exportConfigBackup()">导出配置</button>
-                        <input type="file" id="configImportFile" accept=".json,application/json" style="max-width: 260px;">
-                        <button class="btn btn-warning" onclick="importConfigBackup()">导入配置</button>
-                    </div>
-                    <div class="system-config-hint" style="margin-top:6px;">导入会<strong>覆盖当前同名配置</strong>（导入前会自动把当前配置备份到数据目录 <code>config-pre-import-backup.json</code>，写坏可手动恢复）；导入后多数配置即时生效，端口修改需重启。</div>
-                </div>
                 </div>
                 <div class="settings-subpanel" id="settingsSub1">
                 <!-- 频道别名（issue #56）：自定义批量统一规则 -->
@@ -4272,18 +4512,10 @@
                         <div style="font-size:16px; font-weight:600; color:#333;">频道别名（统一命名规则）</div>
                         <div class="system-config-hint">给上面的「统一频道显示名」加自定义规则：把若干<strong>别名</strong>都归到一个<strong>规范名</strong>下（如 规范名 <code>CCTV5体育</code>，别名 <code>央视5套, 体育频道</code>）。内置规则（CCTV 系列、清晰度后缀等）已覆盖大部分，这里只补兜不住的写法。保存后下次刷新播放列表即生效。</div>
                     </div>
-                    <div id="aliasList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
-                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-                        <div style="min-width:150px;">
-                            <label style="display:block; font-size:12px; color:#888;">规范名（统一后的名字）</label>
-                            <input type="text" id="aliasNewCanonical" placeholder="例如 CCTV5体育" style="width:100%;">
-                        </div>
-                        <div style="flex:1; min-width:200px;">
-                            <label style="display:block; font-size:12px; color:#888;">别名（多个用逗号分隔）</label>
-                            <input type="text" id="aliasNewList" placeholder="例如 央视5套, 体育频道" style="width:100%;">
-                        </div>
-                        <button class="btn btn-sm btn-success" onclick="addAliasRule()">➕ 添加规则</button>
+                    <div style="margin-top:12px;">
+                        <button type="button" class="btn btn-success" onclick="openAliasModal()">＋ 添加规则</button>
                     </div>
+                    <div id="aliasList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
                 </div>
                 </div>
                 <div class="settings-subpanel" id="settingsSub2">
@@ -4293,18 +4525,10 @@
                         <div style="font-size:16px; font-weight:600; color:#333;">关键字自动分组</div>
                         <div class="system-config-hint">自定义订阅源里没写分组的频道会落到「未分组」，每次刷新又回到未分组。这里按<strong>频道名关键字</strong>配规则，名字含关键字的<strong>未分组</strong>频道会自动归到对应分组（多条规则按从上到下、首条命中生效）——刷新也不丢，且<strong>不影响源已分好的分组、手动移动优先</strong>。如 分组 <code>央视</code> ← 关键字 <code>CCTV, 央视</code>。保存后下次刷新播放列表即生效。</div>
                     </div>
-                    <div id="groupRuleList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
-                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-                        <div style="min-width:150px;">
-                            <label style="display:block; font-size:12px; color:#888;">分组名</label>
-                            <input type="text" id="groupRuleName" placeholder="例如 央视" style="width:100%;">
-                        </div>
-                        <div style="flex:1; min-width:200px;">
-                            <label style="display:block; font-size:12px; color:#888;">关键字（多个用逗号分隔，名字含其一即归此组）</label>
-                            <input type="text" id="groupRuleKeywords" placeholder="例如 CCTV, 央视" style="width:100%;">
-                        </div>
-                        <button class="btn btn-sm btn-success" onclick="addGroupRule()">➕ 添加规则</button>
+                    <div style="margin-top:12px;">
+                        <button type="button" class="btn btn-success" onclick="openGroupRuleModal()">＋ 添加规则</button>
                     </div>
+                    <div id="groupRuleList" style="margin-top:14px; max-height:320px; overflow-y:auto;"></div>
                 </div>
                 </div>
                 <div class="settings-subpanel" id="settingsSub3">
@@ -4313,38 +4537,19 @@
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                         <div>
                             <div style="font-size:16px; font-weight:600; color:#333;">EPG 节目单源（聚合）</div>
-                            <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕和各模块官方节目单都没覆盖的频道补节目单。默认已开启，但不带内置外部源，需要更广覆盖时在下面自己加。勾了「优先于官方节目单」的源，对它当前有节目的频道会覆盖咪咕和各模块的官方节目单（源停更只剩旧数据时自动让回官方）。改动即时保存、无需重启，下次更新生效（或点「立即刷新」）。</div>
+                            <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕和各模块官方节目单都没覆盖的频道补节目单。默认已开启，但不带内置外部源，需要更广覆盖时点「＋ 添加 EPG 源」自己加。勾了「优先于官方节目单」的源，对它当前有节目的频道会覆盖咪咕和各模块的官方节目单（源停更只剩旧数据时自动让回官方）。改动即时保存、无需重启，下次更新生效（或点「立即刷新」）。</div>
                         </div>
                         <label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
                             <input type="checkbox" id="epgEnabled" onchange="setEpgEnabled(this.checked)">
                             启用 EPG 聚合
                         </label>
                     </div>
+                    <div style="margin-top:12px;">
+                        <button type="button" class="btn btn-success" onclick="openEpgModal()">＋ 添加 EPG 源</button>
+                    </div>
 
                     <div id="epgSourceList" style="margin-top:14px;"></div>
 
-                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-                        <div style="flex:1; min-width:120px;">
-                            <label style="display:block; font-size:12px; color:#888;">名称</label>
-                            <input type="text" id="epgNewName" placeholder="例如 我的EPG" style="width:100%;">
-                        </div>
-                        <div style="flex:2; min-width:200px;">
-                            <label style="display:block; font-size:12px; color:#888;">XMLTV 地址（支持 .xml / .xml.gz）</label>
-                            <input type="text" id="epgNewUrl" placeholder="http://.../epg.xml.gz" style="width:100%;">
-                        </div>
-                        <div style="width:110px;">
-                            <label style="display:block; font-size:12px; color:#888;">间隔(分钟)</label>
-                            <input type="number" id="epgNewInterval" value="720" style="width:100%;">
-                        </div>
-                        <div style="width:90px;">
-                            <label style="display:block; font-size:12px; color:#888;">优先级</label>
-                            <input type="number" id="epgNewPriority" value="10" style="width:100%;">
-                        </div>
-                        <label title="勾上后，这个源当前有节目的频道优先用它，咪咕和各模块的官方节目单让出来" style="display:flex; align-items:center; gap:4px; font-size:12px; color:#888; padding-bottom:6px;">
-                            <input type="checkbox" id="epgNewOverride"> 优先于官方节目单
-                        </label>
-                        <button class="btn btn-sm btn-success" onclick="addEpgSource()">➕ 添加源</button>
-                    </div>
 
                     <div style="margin-top:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                         <button class="btn btn-sm" onclick="refreshEpgNow()">立即刷新并应用</button>
@@ -4359,6 +4564,9 @@
                         <div style="font-size:16px; font-weight:600; color:#333;">用户管理（一人一源）</div>
                         <div class="system-config-hint">给每个家人 / 朋友生成独立的源地址 <code>/u/&lt;令牌&gt;/m3u</code>，可单独停用、泄露可追溯，且<strong>令牌进不了本后台</strong>。不新增用户则对现有链接零影响。</div>
                     </div>
+                    <div style="margin-top:12px;">
+                        <button type="button" class="btn btn-success" onclick="openUserModal()">＋ 新增用户</button>
+                    </div>
 
                     <!-- 没设访问密码时裸地址对所有人开放，令牌挡不住任何人（issue #141）；由 /api/users 的 passSet 决定显隐 -->
                     <div id="userPassWarning" style="display:none; margin-top:10px; padding:12px 14px; background:#fff7e6; border:1px solid #ffd591; border-left:4px solid #fa8c16; border-radius:6px; color:#874d00; font-size:13px; line-height:1.7;">
@@ -4367,7 +4575,7 @@
 
                     <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
                         <div style="font-weight:600; color:#333; margin-bottom:4px;">怎么用</div>
-                        <div>① 点「➕ 新增用户」，给每个人起个名（如「客厅电视」「老王」）；</div>
+                        <div>① 点「＋ 新增用户」，给每个人起个名（如「客厅电视」「老王」）；</div>
                         <div>② 用每行的「复制 m3u」把各自的源地址发给对应的人；</div>
                         <div>③ 谁的链接泄露 / 不想给了 → 关掉那一行的开关（或「重置令牌」），<strong>只影响他一个</strong>，其他人照常。</div>
                         <div style="font-weight:600; color:#333; margin:8px 0 4px;">注意</div>
@@ -4376,19 +4584,38 @@
                         <div>• 「绑定档」可给不同人不同频道，不选就是默认全量。</div>
                     </div>
 
-                    <div id="userList" style="margin-top:14px;"></div>
-
-                    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-                        <div style="flex:1; min-width:140px;">
-                            <label style="display:block; font-size:12px; color:#888;">用户名称</label>
-                            <input type="text" id="userNewName" placeholder="例如 客厅电视 / 张三" style="width:100%;">
-                        </div>
-                        <div style="min-width:150px;">
-                            <label style="display:block; font-size:12px; color:#888;">绑定档（频道内容）</label>
-                            <select id="userNewProfile" style="width:100%;"></select>
-                        </div>
-                        <button class="btn btn-sm btn-success" onclick="addUser()">➕ 新增用户</button>
+                    <div id="userList" style="margin-top:12px;"></div>
+                </div>
+                </div>
+                <div class="settings-subpanel" id="settingsSub5">
+                <!-- 消息推送（utils/notify.js）：提醒中心的新提醒 / 已恢复发到群机器人或手机 -->
+                <div class="settings-editor-card" style="margin-top: 4px;">
+                    <div>
+                        <div style="font-size:16px; font-weight:600; color:#333;">消息推送</div>
+                        <div class="system-config-hint">后台顶部「需要处理的提醒」出现新的一条（登录凭证失效、模块抓取失败、EPG 源失败等）或问题恢复时，发一条消息到飞书、企业微信、钉钉、Telegram、Bark 或你自己的 Webhook，不用开着后台也能知道。只发消息，不接收任何指令。</div>
                     </div>
+                    <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
+                        <div>• 抓取失败要<strong>连续失败两次</strong>才发，一闪而过的不打扰；其他提醒出现即发，恢复时再发一条「已恢复」；</div>
+                        <div>• 升级前就已存在的提醒不发；同一个问题没恢复前只发一次；</div>
+                        <div>• Telegram 的接口在大陆连不上：部署在大陆需给容器设 <code>HTTPS_PROXY</code>，或在「API 地址」填自己的反代；</div>
+                        <div>• 机器人地址和 Token 存在数据目录 <code>notify-channels.json</code>，会随「备份迁移」里的配置导出一起导出，别把备份发给别人。</div>
+                    </div>
+
+                    <div id="notifyList" style="margin-top:14px;"></div>
+
+                </div>
+                </div>
+                <div class="settings-subpanel" id="settingsSub6">
+                <!-- 配置备份 / 迁移（issue #99） -->
+                <div class="settings-backup settings-editor-card" style="margin-top: 4px;">
+                    <div style="font-size:16px; font-weight:600; color:#333;">配置备份 / 迁移</div>
+                    <div class="system-config-hint">一键把全部配置（系统配置、外部源、我的频道与各配置档、EPG 源、别名 / 分组规则、用户令牌、消息推送）导出为单个备份文件；换机 / 重装后导入即可恢复。<strong>⚠️ 导出文件包含咪咕账号、访问密码与推送机器人地址，请勿随意发给他人</strong>；自定义台标 <code>logos/</code> 文件夹不在包内，如有请单独拷贝。</div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px;">
+                        <button class="btn btn-primary" onclick="exportConfigBackup()">导出配置</button>
+                        <input type="file" id="configImportFile" accept=".json,application/json" style="max-width: 260px;">
+                        <button class="btn btn-warning" onclick="importConfigBackup()">导入配置</button>
+                    </div>
+                    <div class="system-config-hint" style="margin-top:6px;">导入会<strong>覆盖当前同名配置</strong>（导入前会自动把当前配置备份到数据目录 <code>config-pre-import-backup.json</code>，写坏可手动恢复）；导入后多数配置即时生效，端口修改需重启。</div>
                 </div>
                 </div>
             </div>
@@ -4408,7 +4635,7 @@
                                 <strong>当前版本</strong>
                             </div>
                             <div class="about-version-body">
-                                <span id="versionText">v4.32.0</span>
+                                <span id="versionText">v4.36.0</span>
                                 <button class="btn btn-sm" onclick="checkUpdate()" id="checkUpdateBtn">检查更新</button>
                             </div>
                             <div id="updateInfo" class="about-update-info" style="display: none;"></div>
@@ -4591,6 +4818,7 @@
             if (index === 2) {
                 loadEpgSources();
                 loadUsers();
+                loadNotify();
                 loadAliases();
                 loadGroupRules();
             }
@@ -4706,7 +4934,7 @@
                     `<option value="${escapeHtml(o.value)}" ${String(config[field.key]) === String(o.value) ? 'selected' : ''}>${escapeHtml(o.label ?? o.value)}</option>`
                 ).join('');
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888;">${label}</label>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
                     <select id="${id}" onchange="setSaveDirty('xt:${moduleId}')" style="min-width:180px;">${opts}</select>
                     ${hint}${envNote}</div>`;
             }
@@ -4726,14 +4954,14 @@
                     </label>`;
                 }).join('');
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#555; font-weight:600;">${label}</label>
+                    <label style="display:block; font-size:12px; color:#555; font-weight:600; margin-bottom:6px;">${label}</label>
                     <input type="hidden" id="${id}" value="${escapeHtml(value)}">
                     <div class="xt-multiselect" id="${choicesId}" role="group" aria-label="${label}">${choices}</div>
                     ${hint}${envNote}</div>`;
             }
             if (field.type === 'int') {
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888;">${label}</label>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
                     <input type="number" id="${id}" oninput="setSaveDirty('xt:${moduleId}')" value="${escapeHtml(config[field.key] != null ? config[field.key] : '')}" style="width:140px;">
                     ${hint}${envNote}</div>`;
             }
@@ -4746,7 +4974,7 @@
                     ? `<button class="btn btn-sm" type="button" onclick="markSecretCleared('${moduleId}','${field.key}')" title="清空已保存的凭据（点「保存配置」生效）">清除</button>`
                     : '';
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888;">${label}</label>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
                     <div style="display:flex; gap:6px; align-items:center;">
                         <input type="password" id="${id}" oninput="this.removeAttribute('data-cleared'); setSaveDirty('xt:${moduleId}')" value="" placeholder="${escapeHtml(ph)}" autocomplete="new-password" style="flex:1; min-width:0;">
                         ${clearBtn}
@@ -4755,12 +4983,12 @@
             }
             if (field.multiline) {
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888;">${label}</label>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
                     <textarea id="${id}" oninput="setSaveDirty('xt:${moduleId}')" rows="6" placeholder="${escapeHtml(field.placeholder || '')}" style="width:100%; font-family:monospace;">${escapeHtml(config[field.key] || '')}</textarea>
                     ${hint}${envNote}</div>`;
             }
             return `<div style="margin-bottom:12px;">
-                <label style="display:block; font-size:12px; color:#888;">${label}</label>
+                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
                 <input type="text" id="${id}" oninput="setSaveDirty('xt:${moduleId}')" value="${escapeHtml(config[field.key] || '')}" placeholder="${escapeHtml(field.placeholder || '')}" style="width:100%;">
                 ${hint}${envNote}</div>`;
         }
@@ -5136,61 +5364,41 @@
         // ===== 提醒中心 =====
         // 后台各处「现在确实有问题、用户能处理」的事汇总到页面顶部一个入口：顶部不论几条都只占一行，
         // 逐条说明和处理按钮在「需要处理的提醒」弹窗里。纯说明性的提示（环境变量覆盖、空白模式）
-        // 不收；各页原位的提示照旧保留，这里是汇总不是搬走。新增一类提醒只需在 collectAlerts 里加一段。
-        let usersPassSet = true;   // /api/users 回传的 passSet，loadUsers 回填
+        // 不收；各页原位的提示照旧保留，这里是汇总不是搬走。
+        // 判断哪些算提醒在服务端（utils/alerts.js 的 collectAlerts），这里只拉 /api/alerts 显示：
+        // 页面和将来的消息推送看的是同一份列表。新增一类提醒改服务端，不改这里。
+        let usersPassSet = true;   // /api/users 回传的 passSet，loadUsers 回填（用户管理页顶部提示用）
         let currentAlerts = [];    // 本次渲染的提醒，按钮按下标取
+        let alertsRefreshTimer = null;
 
-        /**
-         * 每条：{ level: 'error'|'warning', title: 顶部一行用的短句, text: 列表里的说明,
-         *        action: 按钮文字, run: 点按钮做什么, where: 红点挂在哪（对应 data-alert-where） }
-         */
-        function collectAlerts() {
-            const alerts = [];
-            if (extractorsState && extractorsState.corrupt) {
-                alerts.push({ level: 'error', where: 'extractors', title: '抓取模块配置文件损坏', action: '查看',
-                    text: '配置文件损坏，已保留原文件并另存 .corrupt 副本；修复前模块的所有改动都会被拒绝，以免覆盖原数据。',
-                    run: () => openAlertTarget('extractors') });
-            }
-            for (const m of (extractorsState && extractorsState.modules) || []) {
-                if (!m.enabled) continue;
-                const h = m.health || {};
-                if (h.credentialRejected) {
-                    alerts.push({ level: 'error', where: 'extractors', title: `${m.name}登录凭证已失效`, action: '去更新',
-                        text: h.credentialRejected, run: () => openAlertTarget('module', m.id) });
-                } else if (h.status === 'failed' || h.status === 'risk') {
-                    const kept = h.usingCachedChannels ? `；暂时沿用上次抓到的 ${h.channelCount || 0} 个频道` : '';
-                    alerts.push({ level: 'error', where: 'extractors', title: `${m.name}${h.status === 'risk' ? '被风控' : '抓取失败'}`, action: '查看',
-                        text: `${h.lastError || '最近一次抓取没有成功'}${kept}。会自动重试；长期失败又用不到的话，可以关掉这个模块。`,
-                        run: () => openAlertTarget('module', m.id) });
-                }
-            }
-            if (epgConfig && epgConfig.enabled !== false) {
-                for (const src of epgConfig.sources || []) {
-                    if (src.enabled === false) continue;
-                    const name = src.name || '未命名';
-                    if (epgLegacyUrls.includes(String(src.url || '').trim())) {
-                        alerts.push({ level: 'warning', where: 'epg', title: `EPG 源「${name}」已停用`, action: '去设置',
-                            text: '这是停用的老默认源：51zmt 只剩央视和卫视，erw 已停止免费下载。节目单现由咪咕和各模块的官方接口提供，这条留着只会挂上过期节目单，建议删掉。',
-                            run: () => openAlertTarget('epg') });
-                    } else if (typeof src.lastStatus === 'string' && src.lastStatus.indexOf('失败') >= 0) {
-                        alerts.push({ level: 'error', where: 'epg', title: `EPG 源「${name}」抓取失败`, action: '去设置',
-                            text: src.lastStatus, run: () => openAlertTarget('epg') });
-                    }
-                }
-            }
-            // 只在已经加了一人一源用户时提醒：没加用户、不设密码是很多局域网用户的正常用法，不该常亮
-            if (!usersPassSet && ((usersConfig && usersConfig.users) || []).length) {
-                alerts.push({ level: 'warning', where: 'system', title: '没设访问密码，一人一源没生效', action: '去设置',
-                    text: '已经添加了一人一源用户，但没设访问密码：去掉令牌的地址谁都能直接用，后台也没上锁。设置访问密码后，已发出去的 /u/<令牌>/… 链接不受影响。',
-                    run: () => openAlertTarget('password') });
-            }
-            const rank = a => a.level === 'error' ? 0 : 1;
-            return alerts.sort((a, b) => rank(a) - rank(b));
+        /** 服务端提醒的跳转目标 → 点按钮做什么 */
+        function alertRun(target) {
+            const kind = (target && target.kind) || 'extractors';
+            return () => openAlertTarget(kind, target && target.moduleId);
         }
 
-        /** 重算全部提醒：顶部提醒条、标签红点、提醒列表。任何一份相关数据变了都调它。 */
+        /**
+         * 重算全部提醒：顶部提醒条、标签红点、提醒列表。任何一份相关数据变了都调它。
+         * 多处数据接连加载时会连着调好几次，合并成一次请求。
+         */
         function renderAlerts() {
-            currentAlerts = collectAlerts();
+            clearTimeout(alertsRefreshTimer);
+            alertsRefreshTimer = setTimeout(refreshAlerts, 150);
+        }
+
+        async function refreshAlerts() {
+            try {
+                const res = await fetch(API_PREFIX + '/api/alerts');
+                const payload = await res.json();
+                if (!payload || !payload.success || !Array.isArray(payload.data)) return;
+                currentAlerts = payload.data.map(a => ({ ...a, run: alertRun(a.target) }));
+                paintAlerts();
+            } catch (e) {
+                console.error('加载提醒失败', e);   // 拉不到就保持上一次的显示
+            }
+        }
+
+        function paintAlerts() {
             const errors = currentAlerts.filter(a => a.level === 'error').length;
 
             // 红点挂在问题所在的标签上（顶层标签和二级标签都标），鼠标停上去看是哪几条
@@ -5231,6 +5439,7 @@
         }
 
         function openAlertCenter() {
+            paintAlerts();     // 先显示手上的，再拉一次最新的
             renderAlerts();
             const modal = document.getElementById('alertCenterModal');
             if (!modal) return;
@@ -5497,7 +5706,7 @@
                         ${escapeHtml(m.refreshDescription || '模块会根据播放地址有效期自动更新，无需手动设置。')}
                     </div>` : `
                     <div style="margin-bottom:12px;">
-                        <label style="display:block; font-size:12px; color:#888;">刷新间隔（分钟）</label>
+                        <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">刷新间隔（分钟）</label>
                         <input type="number" min="${m.minRefreshMinutes || 1}" max="${m.maxRefreshMinutes || 1440}" id="xf-${escapeHtml(m.id)}-__refresh" oninput="setSaveDirty('xt:${escapeHtml(m.id)}')" value="${m.refreshMinutes}" style="width:140px;">
                         <div style="font-size:12px; color:#888; margin-top:3px;">允许范围 ${m.minRefreshMinutes || 1}–${m.maxRefreshMinutes || 1440} 分钟，默认 ${m.defaultRefreshMinutes} 分钟。${m.id === 'bilibili-live' ? '只决定多久重新挑一次直播间（热门榜换人、主播下播）；播放地址在播放时实时换取，与此无关。过短容易触发风控。' : m.id === 'douyin-live' ? '只决定多久重新选一次房间；播放器刷新订阅不会强制重抓。播放时会获取当前地址。' : ''}</div>
                     </div>`}
@@ -5974,7 +6183,7 @@
             if (cb) cb.checked = epgConfig.enabled !== false;
             const sources = epgConfig.sources || [];
             if (!sources.length) {
-                box.innerHTML = '<div class="system-config-hint" style="margin:0;">暂无 EPG 源，可在下方添加。</div>';
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">暂无 EPG 源，点上方「＋ 添加 EPG 源」添加。</div>';
                 return;
             }
             box.innerHTML = sources.map((s, i) => `
@@ -6013,6 +6222,15 @@
             else { showStatus(r.message || '操作失败', 'error'); loadEpgSources(); }
         }
 
+        function openEpgModal() {
+            document.getElementById('epgNewName').value = '';
+            document.getElementById('epgNewUrl').value = '';
+            document.getElementById('epgNewInterval').value = '720';
+            document.getElementById('epgNewPriority').value = '10';
+            document.getElementById('epgNewOverride').checked = false;
+            openFormModal('epgModal', 'epgNewName');
+        }
+
         async function addEpgSource() {
             const source = {
                 name: document.getElementById('epgNewName').value,
@@ -6024,9 +6242,7 @@
             const r = await epgPost({ action: 'add', source });
             if (r.success) {
                 epgConfig = r.data; renderEpgSources();
-                document.getElementById('epgNewName').value = '';
-                document.getElementById('epgNewUrl').value = '';
-                document.getElementById('epgNewOverride').checked = false;
+                closeFormModal('epgModal');
                 showStatus('已添加 EPG 源，下次更新生效（或点「立即刷新」）', 'success');
             } else {
                 showStatus(r.message || '添加失败', 'error');
@@ -6111,7 +6327,7 @@
             if (!box) return;
             const users = usersConfig.users || [];
             if (!users.length) {
-                box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有用户。新增后会得到一个独立的 /u/&lt;令牌&gt;/m3u 源地址，发给对应的人即可。</div>';
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有用户。点页面上方「＋ 新增用户」，新增后会得到一个独立的 /u/&lt;令牌&gt;/m3u 源地址，发给对应的人即可。</div>';
                 return;
             }
             box.innerHTML = users.map(u => {
@@ -6147,11 +6363,302 @@
             }).join('');
         }
 
+        // ===== 消息推送（utils/notify.js）=====
+        let notifyState = { channels: [], types: [], templates: [] };
+        let notifyEditingId = null;
+        let notifyTemplate = 'detailed';
+
+        async function loadNotify() {
+            try {
+                const res = await fetch(API_PREFIX + '/api/notify');
+                const payload = await res.json();
+                if (payload && payload.success && payload.data) {
+                    notifyState = payload.data;
+                    renderNotify();
+                }
+            } catch (e) { console.error('加载消息推送失败', e); }
+        }
+
+        async function notifyPost(body) {
+            const res = await fetch(API_PREFIX + '/api/notify', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+            });
+            return res.json();
+        }
+
+        function notifyTypeOf(id) {
+            return (notifyState.types || []).find(t => t.id === id);
+        }
+
+        function renderNotify() {
+            const typeSelect = document.getElementById('notifyType');
+            if (typeSelect && !typeSelect.options.length) {
+                typeSelect.innerHTML = (notifyState.types || [])
+                    .map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('');
+                renderNotifyFields();
+            }
+            const box = document.getElementById('notifyList');
+            if (!box) return;
+            const channels = notifyState.channels || [];
+            const addCard = `<button type="button" class="notify-card-add" onclick="openNotifyForm()">＋ 添加推送渠道</button>`;
+            if (!channels.length) {
+                box.innerHTML = `<div class="system-config-hint" style="margin:0 0 10px;">还没有推送渠道。点下面添加，选类型、填机器人地址，添加后点「发测试消息」确认能收到。</div>
+                    <div class="notify-grid">${addCard}</div>`;
+                return;
+            }
+            const when = at => new Date(at).toLocaleString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            box.innerHTML = `<div class="notify-grid">${channels.map(c => {
+                const type = notifyTypeOf(c.type);
+                const r = c.lastResult;
+                const status = !r ? '还没发过'
+                    : `${when(r.at)} ${r.ok ? '<span class="ok">发送成功</span>' : `<span class="fail">发送失败：${escapeHtml(r.message || '')}</span>`}`;
+                const statusTitle = r && !r.ok ? ` title="${escapeHtml(r.message || '')}"` : '';
+                return `<div class="notify-card${c.enabled === false ? ' is-off' : ''}">
+                    <label class="notify-card-head">
+                        <input type="checkbox" ${c.enabled !== false ? 'checked' : ''} onchange="toggleNotifyChannel('${c.id}', this.checked)" title="启用 / 停用">
+                        <strong title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</strong>
+                    </label>
+                    <div class="notify-card-meta">${escapeHtml(type ? type.name : c.type)} · ${escapeHtml(notifyTemplateName(c))}${c.enabled === false ? ' · 已停用' : ''}</div>
+                    <div class="notify-card-status"${statusTitle}>最近一次：${status}</div>
+                    <div class="notify-card-actions">
+                        <button class="btn btn-sm" onclick="testNotifyChannel('${c.id}', this)">发测试消息</button>
+                        <button class="btn btn-sm" onclick="editNotifyChannel('${c.id}')">编辑</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteNotifyChannel('${c.id}')">删除</button>
+                    </div>
+                </div>`;
+            }).join('')}
+                ${addCard}
+            </div>`;
+        }
+
+        /** 打开添加 / 编辑弹窗。添加时先清空表单；编辑时由 editNotifyChannel 填好再调。 */
+        function openNotifyForm(editing = false) {
+            if (!editing) resetNotifyForm();
+            const modal = document.getElementById('notifyModal');
+            if (!modal) return;
+            modal.style.display = 'block';
+            modal.setAttribute('aria-hidden', 'false');
+            setTimeout(() => {
+                const first = document.getElementById(editing ? 'notifyName' : 'notifyType');
+                if (first) first.focus();
+            }, 0);
+        }
+
+        function closeNotifyForm() {
+            const modal = document.getElementById('notifyModal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.setAttribute('aria-hidden', 'true');
+            }
+            resetNotifyForm();
+        }
+
+        // 推送弹窗：点遮罩或按 Esc 关闭
+        document.addEventListener('click', event => {
+            if (event.target === document.getElementById('notifyModal')) closeNotifyForm();
+        });
+        document.addEventListener('keydown', event => {
+            const modal = document.getElementById('notifyModal');
+            if (event.key === 'Escape' && modal && modal.style.display === 'block') closeNotifyForm();
+        });
+
+        /** 渠道实际用的样式：这个类型不支持所选样式时按详细发（与服务端 templateOf 一致） */
+        function notifyEffectiveTemplate(typeId, template) {
+            const type = notifyTypeOf(typeId);
+            const allowed = (type && type.templates) || ['detailed'];
+            return allowed.includes(template) ? template : 'detailed';
+        }
+
+        function notifyTemplateName(channel) {
+            const id = notifyEffectiveTemplate(channel.type, channel.template || 'detailed');
+            const t = (notifyState.templates || []).find(x => x.id === id);
+            return t ? t.name : '详细';
+        }
+
+        /** 样式按钮（只列这个类型支持的）+ 预览 */
+        function renderNotifyTemplates() {
+            const typeId = document.getElementById('notifyType').value;
+            const type = notifyTypeOf(typeId);
+            const box = document.getElementById('notifyTemplates');
+            if (!type || !box) return;
+            notifyTemplate = notifyEffectiveTemplate(typeId, notifyTemplate);
+            box.innerHTML = (notifyState.templates || [])
+                .filter(t => (type.templates || []).includes(t.id))
+                .map(t => `<button type="button" role="radio" aria-checked="${t.id === notifyTemplate}"
+                        class="notify-template-option${t.id === notifyTemplate ? ' active' : ''}" onclick="selectNotifyTemplate('${t.id}')">
+                        <span>${escapeHtml(t.name)}</span><small>${escapeHtml(t.description)}</small></button>`).join('');
+            renderNotifyPreview(typeId);
+        }
+
+        function selectNotifyTemplate(id) {
+            notifyTemplate = id;
+            renderNotifyTemplates();
+        }
+
+        /** 预览用服务端给的示例（一条错误提醒 + 一条已恢复）；文字样式直接用服务端排好的正文 */
+        function renderNotifyPreview(typeId) {
+            const box = document.getElementById('notifyPreview');
+            const sample = notifyState.sample;
+            if (!box || !sample) return;
+            const label = `<div class="notify-preview-label">预览（示例消息）</div>`;
+            if (notifyTemplate !== 'card') {
+                box.innerHTML = label + `<pre class="notify-preview-text">${escapeHtml(sample.previews[notifyTemplate] || '')}</pre>`;
+                return;
+            }
+            const m = sample.message;
+            const items = [
+                ...m.raised.map(a => `<p><strong>${a.level === 'error' ? '❗' : '⚠️'} ${escapeHtml(a.title)}</strong>\n${escapeHtml(a.text)}</p>`),
+                ...m.resolved.map(a => `<p><strong>✅ 已恢复：${escapeHtml(a.title)}</strong></p>`),
+            ].join('');
+            const head = typeId === 'feishu'
+                ? `<div class="notify-preview-card-head red">${escapeHtml(m.title)}</div>`
+                : `<div class="notify-preview-card-body" style="padding-bottom:0;"><p><strong>${escapeHtml(m.title)}</strong></p></div>`;
+            box.innerHTML = label + head + `<div class="notify-preview-card-body">${items}</div>`
+                + `<div class="notify-preview-card-note">来自 ${escapeHtml(m.host)}</div>`;
+        }
+
+        /** 按所选类型画字段。编辑时敏感字段留空 = 不改，占位里注明已设置。 */
+        function renderNotifyFields() {
+            renderNotifyTemplates();
+            const type = notifyTypeOf(document.getElementById('notifyType').value);
+            const box = document.getElementById('notifyFields');
+            if (!type || !box) return;
+            const editing = notifyEditingId ? (notifyState.channels || []).find(c => c.id === notifyEditingId) : null;
+            box.innerHTML = type.fields.map(f => {
+                const isSet = editing && editing.secretsSet && editing.secretsSet[f.key];
+                const value = editing && !f.secret ? (editing[f.key] || '') : '';
+                const placeholder = isSet ? '已设置，留空保持不变' : (f.placeholder || '');
+                return `<div>
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${escapeHtml(f.label)}${f.required ? '' : '（可选）'}</label>
+                    <input type="${f.secret ? 'password' : 'text'}" data-notify-field="${escapeHtml(f.key)}" value="${escapeHtml(value)}"
+                           placeholder="${escapeHtml(placeholder)}" autocomplete="off" style="width:100%;">
+                </div>`;
+            }).join('');
+        }
+
+        function readNotifyForm() {
+            const fields = {};
+            document.querySelectorAll('#notifyFields [data-notify-field]').forEach(input => {
+                fields[input.dataset.notifyField] = input.value;
+            });
+            return { type: document.getElementById('notifyType').value, name: document.getElementById('notifyName').value, template: notifyTemplate, fields };
+        }
+
+        function resetNotifyForm() {
+            notifyEditingId = null;
+            const typeSelect = document.getElementById('notifyType');
+            typeSelect.disabled = false;
+            if (typeSelect.options.length) typeSelect.selectedIndex = 0;   // 新加的渠道默认第一个类型（飞书）
+            document.getElementById('notifyName').value = '';
+            notifyTemplate = 'detailed';
+            document.getElementById('notifyFormTitle').textContent = '添加推送渠道';
+            document.getElementById('notifySaveBtn').textContent = '添加渠道';
+            renderNotifyFields();
+        }
+
+        function editNotifyChannel(id) {
+            const channel = (notifyState.channels || []).find(c => c.id === id);
+            if (!channel) return;
+            notifyEditingId = id;
+            const typeSelect = document.getElementById('notifyType');
+            typeSelect.value = channel.type;
+            typeSelect.disabled = true;   // 换类型等于换一个渠道，删了重加
+            document.getElementById('notifyName').value = channel.name || '';
+            notifyTemplate = channel.template || 'detailed';
+            document.getElementById('notifyFormTitle').textContent = `编辑「${channel.name}」`;
+            document.getElementById('notifySaveBtn').textContent = '保存修改';
+            renderNotifyFields();
+            openNotifyForm(true);
+        }
+
+        async function saveNotifyChannel() {
+            const form = readNotifyForm();
+            const r = notifyEditingId
+                ? await notifyPost({ action: 'update', id: notifyEditingId, fields: { name: form.name, template: form.template, ...form.fields } })
+                : await notifyPost({ action: 'add', channel: { type: form.type, name: form.name, template: form.template, ...form.fields } });
+            if (r.success) {
+                const wasEditing = !!notifyEditingId;
+                notifyState = r.data;
+                renderNotify();
+                closeNotifyForm();
+                showStatus(wasEditing ? '已保存' : '已添加，点「发测试消息」确认能收到', 'success');
+            } else showStatus(r.message || '保存失败', 'error');
+        }
+
+        async function toggleNotifyChannel(id, enabled) {
+            const r = await notifyPost({ action: 'update', id, fields: { enabled } });
+            if (r.success) { notifyState = r.data; renderNotify(); toastSaved(); }
+            else { showStatus(r.message || '操作失败', 'error'); loadNotify(); }
+        }
+
+        async function testNotifyChannel(id, button) {
+            if (button) { button.disabled = true; button.textContent = '发送中…'; }
+            try {
+                const r = await notifyPost({ action: 'test', id });
+                if (r.data) notifyState = r.data;
+                renderNotify();
+                showStatus(r.message || (r.success ? '测试消息已发出' : '发送失败'), r.success ? 'success' : 'error', r.success ? 3000 : 6000);
+            } catch (e) {
+                showStatus('发送失败：' + e.message, 'error');
+                renderNotify();
+            }
+        }
+
+        async function deleteNotifyChannel(id) {
+            const channel = (notifyState.channels || []).find(c => c.id === id);
+            if (!confirm(`删除推送渠道「${channel ? channel.name : ''}」？`)) return;
+            const r = await notifyPost({ action: 'remove', id });
+            if (r.success) {
+                notifyState = r.data;
+                if (notifyEditingId === id) closeNotifyForm();
+                renderNotify();
+                toastSaved('已删除');
+            } else showStatus(r.message || '删除失败', 'error');
+        }
+
         async function usersPost(body) {
             const res = await fetch(API_PREFIX + '/api/users', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
             });
             return res.json();
+        }
+
+        // ===== 设置页通用弹窗（新增用户、频道别名、自动分组、EPG 源）=====
+        function openFormModal(id, focusId) {
+            const modal = document.getElementById(id);
+            if (!modal) return;
+            modal.style.display = 'block';
+            modal.setAttribute('aria-hidden', 'false');
+            setTimeout(() => { const el = document.getElementById(focusId); if (el) el.focus(); }, 0);
+        }
+
+        function closeFormModal(id) {
+            const modal = document.getElementById(id);
+            if (!modal) return;
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        /** 回车提交；中文输入法选字时的回车不算 */
+        function submitOnEnter(event, fn) {
+            if (event.key === 'Enter' && !event.isComposing) fn();
+        }
+
+        // 点遮罩或按 Esc 关闭
+        document.addEventListener('click', event => {
+            if (event.target.classList && event.target.classList.contains('form-modal')) closeFormModal(event.target.id);
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            document.querySelectorAll('.form-modal').forEach(modal => {
+                if (modal.style.display === 'block') closeFormModal(modal.id);
+            });
+        });
+
+        function openUserModal() {
+            document.getElementById('userNewName').value = '';
+            fillUserProfileSelect(document.getElementById('userNewProfile'), '');
+            openFormModal('userModal', 'userNewName');
         }
 
         async function addUser() {
@@ -6160,7 +6667,7 @@
             const r = await usersPost({ action: 'add', user: { name, profile } });
             if (r.success) {
                 usersConfig = r.data; renderUsers();
-                document.getElementById('userNewName').value = '';
+                closeFormModal('userModal');
                 showStatus('已新增用户，可复制其源地址发给对方', 'success');
             } else showStatus(r.message || '新增失败', 'error');
         }
@@ -6230,29 +6737,37 @@
             return res.json();
         }
 
+        /** 添加规则：清空表单打开弹窗 */
+        function openAliasModal() {
+            const c = document.getElementById('aliasNewCanonical');
+            c.value = ''; c.readOnly = false;
+            document.getElementById('aliasNewList').value = '';
+            document.getElementById('aliasModalTitle').textContent = '添加别名规则';
+            document.getElementById('aliasSaveBtn').textContent = '添加规则';
+            openFormModal('aliasModal', 'aliasNewCanonical');
+        }
+
         async function addAliasRule() {
             const canonical = document.getElementById('aliasNewCanonical').value;
             const aliases = document.getElementById('aliasNewList').value;
+            const editing = document.getElementById('aliasNewCanonical').readOnly;
             const r = await aliasesPost({ action: 'setRule', canonical, aliases });
             if (r.success) {
                 aliasesData = r.data; renderAliases();
-                document.getElementById('aliasNewCanonical').value = '';
-                document.getElementById('aliasNewList').value = '';
-                showStatus('已添加规则，下次刷新播放列表生效', 'success');
-            } else showStatus(r.message || '添加失败', 'error');
+                closeFormModal('aliasModal');
+                showStatus(editing ? '已保存，下次刷新播放列表生效' : '已添加规则，下次刷新播放列表生效', 'success');
+            } else showStatus(r.message || '保存失败', 'error');
         }
 
-        // 编辑一条规则（issue #56）：把规则回填到下方输入框，改完点「添加规则」即按规范名覆盖更新（后端 setRule 为 upsert）
+        // 编辑一条规则（issue #56）：后端 setRule 按规范名覆盖更新，所以编辑时规范名锁定——改了就成了另一条规则
         function editAliasRule(canonical) {
             const aliases = Array.isArray(aliasesData[canonical]) ? aliasesData[canonical] : [];
-            const cEl = document.getElementById('aliasNewCanonical');
-            const aEl = document.getElementById('aliasNewList');
-            if (!cEl || !aEl) return;
-            cEl.value = canonical;
-            aEl.value = aliases.join(', ');
-            cEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            aEl.focus();
-            showStatus('已载入到下方，可修改后点「添加规则」保存（同名规范名会覆盖更新）', 'info');
+            const c = document.getElementById('aliasNewCanonical');
+            c.value = canonical; c.readOnly = true;
+            document.getElementById('aliasNewList').value = aliases.join(', ');
+            document.getElementById('aliasModalTitle').textContent = `编辑「${canonical}」`;
+            document.getElementById('aliasSaveBtn').textContent = '保存修改';
+            openFormModal('aliasModal', 'aliasNewList');
         }
 
         async function removeAliasRule(canonical) {
@@ -6307,26 +6822,37 @@
             return res.json();
         }
 
+        function openGroupRuleModal() {
+            const g = document.getElementById('groupRuleName');
+            g.value = ''; g.readOnly = false;
+            document.getElementById('groupRuleKeywords').value = '';
+            document.getElementById('groupRuleModalTitle').textContent = '添加分组规则';
+            document.getElementById('groupRuleSaveBtn').textContent = '添加规则';
+            openFormModal('groupRuleModal', 'groupRuleName');
+        }
+
         async function addGroupRule() {
             const group = document.getElementById('groupRuleName').value;
             const keywords = document.getElementById('groupRuleKeywords').value;
+            const editing = document.getElementById('groupRuleName').readOnly;
             const r = await groupRulesPost({ action: 'setRule', group, keywords });
             if (r.success) {
                 groupRulesData = r.data; renderGroupRules();
-                document.getElementById('groupRuleName').value = '';
-                document.getElementById('groupRuleKeywords').value = '';
-                showStatus('已添加规则，下次刷新播放列表生效', 'success');
-            } else showStatus(r.message || '添加失败', 'error');
+                closeFormModal('groupRuleModal');
+                showStatus(editing ? '已保存，下次刷新播放列表生效' : '已添加规则，下次刷新播放列表生效', 'success');
+            } else showStatus(r.message || '保存失败', 'error');
         }
 
+        // 后端按分组名覆盖更新，编辑时分组名锁定
         function editGroupRule(group) {
             const rule = groupRulesData.find(r => r.group === group);
             if (!rule) return;
-            document.getElementById('groupRuleName').value = rule.group;
+            const g = document.getElementById('groupRuleName');
+            g.value = rule.group; g.readOnly = true;
             document.getElementById('groupRuleKeywords').value = (rule.keywords || []).join(', ');
-            document.getElementById('groupRuleName').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            document.getElementById('groupRuleKeywords').focus();
-            showStatus('已载入到下方，可修改后点「添加规则」保存（同名分组会覆盖更新）', 'info');
+            document.getElementById('groupRuleModalTitle').textContent = `编辑「${rule.group}」`;
+            document.getElementById('groupRuleSaveBtn').textContent = '保存修改';
+            openFormModal('groupRuleModal', 'groupRuleKeywords');
         }
 
         async function moveGroupRule(group, direction) {
@@ -6695,6 +7221,9 @@
 
                 // 加载用户管理（一人一源）；失败不影响其余加载
                 loadUsers();
+
+                // 加载消息推送渠道；失败不影响其余加载
+                loadNotify();
 
                 // 加载频道别名规则（issue #56）；失败不影响其余加载
                 loadAliases();
@@ -8845,6 +9374,9 @@ if(success){
         let editHighlightTimer = null;  // 临时高亮自动消退的定时器句柄
         let channelSearchQuery = '';    // 频道搜索关键字；非空时中间栏换成跨分组的搜索结果（issue #159）
         let channelSearchResults = [];  // 当前渲染出来的搜索结果，点击时按下标取（不把名字/ID 拼进 onclick）
+        let searchBatchMode = false;           // 搜索结果的批量模式（issue #176）：与分组批量互不相干
+        let searchSelectedKeys = new Set();    // 搜索结果里勾选的频道，按 searchResultKey 记（同一 ID 可能出现在两个原始分组）
+        let lastSearchMoveTarget = '';         // 上次从搜索结果移到的分组，连搜几个关键字时不用每次重选
         const SYSTEM_ANNOUNCEMENT_ID = 'iptv-announcement';
         // 系统频道：公告 + 央视频登录教程 + 「来源于网络」添加教程，都在「公告」分组、可逐条隐藏、不能删/移/改名/改序。
         // 与服务端 utils/announcement.js 的 SYSTEM_CHANNELS 对应。
@@ -9412,7 +9944,8 @@ if(success){
         // ========== 频道搜索（issue #159）==========
         // 分组多了以后，想知道某个台在哪个分组只能挨个点开找。搜索框在左栏分组列表上方，
         // 输入后中间栏换成跨分组的命中列表，点一条就跳到它所在的分组并高亮那一行。
-        // 结果是只读的：隐藏、屏蔽、拖拽这些操作都按「当前选中的分组」定位频道，放进跨分组列表会改错分组。
+        // 隐藏、屏蔽、拖拽这些操作都按「当前选中的分组」定位频道，放进跨分组列表会改错分组，所以结果行上不提供；
+        // 唯一的批量操作是「移动到分组」（issue #176），它按每条结果自己的原始分组写 channelGroupMap，不依赖当前分组。
 
         // 搜索用的名字规整：不分大小写，忽略空格和连字符——「cctv 5」「CCTV-5」都能搜到「CCTV5体育」
         function channelSearchKey(text) {
@@ -9423,6 +9956,8 @@ if(success){
         function resetChannelSearch() {
             channelSearchQuery = '';
             channelSearchResults = [];
+            searchBatchMode = false;
+            searchSelectedKeys.clear();
             const input = document.getElementById('channelSearchInput');
             if (input) input.value = '';
             const clearBtn = document.getElementById('channelSearchClear');
@@ -9457,6 +9992,8 @@ if(success){
                 isBatchMode = false;
                 selectedChannels.clear();
             }
+            // 换关键字后看不到的勾选不能留着，不然「移动」会带走屏幕上没有的频道
+            searchSelectedKeys.clear();
             channelSearchQuery = next;
             renderGroupLists();
             renderGroupDetail();
@@ -9492,7 +10029,7 @@ if(success){
                     // 整组隐藏的分组里，被单独移到可见分组的频道已经在上面列过，不再重复
                     if (visibleKeys.has(`${group.name}::${channel.id}`)) return;
                     if (channelSearchKey(channel.name).includes(key)) {
-                        results.push({ groupIndex, hidden: true, groupName: group.name, channel });
+                        results.push({ groupIndex, hidden: true, partial: !!group.isPartialDelete, groupName: group.name, channel });
                     }
                 });
             });
@@ -9506,25 +10043,157 @@ if(success){
             const total = channelSearchResults.length;
             header.style.display = 'flex';
             title.textContent = `搜索「${channelSearchQuery}」：${total} 个频道`;
+            const shown = channelSearchResults.slice(0, CHANNEL_SEARCH_LIMIT);
             // 整个替换掉分组的操作按钮：它们的下标是按「当前选中的分组」写死的，留着会改到别的分组
-            actions.innerHTML = `<button class="btn btn-sm" onclick="clearChannelSearch(false)">退出搜索</button>`;
+            if (searchBatchMode && total > 0) {
+                const shownKeys = new Set(shown.map(searchResultKey));
+                searchSelectedKeys.forEach(k => { if (!shownKeys.has(k)) searchSelectedKeys.delete(k); });
+                const selectedCount = searchSelectedKeys.size;
+                const targets = myPlaylistData.filter(g => !isSystemAnnouncementGroup(g)).map(g => g.name);
+                // 每勾一个都会重渲染这一栏，目标组必须记在状态里，不然刚选好的分组会被冲回第一项
+                const preset = targets.includes(lastSearchMoveTarget) ? lastSearchMoveTarget : '';
+                actions.innerHTML = `
+                    <button class="btn btn-sm" onclick="selectAllSearchResults()">全选</button>
+                    <button class="btn btn-sm" onclick="deselectAllSearchResults()">取消全选</button>
+                    <span style="margin-left: 6px; color: #555; font-size: 13px;">移动选中到</span>
+                    <select id="searchMoveSelect" onchange="lastSearchMoveTarget = this.value" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ddd; max-width: 160px;" ${selectedCount === 0 ? 'disabled' : ''}>${targets.map(name => `<option value="${escapeHtml(name)}" ${name === preset ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select>
+                    <button class="btn btn-success btn-sm" onclick="moveSearchSelected()" ${selectedCount === 0 ? 'disabled' : ''}>移动 (${selectedCount})</button>
+                    <button class="btn btn-primary btn-sm" onclick="toggleSearchBatchMode()">退出批量</button>
+                    <button class="btn btn-sm" onclick="clearChannelSearch(false)">退出搜索</button>
+                `;
+            } else {
+                actions.innerHTML = `
+                    ${total > 0 ? `<button class="btn btn-primary btn-sm" onclick="toggleSearchBatchMode()" title="勾选搜到的频道，一次移到同一个分组">批量移动</button>` : ''}
+                    <button class="btn btn-sm" onclick="clearChannelSearch(false)">退出搜索</button>
+                `;
+            }
 
             if (total === 0) {
                 container.innerHTML = `<div style="text-align: center; padding: 40px; color: #999;">没有名字里带「${escapeHtml(channelSearchQuery)}」的频道</div>`;
                 return;
             }
-            const shown = channelSearchResults.slice(0, CHANNEL_SEARCH_LIMIT);
             container.innerHTML = `
                 <div class="my-playlist-channels">
-                    ${shown.map((result, i) => `
-                        <div class="my-playlist-channel search-result" onclick="jumpToSearchResult(${i})" title="${escapeHtml(result.channel.name)} —— 点击跳到「${escapeHtml(result.groupName)}」分组${result.hidden ? '（已隐藏）' : ''}">
-                            <div class="my-playlist-channel-name">${escapeHtml(result.channel.name)}</div>
-                            <span class="channel-group-tag ${result.hidden ? 'in-hidden' : ''}">${escapeHtml(result.groupName)}${result.hidden ? ' · 已隐藏' : ''}</span>
-                        </div>
-                    `).join('')}
-                    ${total > shown.length ? `<div class="channel-search-note">只列出前 ${shown.length} 个，多输几个字可以缩小范围</div>` : ''}
+                    ${shown.map((result, i) => {
+                        const tag = `<span class="channel-group-tag ${result.hidden ? 'in-hidden' : ''}">${escapeHtml(result.groupName)}${result.hidden ? ' · 已隐藏' : ''}</span>`;
+                        if (searchBatchMode) {
+                            const locked = isSystemAnnouncementChannel(result.channel);
+                            return `
+                                <div class="my-playlist-channel search-result batch-mode ${locked ? 'locked' : ''}" ${locked ? '' : `onclick="toggleSearchSelection(${i})"`} title="${escapeHtml(result.channel.name)}${locked ? ' —— 系统公告不能移动' : ''}">
+                                    <input type="checkbox" class="my-playlist-channel-checkbox" onclick="event.stopPropagation(); toggleSearchSelection(${i})"
+                                           ${searchSelectedKeys.has(searchResultKey(result)) ? 'checked' : ''} ${locked ? 'disabled' : ''}>
+                                    <div class="my-playlist-channel-name">${escapeHtml(result.channel.name)}</div>
+                                    ${tag}
+                                </div>
+                            `;
+                        }
+                        return `
+                            <div class="my-playlist-channel search-result" onclick="jumpToSearchResult(${i})" title="${escapeHtml(result.channel.name)} —— 点击跳到「${escapeHtml(result.groupName)}」分组${result.hidden ? '（已隐藏）' : ''}">
+                                <div class="my-playlist-channel-name">${escapeHtml(result.channel.name)}</div>
+                                ${tag}
+                            </div>
+                        `;
+                    }).join('')}
+                    ${total > shown.length ? `<div class="channel-search-note">只列出前 ${shown.length} 个${searchBatchMode ? '（全选也只选这些）' : ''}，多输几个字可以缩小范围</div>` : ''}
                 </div>
             `;
+        }
+
+        // ---- 搜索结果批量移动（issue #176）----
+        // 给儿童 / 老人电视单独配一档时，「搜少儿 → 全选 → 移到「少儿」组」一步到位，不用一组组点进去挑。
+
+        /** 结果频道的原始分组：整组隐藏 / 单独隐藏的结果，groupName 就是原始分组名；可见结果按 channel.originalGroup。 */
+        function searchResultOriginalGroup(result) {
+            return result.hidden ? result.groupName : channelOriginalGroupName(result.channel, result.groupName);
+        }
+
+        function searchResultKey(result) {
+            return `${searchResultOriginalGroup(result)}::${result.channel.id}`;
+        }
+
+        function toggleSearchBatchMode() {
+            searchBatchMode = !searchBatchMode;
+            searchSelectedKeys.clear();
+            renderGroupDetail();
+            // 「批量移动」与换上来的「全选」在同一位置，双击的第二下会直接全选，短暂不接收点击（同 jumpToSearchResult）
+            const bar = document.getElementById('detailActions');
+            if (bar) {
+                bar.style.pointerEvents = 'none';
+                setTimeout(() => { bar.style.pointerEvents = ''; }, 400);
+            }
+        }
+
+        function toggleSearchSelection(i) {
+            const result = channelSearchResults[i];
+            if (!result || isSystemAnnouncementChannel(result.channel)) return;
+            const key = searchResultKey(result);
+            if (searchSelectedKeys.has(key)) searchSelectedKeys.delete(key);
+            else searchSelectedKeys.add(key);
+            renderGroupDetail();
+        }
+
+        function selectAllSearchResults() {
+            channelSearchResults.slice(0, CHANNEL_SEARCH_LIMIT).forEach(result => {
+                if (!isSystemAnnouncementChannel(result.channel)) searchSelectedKeys.add(searchResultKey(result));
+            });
+            renderGroupDetail();
+        }
+
+        function deselectAllSearchResults() {
+            searchSelectedKeys.clear();
+            renderGroupDetail();
+        }
+
+        async function moveSearchSelected() {
+            if (searchSelectedKeys.size === 0) return;
+            const sel = document.getElementById('searchMoveSelect');
+            if (!sel || !sel.value) return;
+            const target = sel.value;
+            const picked = channelSearchResults.filter(result => searchSelectedKeys.has(searchResultKey(result)));
+            if (picked.length === 0) return;
+
+            if (!myPlaylistConfig.channelGroupMap) myPlaylistConfig.channelGroupMap = {};
+            const unhidden = picked.filter(result => result.hidden).length;
+            picked.forEach(result => {
+                const original = searchResultOriginalGroup(result);
+                const moveKey = searchResultKey(result);
+                // 单独隐藏过的频道只改归类的话移过去仍是隐藏的（服务端先判 hiddenChannels 再看移动），一律一并取消隐藏。
+                // 整组隐藏的分组里也可能有整组隐藏之前就单独隐藏过的频道，所以不分 partial，没有这条记录时是空操作。
+                myPlaylistConfig.hiddenChannels = myPlaylistConfig.hiddenChannels.filter(k => k !== moveKey);
+                if (result.hidden && !result.partial) {
+                    // 整组隐藏的分组：靠 channelGroupMap 把频道捞出来，与「已隐藏 → 批量移动频道」同一写法
+                    myPlaylistConfig.channelGroupMap[moveKey] = target;
+                    return;
+                }
+                // 移回原分组（按当前显示名）= 取消归类，按原始分组写同一条记录（issue #42）。
+                // 只认改名后的显示名：原分组改过名时，另有一个分组恰好叫原名的话，选它是要移过去，不是移回家
+                const renamedOriginal = (myPlaylistConfig.groupRenameMap && myPlaylistConfig.groupRenameMap[original]) || original;
+                if (target === renamedOriginal) {
+                    delete myPlaylistConfig.channelGroupMap[moveKey];
+                } else {
+                    myPlaylistConfig.channelGroupMap[moveKey] = target;
+                }
+            });
+
+            try {
+                const response = await fetch(mpConfigUrl(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    lastSearchMoveTarget = target;
+                    searchSelectedKeys.clear();
+                    searchBatchMode = false;
+                    await loadMyPlaylist(false);   // 搜索词保留，结果重算后分组标签已是新分组
+                    showStatus(`已移动 ${picked.length} 个频道到「${target}」${unhidden ? `，其中 ${unhidden} 个原本被隐藏，已一并恢复` : ''}`, 'success');
+                } else {
+                    showStatus('移动失败' + (result.message ? ': ' + result.message : ''), 'error');
+                }
+            } catch (error) {
+                showStatus('移动失败: ' + error.message, 'error');
+            }
         }
 
         // 点搜索结果：退出搜索，切到频道所在的分组，并用「刚编辑过」的高亮（issue #50）定位到那一行
@@ -9554,6 +10223,7 @@ if(success){
                     <div class="group-action-btns">
                         ${isCustomGroup ? `<button class="btn btn-danger btn-sm" onclick="removeGroup(${groupIndex})">删除分组</button>` : ''}
                         <button class="btn btn-sm" onclick="renameGroup(${groupIndex})" ${isUngrouped ? 'disabled' : ''}>重命名</button>
+                        <button class="btn btn-sm" onclick="keepOnlyGroup(${groupIndex})" title="隐藏当前配置档的其他分组，只留下这一个；隐藏的分组可在「已隐藏」里恢复">只保留此分组</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})" ${isUngrouped || isCustomGroup ? 'disabled' : ''} title="${isCustomGroup ? '自定义分组无需隐藏：「删除分组」即彻底移除；想隐藏其中的频道请用「批量管理 → 隐藏」' : isUngrouped ? '「未分组」不可隐藏' : '隐藏整个分组，可在右侧「已隐藏」里恢复'}">隐藏分组</button>
                         <button class="btn btn-sm" onclick="moveGroup(${groupIndex}, 'top')" ${atTop ? 'disabled' : ''} title="把这个分组移到所有分组最前"><svg class="group-action-icon" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 2h8M6 10V4M3 7l3-3 3 3"/></svg>置顶</button>
                         <button class="btn btn-sm" onclick="moveGroup(${groupIndex}, 'up')" ${atTop ? 'disabled' : ''} title="把这个分组往前挪一位"><svg class="group-action-icon" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M6 10V2M3 5l3-3 3 3"/></svg>上移</button>
@@ -9675,8 +10345,10 @@ if(success){
                     `;
                 } else {
                     // 完整隐藏分组 · 非批量：恢复整组，或进批量把个别频道移出去（不必先恢复整组）
+                    const wholeHiddenCount = allDeletedGroups.filter(g => !g.isPartialDelete).length;
                     actions.innerHTML = `
                         <button class="btn btn-primary btn-sm" onclick="restoreGroup()">恢复分组</button>
+                        ${wholeHiddenCount > 1 ? `<button class="btn btn-sm" onclick="restoreAllGroups()" title="恢复「已隐藏」里所有整组隐藏的分组">恢复全部分组 (${wholeHiddenCount})</button>` : ''}
                         <button class="btn btn-primary btn-sm" onclick="toggleBatchMode()">批量移动频道</button>
                     `;
                 }
@@ -10082,7 +10754,14 @@ if(success){
             } else {
                 if (!config.groupRenameMap) config.groupRenameMap = {};
                 const renameMap = config.groupRenameMap;
-                const originalName = Object.keys(renameMap).find(original => renameMap[original] === currentName) || currentName;
+                // 「只保留此分组」隐藏分组时会留着改名，可能有一个已隐藏的原始分组也映射到同一个显示名：
+                // 优先选没被隐藏的那个，免得改名落到看不见的分组上
+                const deleted = config.deletedGroups || [];
+                const isHidden = name => deleted.some(p => p.endsWith('*') ? name.startsWith(p.slice(0, -1)) : p === name);
+                const candidates = Object.keys(renameMap).filter(original => renameMap[original] === currentName);
+                const originalName = candidates.find(original => !isHidden(original))
+                    || (sourceGroupNames.includes(currentName) && !isHidden(currentName) ? currentName : candidates[0])
+                    || currentName;
                 const isResidualGroup = originalName === currentName
                     && sourceGroupNames.length > 0 && !sourceGroupNames.includes(currentName);
 
@@ -10274,23 +10953,8 @@ if(success){
                 myPlaylistConfig.deletedGroups.push(wildcardPrefix);
             }
 
-            // 找出所有被重命名为当前名称的原始分组
-            if (myPlaylistConfig.groupRenameMap) {
-                for (const [original, renamed] of Object.entries(myPlaylistConfig.groupRenameMap)) {
-                    if (renamed === currentName) {
-                        if (!myPlaylistConfig.deletedGroups.includes(original)) {
-                            myPlaylistConfig.deletedGroups.push(original);
-                        }
-                        delete myPlaylistConfig.groupRenameMap[original];
-                    }
-                }
-            }
-
-            // 当前名称本身也可能是一个原始分组名（未被重命名过的）。
-            // 选了通配规则时不再补这条：规则已经盖住它，多写一条精确条目会在「解除规则」后残留。
-            if (!wildcardPrefix && !myPlaylistConfig.deletedGroups.includes(currentName)) {
-                myPlaylistConfig.deletedGroups.push(currentName);
-            }
+            // 选了通配规则时不再补当前名称这条：规则已经盖住它，多写一条精确条目会在「解除规则」后残留。
+            markGroupHidden(currentName, { includeSelf: !wildcardPrefix });
             myPlaylistData.splice(index, 1);
             
             // 调整选中索引
@@ -10318,6 +10982,148 @@ if(success){
                 }
             } catch (error) {
                 showStatus('隐藏失败: ' + error.message, 'error');
+            }
+        }
+
+        /** 把一个显示分组写进 deletedGroups：被改名成这个名字的原始分组都要写（并去掉改名），名称本身也可能是原始分组名。 */
+        function markGroupHidden(currentName, { includeSelf = true } = {}) {
+            if (myPlaylistConfig.groupRenameMap) {
+                for (const [original, renamed] of Object.entries(myPlaylistConfig.groupRenameMap)) {
+                    if (renamed === currentName) {
+                        if (!myPlaylistConfig.deletedGroups.includes(original)) {
+                            myPlaylistConfig.deletedGroups.push(original);
+                        }
+                        delete myPlaylistConfig.groupRenameMap[original];
+                    }
+                }
+            }
+            if (includeSelf && !myPlaylistConfig.deletedGroups.includes(currentName)) {
+                myPlaylistConfig.deletedGroups.push(currentName);
+            }
+        }
+
+        // 只保留此分组（issue #176）：给儿童 / 老人电视单配一档时，先把要的频道归到一个分组，再一键隐藏其余分组。
+        // 只写当前档的 deletedGroups（按原始分组名，改名留着），「已隐藏」里有「恢复全部分组」可一键撤回。
+        // 自定义分组和「未分组」不能整组隐藏（与「隐藏分组」按钮同一限制），公告固定保留；
+        // 只由关键字规则 / 源默认分组 / 手动移入凑出来的分组（issue #69/#110）也跳过：它背后没有源分组，
+        // 写进 deletedGroups 隐藏不了它，反而会把以后源里真出现的同名分组悄悄藏掉。
+        async function keepOnlyGroup(index) {
+            const keep = myPlaylistData[index];
+            if (!keep) return;
+            const renameMap = myPlaylistConfig.groupRenameMap || {};
+            // 显示名 → 当前显示成这个名字的原始分组。必须按「原名经改名后等于显示名」反查：
+            // 只看显示名在不在原始分组名单里，改名套改名（央视→卫视、卫视→省台）时会把别的组的原名当成它的
+            const originalsOf = name => (myPlaylistOriginalData || [])
+                .map(g => g.name)
+                .filter(original => (renameMap[original] || original) === name);
+            const others = myPlaylistData.filter((g, i) => i !== index && !isSystemAnnouncementGroup(g));
+            const plan = [];      // [{ name, originals: 还没被隐藏规则盖住的原始分组 }]
+            const skipped = [];
+            others.forEach(g => {
+                if (g.name === '未分组' || isCustomGroupName(g.name)) { skipped.push(g.name); return; }
+                const originals = originalsOf(g.name);
+                if (originals.length === 0) { skipped.push(g.name); return; }
+                // 已被规则（含 `前缀*`）盖住、只因有移入频道还显示的：不再补精确条目，免得「解除规则」后残留
+                const pending = originals.filter(original => !isGroupHiddenByConfig(original));
+                if (pending.length > 0) plan.push({ name: g.name, originals: pending });
+            });
+            if (plan.length === 0) {
+                showStatus(skipped.length ? `其余分组（${skipped.join('、')}）都不能整组隐藏` : '没有其他分组需要隐藏', 'error');
+                return;
+            }
+            const confirmed = await showConfirm(
+                `只保留「${keep.name}」，隐藏「${currentProfileName()}」档的其余 ${plan.length} 个分组吗？\n`
+                + `隐藏的分组都在「已隐藏」里，可以逐个恢复或一键恢复全部。公告固定保留，不需要可在频道行逐条隐藏。`
+                + (skipped.length ? `\n\n${skipped.join('、')} 不能整组隐藏，会保留；自定义分组可以删除，其他可在组内批量隐藏频道。` : '')
+            );
+            if (!confirmed) return;
+
+            const config = myPlaylistConfig;
+            const before = config.deletedGroups.slice();
+            plan.forEach(item => item.originals.forEach(original => {
+                if (!config.deletedGroups.includes(original)) config.deletedGroups.push(original);
+            }));
+            // 不动 groupOrder：留着这些分组的位置，紧接着「恢复全部分组」时顺序还是原来的样子
+            try {
+                const response = await fetch(mpConfigUrl(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    await loadMyPlaylist(false);
+                    if (myPlaylistConfig !== config) return;   // 保存期间切了档：后面的选中和提示都对不上了
+                    const keptIndex = myPlaylistData.findIndex(g => g.name === keep.name);
+                    if (keptIndex >= 0) {
+                        selectedGroupIndex = keptIndex;
+                        renderMyPlaylist();
+                    }
+                    // 手动移进来 / 按关键字规则归进来的频道不跟原始分组一起隐藏，它们所在的分组会留下来，如实告诉用户
+                    const hiddenNames = new Set(plan.map(item => item.name));
+                    const left = myPlaylistData
+                        .filter(g => hiddenNames.has(g.name) || (g.name !== keep.name && !isSystemAnnouncementGroup(g) && !skipped.includes(g.name)))
+                        .map(g => g.name);
+                    showStatus(`已隐藏 ${plan.length} 个分组`
+                        + (left.length ? `；${left.join('、')} 里是手动移入或按规则归类的频道，没有跟着隐藏，可在组内批量隐藏` : ''),
+                        'success', left.length ? 6000 : 3000);
+                } else {
+                    // 没存上就别留着隐藏的内存状态，免得下次随手一存全带出去
+                    if (myPlaylistConfig === config) config.deletedGroups = before;
+                    showStatus('隐藏失败' + (result.message ? ': ' + result.message : ''), 'error');
+                }
+            } catch (error) {
+                if (myPlaylistConfig === config) config.deletedGroups = before;
+                showStatus('隐藏失败: ' + error.message, 'error');
+            }
+        }
+
+        // 恢复「已隐藏」里所有整组隐藏的分组；单独隐藏的频道不动。
+        // 只删掉盖住这些分组的条目（精确名 + 盖住它们的通配规则）：deletedGroups 里可能还有
+        // 当前没抓到的源分组名，用户在确认框里没看见它们，不能顺手一起清掉。
+        async function restoreAllGroups() {
+            if (!isViewingDeleted) return;
+            const whole = hiddenAreaGroups().filter(g => !g.isPartialDelete);
+            if (whole.length === 0) return;
+            const covers = pattern => whole.some(g => pattern.endsWith('*') ? g.name.startsWith(pattern.slice(0, -1)) : pattern === g.name);
+            const config = myPlaylistConfig;
+            const before = config.deletedGroups || [];
+            const patterns = before.filter(p => p.endsWith('*') && covers(p));
+            // 列出名字：里面可能有很早以前特意隐藏的分组，不只是刚才「只保留此分组」藏的
+            const names = whole.map(g => g.name);
+            const preview = names.slice(0, 12).join('、') + (names.length > 12 ? ` …另 ${names.length - 12} 个` : '');
+            const confirmed = await showConfirm(
+                `恢复全部 ${whole.length} 个已隐藏的分组吗？\n${preview}`
+                + (patterns.length ? `\n\n通配规则 ${patterns.join('、')} 也会一并解除。` : '')
+                + `\n单独隐藏的频道不受影响。`
+            );
+            if (!confirmed) return;
+            config.deletedGroups = before.filter(p => !covers(p));
+            try {
+                const response = await fetch(mpConfigUrl(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    await loadMyPlaylist(false);
+                    if (myPlaylistConfig !== config) return;
+                    // 回到「我的频道」并选中第一个恢复出来的分组（下标 0 是置顶的公告，停在那里什么都看不到）
+                    const renameMap = config.groupRenameMap || {};
+                    const firstShown = myPlaylistData.findIndex(g => names.some(name => (renameMap[name] || name) === g.name));
+                    isViewingDeleted = false;
+                    selectedGroupIndex = Math.max(0, firstShown);
+                    renderMyPlaylist();
+                    showStatus(`已恢复 ${whole.length} 个分组`, 'success');
+                } else {
+                    // 没存上就别留着「已恢复」的内存状态，免得下次随手一存全带出去
+                    if (myPlaylistConfig === config) config.deletedGroups = before;
+                    showStatus('恢复失败' + (result.message ? ': ' + result.message : ''), 'error');
+                }
+            } catch (error) {
+                if (myPlaylistConfig === config) config.deletedGroups = before;
+                showStatus('恢复失败: ' + error.message, 'error');
             }
         }
 

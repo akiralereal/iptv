@@ -322,6 +322,11 @@ export default {
    */
   resolve,
 
+  // 播放器「检测频道 / 测速 / 刷新预览图」会把整张列表逐一 GET 一遍：缓存只按台记 3 小时，
+  // 没缓存的台每台都带着站长账号向咪咕要一次地址，几秒内几十次（issue #177 账号被判「异常
+  // 播放行为」封禁，原因未证实，先堵这条路）。规则与央视频共用 utils/clientScanGuard.js。
+  resolveBurstGuard: true,
+
   clearResolveCache: clearCache,
 
   credentialRejected,

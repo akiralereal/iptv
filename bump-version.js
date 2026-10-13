@@ -8,8 +8,8 @@
  *   node bump-version.js minor          # 1.4.3 → 1.5.0
  *   node bump-version.js major          # 1.4.3 → 2.0.0
  *   node bump-version.js 1.5.0          # 直接指定版本号
- *   node bump-version.js sync-notes     # 把更新日志最新条目同步到 README 顶部「当前版本更新内容」
- *   node bump-version.js release-notes  # 把更新日志最新条目打印成 GitHub Release 正文（stdout，不改文件）
+ *   node bump-version.js sync-notes     # 把 CHANGELOG.md 最新条目同步到 README 顶部「当前版本更新内容」
+ *   node bump-version.js release-notes  # 把 CHANGELOG.md 最新条目打印成 GitHub Release 正文（stdout，不改文件）
  */
 
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const r = (f) => resolve(__dirname, f)
+const CHANGELOG_URL = 'https://github.com/akiralereal/iptv/blob/main/CHANGELOG.md'
 
 // 读取当前版本
 const pkg = JSON.parse(readFileSync(r('package.json'), 'utf-8'))
@@ -31,26 +32,26 @@ if (!arg) {
   process.exit(0)
 }
 
-// sync-notes：只把更新日志最新条目同步到 README 顶部「当前版本更新内容」，不改版本号
+// sync-notes：只把 CHANGELOG.md 最新条目同步到 README 顶部「当前版本更新内容」，不改版本号
 if (arg === 'sync-notes' || arg === 'sync') {
   const readmePath = r('README.md')
   const readme = readFileSync(readmePath, 'utf-8')
   const eol = readme.includes('\r\n') ? '\r\n' : '\n'
-  writeFileSync(readmePath, syncTopReleaseNotes(readme, eol))
+  writeFileSync(readmePath, syncTopReleaseNotes(readme, readFileSync(r('CHANGELOG.md'), 'utf-8'), eol))
   console.log('✔ 已同步 README 顶部「当前版本更新内容」')
   process.exit(0)
 }
 
-// release-notes：把更新日志最新条目正文 + 升级提示打印到 stdout，供
-// `gh release create vX.Y.Z --notes-file <(…)` 使用；不改任何文件。与 README 更新日志同源，避免手写第二份说明
+// release-notes：把 CHANGELOG.md 最新条目正文 + 升级提示打印到 stdout，供
+// `gh release create vX.Y.Z --notes-file <(…)` 使用；不改任何文件。与 CHANGELOG.md 同源，避免手写第二份说明
 if (arg === 'release-notes' || arg === 'notes') {
-  const latest = latestChangelogEntry(readFileSync(r('README.md'), 'utf-8'))
+  const latest = latestChangelogEntry(readFileSync(r('CHANGELOG.md'), 'utf-8'))
   if (!latest) {
-    console.error('未找到更新日志条目（### vX.Y.Z (YYYY-MM-DD)）')
+    console.error('CHANGELOG.md 里未找到更新日志条目（### vX.Y.Z (YYYY-MM-DD)）')
     process.exit(1)
   }
   if (latest.isEmpty) {
-    console.error(`${latest.version} 的更新日志还是空占位，先把 README 更新日志写好再生成发布说明`)
+    console.error(`${latest.version} 的更新日志还是空占位，先把 CHANGELOG.md 写好再生成发布说明`)
     process.exit(1)
   }
   const tag = latest.version.replace(/^v/, '')
@@ -59,7 +60,7 @@ if (arg === 'release-notes' || arg === 'notes') {
     '',
     '---',
     '',
-    `**升级**：拉取 \`akiralereal/iptv:${tag}\`（或 \`latest\`），重建容器即可；数据卷与现有订阅不受影响。完整更新历史见 [README 更新日志](https://github.com/akiralereal/iptv#更新日志)。`,
+    `**升级**：拉取 \`akiralereal/iptv:${tag}\`（或 \`latest\`），重建容器即可；数据卷与现有订阅不受影响。完整更新历史见 [CHANGELOG.md](${CHANGELOG_URL})。`,
     '',
   ].join('\n'))
   process.exit(0)
@@ -121,7 +122,21 @@ htmlContent = htmlContent.replace(
 writeFileSync(htmlPath, htmlContent)
 console.log(`✔ web/admin.html`)
 
-// 4. README.md - 标题版本 + 插入更新日志占位
+// 4. CHANGELOG.md - 在第一个版本条目前插入新版本占位
+const changelogPath = r('CHANGELOG.md')
+let changelog = readFileSync(changelogPath, 'utf-8')
+const changelogEol = changelog.includes('\r\n') ? '\r\n' : '\n'
+const changelogEntry = `### v${newVersion} (${today})`
+if (!changelog.includes(changelogEntry)) {
+  changelog = changelog.replace(
+    /^(?=### v\d+\.\d+\.\d+)/m,
+    `${changelogEntry}${changelogEol}- ${changelogEol}${changelogEol}`
+  )
+  writeFileSync(changelogPath, changelog)
+}
+console.log(`✔ CHANGELOG.md`)
+
+// 5. README.md - 标题版本 + 顶部「当前版本更新内容」版本头（此时条目多为空占位，正文待填；填好后再跑 sync-notes）
 const readmePath = r('README.md')
 let readme = readFileSync(readmePath, 'utf-8')
 const readmeEol = readme.includes('\r\n') ? '\r\n' : '\n'
@@ -129,20 +144,11 @@ readme = readme.replace(
   /\*\*当前版本：v[^*]*\*\*/,
   `**当前版本：v${newVersion}**`
 )
-// 在更新日志标题后插入新版本条目（如果还没有）
-const changelogEntry = `### v${newVersion} (${today})`
-if (!readme.includes(changelogEntry)) {
-  readme = readme.replace(
-    /(## 更新日志\r?\n\r?\n)/,
-    `$1${changelogEntry}${readmeEol}- ${readmeEol}${readmeEol}`
-  )
-}
-// 同步顶部「当前版本更新内容」块的版本头（此时更新日志多为空占位，正文待填；填好后再跑 sync-notes）
-readme = syncTopReleaseNotes(readme, readmeEol)
+readme = syncTopReleaseNotes(readme, changelog, readmeEol)
 writeFileSync(readmePath, readme)
 console.log(`✔ README.md（含顶部「当前版本更新内容」）`)
 
-// 5. .github/workflows/push_docker.yaml
+// 6. .github/workflows/push_docker.yaml
 const yamlPath = r('.github/workflows/push_docker.yaml')
 let yaml = readFileSync(yamlPath, 'utf-8')
 yaml = yaml.replace(
@@ -162,14 +168,14 @@ writeFileSync(yamlPath, yaml)
 console.log(`✔ .github/workflows/push_docker.yaml`)
 
 console.log(`\n全部完成！接下来：`)
-console.log(`  1) 编辑 README.md 填写更新日志（把空 \`- \` 占位补成面向用户的条目）`)
+console.log(`  1) 编辑 CHANGELOG.md 填写更新日志（把空 \`- \` 占位补成面向用户的条目）`)
 console.log(`  2) 运行 node bump-version.js sync-notes 同步到顶部「当前版本更新内容」`)
 
 // ---- 工具函数 ----
 
-// 把「更新日志」里最新的 ### vX.Y.Z 条目镜像到 README 顶部 CURRENT_RELEASE_NOTES 标记块之间。
+// 把 CHANGELOG.md 里最新的 ### vX.Y.Z 条目镜像到 README 顶部 CURRENT_RELEASE_NOTES 标记块之间。
 // 标记缺失或无更新日志条目时安全跳过。正文为空占位时只写版本头 + 待整理提示。
-function syncTopReleaseNotes(readme, eol) {
+function syncTopReleaseNotes(readme, changelog, eol) {
   const START = '<!-- CURRENT_RELEASE_NOTES:START -->'
   const END = '<!-- CURRENT_RELEASE_NOTES:END -->'
   const sIdx = readme.indexOf(START)
@@ -178,7 +184,7 @@ function syncTopReleaseNotes(readme, eol) {
     console.warn('⚠ 未找到 CURRENT_RELEASE_NOTES 标记，跳过顶部同步')
     return readme
   }
-  const latest = latestChangelogEntry(readme)
+  const latest = latestChangelogEntry(changelog)
   if (!latest) {
     console.warn('⚠ 未找到更新日志条目，跳过顶部同步')
     return readme
@@ -195,18 +201,18 @@ function syncTopReleaseNotes(readme, eol) {
   )
   const out = [`#### ${version} 更新内容`, '']
   if (isEmpty) {
-    out.push('（本版更新内容整理中，完整历史见下方 [更新日志](#更新日志)）')
+    out.push('（本版更新内容整理中，完整历史见 [CHANGELOG.md](CHANGELOG.md)）')
   } else {
-    out.push(...cleanBody, '', '<sub>完整更新历史见下方 <a href="#更新日志">更新日志</a></sub>')
+    out.push(...cleanBody, '', '<sub>完整更新历史见 <a href="CHANGELOG.md">CHANGELOG.md</a></sub>')
   }
   const inner = eol + out.join(eol) + eol
   return readme.slice(0, sIdx + START.length) + inner + readme.slice(eIdx)
 }
 
-// 取「更新日志」里最新的 ### vX.Y.Z 条目：返回 { version, body（去首尾空行的正文行）, isEmpty（仍是空占位）}，找不到返回 null。
+// 取 CHANGELOG.md 里最新的 ### vX.Y.Z 条目：返回 { version, body（去首尾空行的正文行）, isEmpty（仍是空占位）}，找不到返回 null。
 // sync-notes 与 release-notes 共用，保证顶部块与 GitHub Release 正文同源
-function latestChangelogEntry(readme) {
-  const lines = readme.split(/\r?\n/)
+function latestChangelogEntry(changelog) {
+  const lines = changelog.split(/\r?\n/)
   const i = lines.findIndex(l => /^### v\d+\.\d+\.\d+ \(/.test(l))
   if (i === -1) return null
   const version = (lines[i].match(/^### (v\d+\.\d+\.\d+)/) || [])[1] || ''

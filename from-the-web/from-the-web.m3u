@@ -1,74 +1,10 @@
 #EXTM3U
 # === 来源于网络（from-the-web） ===
-# 说明：以下频道来自网络上流传的第三方转发站（4gtv.cnlive.club、cdn.qd.je、cdn6.cc.cd 等），非官方源，
+# 说明：以下频道来自网络上流传的第三方转发站（cdn.qd.je、cdn6.cc.cd 等），非官方源，
 #       原在内置精选列表 IPTV.m3u，v4.7.0 复核后移出。本项目不维护、不保证可用，失效不作为 bug 受理。
 # 复核：2026-09-07 海外逐条可拉取清单与媒体分片；大陆直连全部不可达（域名污染）。
 #       纬来日本 / 纬来育乐为 RTMP，仅验证转发站在线，需播放器支持。
 
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E4%B8%AD%E8%A6%96%E6%96%B0%E8%81%9E.png" group-title="台湾",中視新聞
-http://4gtv.cnlive.club/channel/7e6461d6/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E4%B8%AD%E5%A4%A9%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="台湾",中天新聞
-http://4gtv.cnlive.club/channel/3824d067/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%B0%91%E8%A6%96%E7%AC%AC%E4%B8%80%E5%8F%B0.png" group-title="台湾",民視第一台
-http://4gtv.cnlive.club/channel/nc56ba28/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%B0%91%E8%A6%96%E5%8F%B0%E7%81%A3%E5%8F%B0.png" group-title="台湾",民視台灣台
-http://4gtv.cnlive.club/channel/nce5d867/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%B0%91%E8%A6%96.png" group-title="台湾",民視
-http://4gtv.cnlive.club/channel/n7222a63c/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E8%8F%AF%E8%A6%96.png" group-title="台湾",華視
-http://4gtv.cnlive.club/channel/n721fc25a/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E4%B8%89%E7%AB%8B%E7%B6%9C%E5%90%88%E5%8F%B0.png" group-title="台湾",三立綜合台
-http://4gtv.cnlive.club/channel/45c7d3e3/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBS%E7%B2%BE%E9%87%87%E5%8F%B0.png" group-title="台湾",TVBS精采台
-http://4gtv.cnlive.club/channel/49d50255/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E7%B6%9C%E5%90%88%E5%8F%B0.png" group-title="台湾",靖天綜合台
-http://4gtv.cnlive.club/channel/3f6ecb92/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E6%97%A5%E6%9C%AC%E5%8F%B0.png" group-title="台湾",靖天日本台
-http://4gtv.cnlive.club/channel/3f1816f7/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/LiveABC%E4%BA%92%E5%8B%95%E8%8B%B1%E8%AA%9E%E9%A0%BB%E9%81%93.png" group-title="台湾",ABC互動英語
-http://4gtv.cnlive.club/channel/2a571abf/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%B0%BC%E5%85%8B%E5%85%92%E7%AB%A5%E9%A0%BB%E9%81%93.png" group-title="台湾",Nickelodeon
-http://4gtv.cnlive.club/channel/51bbda39/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E5%8D%A1%E9%80%9A%E5%8F%B0.png" group-title="台湾",靖天卡通台
-http://4gtv.cnlive.club/channel/3ed78a45/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E6%B4%8B%E5%8D%A1%E9%80%9ANice%20Bingo.png" group-title="台湾",Nice Bingo
-http://4gtv.cnlive.club/channel/n15c65427/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%8F%A1%E9%9B%BB%E8%A6%96%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="台湾",Mnews鏡新闻
-http://4gtv.cnlive.club/channel/351c8485/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%9D%B1%E6%A3%AE%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="台湾",東森新聞
-http://4gtv.cnlive.club/channel/n5ca63a3a/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E8%8F%AF%E8%A6%96%E6%96%B0%E8%81%9E.png" group-title="台湾",華視新聞
-http://4gtv.cnlive.club/channel/n692bc32c/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%B0%91%E8%A6%96%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="台湾",民視新聞台
-http://4gtv.cnlive.club/channel/nca14742/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E4%B8%89%E7%AB%8B%E6%96%B0%E8%81%9EiNEWS.png" group-title="台湾",三立新聞iNEWS
-http://4gtv.cnlive.club/channel/4fa717ad/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBS%E6%96%B0%E8%81%9E.png" group-title="台湾",TVBS新聞
-http://4gtv.cnlive.club/channel/n1ea96b20/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%9D%B1%E6%A3%AE%E8%B2%A1%E7%B6%93%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="台湾",東森財經新聞台
-http://4gtv.cnlive.club/channel/57ce2e74/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%AF%B0%E5%AE%87%E6%96%B0%E8%81%9E%E5%8F%B0.png" group-title="台湾",寰宇新聞台
-http://4gtv.cnlive.club/channel/n4da4274/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%AF%B0%E5%AE%87%E6%96%B0%E8%81%9E%E5%8F%B0%E7%81%A3%E5%8F%B0.png" group-title="台湾",寰宇新聞台灣台
-http://4gtv.cnlive.club/channel/n37458587/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBS.png" group-title="台湾",TVBS
-http://4gtv.cnlive.club/channel/58f128b2/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%B0%91%E8%A6%96%E7%B6%9C%E8%97%9D%E5%8F%B0.png" group-title="台湾",民視綜藝台
-http://4gtv.cnlive.club/channel/nc46cff5/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E8%82%B2%E6%A8%82%E5%8F%B0.png" group-title="台湾",靖天育樂台
-http://4gtv.cnlive.club/channel/3f7d0a6e/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/KLT-%E9%9D%96%E5%A4%A9%E5%9C%8B%E9%9A%9B%E5%8F%B0.png" group-title="台湾",靖天國際台
-http://4gtv.cnlive.club/channel/n481b36ac/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/Nice%20TV%20%E9%9D%96%E5%A4%A9%E6%AD%A1%E6%A8%82%E5%8F%B0.png" group-title="台湾",靖天歡樂台
-http://4gtv.cnlive.club/channel/n122ce57e/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E8%B3%87%E8%A8%8A%E5%8F%B0.png" group-title="台湾",靖天資訊台
-http://4gtv.cnlive.club/channel/3fae463b/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBS%E6%AD%A1%E6%A8%82%E5%8F%B0.png" group-title="台湾",TVBS歡樂台
-http://4gtv.cnlive.club/channel/498f035d/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-name="华视" tvg-logo="https://epg.112114.xyz/logo/华视.png" group-title="台湾",华视教体
-http://220.135.241.47:8318/0.ts
-#EXTINF:-1 tvg-name="台视财经" tvg-logo="https://epg.112114.xyz/logo/台视财经.png" group-title="台湾",台视财经
-http://220.135.241.47:8315/0.ts
 #EXTINF:-1 tvg-logo="https://epg.pw/media/images/channel/2023/07/22/large/20230722105459178241_22.png" group-title="台湾",纬来日本
 rtmp://f13h.mine.nu/sat/tv771
 #EXTINF:-1 tvg-logo="https://epg.pw/media/images/channel/2023/07/22/large/20230722124851344289_73.png" group-title="台湾",纬来育乐
@@ -93,10 +29,6 @@ https://cdn.qd.je/163189/hoy
 https://cdn.qd.je/163189/hoy78
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/HOY%E5%9B%BD%E9%99%85%E8%B4%A2%E7%BB%8F%E5%8F%B0.png" group-title="香港",HOY国际财经台
 https://cdn.qd.je/163189/hoy76
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/ViuTV.png" group-title="香港",ViuTV
-https://cdn.qd.je/163189/viu
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/ViuTVsix.png" group-title="香港",ViuTVsix
-https://cdn.qd.je/163189/viu6
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/NOW%E6%96%B0%E9%97%BB%E5%8F%B0.png" group-title="香港",NOW新闻台
 https://cdn.qd.je/163189/now
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/RTHK31.png" group-title="香港",RTHK31
@@ -145,17 +77,3 @@ https://cdn.qd.je/163189/lhyp
 https://cdn.qd.je/163189/lhkt
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%A4%A9%E6%98%A0%E6%96%B0%E5%8A%A0%E5%9D%A1.png" group-title="影视",天映频道
 https://cdn.qd.je/163189/typd
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%85%AC%E8%A6%96%E6%88%B2%E5%8A%87.png" group-title="影视",公視戲劇
-http://4gtv.cnlive.club/channel/7fdd881e/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E6%88%B2%E5%8A%87%E5%8F%B0.png" group-title="影视",靖天戲劇台
-http://4gtv.cnlive.club/channel/3f07b409/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E6%B4%8B%E6%88%B2%E5%8A%87%E5%8F%B0.png" group-title="影视",靖洋戲劇台
-http://4gtv.cnlive.club/channel/48117ce7/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E6%98%A0%E7%95%AB.png" group-title="影视",靖天映畫
-http://4gtv.cnlive.club/channel/n610faa83/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%9D%96%E5%A4%A9%E9%9B%BB%E5%BD%B1%E5%8F%B0.png" group-title="影视",靖天電影台
-http://4gtv.cnlive.club/channel/3fcf6ae8/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/amc%E9%9B%BB%E5%BD%B1%E5%8F%B0.png" group-title="影视",amc電影台
-http://4gtv.cnlive.club/channel/n4f2af9e/index.m3u8?q=1784702901150
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E7%B6%93%E5%85%B8%E9%9B%BB%E5%BD%B1%E5%8F%B0.png" group-title="影视",經典電影台
-http://4gtv.cnlive.club/channel/n2eb7240a/index.m3u8?q=1784702901150

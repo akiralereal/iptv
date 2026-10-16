@@ -182,6 +182,7 @@ import jstv from './jstv/index.js'
 import jiaxing from './jiaxing/index.js'
 import taizhou from './taizhou/index.js'
 import iqilu from './iqilu/index.js'
+import iqiyiSports from './iqiyi-sports/index.js'
 import kankanews from './kankanews/index.js'
 import livechina from './livechina/index.js'
 import lotustv from './lotustv/index.js'
@@ -221,6 +222,7 @@ const MODULES = [
   // 顺序即后台展示顺序，也是 channelMerger 的合并顺序（先到的分组优先保留）
   migu,
   yangshipin,
+  iqiyiSports,
   fengshows,
   hkstv,
   lotustv,

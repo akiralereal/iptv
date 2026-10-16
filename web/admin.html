@@ -5138,6 +5138,25 @@
                     <div style="font-size:12px; color:#888; margin-top:6px;">用 B 站手机 App 扫一下即可，凭据直接存到服务端、不经过这个页面。下面的输入框留空即不修改已保存的凭据。</div>
                 </div>`;
             }
+            if (key === 'iqiyi-sports-login') {
+                const rejected = health && health.credentialRejected || '';
+                setTimeout(() => { if (selectedExtractorId === 'iqiyi-sports') iqiyiLoginAction('browserLoginStatus', true); }, 0);
+                return `<div class="bookmarklet-section" style="margin:0 0 12px;">
+                    <div class="bookmarklet-title"><span>爱奇艺体育账号</span><span id="iqiyiLoginState" data-rejected="${escapeHtml(rejected)}" class="login-state-badge off">${rejected ? '⚠️ ' + escapeHtml(rejected) : '尚未检查赛事权限'}</span></div>
+                    <div class="bookmarklet-actions">
+                        <button class="btn btn-sm btn-primary" onclick="iqiyiLoginAction('browserLoginStart')">官方网页登录</button>
+                        <button class="btn btn-sm" onclick="iqiyiLoginAction('browserLoginCheck')">检查赛事权限</button>
+                        <button class="btn btn-sm" onclick="iqiyiLoginAction('browserLoginCancel')">关闭登录窗口</button>
+                        <button class="btn btn-sm" onclick="iqiyiLoginAction('browserLoginClose')">关闭后台浏览器</button>
+                    </div>
+                    <div id="iqiyiLoginMessage" style="font-size:12px;color:#888;margin-top:8px;line-height:1.7;">在服务所在电脑打开官方登录窗口，自行扫码或输入短信验证码，然后检查赛事权限。播放时自动恢复浏览器；会员及单场权益由官网校验。</div>
+                    <div style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;flex-wrap:wrap;">
+                        <textarea id="iqiyiLoginImportInput" rows="3" autocomplete="off" spellcheck="false" placeholder="粘贴本人完整 Cookie 请求头或 Cookie JSON" style="flex:1;min-width:240px;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;font-family:monospace;"></textarea>
+                        <button class="btn btn-sm btn-primary" onclick="iqiyiLoginAction('browserLoginImport')">验证并导入 Cookie</button>
+                    </div>
+                    <div style="font-size:12px;color:#888;margin-top:6px;line-height:1.7;">Docker / NAS 可在自己电脑登录爱奇艺体育官网，从开发者工具 Network 的官方请求复制完整 Cookie 值，或导出 iqiyi.com 域名的 Cookie JSON。先验证当前赛事权限，通过后替换；失败保留原登录态。凭据仅保存在专用浏览器 profile，不进入配置备份。无过期信息的导入 Cookie 本地保留 48 小时，官方可提前使其失效。没有在播赛事时暂不能核验导入。</div>
+                </div>`;
+            }
             if (key === 'yangshipin-login') {
                 return `<div class="bookmarklet-section" style="margin:0 0 12px;">
                     <div class="bookmarklet-title">
@@ -5801,6 +5820,34 @@
         // ===== 央视频持久浏览器登录 =====
         // 与 B 站二维码不同：凭据始终留在服务端专用 Chromium profile，后台只拿
         // 状态快照。服务端负责监听登录成功并把可见窗口切回后台会话。
+        let iqiyiLoginBusy = false;
+        async function iqiyiLoginAction(action, quiet = false) {
+            if (iqiyiLoginBusy || selectedExtractorId !== 'iqiyi-sports') return;
+            const input = document.getElementById('iqiyiLoginImportInput');
+            const payload = action === 'browserLoginImport' ? (input?.value || '').trim() : undefined;
+            if (action === 'browserLoginImport' && !payload) { showStatus('请粘贴本人爱奇艺 Cookie', 'error'); return; }
+            iqiyiLoginBusy = true;
+            const detail = document.getElementById('iqiyiLoginMessage');
+            if (detail && action !== 'browserLoginStatus') detail.textContent = '正在处理并向官网核验，请稍候…';
+            try {
+                let r = await extractorPost({ action, id: 'iqiyi-sports', ...(payload ? { payload } : {}) });
+                if (!r?.success) throw new Error(r?.message || '爱奇艺登录操作失败');
+                if (action === 'browserLoginImport' && input) input.value = '';
+                if (action !== 'browserLoginStatus') r = await extractorPost({ action: 'browserLoginStatus', id: 'iqiyi-sports' });
+                if (selectedExtractorId !== 'iqiyi-sports') return;
+                const data = r.data || {}, badge = document.getElementById('iqiyiLoginState');
+                if (badge) {
+                    const rejected = !data.authenticated && (data.status === 'error' ? data.message : badge.dataset.rejected);
+                    badge.textContent = data.authenticated ? '✅ 当前赛事权限已确认' : rejected ? '⚠️ ' + rejected : '未登录或尚未验证赛事权限';
+                    badge.className = 'login-state-badge ' + (data.authenticated ? 'on' : 'off');
+                }
+                if (detail) { detail.textContent = data.message || data.reason || '请检查本人账号及赛事权益'; detail.style.color = data.status === 'error' ? '#ff4d4f' : '#888'; }
+            } catch (error) {
+                if (detail) { detail.textContent = error.message; detail.style.color = '#ff4d4f'; }
+                if (!quiet) showStatus(error.message, 'error');
+            } finally { iqiyiLoginBusy = false; }
+        }
+
         let yspLoginTimer = null;
         let yspLoginGen = 0;
         let yspLoginFailStreak = 0;

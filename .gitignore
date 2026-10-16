@@ -30,6 +30,7 @@ built-in-sources-remote.json
 pe-cache.json
 # 央视频持久浏览器登录态（等同账号凭据，不进入仓库/JSON 配置备份）
 /yangshipin/
+/iqiyi-sports/
 
 # 外部 EPG 源下载缓存（issue #38）
 epg-cache/

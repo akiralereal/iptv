@@ -153,6 +153,24 @@ export function createRuntime({resolve,fetchImpl=fetch,now=Date.now,ttlMs=180000
   }
   const timer=auto?setInterval(()=>{void tick()},5000):null
   timer?.unref()
+  function snapshot(){
+    return [...entries.values()].filter(e=>!e.revoked&&e.current?.expiresAt>now()).map(e=>{
+      const v=e.current
+      return {id:e.id,version:v.version,createdAt:v.createdAt,expiresAt:v.expiresAt,renewAt:v.renewAt,lastAccess:e.lastAccess,danmaku:v.danmaku,bid:v.bid,verifiedAt:e.verifiedAt,
+        text:v.lines.map(line=>line.segment!==undefined?v.segments[line.segment].url:line.text).join('\n')}
+    })
+  }
+  function restore(rows){
+    for(const row of rows){
+      try{
+        if(!Number.isFinite(row.createdAt)||row.createdAt>now()||!(row.expiresAt>now())||row.expiresAt>row.createdAt+ttlMs||!(/^[a-f0-9]+-\d+$/.test(row.version)))continue
+        const sample=samples.find(s=>s.id===row.id);if(!sample)continue
+        const parsed=parseManifest(row.text,sample.expectedSeconds),e=entry(row.id)
+        const value={...parsed,id:row.id,officialPage:sample.url,expectedSeconds:sample.expectedSeconds,bid:row.bid,version:row.version,createdAt:row.createdAt,expiresAt:row.expiresAt,renewAt:Math.min(row.renewAt||row.createdAt+renewAfter(),row.createdAt+renewAfter()),lastAccess:now(),danmaku:row.danmaku}
+        value.byIdentity=new Map(value.segments.map(s=>[s.identity,s]));e.current=value;e.generations.set(value.version,value);e.lastAccess=Number(row.lastAccess)||-Infinity;e.refreshCount=1;e.lastReason='verified-cache-restored';e.verifiedAt=Math.min(Number(row.verifiedAt)||row.createdAt,row.createdAt)
+      }catch{}
+    }
+  }
   async function verify(id){
     const e=entry(id)
     if(e.revoked && e.retryAt>now())throw fail(e.lastError,'NOT_AUTHORIZED')
@@ -161,5 +179,5 @@ export function createRuntime({resolve,fetchImpl=fetch,now=Date.now,ttlMs=180000
     await refresh(id,{reason:'playlist-verification'})
     return {cached:false}
   }
-  return {reset(){epoch++;entries.clear();lifetime=ttlMs},get,verify,manifest,media,status,tick,refresh:(id)=>{entry(id).lastAccess=now();return refresh(id,{reason:'manual',manual:true})},async close(){closed=true;clearInterval(timer);controller.abort();await serial}}
+  return {snapshot,restore,reset(){epoch++;entries.clear();lifetime=ttlMs},get,verify,manifest,media,status,tick,refresh:(id)=>{entry(id).lastAccess=now();return refresh(id,{reason:'manual',manual:true})},async close(){closed=true;clearInterval(timer);controller.abort();await serial}}
 }

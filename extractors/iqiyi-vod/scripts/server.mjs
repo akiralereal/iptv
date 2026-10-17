@@ -1,3 +1,4 @@
+import {createWarmCache,loginFingerprint} from './warm-cache.mjs'
 import { restoreSamples, saveSamples } from '../sample-store.js'
 import { runtimeDir } from '../paths.js'
 import { createVODAuth } from '../auth.js'
@@ -33,6 +34,8 @@ const trackedResolve=async(sample,options)=>{
  try{return await resolve(sample,options)}
  catch(error){if(error.code==='NOT_AUTHORIZED')confirmLoginSoon();throw error}
 }
+const warmCache=auto?createWarmCache({directory:runtimeDir,fingerprint:()=>loginFingerprint(runtimeDir)}):null
+let collectionExport,prewarmed=false
 const eventsFile=path.join(runtimeDir,'renewals.ndjson')
 async function logEvent(event){
  // Diagnostics only: keep the newest ~512 KiB plus one rotated file.
@@ -42,7 +45,7 @@ async function logEvent(event){
 const runtime=createRuntime({...runtimeOptions,resolve:trackedResolve,auto,
  ...(process.env.IQIYI_VOD_TICKET_MAX_MS?{ttlMs:Number(process.env.IQIYI_VOD_TICKET_MAX_MS)}:{}),
  ...(process.env.IQIYI_VOD_REFRESH_AHEAD_MS?{refreshAheadMs:Number(process.env.IQIYI_VOD_REFRESH_AHEAD_MS)}:{}),
- onEvent:logEvent})
+ onEvent:async event=>{await logEvent(event);if(warmCache&&collectionExport&&['success','failed'].includes(event.outcome))await warmCache.save(runtime,collectionExport.exportEntries())}})
 const catalog=suppliedCatalog || createCatalog()
 const episodes=suppliedEpisodes || createEpisodes()
 const danmaku=suppliedDanmaku || createDanmaku()
@@ -50,20 +53,22 @@ const unifiedDanmaku=createUnifiedDanmaku({runtime,danmaku,samples})
 const history=suppliedHistory || createHistory()
 const progress=createProgress({file:path.join(runtimeDir,'history-progress.json')})
 const fixedSamples=samples.filter(sample=>['movie','drama'].includes(sample.id))
-const collectionExport=createCollectionExport({runtime,origin:'',load:async()=>{
+const restoredEntries=warmCache?await warmCache.load(runtime):[]
+collectionExport=createCollectionExport({initialEntries:restoredEntries,runtime,origin:'',load:async onBatch=>{
  const entries=[],warnings=[];let skipped=0
  const sources=[['recommend','首页推荐'],['hot','首页最热'],['new','首页最新'],['history','观看历史']]
- const results=await Promise.allSettled(sources.map(([scope])=>scope==='history'?playbackOwner().then(owner=>progress.apply(owner)):catalog.get(scope)))
- for(const [index,result] of results.entries()){
-  const [scope,label]=sources[index]
-  if(result.status==='rejected'){warnings.push(label+'读取失败，未用旧列表代替');continue}
-  for(const item of result.value.items){
-   try{
-    const sample=scope==='history'&&!item.id.startsWith('video-')?registerHistorySample(item):registerCatalogSample({...item,episodeSeconds:scope==='history'?item.duration:item.episodeSeconds})
-    entries.push({scope,group:'爱奇艺 · '+label,sample})
-   }catch{skipped++}
-  }
- }
+ await Promise.all(sources.map(async([scope,label])=>{
+  try{
+   const data=scope==='history'?await playbackOwner().then(owner=>progress.apply(owner)):await catalog.get(scope),batch=[]
+   for(const item of data.items){
+    try{
+     const sample=scope==='history'&&!item.id.startsWith('video-')?registerHistorySample(item):registerCatalogSample({...item,episodeSeconds:scope==='history'?item.duration:item.episodeSeconds})
+     batch.push({scope,group:'爱奇艺 · '+label,sample})
+    }catch{skipped++}
+   }
+   await saveSamples();entries.push(...batch);onBatch(batch)
+  }catch{warnings.push(label+'读取失败，未用旧列表代替')}
+ }))
  await saveSamples()
  return {entries,warnings,skipped}
 }})
@@ -93,6 +98,7 @@ async function handle(req,res,{path:requestPath, origin, prefix, admin = true}={
     if(!admin){json(res,403,{error:'爱奇艺影视仅管理员可用'});return}
     // Compare hosts only: behind an HTTPS reverse proxy without X-Forwarded-Proto the server
     // sees http:// while the browser sends https:// in Origin.
+    if(auto&&admin&&!prewarmed&&['/','/playlist.m3u','/playlist/samples.m3u'].includes(url.pathname)){prewarmed=true;void collectionExport.start({keepReady:true})}
     if(req.method==='POST'&&req.headers.origin&&!sameHost(req.headers.origin,origin)){json(res,403,{error:'不允许跨站操作'});return}
     if(url.pathname==='/api/account'){
       if(req.method==='GET'){reply(200,auth.status());return}
@@ -101,7 +107,7 @@ async function handle(req,res,{path:requestPath, origin, prefix, admin = true}={
       if(!actions[input.action]){reply(400,{error:'未知账号操作'});return}
       if(input.action==='start'&&!isLocal(req)){reply(403,{error:'仅服务所在电脑可打开官方登录窗口；NAS 请导入 Cookie'});return}
       await auth[actions[input.action]](input.action==='import'?input.cookies:undefined)
-      if(['check','import'].includes(input.action)){if(auth.status().authenticated)rejected='';runtime.reset();history.invalidate?.();progress.reset?.();collectionExport.invalidate?.()}
+      if(['check','import'].includes(input.action)){if(auth.status().authenticated)rejected='';runtime.reset();history.invalidate?.();progress.reset?.();collectionExport.invalidate?.();await warmCache?.reset();prewarmed=false}
       reply(200,auth.status());return
     }
     const bullets=url.pathname.match(/^\/api\/danmaku\/v1\/videos\/(movie|drama|(?:history|catalog)-[a-f0-9]{16})(\/segments)?$/)
@@ -214,7 +220,7 @@ update();setInterval(update,3000);
 }
 return {handle,runtime,catalog,history,episodes,danmaku,auth,collectionExport,
  credentialRejected:()=>rejected||(auth.status().status==='error'?auth.status().message:''),
- async close(){await Promise.allSettled([runtime.close(),collectionExport.close(),catalog.close(),episodes.close(),danmaku.close(),history.close(),progress.close(),(auth.shutdown||auth.close)()])}}
+ async close(){await Promise.allSettled([runtime.close(),collectionExport.close(),catalog.close(),episodes.close(),danmaku.close(),history.close(),progress.close(),(auth.shutdown||auth.close)()]);if(warmCache){await warmCache.save(runtime,collectionExport.exportEntries()).catch(()=>{});await warmCache.flush().catch(()=>{})}}}
 }
 
 function rebase(value,prefix){

@@ -60,3 +60,18 @@ test('re-checking the login or a failed directory read never leaves the playlist
  clock+=300000;assert.match(await service.playlist('all',{waitMs:50}),/\/play\/a.m3u8/,'读片单失败 5 分钟后重试')
  await service.close()
 })
+
+test('homepage becomes playable before a slow history reader completes',async()=>{
+ let finishHistory;const history=new Promise(resolve=>finishHistory=resolve),states=new Map()
+ const service=createCollectionExport({origin,runtime:{status:()=>[...states].map(([id,state])=>({id,state,verified:state==='ready'})),verify:async id=>{states.set(id,'ready')}},load:async batch=>{batch([entry('home','recommend')]);await history;return {entries:[entry('home','recommend')]}}})
+ const pending=service.start();await new Promise(resolve=>setImmediate(resolve))
+ assert.match(await service.playlist('recommend',{waitMs:5}),/\/play\/home.m3u8/)
+ assert.equal(service.status().running,true);finishHistory();await pending;await service.close()
+})
+
+test('startup scan keeps only still-authorized restored entries available while loading fresh sources',async()=>{
+ let finish;const wait=new Promise(resolve=>finish=resolve);let ready=true
+ const service=createCollectionExport({origin,initialEntries:[entry('cached','recommend')],runtime:{status:()=>[{id:'cached',state:ready?'ready':'expired',verified:ready}],verify:async()=>{}},load:async()=>{await wait;return {entries:[]}}})
+ const scan=service.start({keepReady:true});assert.match(await service.playlist('recommend',{waitMs:5}),/\/play\/cached.m3u8/)
+ ready=false;assert.throws(()=>service.text());finish();await scan;await service.close()
+})

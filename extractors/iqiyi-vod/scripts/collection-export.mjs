@@ -5,8 +5,8 @@ const clean=value=>String(value).replace(/[\r\n"]/g,' ')
 // Each fresh verification opens the official player in Chromium (#182). A round checks at most
 // roundLimit titles without a current verdict; player subscriptions start a round themselves at
 // most every autoCooldownMs, the browse page's button any time.
-export function createCollectionExport({load,runtime,origin,now=Date.now,roundLimit=20,autoCooldownMs=7200000}={}){
- let epoch=0,retrySoon=false;let entries=[],warnings=[],pending=null,closed=false,finished=false,checked=0,denied=0,failed=0,skipped=0,startedAt=null,finishedAt=null,current='',error=''
+export function createCollectionExport({load,runtime,origin,initialEntries=[],now=Date.now,roundLimit=20,autoCooldownMs=7200000}={}){
+ let epoch=0,retrySoon=false;let entries=initialEntries,warnings=[],pending=null,closed=false,finished=false,checked=0,denied=0,failed=0,skipped=0,startedAt=null,finishedAt=null,current='',error=''
  const listeners=new Set()
  function notify(){for(const listener of [...listeners])listener()}
  function rows(scope='all'){
@@ -15,7 +15,7 @@ export function createCollectionExport({load,runtime,origin,now=Date.now,roundLi
   return entries.filter(entry=>(scope==='all'||entry.scope===scope)&&ready.has(entry.sample.id))
  }
  function status(){return {running:!!pending,finished,startedAt,finishedAt,total:new Set(entries.map(e=>e.sample.id)).size,checked,denied,failed,skipped,current,error,warnings,ready:Object.fromEntries(scopes.map(scope=>[scope,rows(scope).length]))}}
- function start(){
+ function start({keepReady=false}={}){
   if(closed)throw fail('清单服务已停止')
   if(pending)return pending
   const generation=++epoch
@@ -23,21 +23,33 @@ export function createCollectionExport({load,runtime,origin,now=Date.now,roundLi
   warnings=[];checked=denied=failed=skipped=0;startedAt=now();finishedAt=null;finished=false;current='正在读取首页与观看历史';error=''
   pending=(async()=>{
    try{
-    const data=await load();if(generation!==epoch)return;entries=[...new Map(data.entries.map(entry=>[entry.scope+'|'+entry.sample.id,entry])).values()];warnings=data.warnings||[];skipped=data.skipped||0
-    // Never-verified titles first, then the oldest verdicts, so a long directory is not stuck
-    // re-checking its first roundLimit titles forever.
-    const verifiedAt=new Map(runtime.status().map(row=>[row.id,row.verifiedAt||0]))
-    const unique=[...new Map(entries.map(entry=>[entry.sample.id,entry.sample])).values()].sort((a,b)=>(verifiedAt.get(a.id)||0)-(verifiedAt.get(b.id)||0))
-    notify()
-    let fresh=0
-    for(const sample of unique){
-     if(closed||generation!==epoch)break
-     if(fresh>=roundLimit){warnings=[...warnings,`本轮已核验 ${roundLimit} 条，其余下一轮继续`];break}
-     current=sample.title;notify()
-     try{if(!(await runtime.verify(sample.id))?.cached)fresh++}catch(error){if(!error.skipped)fresh++;if(error.code==='NOT_AUTHORIZED')denied++;else failed++}
-     if(generation!==epoch)return
-     checked++;notify()
+    let queue=Promise.resolve(),fresh=0,received=false,limited=false
+    const seen=new Set()
+    const batch=items=>{
+      if(closed||generation!==epoch)return
+      if(!received){if(!keepReady)entries=[];received=true}
+      entries=[...new Map([...entries,...items].map(entry=>[entry.scope+'|'+entry.sample.id,entry])).values()]
+      const verifiedAt=new Map(runtime.status().map(row=>[row.id,row.verifiedAt||0]))
+      const unique=[...new Map(items.map(entry=>[entry.sample.id,entry.sample])).values()].sort((a,b)=>(verifiedAt.get(a.id)||0)-(verifiedAt.get(b.id)||0))
+      notify()
+      for(const sample of unique){
+        if(seen.has(sample.id))continue;seen.add(sample.id)
+        queue=queue.then(async()=>{
+          if(closed||generation!==epoch)return
+          if(fresh>=roundLimit){limited=true;return}
+          current=sample.title;notify()
+          try{if(!(await runtime.verify(sample.id))?.cached)fresh++}catch(error){if(!error.skipped)fresh++;if(error.code==='NOT_AUTHORIZED')denied++;else failed++}
+          if(generation!==epoch)return
+          checked++;notify()
+        })
+      }
     }
+    const data=await load(batch);if(generation!==epoch)return;batch(data.entries)
+    const currentKeys=new Set(data.entries.map(e=>e.scope+'|'+e.sample.id))
+    entries=entries.filter(e=>currentKeys.has(e.scope+'|'+e.sample.id))
+    warnings=data.warnings||[];skipped=data.skipped||0
+    await queue
+    if(limited)warnings=[...warnings,`本轮已核验 ${roundLimit} 条，其余下一轮继续`]
     if(!closed&&generation===epoch)finished=true
    }catch(cause){entries=[];error=cause.message;warnings=[...warnings,'片单读取未完成，请重试'];retrySoon=true}
    // A failed directory read is retried after 5 minutes instead of waiting out the cooldown.
@@ -63,5 +75,5 @@ export function createCollectionExport({load,runtime,origin,now=Date.now,roundLi
   })
   return text(scope,outputOrigin)
  }
- return {invalidate(){epoch++;entries=[];pending=null;finished=false;finishedAt=null;checked=denied=failed=skipped=0;current='';notify()},start,status,text,playlist,async close(){closed=true;notify();await pending}}
+ return {exportEntries:()=>rows(),invalidate(){epoch++;entries=[];pending=null;finished=false;finishedAt=null;checked=denied=failed=skipped=0;current='';notify()},start,status,text,playlist,async close(){closed=true;notify();await pending}}
 }

@@ -64,3 +64,21 @@ test('local playback progress is persisted only in the configured private data d
  const state=JSON.parse(await readFile(path.join(runtimeDir,'history-progress.json'),'utf8'))
  assert.equal(state.fixture[prepared.progressId].seconds,37)
 }))
+
+test('main VOD service restores full tickets on restart without parsing or extending expiry',async()=>{
+ let parses=0
+ const options={auto:true,resolve:async sample=>{parses++;return {text:`#EXTM3U\n#EXTINF:${sample.expectedSeconds},\nhttps://fixture.71edge.com/restart.ts\n#EXT-X-ENDLIST`}},
+  catalog:{get:async()=>({items:[{id:'fixture',title:'fixture',url:'https://www.iqiyi.com/v_19rrl9vhkw.html',episodeSeconds:8146}]}),close:done},
+  history:{get:async()=>({accountKey:'fixture',items:[]}),close:done},episodes:{close:done},danmaku:{close:done},auth:{status:()=>({authenticated:true}),close:done}}
+ const first=await createVODService(options)
+ let expiresAt
+ try{await first.collectionExport.start();assert.ok(first.collectionExport.status().ready.all);expiresAt=first.runtime.status().find(s=>s.id==='movie').expiresAt}
+ finally{await first.close()}
+ const second=await createVODService(options)
+ try{
+  assert.ok(second.collectionExport.status().ready.all)
+  assert.match(await second.runtime.manifest('movie'),/#EXT-X-ENDLIST/)
+  assert.equal(parses,1)
+  assert.equal(second.runtime.status().find(s=>s.id==='movie').expiresAt,expiresAt)
+ }finally{await second.close()}
+})

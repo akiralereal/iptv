@@ -180,6 +180,7 @@ function safeBrowserLoginState(value = {}) {
     running: value.running === true,
     visible: value.visible === true,
     authenticated: value.authenticated === true,
+    ...(typeof value.entitled === 'boolean' ? { entitled: value.entitled } : {}),
     account,
   }
 }

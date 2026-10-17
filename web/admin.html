@@ -4635,7 +4635,7 @@
                                 <strong>当前版本</strong>
                             </div>
                             <div class="about-version-body">
-                                <span id="versionText">v4.36.0</span>
+                                <span id="versionText">v4.37.0</span>
                                 <button class="btn btn-sm" onclick="checkUpdate()" id="checkUpdateBtn">检查更新</button>
                             </div>
                             <div id="updateInfo" class="about-update-info" style="display: none;"></div>
@@ -5143,18 +5143,23 @@
                 setTimeout(() => { if (selectedExtractorId === 'iqiyi-sports') iqiyiLoginAction('browserLoginStatus', true); }, 0);
                 return `<div class="bookmarklet-section" style="margin:0 0 12px;">
                     <div class="bookmarklet-title"><span>爱奇艺体育账号</span><span id="iqiyiLoginState" data-rejected="${escapeHtml(rejected)}" class="login-state-badge off">${rejected ? '⚠️ ' + escapeHtml(rejected) : '尚未检查赛事权限'}</span></div>
-                    <div class="bookmarklet-actions">
-                        <button class="btn btn-sm btn-primary" onclick="iqiyiLoginAction('browserLoginStart')">官方网页登录</button>
-                        <button class="btn btn-sm" onclick="iqiyiLoginAction('browserLoginCheck')">检查赛事权限</button>
-                        <button class="btn btn-sm" onclick="iqiyiLoginAction('browserLoginCancel')">关闭登录窗口</button>
-                        <button class="btn btn-sm" onclick="iqiyiLoginAction('browserLoginClose')">关闭后台浏览器</button>
+                    <div id="iqiyiLoginMessage" style="font-size:12px;color:#888;margin-top:8px;line-height:1.7;">NAS / Docker 请在自己电脑登录官网，再复制 Cookie 导入。正在读取已保存的登录状态…</div>
+                    <div class="bookmarklet-actions" style="margin-top:10px;">
+                        <a href="https://sports.iqiyi.com/" target="_blank" rel="noopener noreferrer">在当前电脑打开爱奇艺体育官网 ↗</a>
+                        <button id="iqiyiLoginCheck" class="btn btn-sm" onclick="iqiyiLoginAction('browserLoginCheck')">检查登录与权益</button>
                     </div>
-                    <div id="iqiyiLoginMessage" style="font-size:12px;color:#888;margin-top:8px;line-height:1.7;">在服务所在电脑打开官方登录窗口，自行扫码或输入短信验证码，然后检查赛事权限。播放时自动恢复浏览器；会员及单场权益由官网校验。</div>
                     <div style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;flex-wrap:wrap;">
                         <textarea id="iqiyiLoginImportInput" rows="3" autocomplete="off" spellcheck="false" placeholder="粘贴本人完整 Cookie 请求头或 Cookie JSON" style="flex:1;min-width:240px;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;font-family:monospace;"></textarea>
-                        <button class="btn btn-sm btn-primary" onclick="iqiyiLoginAction('browserLoginImport')">验证并导入 Cookie</button>
+                        <button id="iqiyiLoginImport" class="btn btn-sm btn-primary" onclick="iqiyiLoginAction('browserLoginImport')">验证并导入 Cookie</button>
                     </div>
-                    <div style="font-size:12px;color:#888;margin-top:6px;line-height:1.7;">Docker / NAS 可在自己电脑登录爱奇艺体育官网，从开发者工具 Network 的官方请求复制完整 Cookie 值，或导出 iqiyi.com 域名的 Cookie JSON。先验证当前赛事权限，通过后替换；失败保留原登录态。凭据仅保存在专用浏览器 profile，不进入配置备份。无过期信息的导入 Cookie 本地保留 48 小时，官方可提前使其失效。没有在播赛事时暂不能核验导入。</div>
+                    <div style="font-size:12px;color:#888;margin-top:6px;line-height:1.7;">在自己电脑登录官网后，按 F12（Mac 按 ⌥⌘I），在 Network 中刷新页面，复制 iqiyi.com 官方请求的 Request Headers → Cookie 完整值；也支持导出的 Cookie JSON。仅在确认账号有效后替换，校验失败保留原登录态。体育会员、单场赛事和专项回放的权益分别校验，登录成功不代表所有赛事均可观看。</div>
+                    <div style="font-size:12px;color:#888;margin-top:6px;line-height:1.7;">凭据仅保存在服务端数据目录的爱奇艺专用浏览器 profile，不回显完整 Cookie，不与其他平台共用，也不进入配置备份。NAS / Docker 请持久挂载数据目录；容器重启后可继续使用，迁移时需重新导入。无过期信息的 Cookie 本地保留 30 天，实际有效期以官网为准；失效后重新导入。</div>
+                    <div id="iqiyiLocalLoginActions" class="bookmarklet-actions" style="margin-top:10px;display:none;">
+                        <button id="iqiyiLoginOpen" class="btn btn-sm" onclick="iqiyiLoginAction('browserLoginStart')">本机官方网页登录</button>
+                        <button id="iqiyiLoginCancel" class="btn btn-sm" style="display:none;" onclick="iqiyiLoginAction('browserLoginCancel')">关闭登录窗口</button>
+                        <button id="iqiyiLoginClose" class="btn btn-sm" style="display:none;" onclick="iqiyiLoginAction('browserLoginClose')">关闭后台浏览器</button>
+                    </div>
+                    <div id="iqiyiLocalLoginHint" style="font-size:12px;color:#888;margin-top:6px;">官方登录窗口仅供在有桌面环境的服务本机通过 localhost 访问时使用；NAS / Docker 默认使用 Cookie 导入。</div>
                 </div>`;
             }
             if (key === 'yangshipin-login') {
@@ -5820,13 +5825,41 @@
         // ===== 央视频持久浏览器登录 =====
         // 与 B 站二维码不同：凭据始终留在服务端专用 Chromium profile，后台只拿
         // 状态快照。服务端负责监听登录成功并把可见窗口切回后台会话。
+        function renderIqiyiLoginState(data = {}) {
+            const local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname);
+            const canOpen = local && data.available === true;
+            const active = iqiyiLoginBusy || data.active === true;
+            const badge = document.getElementById('iqiyiLoginState');
+            if (badge) {
+                const rejected = data.status === 'error' ? data.message : badge.dataset.rejected;
+                badge.textContent = data.authenticated
+                    ? (data.entitled === false ? '✅ 已登录 · 当前内容需额外权益' : data.entitled === true ? '✅ 已登录 · 当前赛事权限已确认' : '✅ 账号已登录')
+                    : rejected ? '⚠️ ' + rejected : data.status === 'waiting' ? '等待完成官方登录' : '未登录或尚未验证';
+                badge.className = 'login-state-badge ' + (data.authenticated ? 'on' : 'off');
+            }
+            const actions = document.getElementById('iqiyiLocalLoginActions');
+            if (actions) actions.style.display = canOpen ? '' : 'none';
+            for (const [id, show] of [['iqiyiLoginCancel', data.visible === true], ['iqiyiLoginClose', data.running === true]]) {
+                const button = document.getElementById(id);
+                if (button) { button.style.display = canOpen && show ? '' : 'none'; button.disabled = active; }
+            }
+            for (const id of ['iqiyiLoginCheck', 'iqiyiLoginImport', 'iqiyiLoginOpen']) {
+                const button = document.getElementById(id);
+                if (button) button.disabled = active || (id === 'iqiyiLoginOpen' && (!canOpen || data.visible === true));
+            }
+            const detail = document.getElementById('iqiyiLoginMessage');
+            if (detail) { detail.textContent = data.message || '请导入本人 Cookie，或检查已保存的登录与赛事权益。'; detail.style.color = data.status === 'error' ? '#ff4d4f' : '#888'; }
+        }
+
         let iqiyiLoginBusy = false;
+        let iqiyiLoginState = {};
         async function iqiyiLoginAction(action, quiet = false) {
             if (iqiyiLoginBusy || selectedExtractorId !== 'iqiyi-sports') return;
             const input = document.getElementById('iqiyiLoginImportInput');
             const payload = action === 'browserLoginImport' ? (input?.value || '').trim() : undefined;
             if (action === 'browserLoginImport' && !payload) { showStatus('请粘贴本人爱奇艺 Cookie', 'error'); return; }
             iqiyiLoginBusy = true;
+            renderIqiyiLoginState(iqiyiLoginState);
             const detail = document.getElementById('iqiyiLoginMessage');
             if (detail && action !== 'browserLoginStatus') detail.textContent = '正在处理并向官网核验，请稍候…';
             try {
@@ -5835,17 +5868,21 @@
                 if (action === 'browserLoginImport' && input) input.value = '';
                 if (action !== 'browserLoginStatus') r = await extractorPost({ action: 'browserLoginStatus', id: 'iqiyi-sports' });
                 if (selectedExtractorId !== 'iqiyi-sports') return;
-                const data = r.data || {}, badge = document.getElementById('iqiyiLoginState');
-                if (badge) {
-                    const rejected = !data.authenticated && (data.status === 'error' ? data.message : badge.dataset.rejected);
-                    badge.textContent = data.authenticated ? '✅ 当前赛事权限已确认' : rejected ? '⚠️ ' + rejected : '未登录或尚未验证赛事权限';
-                    badge.className = 'login-state-badge ' + (data.authenticated ? 'on' : 'off');
-                }
-                if (detail) { detail.textContent = data.message || data.reason || '请检查本人账号及赛事权益'; detail.style.color = data.status === 'error' ? '#ff4d4f' : '#888'; }
+                iqiyiLoginState = r.data || {};
+                renderIqiyiLoginState(iqiyiLoginState);
             } catch (error) {
                 if (detail) { detail.textContent = error.message; detail.style.color = '#ff4d4f'; }
                 if (!quiet) showStatus(error.message, 'error');
-            } finally { iqiyiLoginBusy = false; }
+            } finally {
+                iqiyiLoginBusy = false;
+                if (selectedExtractorId === 'iqiyi-sports') {
+                    // Update buttons without overwriting an operation error message.
+                    const message = detail?.textContent;
+                    const color = detail?.style.color;
+                    renderIqiyiLoginState(iqiyiLoginState);
+                    if (detail) { detail.textContent = message; detail.style.color = color; }
+                }
+            }
         }
 
         let yspLoginTimer = null;
@@ -7141,7 +7178,7 @@
             for (const g of (myPlaylistData || [])) {
                 if (isSystemAnnouncementGroup(g)) continue;
                 for (const ch of (g.channels || [])) {
-                    if (!ch.logo) out.push({ group: g.name, id: ch.id, name: ch.name });
+                    if (!ch.logo && !dynamicSportsSource(ch, g.name)) out.push({ group: g.name, id: ch.id, name: ch.name });
                 }
             }
             return out;
@@ -7179,6 +7216,7 @@
         // 在「频道详情」里直接给本频道设别名（issue #62）：把本频道名追加到指定规范名下（不覆盖已有别名），
         // 保存后重新加载「我的频道」即时重算配对状态（别名即时进 getCanonicalMap）。
         async function setAliasFromDetail() {
+            if (blockDynamicSportsDetailEdit()) return;
             const el = document.getElementById('detailAliasCanonical');
             const canonical = el ? el.value.trim() : '';
             if (!canonical) { showStatus('请填写规范名', 'error'); return; }
@@ -9879,7 +9917,7 @@ if(success){
         // 含义由上方常驻图例 + 每点 hover 文字说明；详情里仍有完整文字。
         function channelStatusDots(channel) {
             // 公告和教程是本地短片，不需要节目单/台标配对提示。
-            if (isSystemAnnouncementChannel(channel)) return '';
+            if (isSystemAnnouncementChannel(channel) || dynamicSportsSource(channel)) return '';
             const base = window.location.origin + API_PREFIX;
             const src = channel.logo ? String(channel.logo).replace(/\$\{replace\}/g, base) : '';
             const epgOk = !!channel.epgMatched;
@@ -11748,6 +11786,57 @@ if(success){
         // 频道详情相关功能
         let currentChannelDetail = null;
 
+        // Source identity + original schedule group: names and visible groups can
+        // be changed by users, and fixed sports TV channels are still ordinary TV.
+        function dynamicSportsSource(channel, groupName = '') {
+            if (!channel) return '';
+            const sources = Array.isArray(channel.sourceIds) ? channel.sourceIds : [];
+            if (sources.includes('xt:iqiyi-sports')) return '爱奇艺体育';
+            const raw = String(channel.url || '');
+            let localPath = '';
+            try {
+                const url = new URL(raw.replace(/\$\{replace\}/g, window.location.origin), window.location.href);
+                if (url.origin === window.location.origin) localPath = url.pathname;
+            } catch {}
+            if (/\/iqiyi-sports-(?:vod-)?[1-9]\d{0,19}(?:\.m3u8)?$/.test(localPath)) return '爱奇艺体育';
+            const original = channel.originalGroup || groupName;
+            if (/^体育-(?:昨天|今天|明天)$/.test(original)
+                && (sources.includes('migu') || (!sources.length && /\/\d+(?:\.m3u8)?$/.test(localPath)))) return '咪咕';
+            return '';
+        }
+
+        function blockDynamicSportsDetailEdit() {
+            if (!dynamicSportsSource(currentChannelDetail, currentChannelDetail?.groupName)) return false;
+            showStatus('动态赛事信息由来源更新，不支持固定频道编辑', 'error');
+            return true;
+        }
+
+        function dynamicSportsDetail(channel, source) {
+            const kind = String(channel.name || '').match(/^\[(直播|回放|集锦)\]/)?.[1]
+                || (/回放|回看/.test(channel.name || '') ? '回放' : '赛事');
+            const access = source === '爱奇艺体育' ? String(channel.name || '').match(/^\[(?:直播|回放|集锦)\]\s*\[(免费免登录|会员(?: \/ 单场付费)?(?: \/ 专项权益)?|单场付费(?: \/ 专项权益)?|专项权益|权益已授权)\]/)?.[1] || '权益类型待确认' : '';
+            const website = source === '爱奇艺体育' ? 'https://sports.iqiyi.com/' : 'https://www.miguvideo.com/';
+            const status = source === '爱奇艺体育' ? '已通过列表授权筛选，播放时再次校验' : '播放时按当前账号及赛事权益校验';
+            return `
+                <section class="channel-detail-section">
+                    <h4>赛事信息</h4>
+                    <dl class="channel-detail-facts">
+                        <div class="channel-detail-fact channel-detail-fact-wide"><dt>内容名称</dt><dd>${escapeHtml(channel.name || '')}</dd></div>
+                        <div class="channel-detail-fact"><dt>内容类型</dt><dd><span class="channel-detail-badge">${escapeHtml(kind)}</span></dd></div>
+                        <div class="channel-detail-fact"><dt>内容来源</dt><dd>${escapeHtml(source)}</dd></div>
+                        <div class="channel-detail-fact channel-detail-fact-wide"><dt>播放权限</dt><dd>${escapeHtml(status)}</dd></div>
+                        ${access ? `<div class="channel-detail-fact channel-detail-fact-wide"><dt>观看条件</dt><dd>${escapeHtml(access)}</dd></div>` : ''}
+                    </dl>
+                </section>
+                ${channelDetailPlayback(channel)}
+                <section class="channel-detail-section">
+                    <h4>动态赛事</h4>
+                    <p class="channel-detail-help">赛事名称、日期和列表归属由来源更新，不提供固定电视频道的编辑设置。${access ? '免费免登录已通过匿名完整播放核验；会员、单场付费和专项权益表示官网支持的权益类型，可同时存在，不代表本人的购买记录。权益已授权表示当前可完整观看，但官网未明确权益类型。' : ''}</p>
+                    <div class="channel-detail-buttons"><a class="btn" href="${website}" target="_blank" rel="noopener noreferrer">打开${escapeHtml(source)}官网</a></div>
+                </section>
+            `;
+        }
+
         // 普通频道与系统频道共用播放区的布局；系统频道不提供外部播放器入口。
         function channelDetailPlayback(channel, includeExternalPlayers = true) {
             if (!channel.url) return '';
@@ -11847,6 +11936,16 @@ if(success){
                         <div class="channel-detail-buttons">${detailAction}</div>
                     </section>
                 `;
+                document.getElementById('channelDetailContent').scrollTop = 0;
+                document.getElementById('channelDetailEditBtn').style.display = 'none';
+                document.getElementById('channelDetailModal').style.display = 'block';
+                return;
+            }
+
+            const dynamicSource = dynamicSportsSource(channel, groupName);
+            if (dynamicSource) {
+                document.getElementById('channelDetailTitle').textContent = `赛事详情 · ${channel.name}`;
+                document.getElementById('channelDetailContent').innerHTML = dynamicSportsDetail(channel, dynamicSource);
                 document.getElementById('channelDetailContent').scrollTop = 0;
                 document.getElementById('channelDetailEditBtn').style.display = 'none';
                 document.getElementById('channelDetailModal').style.display = 'block';
@@ -12002,6 +12101,7 @@ if(success){
 
         // 上传当前频道台标（issue #40）：存 data/logos/<频道名>.<ext>，最高优先级、保存即生效
         async function uploadCurrentChannelLogo(inputEl) {
+            if (blockDynamicSportsDetailEdit()) return;
             const file = inputEl.files && inputEl.files[0];
             if (!file || !currentChannelDetail) return;
             if (file.size > 3 * 1024 * 1024) { showStatus('图片过大（请小于 3MB）', 'error'); inputEl.value = ''; return; }
@@ -12029,6 +12129,7 @@ if(success){
 
         // 移除当前频道的本地上传台标
         async function removeCurrentChannelLogo() {
+            if (blockDynamicSportsDetailEdit()) return;
             if (!currentChannelDetail) return;
             try {
                 const resp = await fetch(API_PREFIX + '/api/remove-logo', {
@@ -12049,6 +12150,7 @@ if(success){
 
         // 复制当前频道到所选分组（issue #37）：后端为每个目标分组建一条独立的直连副本
         async function copyCurrentChannelToGroups() {
+            if (blockDynamicSportsDetailEdit()) return;
             if (!currentChannelDetail) return;
             const sel = document.getElementById('channelCopySelect');
             if (!sel) return;
@@ -12074,6 +12176,7 @@ if(success){
 
         // 将当前详情中的频道移动到所选分组（单频道归类）
         async function moveCurrentChannel() {
+            if (blockDynamicSportsDetailEdit()) return;
             if (!currentChannelDetail) return;
             if (isSystemAnnouncementChannel(currentChannelDetail)) {
                 showStatus('系统公告频道固定在第一位', 'error');
@@ -12120,6 +12223,7 @@ if(success){
 
         // 重命名当前详情中的频道（单频道重命名）
         async function renameCurrentChannel() {
+            if (blockDynamicSportsDetailEdit()) return;
             if (!currentChannelDetail) return;
             if (isSystemAnnouncementChannel(currentChannelDetail)) {
                 showStatus('系统公告频道不支持重命名', 'error');
@@ -12389,6 +12493,7 @@ if(success){
         }
 
         function editChannelFromDetail() {
+            if (blockDynamicSportsDetailEdit()) return;
             if (!currentChannelDetail || !currentChannelDetail.isExternal) {
                 showStatus('此频道不可编辑', 'error');
                 return;

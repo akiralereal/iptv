@@ -2500,6 +2500,33 @@
    "updated": "2026-09-28",
    "width": 256
   },
+  "绍兴公共": {
+   "file": "绍兴公共.png",
+   "hash": "6bfde756e7",
+   "height": 199,
+   "origin": "shaoxing",
+   "source": "https://img.shaoxing.com.cn/a/thumb/10001/201907/1343d3f112c5ddf2ccde3d8c28ce833f.png!w800_h600.png",
+   "updated": "2026-10-17",
+   "width": 256
+  },
+  "绍兴文化影视": {
+   "file": "绍兴文化影视.png",
+   "hash": "d12bf084c5",
+   "height": 199,
+   "origin": "shaoxing",
+   "source": "https://img.shaoxing.com.cn/a/thumb/10001/201907/46d0c198ee2f7c63fe5c272e2f8bb8e7.png!w800_h600.png",
+   "updated": "2026-10-17",
+   "width": 256
+  },
+  "绍兴新闻综合": {
+   "file": "绍兴新闻综合.png",
+   "hash": "41ce195101",
+   "height": 199,
+   "origin": "shaoxing",
+   "source": "https://img.shaoxing.com.cn/a/thumb/10001/201907/fe10d7a786581be54ea5cf95b6cc18dd.png!w800_h600.png",
+   "updated": "2026-10-17",
+   "width": 256
+  },
   "深圳电视剧": {
    "file": "深圳电视剧.png",
    "hash": "45afa41faa",
@@ -4859,6 +4886,9 @@
   "shanxi/shanxi-xinzhou-general": "忻州综合",
   "shanxi/shanxi-yangquan-news": "阳泉新闻综合",
   "shanxi/shanxi-yuncheng-1": "运城-1",
+  "shaoxing/shaoxing-culture": "绍兴文化影视",
+  "shaoxing/shaoxing-news": "绍兴新闻综合",
+  "shaoxing/shaoxing-public": "绍兴公共",
   "sichuan/sichuan-1016554": "四川经济频道",
   "sichuan/sichuan-1844567123037646849": "四川新闻频道",
   "sztv/sztv-24725": "深圳卫视4K",

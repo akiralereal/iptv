@@ -72,6 +72,24 @@ check('分片 key 带 s 前缀：与数字/命名空间频道引用的清单路�
   assert.ok(!/^\d+$/.test(key))
 })
 
+check('有限点播清单持续播放会保留尚未请求的后段，停止十分钟后回收', () => {
+  const originalNow = Date.now
+  let now = originalNow()
+  try {
+    Date.now = () => now
+    const first = 'http://cdn.example.com/vod-lease-first.ts', last = 'http://cdn.example.com/vod-lease-last.ts'
+    const manifest = toProxyManifest(`#EXTM3U\n#EXTINF:5,\n${first}\n#EXTINF:5,\n${last}\n#EXT-X-ENDLIST\n`, 'vod-lease-test')
+    assert.match(manifest, /#EXT-X-ENDLIST/)
+    const keys = manifest.split('\n').filter(l => l.endsWith('.ts')).map(l => l.slice(0, -3))
+    now += 9 * 60 * 1000
+    assert.ok(lookup(keys[0]))
+    now += 9 * 60 * 1000
+    assert.equal(lookup(keys[1]).url, last, '18 分钟后仍能跳到未请求的末段')
+    now += 11 * 60 * 1000
+    assert.equal(lookup(keys[1]), null)
+  } finally { Date.now = originalNow }
+})
+
 check('同一上游地址登记结果稳定；非绝对地址原样保留', () => {
   const url = 'http://cdn.example.com/live/a-9.ts?token=zzz'
   assert.equal(register(url, '608807420'), register(url, '608807420'))

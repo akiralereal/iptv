@@ -181,6 +181,7 @@ import jxntv from './jxntv/index.js'
 import jstv from './jstv/index.js'
 import jiaxing from './jiaxing/index.js'
 import taizhou from './taizhou/index.js'
+import shaoxing from './shaoxing/index.js'
 import iqilu from './iqilu/index.js'
 import iqiyiSports from './iqiyi-sports/index.js'
 import kankanews from './kankanews/index.js'
@@ -261,6 +262,7 @@ const MODULES = [
   ningbo,
   jiaxing,
   taizhou,
+  shaoxing,
   jstv,
   wuxi,
   yangzhou,

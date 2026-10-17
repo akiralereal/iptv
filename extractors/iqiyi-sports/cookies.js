@@ -26,9 +26,9 @@ export function parseCookies(payload) {
       secure: c.secure !== false, httpOnly: c.httpOnly === true }
     if (['Strict', 'Lax', 'None'].includes(c.sameSite)) out.sameSite = c.sameSite
     const expires = Number(c.expires ?? c.expirationDate)
-    // A Cookie request header omits expiry. Keep it locally for at most 48 hours;
-    // the official server still decides whether its token is valid on every check.
-    out.expires = Number.isFinite(expires) && expires > 0 ? expires : Math.floor(Date.now() / 1000) + 48 * 3600
+    // A Cookie request header omits expiry. Keep it locally for 30 days so a valid
+    // login is not dropped early; the official server still decides on every check.
+    out.expires = Number.isFinite(expires) && expires > 0 ? expires : Math.floor(Date.now() / 1000) + 30 * 86400
     return out
   })
   if (!normalized.some(c => c.name === 'P00001' && c.value)) throw error('未找到 P00001 登录凭证，请从已登录的官方请求复制完整 Cookie。')

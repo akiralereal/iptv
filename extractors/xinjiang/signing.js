@@ -8,22 +8,116 @@ const ARRAY_FUNCTION_RE = new RegExp(
   `function\\s+(${IDENTIFIER})\\(\\)\\{const\\s+(${IDENTIFIER})=(\\[[\\s\\S]*?\\]);return\\s+\\1=function\\(\\)\\{return\\s+\\2\\},\\1\\(\\)\\}`,
   'g',
 )
-// 配套解码器：function DEC(a,b){return a=a-OFFSET,ARRAY()[a]}
+// 配套解码器，两种形态：
+//   function DEC(a,b){return a=a-OFFSET,ARRAY()[a]}
+//   function DEC(a,b){const x=ARRAY();return DEC=function(a,b){return a=a-OFFSET,x[a]},DEC(a,b)}
 const decoderPattern = arrayName => new RegExp(
-  `function\\s+(${IDENTIFIER})\\((${IDENTIFIER})(?:,[^)]*)?\\)\\{return\\s+\\2=\\2-(\\d+),${escapeRegExp(arrayName)}\\(\\)\\[\\2\\]\\}`,
+  `function\\s+(${IDENTIFIER})\\((${IDENTIFIER})(?:,[^)]*)?\\)\\{(?:return\\s+\\2=\\2-(\\d+),${escapeRegExp(arrayName)}\\(\\)\\[\\2\\]`
+  + `|const\\s+(${IDENTIFIER})=${escapeRegExp(arrayName)}\\(\\);return\\s+\\1=function\\((${IDENTIFIER})(?:,[^)]*)?\\)\\{return\\s+\\5=\\5-(\\d+),\\4\\[\\5\\]\\},\\1\\([^)]*\\))`,
 )
 // 数组自检：官网在包加载时按固定表达式旋转数组，表达式算出的值等于目标值时才停。
+// while 风格会多一层花括号：while(!![]){try{...}
 const CHECK_PATTERN = new RegExp(
   `\\(function\\((${IDENTIFIER}),(${IDENTIFIER})\\)\\{const (${IDENTIFIER})=(${IDENTIFIER}),(${IDENTIFIER})=\\1\\(\\);` +
-    'for\\(;;\\)try\\{if\\(([\\s\\S]*?)\\)break;' +
+    '(?:for\\(;;\\)|while\\(!!\\[\\]\\))\\{?try\\{if\\(([\\s\\S]*?)\\)break;' +
     `(${IDENTIFIER})\\.push\\(\\7\\.shift\\(\\)\\)\\}catch\\(${IDENTIFIER}\\)\\{\\7\\.push\\(\\7\\.shift\\(\\)\\)\\}\\}\\)` +
     `\\((${IDENTIFIER}),(-?\\d+(?:\\.\\d+)?)\\)`,
   'g',
 )
 const ALIAS_PATTERN = new RegExp(`(?:const|let|var)\\s+(${IDENTIFIER})=(${IDENTIFIER})[,;]`, 'g')
+// token 表只有这三个键
+const CONFIG_KEYS = new Set(['date', 'random_string', 'random_number'])
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// JS 字符串字面量里的转义
+const STRING_ESCAPES = { n: '\n', t: '\t', r: '\r', b: '\b', f: '\f', v: '\v', 0: '\0' }
+
+/** 按 JS 规则还原字面量里的转义；遇到不完整的 \u / \x 就返回 null。 */
+function unescapeLiteral(raw) {
+  let out = ''
+  for (let i = 0; i < raw.length; i += 1) {
+    if (raw[i] !== '\\') { out += raw[i]; continue }
+    const next = raw[++i]
+    if (next === 'u' || next === 'x') {
+      const width = next === 'u' ? 4 : 2
+      const hex = raw.slice(i + 1, i + 1 + width)
+      if (!new RegExp(`^[0-9a-fA-F]{${width}}$`).test(hex)) return null
+      out += String.fromCharCode(parseInt(hex, 16))
+      i += width
+      continue
+    }
+    if (next === '\n') continue                 // 行接续
+    if (next === '\r') { if (raw[i + 1] === '\n') i += 1; continue }
+    if (next === undefined) return null
+    out += Object.hasOwn(STRING_ESCAPES, next) ? STRING_ESCAPES[next] : next
+  }
+  return out
+}
+
+const NUMBER_SOURCE = '-?(?:0[xX][0-9a-fA-F]+|\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)'
+// 数组字面量的一个元素：三种引号的字符串、数字、true/false/null
+const ARRAY_ITEM_RE = new RegExp(
+  '\\s*(?:'
+  + [
+    '"((?:\\\\.|[^"\\\\])*)"',
+    "'((?:\\\\.|[^'\\\\])*)'",
+    '`((?:\\\\.|[^`\\\\])*)`',
+    `(${NUMBER_SOURCE})`,
+    '(true|false|null)',
+  ].join('|')
+  + ')',
+  'y',
+)
+
+/**
+ * 解析 JS 数组字面量，同样不 eval、不 new Function。
+ * 官网的字符串表里现在混着模板字符串（RSA 公钥），JSON.parse 会直接报错、整张表被跳过，
+ * 所以这里手写词法：只认字符串字面量（单/双引号与反引号）、数字、true/false/null，
+ * 其余语法一律判为「不是常量表」，宁可漏掉也不猜——保持本模块不执行官网代码的约定。
+ */
+function parseArrayLiteral(text) {
+  let at = 0
+  const skipSpace = () => { while (at < text.length && /\s/.test(text[at])) at += 1 }
+  // 收尾：必须正好吃完整段，剩下的尾巴一律不认
+  const finish = () => (at === text.length ? values : null)
+  const values = []
+  skipSpace()
+  if (text[at] !== '[') return null
+  at += 1
+  skipSpace()
+  if (text[at] === ']') { at += 1; skipSpace(); return finish() }
+  for (;;) {
+    ARRAY_ITEM_RE.lastIndex = at
+    const hit = ARRAY_ITEM_RE.exec(text)
+    if (!hit || hit.index !== at) return null
+    at = ARRAY_ITEM_RE.lastIndex
+    const literal = hit[1] ?? hit[2] ?? hit[3]
+    if (literal !== undefined) {
+      // 模板字符串带 ${...} 插值就不是常量了，算不出来也不能猜
+      if (hit[3] !== undefined && literal.includes('${')) return null
+      const value = unescapeLiteral(literal)
+      if (value === null) return null
+      values.push(value)
+    } else if (hit[4] !== undefined) {
+      values.push(Number(hit[4]))
+    } else if (hit[5] === 'null') {
+      values.push(null)
+    } else {
+      values.push(hit[5] === 'true')
+    }
+    skipSpace()
+    if (text[at] === ',') {
+      at += 1
+      skipSpace()
+      if (text[at] === ']') { at += 1; skipSpace(); return finish() }
+      continue
+    }
+    if (text[at] === ']') { at += 1; skipSpace(); return finish() }
+    return null
+  }
 }
 
 export function shanghaiDate(now = Date.now()) {
@@ -114,11 +208,11 @@ function solveStringArray(bundle, arrayName, values) {
   const decoder = bundle.match(decoderPattern(arrayName))
   if (!decoder) return null
   const decoderName = decoder[1]
-  const offset = Number(decoder[3])
+  // 自替换形态的偏移量在另一组捕获里
+  const offset = Number(decoder[3] ?? decoder[6])
 
   const names = new Set([decoderName])
   for (const hit of bundle.matchAll(ALIAS_PATTERN)) if (hit[2] === decoderName) names.add(hit[1])
-  const callPattern = new RegExp(`(?<![\\w$])(?:${[...names].map(escapeRegExp).join('|')})\\(\\s*(\\d+)\\s*\\)`, 'g')
 
   for (const hit of bundle.matchAll(CHECK_PATTERN)) {
     if (hit[4] !== decoderName || hit[8] !== arrayName) continue
@@ -133,18 +227,34 @@ function solveStringArray(bundle, arrayName, values) {
       } catch {
         // 自检表达式结构不认得就换下一档，别当成本档失败
       }
-      if (passed) return { decode, callPattern }
+      if (passed) return { decode, names }
       rotated.push(rotated.shift())
     }
   }
   return null
 }
 
-/** 把 dec(idx) 调用换成 JSON 字符串字面量，dec 出来的值再当键名或键值都能直接用。 */
-function inlineDecodeCalls(block, decode, callPattern) {
-  return block.replace(callPattern, (all, index) => {
-    const value = decode(Number(index))
-    return typeof value === 'string' ? JSON.stringify(value) : 'null'
+/**
+ * 把赋值位置上的 dec(idx) 换成明文字面量：obj.KEY= / obj[dec(idx)]=。
+ * 压缩代码里 dec 的局部别名（const t=dec）和同名普通变量混在一起，
+ * 全局替换 dec(idx) 会把无关代码改坏，所以只在赋值处解码。
+ */
+function decodeAssignments(block, decode, names) {
+  const call = [...names].map(escapeRegExp).join('|')
+  const assignmentPattern = new RegExp(
+    `(${IDENTIFIER})(?:\\.(${IDENTIFIER})|\\[(${call})\\((\\d+)\\)\\])=`
+    + `(?:"((?:\\\\.|[^"\\\\])*)"|(${call})\\((\\d+)\\)|(-?\\d+))`,
+    'g',
+  )
+  return block.replace(assignmentPattern, (all, name, dotKey, keyDecoder, keyIndex, quoted, valueDecoder, valueIndex, plain) => {
+    const key = keyDecoder ? decode(Number(keyIndex)) : dotKey
+    if (!CONFIG_KEYS.has(key)) return all
+    if (quoted !== undefined) return `${name}.${key}=${JSON.stringify(quoted)}`
+    if (valueDecoder) {
+      const value = decode(Number(valueIndex))
+      return typeof value === 'string' ? `${name}.${key}=${JSON.stringify(value)}` : all
+    }
+    return `${name}.${key}=${plain}`
   })
 }
 
@@ -195,9 +305,8 @@ export function extractSigningMaterial(bundle, date = shanghaiDate()) {
   if (!publicKey) throw new Error('新疆广电签名脚本缺少公钥')
 
   for (const match of bundle.matchAll(ARRAY_FUNCTION_RE)) {
-    let values
-    try { values = JSON.parse(match[3]) } catch { continue }
-    if (!Array.isArray(values)) continue
+    const values = parseArrayLiteral(match[3])
+    if (!values) continue
     // 官网约四成日子把日期直接写成字面量，不能按表里有没有日期预筛；但键名必须在表里。
     if (!values.includes('date') || !values.includes('random_string')
       || !values.includes('random_number')) continue
@@ -205,12 +314,14 @@ export function extractSigningMaterial(bundle, date = shanghaiDate()) {
     const solved = solveStringArray(bundle, match[1], values)
     if (!solved) continue
 
-    // 配置块贴着公钥常量前后；数组函数到公钥之间就是全部日期配置。
-    const keyAt = bundle.indexOf('-----BEGIN PUBLIC KEY-----', match.index)
+    // 配置块贴着这个数组函数前后。
+    // 以前拿公钥常量当右边界，现在公钥模板被搬进了字符串表内部（数组函数开头就是它），
+    // 那个锚点会落在数组自己身上、右边界只剩一百来个字符，只能改按数组函数本身取窗口。
     const start = Math.max(0, match.index - 40_000)
-    const end = keyAt > -1 ? Math.min(bundle.length, keyAt + 100)
-      : Math.min(bundle.length, match.index + 40_000)
-    const configs = collectConfigs(inlineDecodeCalls(bundle.slice(start, end), solved.decode, solved.callPattern))
+    const end = Math.min(bundle.length, match.index + match[0].length + 40_000)
+    const configs = collectConfigs(decodeAssignments(
+      bundle.slice(start, end), solved.decode, solved.names,
+    ))
     const config = configs.find(item => item.date === date
       && item.random_string.length >= 32 && item.random_number < item.random_string.length)
     if (config) return { ...config, publicKey }

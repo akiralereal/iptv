@@ -213,6 +213,12 @@ const PLAYER_ASSETS = Object.freeze({
   '/player-assets/hls.min.js': 'hls.min.js',
   '/player-assets/DPlayer.min.js': 'DPlayer.min.js',
 })
+// 固定的品牌图标；与播放器资源一样支持密码前缀和反向代理子路径。
+const ICON_ASSETS = Object.freeze({
+  '/favicon.ico': ['favicon.ico', 'image/x-icon'],
+  '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
+  '/apple-touch-icon.png': ['apple-touch-icon.png', 'image/png'],
+})
 try { mkdirSync(LOGOS_DIR, { recursive: true }) } catch (e) { /* 已存在或无法创建，读写时再报 */ }
 
 // 读取请求体（Promise 化，避免回调式写法导致的释放/死锁问题）
@@ -253,13 +259,6 @@ async function handleRequest(req, res) {
   // 放 query 而非路径段，避免被下方用户段正则吞成 userId/token、污染回看前缀。
   const profileParam = (url.match(/[?&]profile=([a-zA-Z0-9_-]{1,64})/)?.[1] || '').toLowerCase()
 
-  // 处理 favicon.ico 请求
-  if (urlPath === '/favicon.ico') {
-    res.writeHead(204);
-    res.end();
-    return
-  }
-
   // ---- 访问鉴权（两类钥匙，职责分离）----
   // passAuthed：站长密码 pass，全权（含后台 / 播放器 / API）。
   // userAuthed：用户访问令牌 /u/<token>，仅内容（进不了后台）。
@@ -295,6 +294,17 @@ async function handleRequest(req, res) {
     passAuthed = true
     accessPrefix = `/${pass}`
     routePath = urlPath.slice(`/${pass}`.length) || "/"
+  }
+
+  // 公开的品牌资源，不含用户数据；只提供白名单中的文件。
+  const iconAsset = ICON_ASSETS[urlPath] || ICON_ASSETS[routePath]
+  if (iconAsset) {
+    if (!['GET', 'HEAD'].includes(method)) { res.writeHead(405); res.end(); return }
+    const [file, contentType] = iconAsset
+    const icon = readFileSync(new URL(`./web/icons/${file}`, import.meta.url))
+    res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' })
+    res.end(method === 'HEAD' ? undefined : icon)
+    return
   }
 
   // 管理后台路由（路径可自定义，默认 /admin；支持 /<adminPath> 和 /密码/<adminPath>）

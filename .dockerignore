@@ -7,3 +7,9 @@ node_modules
 README.md
 EXTERNAL_SOURCES.md
 from-the-web
+
+# Private runtime profiles/cookies must never enter an image build context
+iqiyi-vod
+iqiyi-sports
+data
+**/.runtime

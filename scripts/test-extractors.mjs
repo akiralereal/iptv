@@ -756,14 +756,14 @@ check('深圳广电模块已注册，固定周期刷新且逐路径签名流必�
 check('省市广电模块卡片只显示地区名，不带平台品牌', () => {
   const expectedNames = {
     'gdsport-events': '广东体育赛事',
-    anhui: '安徽', beidou: '辽宁', chongqing: '重庆', sichuan: '四川', cztv: '浙江', dalian: '大连', fjtv: '福建', gansu: '甘肃', gdtv: '广东', gxtv: '广西',
+    anhui: '安徽', beidou: '辽宁', chongqing: '重庆', sichuan: '四川', chengdu: '成都', cztv: '浙江', dalian: '大连', fjtv: '福建', gansu: '甘肃', gdtv: '广东', gxtv: '广西',
     gztv: '广州', hbtv: '湖北', hebtv: '河北', heilongjiang: '黑龙江', hnntv: '海南', hntv: '河南',
-    iqilu: '山东', hangzhou: '杭州', ningbo: '宁波', jiaxing: '嘉兴', taizhou: '台州', shaoxing: '绍兴', jlntv: '吉林', jstv: '江苏', jxntv: '江西', kankanews: '上海', 'meizhou-hakka': '梅州', mgtv: '湖南', njtv: '南京', nmtv: '内蒙古',
-    'quanzhou-minnan': '泉州', 'quanzhou-county': '晋江、石狮', putian: '莆田', ningde: '宁德', wuxi: '无锡', yangzhou: '扬州',
+    iqilu: '山东', hangzhou: '杭州', ningbo: '宁波', jiaxing: '嘉兴', taizhou: '台州', shaoxing: '绍兴', jlntv: '吉林', jstv: '江苏', jxntv: '江西', kankanews: '上海', jiangmen: '江门', 'meizhou-hakka': '梅州', mgtv: '湖南', njtv: '南京', nmtv: '内蒙古',
+    'quanzhou-minnan': '泉州', 'quanzhou-county': '晋江、石狮', putian: '莆田', ningde: '宁德', wuxi: '无锡', yangzhou: '扬州', nantong: '南通',
     ningxia: '宁夏', qinghai: '青海', qingdao: '青岛', qtv: '青岛景观', shaanxi: '陕西', shanxi: '山西', sztv: '深圳', tianjin: '天津',
     xinjiang: '新疆', xizang: '西藏', yunnan: '云南', tdm: '澳门',
   }
-  const groupOverrides = { 'gdsport-events': '广东', dalian: '辽宁', gztv: '广东', sztv: '广东', hangzhou: '浙江', ningbo: '浙江', jiaxing: '浙江', taizhou: '浙江', shaoxing: '浙江', 'meizhou-hakka': '广东', 'quanzhou-minnan': '福建', 'quanzhou-county': '福建', putian: '福建', ningde: '福建', wuxi: '江苏', yangzhou: '江苏', njtv: '江苏', qingdao: '山东', qtv: '山东' }
+  const groupOverrides = { chengdu: '四川', 'gdsport-events': '广东', dalian: '辽宁', gztv: '广东', sztv: '广东', hangzhou: '浙江', ningbo: '浙江', jiaxing: '浙江', taizhou: '浙江', shaoxing: '浙江', jiangmen: '广东', 'meizhou-hakka': '广东', 'quanzhou-minnan': '福建', 'quanzhou-county': '福建', putian: '福建', ningde: '福建', wuxi: '江苏', yangzhou: '江苏', nantong: '江苏', njtv: '江苏', qingdao: '山东', qtv: '山东' }
   for (const [id, name] of Object.entries(expectedNames)) {
     assert.equal(getModule(id)?.name, name, `${id} 卡片标题应只保留地区名`)
     assert.equal(

@@ -155,6 +155,7 @@ import beidou from './beidou/index.js'
 import beijing from './beijing/index.js'
 import chongqing from './chongqing/index.js'
 import sichuan from './sichuan/index.js'
+import chengdu from './chengdu/index.js'
 import cztv from './cztv/index.js'
 import dalian from './dalian/index.js'
 import douyuLive from './douyu-live/index.js'
@@ -183,11 +184,11 @@ import jiaxing from './jiaxing/index.js'
 import taizhou from './taizhou/index.js'
 import shaoxing from './shaoxing/index.js'
 import iqilu from './iqilu/index.js'
-import iqiyiSports from './iqiyi-sports/index.js'
 import kankanews from './kankanews/index.js'
 import livechina from './livechina/index.js'
 import lotustv from './lotustv/index.js'
 import meizhouHakka from './meizhou-hakka/index.js'
+import jiangmen from './jiangmen/index.js'
 import mgtv from './mgtv/index.js'
 import migu from './migu/index.js'
 import ningbo from './ningbo/index.js'
@@ -210,6 +211,7 @@ import xinjiang from './xinjiang/index.js'
 import xizang from './xizang/index.js'
 import wuxi from './wuxi/index.js'
 import yangzhou from './yangzhou/index.js'
+import nantong from './nantong/index.js'
 import yunnan from './yunnan/index.js'
 import tdm from './tdm/index.js'
 import overseas from './overseas/index.js'
@@ -223,7 +225,6 @@ const MODULES = [
   // 顺序即后台展示顺序，也是 channelMerger 的合并顺序（先到的分组优先保留）
   migu,
   yangshipin,
-  iqiyiSports,
   fengshows,
   hkstv,
   lotustv,
@@ -238,6 +239,7 @@ const MODULES = [
   beijing,
   chongqing,
   sichuan,
+  chengdu,
   dalian,
   gansu,
   gdtv,
@@ -266,9 +268,11 @@ const MODULES = [
   jstv,
   wuxi,
   yangzhou,
+  nantong,
   iqilu,
   sztv,
   meizhouHakka,
+  jiangmen,
   njtv,
   nmtv,
   shanxi,

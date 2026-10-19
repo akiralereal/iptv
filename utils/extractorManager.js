@@ -396,6 +396,7 @@ class ExtractorManager {
     return this
   }
 
+
   /**
    * 一次性迁移：把「抓取模块总开关」的关闭态折进各模块自己的开关，之后总开关退休。
    *

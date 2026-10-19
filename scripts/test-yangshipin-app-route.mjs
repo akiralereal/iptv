@@ -127,7 +127,7 @@ async function waitForApp() {
   for (let attempt = 0; attempt < 100; attempt++) {
     try {
       const response = await request('/favicon.ico')
-      if (response.status === 204) return
+      if (response.status === 200) return
     } catch (error) {
       lastError = error
     }

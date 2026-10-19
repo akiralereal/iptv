@@ -46,3 +46,6 @@ data/
 
 # probe-m3u.mjs 探活脚本生成的报告
 probe-report.md
+
+# Private iQiyi VOD account/progress/job state when DATA_DIR is the repository root
+/iqiyi-vod/

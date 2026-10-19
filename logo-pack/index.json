@@ -226,6 +226,87 @@
    "updated": "2026-09-25",
    "width": 220
   },
+  "成都都市生活": {
+   "file": "成都都市生活.png",
+   "hash": "c3de1c07c6",
+   "height": 144,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2023/01/13/045f2ce0-9d56-481b-8430-c91fafe17193.jpg",
+   "updated": "2026-10-17",
+   "width": 256
+  },
+  "成都高新电视台": {
+   "file": "成都高新电视台.png",
+   "hash": "2a1d25304a",
+   "height": 72,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/76aef683-888e-41bd-a71e-7366528af822.png",
+   "updated": "2026-10-17",
+   "width": 72
+  },
+  "成都公共": {
+   "file": "成都公共.png",
+   "hash": "5be065d64d",
+   "height": 144,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2023/01/13/d3688164-0a80-4f60-a5cb-71f56a191ec3.jpg",
+   "updated": "2026-10-17",
+   "width": 256
+  },
+  "成都经济资讯": {
+   "file": "成都经济资讯.png",
+   "hash": "32a44c3023",
+   "height": 144,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2023/01/13/c78fa32f-c953-46b9-b7f2-5a1ff48d7a55.jpg",
+   "updated": "2026-10-17",
+   "width": 256
+  },
+  "成都蓉城先锋": {
+   "file": "成都蓉城先锋.png",
+   "hash": "e749a749b9",
+   "height": 126,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/16/9b5c1097-116e-4b47-af32-221c5c21d447.jpg",
+   "updated": "2026-10-17",
+   "width": 256
+  },
+  "成都少儿": {
+   "file": "成都少儿.png",
+   "hash": "5b53215de0",
+   "height": 144,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2023/01/13/6e2e519f-f331-4a21-9920-b4cabbe36b25.jpg",
+   "updated": "2026-10-17",
+   "width": 256
+  },
+  "成都新闻综合": {
+   "file": "成都新闻综合.png",
+   "hash": "0aeff8a55e",
+   "height": 144,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2023/01/13/37e5b483-7ad0-4713-a9d1-fcaff57d6ebe.jpg",
+   "updated": "2026-10-17",
+   "width": 256
+  },
+  "成都影视文艺": {
+   "file": "成都影视文艺.png",
+   "hash": "9600c25a1e",
+   "height": 144,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2023/01/13/88604900-387b-415b-a581-72c57bda8a36.jpg",
+   "updated": "2026-10-17",
+   "width": 256
+  },
+  "成华有线电视": {
+   "file": "成华有线电视.png",
+   "hash": "d97a9b8712",
+   "height": 207,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/5155ff0f-686a-4e75-bd89-0e9b7a4592ad.png",
+   "updated": "2026-10-17",
+   "width": 187
+  },
   "赤峰": {
    "file": "赤峰.png",
    "hash": "a65f357fb1",
@@ -243,6 +324,17 @@
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/657651f411de2673d1770d9a78b44c1265704f7468cc41d4be7f51d630768494.png",
    "updated": "2026-09-25",
    "width": 144
+  },
+  "崇州电视台": {
+   "file": "崇州电视台.png",
+   "hash": "d28a493cf2",
+   "height": 79,
+   "kind": "library",
+   "note": "官方旧图床不可用；从 taksssss/tv 台标资料库手工收录（已按实际播出画面核对为 CZM 标志），不接入外部台标库。",
+   "origin": "manual",
+   "source": "https://github.com/taksssss/tv/blob/main/icon/%E5%9B%9B%E5%B7%9D%E5%B4%87%E5%B7%9E.png",
+   "updated": "2026-10-17",
+   "width": 256
   },
   "大爱二台": {
    "file": "大爱二台.png",
@@ -291,6 +383,15 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "大邑综合": {
+   "file": "大邑综合.png",
+   "hash": "da317b15ca",
+   "height": 72,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/56e8ff5e-caaa-4c99-94d2-b4277ed9fbca.png",
+   "updated": "2026-10-17",
+   "width": 72
+  },
   "德化电视台": {
    "file": "德化电视台.png",
    "hash": "0324332464",
@@ -328,6 +429,17 @@
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/3208fe6564a293c21b711333fb3edb05bb5b406cff840573c9a8d839680a1579.png",
    "updated": "2026-09-25",
    "width": 144
+  },
+  "都江堰电视台": {
+   "file": "都江堰电视台.png",
+   "hash": "4eb66c0974",
+   "height": 78,
+   "kind": "library",
+   "note": "官方旧图床不可用；从电视眼台标资料页手工收录，不接入外部台标库。",
+   "origin": "manual",
+   "source": "https://www.tvyan.com/tai/dujiangyan/",
+   "updated": "2026-10-17",
+   "width": 126
   },
   "鄂尔多斯": {
    "file": "鄂尔多斯.png",
@@ -1413,6 +1525,15 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "简阳新闻综合": {
+   "file": "简阳新闻综合.png",
+   "hash": "487ac90a6b",
+   "height": 180,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/709db6b5-5860-4f91-b765-dac4c223a25b.jpg",
+   "updated": "2026-10-17",
+   "width": 180
+  },
   "建党105周年巡礼": {
    "file": "建党105周年巡礼.png",
    "hash": "9cc7f65e7a",
@@ -1432,6 +1553,15 @@
    "source": "https://share.96189.com/client/app/index.html#/channel/290",
    "updated": "2026-09-29",
    "width": 96
+  },
+  "江门综合": {
+   "file": "江门综合.png",
+   "hash": "656baf9158",
+   "height": 55,
+   "origin": "jiangmen",
+   "source": "http://www.jmtv.cn/images/pc/ic_logo.png",
+   "updated": "2026-10-18",
+   "width": 256
   },
   "江苏城市": {
    "file": "江苏城市.png",
@@ -1586,6 +1716,24 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "金牛电视台": {
+   "file": "金牛电视台.png",
+   "hash": "2a145c527b",
+   "height": 72,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/c66a2389-ab7a-4511-8be7-818fb9349539.png",
+   "updated": "2026-10-17",
+   "width": 72
+  },
+  "金堂电视台": {
+   "file": "金堂电视台.png",
+   "hash": "e07cf2fa9c",
+   "height": 72,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/1169e14f-cd25-452e-92b5-eba0ccce45af.png",
+   "updated": "2026-10-17",
+   "width": 72
+  },
   "金鹰纪实": {
    "file": "金鹰纪实.png",
    "hash": "8036c91e9b",
@@ -1602,6 +1750,15 @@
    "origin": "mgtv",
    "source": "https://0img.hitv.com/preview/channel_images/20240322094210439.jpg",
    "updated": "2026-09-25",
+   "width": 256
+  },
+  "锦江电视": {
+   "file": "锦江电视.png",
+   "hash": "978b63221d",
+   "height": 256,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/b94d5198-213b-4620-aacb-92313a4cc2ef.jpg",
+   "updated": "2026-10-17",
    "width": 256
   },
   "晋城新闻综合": {
@@ -1904,6 +2061,33 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "南通公共": {
+   "file": "南通公共.png",
+   "hash": "01ece9782f",
+   "height": 216,
+   "origin": "nantong",
+   "source": "https://cm-vod.ntjoy.com/bdcbb0d2-c8a3-4102-a614-335f89323f19.png",
+   "updated": "2026-10-18",
+   "width": 216
+  },
+  "南通社教": {
+   "file": "南通社教.png",
+   "hash": "01ece9782f",
+   "height": 216,
+   "origin": "nantong",
+   "source": "https://cm-vod.ntjoy.com/bdcbb0d2-c8a3-4102-a614-335f89323f19.png",
+   "updated": "2026-10-18",
+   "width": 216
+  },
+  "南通新闻综合": {
+   "file": "南通新闻综合.png",
+   "hash": "01ece9782f",
+   "height": 216,
+   "origin": "nantong",
+   "source": "https://cm-vod.ntjoy.com/bdcbb0d2-c8a3-4102-a614-335f89323f19.png",
+   "updated": "2026-10-18",
+   "width": 216
+  },
   "内蒙古经济生活": {
    "file": "内蒙古经济生活.png",
    "hash": "620eb3605f",
@@ -2105,6 +2289,24 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "彭州电视台": {
+   "file": "彭州电视台.png",
+   "hash": "7e239eb69b",
+   "height": 72,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/0f8378ce-e6ff-4182-a8fa-36a77952d8b9.png",
+   "updated": "2026-10-17",
+   "width": 72
+  },
+  "郫都新闻综合": {
+   "file": "郫都新闻综合.png",
+   "hash": "e40247209c",
+   "height": 72,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/9f8aa1cf-bfca-45d1-a494-1364809f8903.png",
+   "updated": "2026-10-17",
+   "width": 72
+  },
   "莆田文旅生活": {
    "file": "莆田文旅生活.png",
    "hash": "bd652b58e6",
@@ -2127,6 +2329,15 @@
    "updated": "2026-09-30",
    "width": 179
   },
+  "蒲江电视台": {
+   "file": "蒲江电视台.png",
+   "hash": "283148f0c1",
+   "height": 72,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/2432a4d5-f501-4259-91e3-2a6059aeb0b6.png",
+   "updated": "2026-10-17",
+   "width": 72
+  },
   "齐鲁频道": {
    "file": "齐鲁频道.png",
    "hash": "81da8e14f8",
@@ -2144,6 +2355,15 @@
    "source": "https://oss.cztv.com/image/uc/user_20200120/22682936202001201527561695077536.png",
    "updated": "2026-09-25",
    "width": 90
+  },
+  "青白江电视台": {
+   "file": "青白江电视台.png",
+   "hash": "90cfa7eec2",
+   "height": 72,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/f63fefbe-19e5-420b-b303-92255ca9dabf.png",
+   "updated": "2026-10-17",
+   "width": 72
   },
   "青岛都市": {
    "file": "青岛都市.png",
@@ -2220,6 +2440,24 @@
    "source": "https://resources.yangshipin.cn/assets/oms/image/202411/182e779878c85642049514a6e033f6be41aa8bf5f489fadc6f63dfc50863c36d.png",
    "updated": "2026-09-25",
    "width": 144
+  },
+  "青羊电视台": {
+   "file": "青羊电视台.png",
+   "hash": "d222ba8eef",
+   "height": 80,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/d01de82d-62e8-451c-a3d4-6bf3b26f2e53.png",
+   "updated": "2026-10-17",
+   "width": 80
+  },
+  "邛崃综合": {
+   "file": "邛崃综合.png",
+   "hash": "284a1fd662",
+   "height": 180,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/4eb219c5-4aa8-4382-9997-77d6f1350dd5.png",
+   "updated": "2026-10-17",
+   "width": 180
   },
   "泉州闽南语": {
    "file": "泉州闽南语.png",
@@ -2628,6 +2866,15 @@
    "updated": "2026-09-28",
    "width": 256
   },
+  "双流综合": {
+   "file": "双流综合.png",
+   "hash": "56ea2993b6",
+   "height": 72,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/87a216ec-00c3-48a4-9c45-8f6820518c9b.png",
+   "updated": "2026-10-17",
+   "width": 72
+  },
   "朔州-1": {
    "file": "朔州-1.png",
    "hash": "a04c6b5610",
@@ -2959,6 +3206,15 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "温江电视台": {
+   "file": "温江电视台.png",
+   "hash": "0bdad2dab1",
+   "height": 72,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/722f09a6-00c4-4b1c-a568-c0936f754c18.png",
+   "updated": "2026-10-17",
+   "width": 72
+  },
   "文物宝库": {
    "file": "文物宝库.png",
    "hash": "b63e9ab6e0",
@@ -3039,6 +3295,15 @@
    "source": "https://p.statickksmg.com/cont/2024/12/31/image_1735606714_nU2oI66H.png",
    "updated": "2026-09-25",
    "width": 256
+  },
+  "武侯电视台": {
+   "file": "武侯电视台.png",
+   "hash": "555f2a909e",
+   "height": 66,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/dcb7dc7c-79f0-4a64-8f3b-268e0c7857a2.png",
+   "updated": "2026-10-17",
+   "width": 66
   },
   "武术世界": {
    "file": "武术世界.png",
@@ -3134,6 +3399,15 @@
    "updated": "2026-09-25",
    "width": 256
   },
+  "新都电视台": {
+   "file": "新都电视台.png",
+   "hash": "85f093724a",
+   "height": 180,
+   "origin": "chengdu",
+   "source": "https://cmsimg.cditv.cn/2022/12/13/d622e3c9-df99-4abd-806f-ff9712fe1d43.png",
+   "updated": "2026-10-17",
+   "width": 180
+  },
   "新纪实": {
    "file": "新纪实.png",
    "hash": "7263ecbc00",
@@ -3178,6 +3452,17 @@
    "source": "https://resources.yangshipin.cn/assets/oms/image/202412/005fd504f809ab28ec8cdd5d34d3886f0611ddefa20ebcc0f3f7dc176ad528c7.png",
    "updated": "2026-09-25",
    "width": 144
+  },
+  "新津电视台": {
+   "file": "新津电视台.png",
+   "hash": "040e0f5f06",
+   "height": 78,
+   "kind": "library",
+   "note": "官方旧图床不可用；从电视眼台标资料页手工收录，不接入外部台标库。",
+   "origin": "manual",
+   "source": "https://www.tvyan.com/tai/xinjingtai/",
+   "updated": "2026-10-17",
+   "width": 128
   },
   "新片放映厅": {
    "file": "新片放映厅.png",
@@ -4598,6 +4883,33 @@
   "beidou/beidou-shenyang-acb1a5713531ac7feb7836b1b4db442c": "沈阳公共",
   "beidou/beidou-shenyang-d447fcc472f14c7f14872d4e26b12d8f": "沈阳新闻综合",
   "beidou/beidou-shenyang-eaecc3f39a6e94f2ac6197c229b4cd6b": "沈阳经济",
+  "chengdu/chengdu-cdrcxf": "成都蓉城先锋",
+  "chengdu/chengdu-cdtv1": "成都新闻综合",
+  "chengdu/chengdu-cdtv2": "成都经济资讯",
+  "chengdu/chengdu-cdtv3": "成都都市生活",
+  "chengdu/chengdu-cdtv4": "成都影视文艺",
+  "chengdu/chengdu-cdtv5": "成都公共",
+  "chengdu/chengdu-cdtv6": "成都少儿",
+  "chengdu/chengdu-ch": "成华有线电视",
+  "chengdu/chengdu-cz": "崇州电视台",
+  "chengdu/chengdu-djy": "都江堰电视台",
+  "chengdu/chengdu-dy": "大邑综合",
+  "chengdu/chengdu-gx": "成都高新电视台",
+  "chengdu/chengdu-jj": "锦江电视",
+  "chengdu/chengdu-jn": "金牛电视台",
+  "chengdu/chengdu-jt": "金堂电视台",
+  "chengdu/chengdu-jy": "简阳新闻综合",
+  "chengdu/chengdu-pd": "郫都新闻综合",
+  "chengdu/chengdu-pj": "蒲江电视台",
+  "chengdu/chengdu-pz": "彭州电视台",
+  "chengdu/chengdu-qbj": "青白江电视台",
+  "chengdu/chengdu-ql": "邛崃综合",
+  "chengdu/chengdu-qy": "青羊电视台",
+  "chengdu/chengdu-sl": "双流综合",
+  "chengdu/chengdu-wh": "武侯电视台",
+  "chengdu/chengdu-wj": "温江电视台",
+  "chengdu/chengdu-xd": "新都电视台",
+  "chengdu/chengdu-xj": "新津电视台",
   "chongqing/chongqing-6": "CQTV新闻",
   "cztv/cztv-101": "浙江卫视",
   "cztv/cztv-102": "钱江都市",
@@ -4722,6 +5034,7 @@
   "iqilu/iqilu-typd": "山东体育休闲",
   "iqilu/iqilu-yspd": "山东文旅",
   "iqilu/iqilu-zypd": "山东综艺",
+  "jiangmen/jiangmen-1": "江门综合",
   "jiaxing/jiaxing-culture": "嘉兴文化影视",
   "jiaxing/jiaxing-news": "嘉兴新闻综合",
   "jiaxing/jiaxing-public": "嘉兴公共频道",
@@ -4780,6 +5093,9 @@
   "mgtv/mgtv-344": "湖南娱乐",
   "mgtv/mgtv-346": "湖南都市",
   "mgtv/mgtv-484": "湖南电视剧",
+  "nantong/nantong-1": "南通新闻综合",
+  "nantong/nantong-2": "南通社教",
+  "nantong/nantong-3": "南通公共",
   "ningbo/ningbo-city": "宁波都市文体",
   "ningbo/ningbo-drama": "宁波影视剧",
   "ningbo/ningbo-economy": "宁波经济生活",

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <title>IPTV</title>
+  <defs>
+    <linearGradient id="mint" x1="0" y1="1" x2="1" y2="0">
+      <stop stop-color="#92d4bd"/>
+      <stop offset="1" stop-color="#e7f8ec"/>
+    </linearGradient>
+    <linearGradient id="ceramic" x1="0" y1="0" x2="0.3" y2="1">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#edf6ed"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#4bc7a1"/>
+      <stop offset="1" stop-color="#249b79"/>
+    </linearGradient>
+    <linearGradient id="forest" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#1a3d30"/>
+      <stop offset="1" stop-color="#0d1b16"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="175%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#265f4b" flood-opacity=".22"/>
+    </filter>
+  </defs>
+  <style>
+    .tile { fill: url(#mint); }
+    .rim { stroke: url(#ceramic); }
+    .play { fill: url(#signal); }
+    .aerial { stroke: #f5fcf6; }
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: url(#forest); }
+      .rim, .aerial { stroke: #a8e9cf; }
+      .play { fill: #79dfb8; }
+    }
+  </style>
+  <rect class="tile" width="128" height="128" rx="29"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#shadow)">
+    <path class="aerial" d="m48 21 16 13 16-13" stroke-width="6"/>
+    <path class="rim" d="m47 101-4 7m38-7 4 7" stroke-width="7"/>
+    <rect class="rim" x="18" y="35" width="92" height="64" rx="17" stroke-width="9"/>
+    <path class="play" d="M55 52c-2.5-1.5-5 .1-5 3v25c0 2.9 2.5 4.5 5 3l21-12.5c2.5-1.5 2.5-4.5 0-6Z"/>
+  </g>
+</svg>

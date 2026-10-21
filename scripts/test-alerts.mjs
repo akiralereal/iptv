@@ -19,7 +19,7 @@ import { join } from 'node:path'
 
 const DATA_DIR = mkdtempSync(join(tmpdir(), 'iptv-alerts-'))
 process.env.mdataDir = DATA_DIR
-const { collectAlerts, publicAlert, AlertTracker } = await import('../utils/alerts.js')
+const { collectAlerts, publicAlert, AlertTracker, isUpstreamUnavailable } = await import('../utils/alerts.js')
 
 let passed = 0
 async function test(name, fn) {
@@ -51,15 +51,38 @@ await test('关掉的模块不报；凭证失效优先于抓取失败', () => {
 
 await test('抓取失败 / 被风控：标题区分，沿用缓存时写明频道数', () => {
   const alerts = collectAlerts({ extractors: { corrupt: null, modules: [
-    mod('a', { status: 'failed', lastError: '超时', usingCachedChannels: true, channelCount: 16 }),
+    mod('a', { status: 'failed', lastError: '页面里找不到频道列表', usingCachedChannels: true, channelCount: 16 }),
     mod('b', { status: 'risk' }),
     mod('c', { status: 'empty' }),
   ] } })
   assert.deepEqual(ids(alerts), ['module-failed:a', 'module-failed:b'])
   assert.equal(alerts[0].title, 'A抓取失败')
-  assert.match(alerts[0].text, /^超时；暂时沿用上次抓到的 16 个频道。会自动重试/)
+  assert.match(alerts[0].text, /^页面里找不到频道列表；暂时沿用上次抓到的 16 个频道。会自动重试/)
   assert.equal(alerts[1].title, 'B被风控')
   assert.match(alerts[1].text, /^最近一次抓取没有成功。/)
+})
+
+await test('官方服务不可用（HTTP 错误码、超时、断连）降为黄色并写明不用处理；凭证、DNS、风控仍是红色', () => {
+  assert.equal(isUpstreamUnavailable('辽宁省台获取失败：HTTP 405；沈阳台获取失败：HTTP 405'), true)
+  assert.equal(isUpstreamUnavailable('HTTP 502 Bad Gateway'), true)
+  assert.equal(isUpstreamUnavailable('请求超时'), true)
+  assert.equal(isUpstreamUnavailable('read ECONNRESET'), true)
+  assert.equal(isUpstreamUnavailable('HTTP 401'), false, '401 是凭证问题')
+  assert.equal(isUpstreamUnavailable('getaddrinfo EAI_AGAIN www.x.com'), false, 'DNS 失败多半是用户自己网络')
+  assert.equal(isUpstreamUnavailable('页面结构变了'), false)
+  const alerts = collectAlerts({ extractors: { corrupt: null, modules: [
+    mod('beidou', { status: 'failed', lastError: '辽宁省台获取失败：HTTP 405', usingCachedChannels: true, channelCount: 9 }),
+    mod('dns', { status: 'failed', lastError: 'getaddrinfo ENOTFOUND x' }),
+    mod('risk', { status: 'risk', lastError: 'HTTP 412' }),
+  ] } })
+  const byId = Object.fromEntries(alerts.map(a => [a.id, a]))
+  assert.equal(byId['module-failed:beidou'].level, 'warning')
+  assert.equal(byId['module-failed:beidou'].title, 'BEIDOU官方服务暂时不可用')
+  assert.match(byId['module-failed:beidou'].text, /^辽宁省台获取失败：HTTP 405；暂时沿用上次抓到的 9 个频道。这是官方那边的问题，不用处理/)
+  assert.equal(byId['module-failed:dns'].level, 'error')
+  assert.equal(byId['module-failed:risk'].level, 'error')
+  assert.equal(byId['module-failed:risk'].title, 'RISK被风控')
+  assert.deepEqual(ids(alerts).slice(0, 2), ['module-failed:dns', 'module-failed:risk'], '红色排前面')
 })
 
 await test('EPG：聚合关闭不报；停用老源是 warning；失败是 error；单源关闭不报', () => {
@@ -125,6 +148,42 @@ await test('第一次运行标 initial；同一条只报一次；换措辞不算
   assert.equal(events.length, 1, '措辞变了不发新事件')
   assert.match(JSON.parse(readFileSync(statePath, 'utf-8')).active['module-failed:a'].text, /^e2/)
   assert.equal(tracker.list()[0].text.startsWith('e2'), true)
+})
+
+await test('「知道了」：标记持久化、重启后仍在；恢复后自动清除，再失败重新显示；变严重也重新显示', async () => {
+  const statePath = join(DATA_DIR, 'state-dismiss.json')
+  const failing = health => ({ extractors: { corrupt: null, modules: [mod('beidou', { status: 'failed', ...health })] } })
+  const state = { inputs: failing({ lastError: 'HTTP 405', lastAttemptAt: 0 }) }
+  const { tracker, tick } = makeTracker(statePath, state)
+  await tracker.evaluate()
+  assert.equal(tracker.dismiss('nope'), false, '不存在的提醒')
+  assert.equal(tracker.dismiss('module-failed:beidou'), true)
+  assert.equal(tracker.list()[0].dismissed, true)
+  // 重启：新实例读状态文件
+  const again = makeTracker(statePath, state)
+  await again.tracker.evaluate()
+  assert.equal(again.tracker.list()[0].dismissed, true, '重启后标记还在')
+  // 换措辞（仍是黄色）不撤销
+  state.inputs = failing({ lastError: 'HTTP 503', lastAttemptAt: 0 })
+  await again.tracker.evaluate()
+  assert.equal(again.tracker.list()[0].dismissed, true)
+  // 变严重（不再是官方服务问题 → 红色）撤销
+  state.inputs = failing({ lastError: '页面结构变了', lastAttemptAt: 0 })
+  await again.tracker.evaluate()
+  assert.equal(again.tracker.list()[0].level, 'error')
+  assert.equal(again.tracker.list()[0].dismissed, false, '黄变红重新显示')
+  again.tracker.dismiss('module-failed:beidou')
+  // 恢复：模块之后又抓过一轮且成功
+  tick()
+  state.inputs = { extractors: { corrupt: null, modules: [mod('beidou', { status: 'ok', lastAttemptAt: 10_000_000 })] } }
+  await again.tracker.evaluate()
+  assert.equal(again.tracker.list().length, 0)
+  assert.equal('module-failed:beidou' in JSON.parse(readFileSync(statePath, 'utf-8')).active, false)
+  // 再失败：重新显示
+  state.inputs = failing({ lastError: 'HTTP 405', lastAttemptAt: 10_000_000 })
+  await again.tracker.evaluate()
+  assert.equal(again.tracker.list()[0].dismissed, false)
+  void tracker
 })
 
 await test('重启后（新实例读状态文件）不重报，也不标 initial', async () => {

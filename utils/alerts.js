@@ -24,6 +24,17 @@ const EVALUATE_INTERVAL_MS = 60 * 1000
 const levelRank = level => level === 'error' ? 0 : 1
 
 /**
+ * 抓取失败是不是官方服务自己不可用：HTTP 错误状态码（401 是凭证，不算）、超时、连接被拒或断开。
+ * DNS 解析失败不算——多半是用户自己容器 / 网络出不去（issue #148），那得用户处理，保持红色。
+ */
+export function isUpstreamUnavailable(message) {
+  const text = String(message || '')
+  if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(text)) return false
+  if (/HTTP\s*(?!401)[45]\d\d\b/.test(text)) return true
+  return /超时|timed?\s*out|ETIMEDOUT|ECONNRESET|ECONNREFUSED|socket hang up|服务(?:暂时)?不可用/i.test(text)
+}
+
+/**
  * 由各处状态算出当前提醒列表。纯函数。
  *
  * @param {object} inputs
@@ -55,10 +66,14 @@ export function collectAlerts({ extractors, epg, epgLegacyUrls = [], passSet = t
       })
     } else if (h.status === 'failed' || h.status === 'risk') {
       const kept = h.usingCachedChannels ? `；暂时沿用上次抓到的 ${h.channelCount || 0} 个频道` : ''
+      // 官方接口自己出问题（返回错误状态码、超时、断连）时用户什么也做不了，降为黄色并写明不用处理
+      const upstreamDown = h.status === 'failed' && isUpstreamUnavailable(h.lastError)
       alerts.push({
-        id: `module-failed:${m.id}`, level: 'error', where: 'extractors',
-        title: `${m.name}${h.status === 'risk' ? '被风控' : '抓取失败'}`, action: '查看',
-        text: `${h.lastError || '最近一次抓取没有成功'}${kept}。会自动重试；长期失败又用不到的话，可以关掉这个模块。`,
+        id: `module-failed:${m.id}`, level: upstreamDown ? 'warning' : 'error', where: 'extractors',
+        title: `${m.name}${h.status === 'risk' ? '被风控' : upstreamDown ? '官方服务暂时不可用' : '抓取失败'}`, action: '查看',
+        text: upstreamDown
+          ? `${h.lastError}${kept}。这是官方那边的问题，不用处理：会自动重试，恢复后这条提醒自动消失。`
+          : `${h.lastError || '最近一次抓取没有成功'}${kept}。会自动重试；长期失败又用不到的话，可以关掉这个模块。`,
         // 连续失败次数：后台照旧一次就显示，消息推送要连续两次才发（一闪而过的不打扰）
         failures: Math.max(1, Number(h.consecutiveFailures) || 0),
         target: { kind: 'module', moduleId: m.id }, ...owner,
@@ -201,9 +216,24 @@ export class AlertTracker {
     return () => this.evaluateListeners.delete(listener)
   }
 
-  /** 当前提醒（最近一次评估的结果，给后台用）。 */
+  /** 当前提醒（最近一次评估的结果，给后台用）。点过「知道了」的带 dismissed: true。 */
   list() {
-    return this.current.map(publicAlert)
+    return this.current.map(alert => ({ ...publicAlert(alert), dismissed: !!this.active[alert.id]?.dismissed }))
+  }
+
+  /**
+   * 「知道了」：只记在这条提醒的 active 记录上。提醒恢复时记录被删，标记跟着没了，
+   * 下次再出问题会重新显示；问题升级（黄色变红色）也重新显示。
+   * @returns {boolean} 有没有这条提醒
+   */
+  dismiss(id) {
+    const record = this.active[String(id || '')]
+    if (!record) return false
+    if (!record.dismissed) {
+      record.dismissed = true
+      this.#saveState()
+    }
+    return true
   }
 
   /** 评估一次。并发调用合并成同一轮。 */
@@ -236,7 +266,8 @@ export class AlertTracker {
         raised.push(publicAlert(alert))
         changed = true
       } else if (prev.text !== alert.text || prev.title !== alert.title || prev.level !== alert.level) {
-        // 同一条提醒换了措辞（比如沿用的频道数变了）：更新记录，不算新事件
+        // 同一条提醒换了措辞（比如沿用的频道数变了）：更新记录，不算新事件；变严重了就撤销「知道了」
+        if (levelRank(alert.level) < levelRank(prev.level)) delete prev.dismissed
         Object.assign(prev, { level: alert.level, title: alert.title, text: alert.text })
         changed = true
       }
@@ -314,4 +345,13 @@ export async function getAlertsAPI() {
   } catch (error) {
     return { success: false, message: error.message }
   }
+}
+
+/** POST /api/alerts { action: 'dismiss', id }：点「知道了」。返回最新列表。 */
+export async function postAlertsAPI(data = {}) {
+  if (data.action !== 'dismiss') return { success: false, message: '不支持的操作' }
+  const tracker = getAlertTracker()
+  await tracker.evaluate()
+  if (!tracker.dismiss(data.id)) return { success: false, message: '这条提醒已经不在了' }
+  return { success: true, data: tracker.list() }
 }

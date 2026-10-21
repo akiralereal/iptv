@@ -211,6 +211,17 @@ await test('升级后第一次运行的老问题不推，它们恢复时也不�
   assert.equal(fetchImpl.calls.length, 1, '恢复后再出现是新问题，要发')
 })
 
+await test('后台点过「知道了」的提醒不推，恢复时也不推', async () => {
+  const fetchImpl = fakeFetch()
+  const n = makeNotifier(fetchImpl)
+  n.addChannel({ type: 'wecom', url: 'https://w/1' })
+  const seen = { ...failed('beidou', 3), level: 'warning', dismissed: true }
+  await n.handleEvaluation(evalOf([seen]))
+  assert.equal(fetchImpl.calls.length, 0)
+  await n.handleEvaluation(evalOf([]))
+  assert.equal(fetchImpl.calls.length, 0, '恢复不报')
+})
+
 await test('凭证失效出现即推，只推一次；恢复时推「已恢复」', async () => {
   const fetchImpl = fakeFetch()
   const n = makeNotifier(fetchImpl)

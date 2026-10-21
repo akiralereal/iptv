@@ -494,6 +494,8 @@ export class Notifier {
     const raised = []
     for (const alert of alerts) {
       if (pushed[alert.id]) continue
+      // 在后台点过「知道了」：用户已经知道，不再推；恢复时也不推
+      if (alert.dismissed) { pushed[alert.id] = { title: alert.title, silent: true }; changed = true; continue }
       if (alert.id.startsWith('module-failed:') && (alert.failures || 0) < FAILURES_BEFORE_PUSH) continue
       raised.push(alert)
     }

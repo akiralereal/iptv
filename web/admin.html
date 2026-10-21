@@ -3115,6 +3115,20 @@
         .alert-item-title { color: var(--ui-danger); }
         .alert-item.is-warning .alert-item-title { color: var(--ui-warning); }
         .alert-item-text { color: var(--ui-text-secondary); }
+        .alert-item-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .alert-dismiss-btn {
+            padding: 4px 12px;
+            border: 1px solid var(--ui-line-strong);
+            border-radius: 8px;
+            background: transparent;
+            color: var(--ui-text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .alert-dismiss-btn:hover { color: var(--ui-text); }
+        .alert-item.is-dismissed { opacity: 0.6; }
+        .alert-dismissed-head { margin-top: 6px; font-size: 12px; color: var(--ui-text-secondary); }
         /* 模块开关：拨动开关代替勾选框——开是实心主题绿、关是灰，扫一眼就分得清；
            「点了立刻生效」也比勾选框（像要按保存的表单项）更贴切。
            单个 input 用 appearance:none + 背景渐变画滑块，不靠伪元素，键盘与读屏照常。 */
@@ -4295,8 +4309,9 @@
                 </div>
 
                 <!-- 需要处理的提醒（登录凭证失效、模块抓取失败、EPG 源失败、没设访问密码等，由 renderAlerts()
-                     汇总）。放在全局 header 里，停在哪个页面都看得到；问题解决就自动消失，所以不给「知道了」——
-                     问题还在就该一直提醒。header 是固定的，所以不论几条都只占一行，逐条说明在「提醒列表」弹窗里。 -->
+                     汇总）。放在全局 header 里，停在哪个页面都看得到；问题解决就自动消失。官方服务挂了这类用户
+                     处理不了的，可以在列表里点「知道了」收起，恢复后标记自动清除，下次再出问题照常显示。
+                     header 是固定的，所以不论几条都只占一行，逐条说明在「提醒列表」弹窗里。 -->
                 <div class="alert-bar" id="alertBar" hidden></div>
             </div>
         </div>
@@ -4670,7 +4685,7 @@
                                 <strong>当前版本</strong>
                             </div>
                             <div class="about-version-body">
-                                <span id="versionText">v4.40.0</span>
+                                <span id="versionText">v4.41.0</span>
                                 <button class="btn btn-sm" onclick="checkUpdate()" id="checkUpdateBtn">检查更新</button>
                             </div>
                             <div id="updateInfo" class="about-update-info" style="display: none;"></div>
@@ -5432,12 +5447,14 @@
         }
 
         function paintAlerts() {
-            const errors = currentAlerts.filter(a => a.level === 'error').length;
+            // 点过「知道了」的不进提醒条和红点，只在列表底部灰着列出
+            const shown = currentAlerts.filter(a => !a.dismissed);
+            const errors = shown.filter(a => a.level === 'error').length;
 
             // 红点挂在问题所在的标签上（顶层标签和二级标签都标），鼠标停上去看是哪几条
             document.querySelectorAll('[data-alert-where]').forEach(dot => {
                 const wheres = dot.dataset.alertWhere.split(' ');
-                const hits = currentAlerts.filter(a => wheres.includes(a.where));
+                const hits = shown.filter(a => wheres.includes(a.where));
                 dot.hidden = !hits.length;
                 dot.classList.toggle('is-warning', hits.length > 0 && hits.every(a => a.level === 'warning'));
                 const label = hits.map(a => a.title).join('、');
@@ -5447,22 +5464,56 @@
 
             const bar = document.getElementById('alertBar');
             if (bar) {
-                bar.hidden = !currentAlerts.length;
+                bar.hidden = !shown.length;
                 bar.classList.toggle('is-warning', !errors);
-                const summary = currentAlerts.length === 1
-                    ? `<strong>${escapeHtml(currentAlerts[0].title)}</strong>`
-                    : `<strong>${currentAlerts.length} 条需要处理的提醒</strong>：${escapeHtml(currentAlerts.map(a => a.title).join('、'))}`;
-                bar.innerHTML = currentAlerts.length ? `<span class="alert-bar-text">⚠️ ${summary}</span>
+                const summary = shown.length === 1
+                    ? `<strong>${escapeHtml(shown[0].title)}</strong>`
+                    : `<strong>${shown.length} 条需要处理的提醒</strong>：${escapeHtml(shown.map(a => a.title).join('、'))}`;
+                bar.innerHTML = shown.length ? `<span class="alert-bar-text">⚠️ ${summary}</span>
                     <button type="button" class="alert-bar-btn" onclick="openAlertCenter()">查看 ›</button>` : '';
             }
 
             const list = document.getElementById('alertCenterList');
             if (list) {
-                list.innerHTML = currentAlerts.length ? currentAlerts.map((a, i) => `<div class="alert-item${a.level === 'warning' ? ' is-warning' : ''}">
+                const item = (a, i) => `<div class="alert-item${a.level === 'warning' ? ' is-warning' : ''}${a.dismissed ? ' is-dismissed' : ''}">
                     <strong class="alert-item-title">${escapeHtml(a.title)}</strong>
                     <div class="alert-item-text">${escapeHtml(a.text)}</div>
-                    <button type="button" class="alert-bar-btn" onclick="runAlert(${i})">${escapeHtml(a.action)} ›</button>
-                </div>`).join('') : '<div class="system-config-hint" style="margin:0;">没有需要处理的提醒了。</div>';
+                    <div class="alert-item-actions">
+                        <button type="button" class="alert-bar-btn" onclick="runAlert(${i})">${escapeHtml(a.action)} ›</button>
+                        ${a.dismissed ? '' : `<button type="button" class="alert-dismiss-btn" onclick="dismissAlert(${i})">知道了</button>`}
+                    </div>
+                </div>`;
+                const indexed = currentAlerts.map((a, i) => ({ a, i }));
+                const active = indexed.filter(({ a }) => !a.dismissed);
+                const dismissed = indexed.filter(({ a }) => a.dismissed);
+                list.innerHTML = (active.length
+                    ? active.map(({ a, i }) => item(a, i)).join('')
+                    : '<div class="system-config-hint" style="margin:0;">没有需要处理的提醒了。</div>')
+                    + (dismissed.length
+                        ? `<div class="alert-dismissed-head">已点「知道了」（恢复后自动清除，再出问题会重新提醒）</div>${dismissed.map(({ a, i }) => item(a, i)).join('')}`
+                        : '');
+            }
+        }
+
+        async function dismissAlert(i) {
+            const alert = currentAlerts[i];
+            if (!alert) return;
+            try {
+                const res = await fetch(API_PREFIX + '/api/alerts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'dismiss', id: alert.id }),
+                });
+                const payload = await res.json();
+                if (!payload || !payload.success) {
+                    showStatus((payload && payload.message) || '操作失败', 'error');
+                    renderAlerts();
+                    return;
+                }
+                currentAlerts = payload.data.map(a => ({ ...a, run: alertRun(a.target) }));
+                paintAlerts();
+            } catch (e) {
+                showStatus('操作失败：' + e.message, 'error');
             }
         }
 

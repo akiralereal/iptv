@@ -2,8 +2,10 @@
 import {
   AREA_APIS,
   DEFAULT_MIN_HEAT,
+  DEFAULT_QUALITY,
   DOUYU_GROUP,
   DouyuOfflineError,
+  QUALITY_OPTIONS,
   clearResolveCache,
   fetchRoom,
   parseRoomList,
@@ -57,7 +59,8 @@ export default {
   name: '斗鱼直播',
   description: '按斗鱼官网分类加入热门直播间，也可手动指定房间；匿名播放时即时生成短效 HLS。',
   category: 'live',
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  // 纯直播：地址上的查询参数（?quality= 等）不当回看参数拼进签名地址
+  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   defaultRefreshMinutes: 30,
   minRefreshMinutes: 15,
   maxRefreshMinutes: 120,
@@ -111,13 +114,11 @@ export default {
       section: '播放偏好',
       label: '优先画质',
       type: 'select',
-      options: [
-        { value: 0, label: '原画 / 最高画质' },
-        { value: 3, label: '超清 2M（推荐）' },
-        { value: 2, label: '高清 900K' },
-      ],
-      default: 3,
-      hint: '官网会按直播间实际档位自动回落。匿名实测可取原画；默认 2M 更适合电视端长时间播放。',
+      options: QUALITY_OPTIONS,
+      default: DEFAULT_QUALITY,
+      hint: '官网会按直播间实际档位自动回落，默认 2M 更适合电视端长时间播放。'
+        + '未登录时斗鱼官方最高只给超清（720P），选原画也会拿到超清，播放日志会写明实际档位。'
+        + '单个频道可在播放地址末尾加 ?quality= 覆盖：0 原画、3 超清、2 高清。',
     },
   ],
 

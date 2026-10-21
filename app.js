@@ -26,7 +26,7 @@ import { getEpgSourcesAPI, setEpgEnabledAPI, addEpgSourceAPI, updateEpgSourceAPI
          removeEpgSourceAPI, expireEpgSourcesAPI } from "./utils/epgSourcesAPI.js";
 import { userManager } from "./utils/userManager.js";
 import { getUsersAPI, addUserAPI, updateUserAPI, removeUserAPI, regenUserTokenAPI } from "./utils/usersAPI.js";
-import { getAlertsAPI, getAlertTracker } from "./utils/alerts.js";
+import { getAlertsAPI, getAlertTracker, postAlertsAPI } from "./utils/alerts.js";
 import { getNotifyAPI, postNotifyAPI, getNotifier } from "./utils/notify.js";
 import { getAliasesAPI, setAliasRuleAPI, removeAliasRuleAPI } from "./utils/aliasesAPI.js";
 import { getGroupRulesAPI, setGroupRuleAPI, removeGroupRuleAPI, moveGroupRuleAPI } from "./utils/groupRulesAPI.js";
@@ -569,6 +569,18 @@ async function handleRequest(req, res) {
       const result = await getAlertsAPI()
       res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
       res.end(JSON.stringify(result));
+      return
+    }
+
+    if (routePath === '/api/alerts' && method === 'POST') {
+      try {
+        const result = await postAlertsAPI(JSON.parse(await readBody(req)))
+        res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify(result));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: false, message: error.message }));
+      }
       return
     }
 

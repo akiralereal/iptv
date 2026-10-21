@@ -2,8 +2,10 @@
 import {
   AREA_PAGES,
   DEFAULT_MIN_HEAT,
+  DEFAULT_QUALITY,
   HUYA_GROUP,
   HuyaOfflineError,
+  QUALITY_OPTIONS,
   clearResolveCache,
   fetchRoom,
   parseRoomList,
@@ -59,7 +61,8 @@ export default {
   name: '虎牙直播',
   description: '按分类加入虎牙热门直播间，也可手动指定房间；播放时即时生成短期有效地址，线路被 CDN 拒绝时自动换线。',
   category: 'live',
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  // 纯直播：地址上的查询参数（?quality= 等）不当回看参数拼进签名地址
+  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   defaultRefreshMinutes: 30,
   minRefreshMinutes: 15,
   maxRefreshMinutes: 120,
@@ -113,14 +116,11 @@ export default {
       section: '播放偏好',
       label: '优先画质',
       type: 'select',
-      options: [
-        { value: 0, label: '原画 / 最高画质' },
-        { value: 4000, label: '蓝光 4M' },
-        { value: 2000, label: '超清 2M（推荐）' },
-        { value: 500, label: '流畅 500K' },
-      ],
-      default: 2000,
-      hint: '房间没有目标档时自动选择不高于目标的最接近档位。电视端默认 2M，在清晰度和稳定性之间更均衡。',
+      options: QUALITY_OPTIONS,
+      default: DEFAULT_QUALITY,
+      hint: '房间没有目标档时自动选择不高于目标的最接近档位。电视端默认 2M，在清晰度和稳定性之间更均衡。'
+        + '「原画 / 最高画质」在赛事等有 4K、2K 的房间会取最高档（4K 约 20M 码率，需要带宽和设备跟得上）；房间没有 4K、2K 时就是原画。'
+        + '单个频道可在播放地址末尾加 ?quality= 覆盖：0 最高、20000 4K、14000 2K、4000 蓝光、2000 超清、500 流畅。',
     },
   ],
 

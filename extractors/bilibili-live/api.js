@@ -9,6 +9,7 @@
  */
 import fetch from 'node-fetch'
 import { printYellow } from '../../utils/colorOut.js'
+import { qualityFrom } from '../../utils/qualityOverride.js'
 
 const API = 'https://api.live.bilibili.com'
 export const REFERER = 'https://live.bilibili.com/'
@@ -18,9 +19,22 @@ export const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/5
 // 画质档位。高清以上要登录态，顶档还要大会员——服务端不会拒绝请求，而是
 // 静默降档，所以实际给到哪一档值得报出来（也是判断 cookie 有没有生效的信号）。
 const QN_NAMES = {
-  30000: '杜比', 20000: '4K', 10000: '原画',
+  30000: '杜比', 25000: '原画真彩', 20000: '4K', 15000: '2K', 10000: '原画',
   400: '蓝光', 250: '超清', 150: '高清', 80: '流畅',
 }
+
+// 0 = 房间能给的最高档；其余就是 B 站的 qn。后台下拉框与播放地址 ?quality= 共用这一份。
+export const DEFAULT_QUALITY = 0
+export const QUALITY_OPTIONS = Object.freeze([
+  { value: 0, label: '最高画质（含 4K / 杜比，房间有才给）' },
+  { value: 10000, label: '原画' },
+  { value: 400, label: '蓝光' },
+  { value: 250, label: '超清' },
+  { value: 150, label: '高清' },
+])
+// 「最高画质」先按原画请求：比原画更高的 4K / 杜比只有少数房间有，请求一个房间没有的
+// qn 时 B 站怎么回落没有保证，所以先看回包里的 accept_qn 再决定要不要往上再要一次。
+const BASE_QN = 10000
 
 export const BILIBILI_GROUP = 'B站'
 
@@ -480,18 +494,24 @@ export async function anchorInfo(uid, options) {
  * （尤其电视盒子）解不了的 HEVC 流，而且取到哪个取决于当天的返回顺序——
  * 是不确定的行为。这里显式排序，默认 avc。
  */
-export async function pickStream(roomId, { preferHls = true, preferAvc = true, ...options } = {}) {
-  const data = await apiGet('/xlive/web-room/v2/index/getRoomPlayInfo', {
+export async function pickStream(roomId, { preferHls = true, preferAvc = true, quality = DEFAULT_QUALITY, ...options } = {}) {
+  const playInfo = qn => apiGet('/xlive/web-room/v2/index/getRoomPlayInfo', {
     room_id: roomId,
     protocol: '0,1',   // 0 = http_stream (flv), 1 = http_hls
     format: '0,1,2',   // flv / ts / fmp4
     codec: '0,1',      // avc / hevc
-    qn: 10000,         // 原画；房间自己会封顶
+    qn,                // 房间没有这一档、或登录态不够时 B 站会静默降档
     platform: 'web',
     ptype: 8,
   }, options)
 
-  return selectFromPlayurl(data, { preferHls, preferAvc })
+  const wanted = Number(quality) || 0
+  const first = selectFromPlayurl(await playInfo(wanted > 0 ? wanted : BASE_QN), { preferHls, preferAvc })
+  if (wanted > 0) return first
+  // 已经被降档（多半是没登录）说明再往上要也拿不到，省下这次请求
+  const top = Math.max(0, ...first.acceptQn)
+  if (first.qn < BASE_QN || top <= first.qn) return first
+  return selectFromPlayurl(await playInfo(top), { preferHls, preferAvc })
 }
 
 /**
@@ -512,8 +532,11 @@ export function selectFromPlayurl(data, { preferHls = true, preferAvc = true } =
 
   for (const stream of sortedStreams) {
     for (const format of stream.format || []) {
+      // 关掉优先 H.264 时 HEVC 也只在档位不低于 avc 时才优先：实测有房间登录后 avc 给
+      // 原画/原画真彩、hevc 却只给蓝光，按编码名硬排会把「最高画质」排成蓝光。
       const codecs = [...(format.codec || [])].sort((a, b) =>
-        byName(wantCodec)(a.codec_name, b.codec_name))
+        (preferAvc ? 0 : (Number(b.current_qn) || 0) - (Number(a.current_qn) || 0))
+        || byName(wantCodec)(a.codec_name, b.codec_name))
       for (const codec of codecs) {
         const base = codec.base_url || ''
         for (const hostInfo of codec.url_info || []) {
@@ -521,7 +544,11 @@ export function selectFromPlayurl(data, { preferHls = true, preferAvc = true } =
           const extra = hostInfo.extra || ''
           // 必须是裸字符串相加：extra 里那段带 expires token 的 query
           // 一旦经过 new URL() 或 url.resolve() 就会被丢掉或重新编码，地址直接失效
-          if (host && base) return { url: `${host}${base}${extra}`, qn: codec.current_qn }
+          if (host && base) {
+            const acceptQn = (Array.isArray(codec.accept_qn) ? codec.accept_qn : [])
+              .map(Number).filter(Number.isFinite)
+            return { url: `${host}${base}${extra}`, qn: codec.current_qn, acceptQn }
+          }
         }
       }
     }
@@ -547,14 +574,14 @@ export function selectFromPlayurl(data, { preferHls = true, preferAvc = true } =
  * 就剔掉，而不是留一条到播放时才失败的频道。请求量与直链时代持平。
  */
 export async function fetchRoom(roomRef, options = {}) {
-  const { cookie, preferAvc = true, timeoutMs, fetchImpl } = options
+  const { cookie, preferAvc = true, quality = DEFAULT_QUALITY, timeoutMs, fetchImpl } = options
   const netOptions = { cookie, timeoutMs, fetchImpl }
 
   const roomId = await normalizeRoom(roomRef, netOptions)
   const info = await roomInfo(roomId, netOptions)
   if (!info.live) throw new RoomOfflineError('未开播')
 
-  const { qn } = await pickStream(info.roomId, { preferHls: true, preferAvc, ...netOptions })
+  const { qn } = await pickStream(info.roomId, { preferHls: true, preferAvc, quality, ...netOptions })
   const anchor = info.uid
     ? await anchorInfo(info.uid, netOptions)
     : { name: '', avatar: '' }
@@ -637,17 +664,18 @@ export async function resolveRoom(ref, ctx = {}) {
     const config = ctx.config || {}
     const cookie = config.sessdata ? `SESSDATA=${config.sessdata}` : ''
     const preferAvc = config.preferAvc !== false
+    const quality = qualityFrom(ctx, QUALITY_OPTIONS, DEFAULT_QUALITY)
     const now = Number(ctx.now ?? Date.now())
-    // 登录态与编码偏好都会改变 B 站给的地址，各自缓存。SESSDATA 换了值会经
+    // 登录态、编码偏好与画质都会改变 B 站给的地址，各自缓存。SESSDATA 换了值会经
     // updateModuleConfig → clearResolveCache 清掉，这里不必把凭据本身放进键里。
-    const key = `${roomId}:${preferAvc ? 'avc' : 'hevc'}:${cookie ? 'login' : 'anon'}`
+    const key = `${roomId}:${quality}:${preferAvc ? 'avc' : 'hevc'}:${cookie ? 'login' : 'anon'}`
 
     const cached = resolveCache.get(key)
     if (cached && cached.expiresAt > now) return cached.value
 
     let pending = resolvePending.get(key)
     if (!pending) {
-      pending = resolveFresh(roomId, { cookie, preferAvc, timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl })
+      pending = resolveFresh(roomId, { cookie, preferAvc, quality, timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl })
         .then(
           value => {
             resolveCache.set(key, { value, expiresAt: now + RESOLVE_TTL_MS })

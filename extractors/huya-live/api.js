@@ -2,12 +2,23 @@
 import { createHash } from 'node:crypto'
 import fetch from 'node-fetch'
 import { printYellow } from '../../utils/colorOut.js'
+import { qualityFrom } from '../../utils/qualityOverride.js'
 
 export const HUYA_GROUP = '虎牙'
 export const REFERER = 'https://www.huya.com/'
 export const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 export const DEFAULT_MIN_HEAT = 3000
+export const DEFAULT_QUALITY = 2000
+// 后台下拉框与播放地址 ?quality= 共用这一份档位表
+export const QUALITY_OPTIONS = Object.freeze([
+  { value: 0, label: '原画 / 最高画质' },
+  { value: 20000, label: '4K' },
+  { value: 14000, label: '2K' },
+  { value: 4000, label: '蓝光 4M' },
+  { value: 2000, label: '超清 2M（推荐）' },
+  { value: 500, label: '流畅 500K' },
+])
 
 export const AREA_PAGES = Object.freeze({
   赛事: 'https://www.huya.com/m',
@@ -276,13 +287,27 @@ export async function fetchRoom(roomRef, options = {}) {
   return parseRoomPage(html, room)
 }
 
+// 赛事房间在原画之上还挂着 2K（14000）、4K（20000）转码档，不登录也能取，原画本身
+// 多为 1080P。HDR 档（iCompatibleFlag 非 0，如 14100、4200）HLS 取不到，一律跳过。
+const HIGH_RES_MIN = 10000
+
+function bitrateLabel(rate) {
+  if (rate >= 20000) return '4K'
+  if (rate >= HIGH_RES_MIN) return '2K'
+  return rate ? `${rate}K` : '原画'
+}
+
 export function selectBitrate(rows, requested = 2000) {
   const wanted = Math.max(0, Number(requested) || 0)
-  if (wanted === 0) return 0
   const rates = [...new Set((Array.isArray(rows) ? rows : [])
+    .filter(row => !Number(row?.iCompatibleFlag))
     .map(row => Number(row?.iBitRate))
     .filter(rate => Number.isFinite(rate) && rate > 0))]
     .sort((a, b) => b - a)
+  // 0 = 最高画质：有 2K/4K 就取最高的那档，没有就是原画（不带 ratio）
+  if (wanted === 0) return rates[0] >= HIGH_RES_MIN ? rates[0] : 0
+  // 要 2K/4K 但房间没有：退回原画，别掉到比原画还低的 8M/4M
+  if (wanted >= HIGH_RES_MIN) return rates.find(rate => rate >= HIGH_RES_MIN && rate <= wanted) || 0
   if (!rates.length) return wanted
   return rates.find(rate => rate <= wanted) || rates[rates.length - 1]
 }
@@ -448,7 +473,7 @@ export function orderLines(lines, preferred, rejected, now) {
  */
 async function resolveFresh(room, ctx) {
   const now = Number(ctx.now ?? Date.now())
-  const quality = Number(ctx.config?.quality ?? 2000)
+  const quality = qualityFrom(ctx, QUALITY_OPTIONS, DEFAULT_QUALITY)
   // 整个房间刚被判定全线不可用：短时间内直接回同一结论，别替播放器的连环重试去打上游
   const failed = roomFailUntil.get(room)
   if (failed && failed.until > now) throw new HuyaError(failed.desc)
@@ -478,7 +503,7 @@ async function resolveFresh(room, ctx) {
           }
           return {
             url,
-            desc: `虎牙「${entry.name}」${entry.bitrate ? `${entry.bitrate}K` : '原画'}地址获取成功（${line.cdn} 线路）`,
+            desc: `虎牙「${entry.name}」${bitrateLabel(entry.bitrate)}地址获取成功（${line.cdn} 线路）`,
             relayHls: true,
             manifestText: manifest.text,
             manifestUrl: manifest.finalUrl,

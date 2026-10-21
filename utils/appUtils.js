@@ -371,10 +371,12 @@ async function channel(url, urlUserId, urlToken, client, request = {}) {
     // （画质等，effectiveConfig 是纯内存计算，不碰磁盘）、以及回看参数由外壳处理。
     // 另带客户端身份和 selfBase（这位客户端访问本实例用的地址前缀，仅清单直出时有）：
     // 模块要按播放器下发不同清单、或在清单里引用本机地址时用，用不上的模块不必理会。
+    // query 是播放地址「?」后的参数，模块可据此按频道覆盖配置（如 ?quality= 画质，issue #185）。
     const config = getExtractorManager().effectiveConfig(module)
     resolved = await module.resolve(pid, {
       account: { userId: urlUserId, token: urlToken },
       config,
+      query: Object.fromEntries(new URLSearchParams(params)),
       client,
       selfBase: request.selfBase || '',
     })

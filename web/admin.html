@@ -3019,6 +3019,10 @@
             text-align: center;
         }
         .extractor-filter-btn.active .extractor-filter-count { background: var(--ui-selected-badge); color: var(--ui-selected-text); }
+        .extractor-filter-group { display: flex; flex-wrap: wrap; gap: 6px; }
+        /* 「批量开关」是动作不是筛选：推到这一行最右，用主色和三个筛选按钮区分开。 */
+        .extractor-bulk-btn { margin-left: auto; color: var(--ui-accent); border-color: var(--ui-accent-line); background: var(--ui-accent-soft); font-weight: 600; }
+        .extractor-bulk-btn:hover { color: var(--ui-accent-hover); border-color: var(--ui-accent); background: var(--ui-accent-fill); }
         .extractor-category-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
         .extractor-category-btn {
             display: inline-flex;
@@ -3871,6 +3875,79 @@
             .channel-detail-logo .btn { justify-self: start; min-width: 84px; }
             #channelDetailModal .modal-actions { padding: 14px 20px; }
         }
+        /* 批量开关弹窗：标题、快捷操作和页脚固定，只有中间的清单滚动——七十多个模块在手机上
+           很长，「应用」和改动摘要不能跟着滚出视野。 */
+        #extractorBulkModal .modal-content {
+            display: flex;
+            flex-direction: column;
+            width: min(680px, calc(100% - 32px)) !important;
+            max-width: none;
+            max-height: calc(100vh - 40px);
+            max-height: calc(100dvh - 40px);
+            padding: 0;
+            overflow: hidden;
+        }
+        .extractor-bulk-head { flex: 0 0 auto; padding: 24px 24px 14px; border-bottom: 1px solid var(--ui-line); }
+        .extractor-bulk-head h3 { margin: 0 40px 8px 0; font-size: 18px; font-weight: 600; }
+        .extractor-bulk-hint { color: var(--ui-text-secondary); font-size: 13px; line-height: 1.7; }
+        .extractor-bulk-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+        .extractor-bulk-tools .extractor-filter-btn:disabled { opacity: .48; cursor: not-allowed; }
+        .extractor-bulk-body { flex: 1 1 auto; min-height: 0; padding: 4px 24px 16px; overflow-y: auto; overscroll-behavior: contain; }
+        .extractor-bulk-section { padding: 14px 0; }
+        .extractor-bulk-section + .extractor-bulk-section { border-top: 1px solid var(--ui-line); }
+        .extractor-bulk-section-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; color: var(--ui-text); font-size: 14px; }
+        .extractor-bulk-section-head .extractor-filter-count { padding: 0 6px; }
+        .extractor-bulk-section-actions { display: inline-flex; gap: 2px; margin-left: auto; }
+        .extractor-bulk-link { padding: 3px 8px; border: 0; border-radius: 6px; background: none; color: var(--ui-accent); font-size: 12px; font-weight: 500; cursor: pointer; }
+        .extractor-bulk-link:hover:not(:disabled) { background: var(--ui-accent-soft); }
+        .extractor-bulk-link:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
+        .extractor-bulk-link:disabled { opacity: .48; cursor: not-allowed; }
+        .extractor-bulk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+        .extractor-bulk-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 38px;
+            padding: 7px 10px;
+            border: 1px solid var(--ui-line);
+            border-radius: 8px;
+            background: var(--ui-surface);
+            color: var(--ui-text);
+            font-size: 13px;
+            line-height: 1.4;
+            cursor: pointer;
+        }
+        .extractor-bulk-item:hover { border-color: var(--ui-line-strong); background: var(--ui-surface-soft); }
+        /* 通用 .modal-content input 会把复选框撑成整行文本框，这里恢复成普通勾选框。 */
+        .extractor-bulk-item input[type="checkbox"] { flex: 0 0 auto; width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; cursor: pointer; }
+        .extractor-bulk-item input[type="checkbox"]:disabled { cursor: not-allowed; }
+        .extractor-bulk-name { min-width: 0; overflow-wrap: anywhere; }
+        /* 和打开时不一样的项单独标出来：七十多个里改了哪几个，不用逐个比对 */
+        .extractor-bulk-item[data-change="on"] { border-color: var(--ui-accent-line); background: var(--ui-accent-soft); }
+        .extractor-bulk-item[data-change="off"] { border-style: dashed; border-color: var(--ui-line-strong); background: var(--ui-surface-soft); }
+        .extractor-bulk-item[data-change="on"]::after,
+        .extractor-bulk-item[data-change="off"]::after { flex: 0 0 auto; margin-left: auto; font-size: 11px; white-space: nowrap; }
+        .extractor-bulk-item[data-change="on"]::after { content: '将启用'; color: var(--ui-accent); }
+        .extractor-bulk-item[data-change="off"]::after { content: '将关闭'; color: var(--ui-muted); }
+        .extractor-bulk-note { margin-top: 10px; color: var(--ui-muted); font-size: 12px; line-height: 1.7; }
+        .extractor-bulk-foot { flex: 0 0 auto; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; padding: 14px 24px; border-top: 1px solid var(--ui-line); background: var(--ui-surface-soft); }
+        .extractor-bulk-status { display: flex; flex: 1 1 220px; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; line-height: 1.6; }
+        .extractor-bulk-summary { color: var(--ui-text); font-weight: 600; }
+        .extractor-bulk-warning { color: var(--ui-warning); font-size: 12px; }
+        .extractor-bulk-corrupt { color: var(--ui-danger); font-size: 12px; }
+        .extractor-bulk-foot .modal-actions { margin-left: auto; }
+        @media (max-width: 560px) {
+            #extractorBulkModal .modal-content { width: calc(100% - 20px) !important; max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); }
+            .extractor-bulk-head { padding: 20px 18px 12px; }
+            .extractor-bulk-body { padding: 2px 18px 12px; }
+            .extractor-bulk-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+            /* 两列太窄，「将关闭」小字会把模块名挤成两三行；手机上只留底色 / 虚线标记，数字看页脚摘要 */
+            .extractor-bulk-item[data-change="on"]::after,
+            .extractor-bulk-item[data-change="off"]::after { display: none; }
+            .extractor-bulk-foot { padding: 12px 18px; }
+            .extractor-bulk-foot .modal-actions { flex: 1 1 100%; }
+            .extractor-bulk-foot .modal-actions .btn { flex: 1 1 0; }
+        }
         /* 占位文字要明显浅于填进去的内容，不然看着像已经填了值 */
         input::placeholder, textarea::placeholder { color: #a3ada6; opacity: 1; }
         @media (prefers-reduced-motion: reduce) {
@@ -4083,6 +4160,35 @@
             <button type="button" class="extractor-modal-close" onclick="closeAlertCenter()" aria-label="关闭提醒列表">×</button>
             <h3 id="alertCenterTitle">需要处理的提醒</h3>
             <div class="alert-center-list" id="alertCenterList"></div>
+        </div>
+    </div>
+
+    <!-- 批量开关（issue #189）：一次勾好要保留的模块和内置源，点「应用」一起保存。
+         只是把卡片上的开关一次写多个，不是另一套白名单；清单和摘要由 renderExtractorBulk / paintExtractorBulk 填 -->
+    <div class="modal" id="extractorBulkModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="extractorBulkTitle">
+        <div class="modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeExtractorBulk()" aria-label="关闭批量开关">×</button>
+            <div class="extractor-bulk-head">
+                <h3 id="extractorBulkTitle">批量开关</h3>
+                <div class="extractor-bulk-hint">勾选要保留的来源，点「应用」一次保存；没勾的关闭，配置原样保留，随时可以开回来。</div>
+                <div class="extractor-bulk-tools" role="group" aria-label="批量勾选">
+                    <button type="button" class="extractor-filter-btn" onclick="setExtractorBulkAll(true)">全选</button>
+                    <button type="button" class="extractor-filter-btn" onclick="setExtractorBulkAll(false)">全不选</button>
+                    <button type="button" class="extractor-filter-btn" onclick="resetExtractorBulk()" title="回到打开时（服务端当前）的开关状态">还原</button>
+                </div>
+            </div>
+            <div class="extractor-bulk-body" id="extractorBulkBody"></div>
+            <div class="extractor-bulk-foot">
+                <div class="extractor-bulk-status">
+                    <span class="extractor-bulk-summary" id="extractorBulkSummary" role="status" aria-live="polite"></span>
+                    <span class="extractor-bulk-warning" id="extractorBulkWarning" hidden></span>
+                    <span class="extractor-bulk-corrupt" id="extractorBulkCorrupt" hidden>抓取模块配置文件损坏，修复前普通模块的开关改不了；咪咕和内置源不受影响，可以去掉其他模块的改动后单独应用。</span>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeExtractorBulk()">取消</button>
+                    <button type="button" class="btn btn-primary" id="extractorBulkApply" onclick="applyExtractorBulk()" disabled>应用</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -4462,7 +4568,8 @@
                     </div>
 
                     <div id="extractorNotice"></div>
-                    <div class="extractor-filter" id="extractorFilter" role="group" aria-label="按开关筛选模块"></div>
+                    <!-- 筛选按钮组（role=group）和「批量开关」都由 renderExtractorFilter 填；零模块时留空，靠 :empty 隐藏整行 -->
+                    <div class="extractor-filter" id="extractorFilter"></div>
                     <div class="source-category-list" id="extractorList"></div>
                 </div>
                 </div>
@@ -5434,11 +5541,326 @@
                 ['on', '已启用', enabledCount],
                 ['off', '已关闭', modules.length - enabledCount],
             ];
-            bar.innerHTML = modules.length ? options.map(([value, label, count]) =>
+            // 「批量开关」和筛选挤在同一行、但不放进筛选的 role=group：它是动作，不是第四种筛选。
+            // 零模块时整行留空（.extractor-filter:empty 隐藏），没东西可批量开关，按钮也就不出现。
+            bar.innerHTML = modules.length ? `<div class="extractor-filter-group" role="group" aria-label="按开关筛选模块">${options.map(([value, label, count]) =>
                 `<button type="button" class="extractor-filter-btn${extractorFilter === value ? ' active' : ''}"
                          aria-pressed="${extractorFilter === value}" onclick="setExtractorFilter('${value}')">
                     ${label}<span class="extractor-filter-count">${count}</span>
-                </button>`).join('') : '';
+                </button>`).join('')}</div>
+                <button type="button" class="extractor-filter-btn extractor-bulk-btn" aria-haspopup="dialog"
+                        title="一次勾选要保留的模块和内置源，统一保存" onclick="openExtractorBulk()">批量开关</button>` : '';
+        }
+
+        // ===== 批量开关（issue #189）=====
+        // 只想留几个来源（如 央视频 + 凤凰 + 咪咕）的用户，原来要把七十多张卡片挨个点关。
+        // 这里一次勾好、一次提交（action: 'bulkToggle'），服务端照样逐个写每个模块自己的开关。
+        // 刻意不做环境变量白名单 / 总开关：旧总开关 enableExtractors 就是因为会悄悄盖过卡片上的
+        // 选择才退役的（见 extractorManager 的迁移注释），卡片开关必须仍是唯一的真相。
+        // 勾选只存在弹窗的草稿里，点「应用」之前不碰服务端；「还原」回到服务端当前状态。
+        let extractorBulkBase = null;    // 服务端当前状态的快照：{ modules: { id: 开/关 }, flags: { key: 开/关 } }
+        let extractorBulkDraft = null;   // 用户勾出来的目标状态，同结构；null = 弹窗没开
+        let extractorBulkBusy = false;   // 请求在路上：禁用所有勾选和「应用」，防止重复提交、改了也白改
+        // 打开 / 关闭各加一：请求没回来用户就关掉又重开，旧请求的回调不该把新开的弹窗关掉
+        let extractorBulkSession = 0;
+
+        /** 快照：模块看 enabled；内置源看 contentFlags，缺省视为开（同 renderContentFlags）。 */
+        function extractorBulkSnapshot(state) {
+            const modules = {};
+            for (const m of (state && state.modules) || []) modules[m.id] = !!m.enabled;
+            const flags = (state && state.contentFlags) || {};
+            return {
+                modules,
+                flags: {
+                    enableBuiltInSources: flags.enableBuiltInSources !== false,
+                    enableBuiltInSubscriptions: flags.enableBuiltInSubscriptions !== false,
+                },
+            };
+        }
+
+        /**
+         * 弹窗分节：分类的标题和顺序跟卡片区用同一份（extractorCategories），最后是「内置源」。
+         * 分类没登记的模块收进「其他」——卡片区看不到它们，但「全不选」不能把它们漏掉。
+         * 节 id 带 __ 前缀的是弹窗自己的，不会和注册表的分类 id 撞上。
+         */
+        function extractorBulkSections(state) {
+            const modules = (state && state.modules) || [];
+            const categories = extractorCategories();
+            const known = new Set(categories.map(category => category.id));
+            const categoryOf = m => known.has(m.category || 'standard') ? (m.category || 'standard') : '__other';
+            const sections = categories.concat([{ id: '__other', title: '其他' }])
+                .map(category => ({
+                    id: category.id,
+                    title: category.title,
+                    items: modules.filter(m => categoryOf(m) === category.id)
+                        .map(m => ({ kind: 'module', id: m.id, name: m.name || m.id })),
+                }))
+                .filter(section => section.items.length);
+            sections.push({
+                id: '__builtin',
+                title: '内置源',
+                items: [
+                    { kind: 'flag', id: 'enableBuiltInSources', name: '内置单频道源' },
+                    { kind: 'flag', id: 'enableBuiltInSubscriptions', name: '内置订阅源（精选频道）' },
+                ],
+            });
+            return sections;
+        }
+
+        /** 把一批勾选项统一设成开或关（节标题和顶部的「全选 / 全不选」）。只认快照里有的 id。 */
+        function extractorBulkSetItems(draft, items, on) {
+            for (const item of items) {
+                const bucket = item.kind === 'flag' ? draft.flags : draft.modules;
+                if (Object.prototype.hasOwnProperty.call(bucket, item.id)) bucket[item.id] = !!on;
+            }
+            return draft;
+        }
+
+        /**
+         * 草稿与基准逐项比对，只留真正要改的：请求体只带这些（服务端也只写有变化的，
+         * 保持「没点过的模块不落 enabled 键」的稀疏存储），摘要也只数这些。
+         * 基准里没有的模块（弹窗开着时被下架了）不提交，免得整批被服务端以「未知模块」拒掉。
+         */
+        function extractorBulkChanges(base, draft) {
+            const modules = {};
+            const contentFlags = {};
+            let enable = 0;
+            let disable = 0;
+            const collect = (from, to, out) => {
+                for (const [id, on] of Object.entries(to)) {
+                    if (!Object.prototype.hasOwnProperty.call(from, id) || from[id] === on) continue;
+                    out[id] = on;
+                    if (on) enable++;
+                    else disable++;
+                }
+            };
+            collect(base.modules, draft.modules, modules);
+            collect(base.flags, draft.flags, contentFlags);
+            return { modules, contentFlags, enable, disable };
+        }
+
+        /** 「将启用 2 个、关闭 70 个」；为 0 的半句省掉，一个都没有就是「没有改动」。prefix 传「已」用作成功提示。 */
+        function extractorBulkSummary(changes, prefix = '将') {
+            const parts = [];
+            if (changes.enable) parts.push(`启用 ${changes.enable} 个`);
+            if (changes.disable) parts.push(`关闭 ${changes.disable} 个`);
+            return parts.length ? prefix + parts.join('、') : '没有改动';
+        }
+
+        /** 摘要下面的额外提醒：关「内置订阅源」一下少约 150 个频道，在数字里只算 1 个，得单独说。 */
+        function extractorBulkWarning(changes) {
+            return changes.contentFlags.enableBuiltInSubscriptions === false
+                ? '含「内置订阅源」：约 150 个精选频道将不再出现在播放列表里，随时可以开回来。'
+                : '';
+        }
+
+        /** bulkToggle 请求体：modules 总是带（只改内置源时是空对象），contentFlags 没改动就整个不带。 */
+        function extractorBulkBody(changes) {
+            const body = { action: 'bulkToggle', modules: changes.modules };
+            if (Object.keys(changes.contentFlags).length) body.contentFlags = changes.contentFlags;
+            return body;
+        }
+
+        /**
+         * 弹窗开着时服务端状态变了，换基准：用户**改过**的项（草稿 ≠ 旧基准）保留勾选，
+         * 没动过的项跟着新状态走；新出现的模块按新状态补上，已下架的丢掉。
+         * 典型是「应用」失败之后——模块已存好、只有内置源没存上，摘要就只剩还没生效的那部分。
+         * 只留「改过的」而不是整份草稿：请求没回来就关掉重开的弹窗，草稿是旧状态的原样拷贝，
+         * 整份保留的话旧请求一落地，摘要就会变成「把刚关掉的七十个全开回来」。
+         */
+        function extractorBulkRebase(base, draft, next) {
+            const has = (bucket, id) => Object.prototype.hasOwnProperty.call(bucket, id);
+            const merge = (from, to, latest) => {
+                const out = {};
+                for (const [id, on] of Object.entries(latest)) {
+                    out[id] = has(to, id) && has(from, id) && to[id] !== from[id] ? to[id] : on;
+                }
+                return out;
+            };
+            return { modules: merge(base.modules, draft.modules, next.modules), flags: merge(base.flags, draft.flags, next.flags) };
+        }
+
+        function openExtractorBulk() {
+            const modal = document.getElementById('extractorBulkModal');
+            if (!modal) return;
+            extractorBulkSession++;
+            extractorBulkBase = extractorBulkSnapshot(extractorsState);
+            extractorBulkDraft = extractorBulkSnapshot(extractorsState);
+            renderExtractorBulk();
+            modal.style.display = 'block';
+            modal.setAttribute('aria-hidden', 'false');
+            const body = document.getElementById('extractorBulkBody');
+            if (body) body.scrollTop = 0;
+            setTimeout(() => {
+                const closeButton = modal.querySelector('.extractor-modal-close');
+                if (closeButton) closeButton.focus();
+            }, 0);
+        }
+
+        /** 关闭即放弃草稿：勾选还没提交，没有要确认的；焦点还给「批量开关」按钮。 */
+        function closeExtractorBulk() {
+            const modal = document.getElementById('extractorBulkModal');
+            if (!modal || modal.style.display !== 'block') return;
+            extractorBulkSession++;
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
+            extractorBulkBase = null;
+            extractorBulkDraft = null;
+            const opener = document.querySelector('#extractorFilter .extractor-bulk-btn');
+            if (opener) opener.focus({ preventScroll: true });
+        }
+
+        /** 弹窗正文按节列出复选框。只在打开、或模块清单变了时整份重建；勾选变化走 paintExtractorBulk。 */
+        function renderExtractorBulk() {
+            const box = document.getElementById('extractorBulkBody');
+            if (!box || !extractorBulkDraft) return;
+            // id 和名字都走 escapeHtml 放进 data-* / 文本，事件里只读 dataset，不往 JS 字符串里拼
+            box.innerHTML = extractorBulkSections(extractorsState).map(section => `
+                <section class="extractor-bulk-section" data-bulk-section="${escapeHtml(section.id)}" aria-label="${escapeHtml(section.title)}">
+                    <div class="extractor-bulk-section-head">
+                        <strong>${escapeHtml(section.title)}</strong>
+                        <span class="extractor-filter-count" data-bulk-count></span>
+                        <span class="extractor-bulk-section-actions">
+                            <button type="button" class="extractor-bulk-link" aria-label="${escapeHtml(section.title)}：全选"
+                                    onclick="setExtractorBulkSection(this, true)">全选</button>
+                            <button type="button" class="extractor-bulk-link" aria-label="${escapeHtml(section.title)}：全不选"
+                                    onclick="setExtractorBulkSection(this, false)">全不选</button>
+                        </span>
+                    </div>
+                    <div class="extractor-bulk-grid">${section.items.map(item => `
+                        <label class="extractor-bulk-item">
+                            <input type="checkbox" data-bulk-kind="${escapeHtml(item.kind)}" data-bulk-id="${escapeHtml(item.id)}"
+                                   onchange="toggleExtractorBulkItem(this)">
+                            <span class="extractor-bulk-name">${escapeHtml(item.name)}</span>
+                        </label>`).join('')}
+                    </div>
+                    ${section.id === '__builtin'
+                        ? '<div class="extractor-bulk-note">自定义源（自己添加的直连 / 抓取 / 订阅源）不在这里，到「自定义源」标签里逐个启用或停用。</div>'
+                        : ''}
+                </section>`).join('');
+            paintExtractorBulk();
+        }
+
+        /** 把草稿同步到界面：复选框、改动标记、各节「已选 x/y」、页脚摘要和「应用」按钮。 */
+        function paintExtractorBulk() {
+            const modal = document.getElementById('extractorBulkModal');
+            if (!modal || !extractorBulkDraft || !extractorBulkBase) return;
+            const busy = extractorBulkBusy;
+            const pick = (snapshot, kind, id) => (kind === 'flag' ? snapshot.flags : snapshot.modules)[id];
+            modal.querySelectorAll('[data-bulk-section]').forEach(section => {
+                const inputs = Array.from(section.querySelectorAll('input[data-bulk-id]'));
+                let checked = 0;
+                for (const input of inputs) {
+                    const { bulkKind: kind, bulkId: id } = input.dataset;
+                    const on = !!pick(extractorBulkDraft, kind, id);
+                    input.checked = on;
+                    input.disabled = busy;
+                    if (on) checked++;
+                    const item = input.closest('.extractor-bulk-item');
+                    if (item) item.dataset.change = on === !!pick(extractorBulkBase, kind, id) ? '' : (on ? 'on' : 'off');
+                }
+                const count = section.querySelector('[data-bulk-count]');
+                if (count) count.textContent = `已选 ${checked}/${inputs.length}`;
+            });
+            modal.querySelectorAll('.extractor-bulk-tools button, .extractor-bulk-section-actions button')
+                .forEach(button => { button.disabled = busy; });
+
+            const changes = extractorBulkChanges(extractorBulkBase, extractorBulkDraft);
+            const summary = document.getElementById('extractorBulkSummary');
+            if (summary) summary.textContent = extractorBulkSummary(changes);
+            const warning = document.getElementById('extractorBulkWarning');
+            if (warning) {
+                warning.textContent = extractorBulkWarning(changes);
+                warning.hidden = !warning.textContent;
+            }
+            // extractors.json 损坏时服务端拒绝写普通模块的开关（见 renderExtractorNotice），提前说清楚、别让人点了再报错。
+            // 咪咕（代理开关）和内置源写的是 system-config.json，照样能改，不跟着挡
+            const blocked = extractorBulkBlocked(changes);
+            const corruptNote = document.getElementById('extractorBulkCorrupt');
+            if (corruptNote) corruptNote.hidden = !blocked;
+            const apply = document.getElementById('extractorBulkApply');
+            if (apply) {
+                apply.disabled = busy || blocked || !(changes.enable + changes.disable);
+                apply.textContent = busy ? '应用中…' : '应用';
+            }
+        }
+
+        /** 配置文件损坏时这批改动会不会被服务端拒：只看要改的非代理模块（它们才写 extractors.json）。 */
+        function extractorBulkBlocked(changes) {
+            if (!(extractorsState && extractorsState.corrupt)) return false;
+            const modules = extractorsState.modules || [];
+            return Object.keys(changes.modules).some(id => !(modules.find(m => m.id === id) || {}).enabledProxied);
+        }
+
+        function toggleExtractorBulkItem(input) {
+            if (!extractorBulkDraft) return;
+            extractorBulkSetItems(extractorBulkDraft, [{ kind: input.dataset.bulkKind, id: input.dataset.bulkId }], input.checked);
+            paintExtractorBulk();
+        }
+
+        function setExtractorBulkSection(button, on) {
+            const section = button.closest('[data-bulk-section]');
+            if (!section || !extractorBulkDraft) return;
+            const target = extractorBulkSections(extractorsState).find(s => s.id === section.dataset.bulkSection);
+            if (target) extractorBulkSetItems(extractorBulkDraft, target.items, on);
+            paintExtractorBulk();
+        }
+
+        function setExtractorBulkAll(on) {
+            if (!extractorBulkDraft) return;
+            for (const section of extractorBulkSections(extractorsState)) extractorBulkSetItems(extractorBulkDraft, section.items, on);
+            paintExtractorBulk();
+        }
+
+        function resetExtractorBulk() {
+            if (!extractorBulkBase) return;
+            extractorBulkDraft = { modules: { ...extractorBulkBase.modules }, flags: { ...extractorBulkBase.flags } };
+            paintExtractorBulk();
+        }
+
+        /** renderExtractors 每次拿到新状态都调：弹窗开着就换基准（见 extractorBulkRebase），模块清单变了才重建正文。 */
+        function syncExtractorBulkBase() {
+            if (!extractorBulkDraft || !extractorBulkBase) return;
+            const next = extractorBulkSnapshot(extractorsState);
+            const sameModules = Object.keys(next.modules).join('\n') === Object.keys(extractorBulkBase.modules).join('\n');
+            extractorBulkDraft = extractorBulkRebase(extractorBulkBase, extractorBulkDraft, next);
+            extractorBulkBase = next;
+            if (sameModules) paintExtractorBulk();
+            else renderExtractorBulk();
+        }
+
+        async function applyExtractorBulk() {
+            if (!extractorBulkDraft || !extractorBulkBase || extractorBulkBusy) return;
+            const changes = extractorBulkChanges(extractorBulkBase, extractorBulkDraft);
+            if (!(changes.enable + changes.disable) || extractorBulkBlocked(changes)) return;
+            const session = extractorBulkSession;
+            extractorBulkBusy = true;
+            paintExtractorBulk();
+            let r;
+            try {
+                r = await extractorPost(extractorBulkBody(changes));
+            } catch (e) {
+                // 断网 / 返回的不是 JSON：交给 applyExtractorResult 报错并重拉状态，按钮不能一直卡在「应用中…」
+                r = { success: false, message: '批量开关失败：' + e.message };
+            } finally {
+                extractorBulkBusy = false;
+            }
+            // 成功：renderExtractors 会顺手把弹窗的基准换成新状态，随后关掉。
+            // 失败：弹窗留着，applyExtractorResult 报错并重拉，重拉回来再换基准（syncExtractorBulkBase），
+            // 已经生效的部分从摘要里消失，用户能看清还剩什么没改成。
+            applyExtractorResult(r, extractorBulkSummary(changes, '已'));
+            paintExtractorBulk();
+            if (session === extractorBulkSession) {
+                if (r && r.success) closeExtractorBulk();
+                else {
+                    // 应用中按钮被禁用过，焦点已掉到 <body>，Tab 会跑到遮罩后面去；失败时弹窗还开着，把焦点拉回来
+                    const apply = document.getElementById('extractorBulkApply');
+                    const target = apply && !apply.disabled ? apply : document.querySelector('#extractorBulkModal .extractor-modal-close');
+                    if (target) target.focus({ preventScroll: true });
+                }
+            }
+            // 同 setContentFlag：「内置订阅源」决定自定义源里「精选频道」是否生效，卡片要跟着重画
+            if (Object.prototype.hasOwnProperty.call(changes.contentFlags, 'enableBuiltInSubscriptions')) renderExternalSources();
         }
 
         // ===== 提醒中心 =====
@@ -5600,31 +6022,10 @@
             }
         }
 
-        function renderExtractors() {
-            renderExtractorNotice();
-            renderContentFlags();
-
-            const box = document.getElementById('extractorList');
-            if (!box) return;
-            const modules = extractorsState.modules || [];
-            const tabCount = document.getElementById('sourceTabExtractorCount');
-            if (tabCount) {
-                const enabledCount = modules.filter(module => module.enabled).length;
-                tabCount.textContent = modules.length ? `${enabledCount}/${modules.length}` : '0';
-            }
-            renderAlerts();
-            renderExtractorFilter(modules);
-            if (!modules.length) {
-                box.innerHTML = '<div class="system-config-hint" style="margin:0;">本版本没有内置任何抓取模块。</div>';
-                renderExtractorDetail();
-                return;
-            }
-
-            // 选中的模块若已不存在（换版本、模块被下架），关闭详情而不是渲染空白
-            if (selectedExtractorId && !modules.some(m => m.id === selectedExtractorId)) {
-                selectedExtractorId = null;
-            }
-
+        // 模块分类：标题、角标、说明和先后顺序。卡片区（renderExtractors）和「批量开关」弹窗共用这一份，
+        // 两处的分类名或顺序对不上，用户在弹窗里勾的「免账号模块」和卡片区看到的就不是同一批了。
+        // 注册表每加一个分类都要在这里补一节，scripts/test-extractors.mjs 会检查。
+        function extractorCategories() {
             const categories = [
                 {
                     id: 'account',
@@ -5652,6 +6053,37 @@
                     description: ['面向大陆以外的频道，默认关闭，需要时手动打开。', { mark: '能不能看取决于网络：海外频道由播放器直连，看播放设备；澳门等后续其他独立模块还要部署的机器能连到大陆以外。' }],
                 },
             ];
+            return categories;
+        }
+
+        function renderExtractors() {
+            renderExtractorNotice();
+            renderContentFlags();
+            // 也得在下面两条提前 return 之前：批量开关弹窗开着时，新状态要换成它的「还原」基准
+            syncExtractorBulkBase();
+
+            const box = document.getElementById('extractorList');
+            if (!box) return;
+            const modules = extractorsState.modules || [];
+            const tabCount = document.getElementById('sourceTabExtractorCount');
+            if (tabCount) {
+                const enabledCount = modules.filter(module => module.enabled).length;
+                tabCount.textContent = modules.length ? `${enabledCount}/${modules.length}` : '0';
+            }
+            renderAlerts();
+            renderExtractorFilter(modules);
+            if (!modules.length) {
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">本版本没有内置任何抓取模块。</div>';
+                renderExtractorDetail();
+                return;
+            }
+
+            // 选中的模块若已不存在（换版本、模块被下架），关闭详情而不是渲染空白
+            if (selectedExtractorId && !modules.some(m => m.id === selectedExtractorId)) {
+                selectedExtractorId = null;
+            }
+
+            const categories = extractorCategories();
 
             const moduleCardHtml = (m, category) => {
                 const h = m.health || {};
@@ -12683,6 +13115,15 @@ if(success){
         document.addEventListener('keydown', function(event) {
             const modal = document.getElementById('alertCenterModal');
             if (event.key === 'Escape' && modal && modal.style.display === 'block') closeAlertCenter();
+        });
+
+        // 批量开关：点遮罩或按 Esc 关闭。勾选只是草稿、还没提交，关掉即放弃，不需要确认
+        document.addEventListener('click', function(event) {
+            if (event.target === document.getElementById('extractorBulkModal')) closeExtractorBulk();
+        });
+        document.addEventListener('keydown', function(event) {
+            const modal = document.getElementById('extractorBulkModal');
+            if (event.key === 'Escape' && modal && modal.style.display === 'block') closeExtractorBulk();
         });
 
         // 抓取模块详情支持 Esc 关闭；若上面还叠着登录/帮助等子弹窗，则先留给子弹窗处理。

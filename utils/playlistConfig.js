@@ -9,6 +9,7 @@ import { matchKeywordGroup } from "./groupRulesAPI.js"
 import { normalizeHiddenRules, matchHiddenRule } from "./hiddenRules.js"
 import { matchSourceFallbackGroup } from "./sourceGroupFallback.js"
 import { collectOptsUntilUrl, renderOpts, needsOpts } from "./channelOpts.js"
+import { parseCatchupAttrs, renderCatchupAttrs } from "./channelCatchup.js"
 import { ANNOUNCEMENT, isAnnouncementChannel, protectAnnouncementConfig, systemChannelByUrl } from "./announcement.js"
 
 // 台标来源分类（供后台展示）：本地上传 / 源自带 / 公共库兜底 / 无。
@@ -251,7 +252,7 @@ export function parseInterfaceTxt() {
         const tvgLogoMatch = line.match(/tvg-logo="([^"]*)"/)
         const groupMatch = line.match(/group-title="([^"]*)"/)
         const sourceIdsMatch = line.match(/source-ids="([^"]*)"/)   // 源归属（issue #29/#68），内部属性
-        const liveOnly = /\bcatchup="none"/.test(line)
+        const catchup = parseCatchupAttrs(line)   // 频道级回看声明（issue #119 / #190）
         const nameMatch = line.match(/,(.+)$/)
         
         // 播放地址不一定紧跟 EXTINF——防盗链频道中间夹着 #EXTVLCOPT，
@@ -296,7 +297,7 @@ export function parseInterfaceTxt() {
             // 源归属（issue #29/#68 按档过滤）：来自哪些源（migu / bi:<id> / ext:<id>，去重并集）。
             // 分号分隔（属性值不能含逗号——频道名按第一个逗号解析）；旧数据无该属性 → 空数组=不过滤。
             sourceIds: sourceIdsMatch ? sourceIdsMatch[1].split(';').filter(Boolean) : [],
-            ...(liveOnly ? { catchup: 'none' } : {}),
+            ...catchup,
             // 频道级播放选项（#EXTVLCOPT）：无则不带该字段，保持旧频道对象形状不变
             ...(opts.length ? { opts } : {})
           })
@@ -640,7 +641,7 @@ export function generateM3u8(groups) {
   
   groups.forEach(group => {
     group.channels.forEach(channel => {
-      const catchupAttr = channel.catchup === 'none' ? ' catchup="none"' : ''
+      const catchupAttr = renderCatchupAttrs(channel)
       content += `#EXTINF:-1 tvg-id="${channel.tvgId}" tvg-name="${channel.tvgName}" tvg-logo="${channel.logo}"${catchupAttr} group-title="${group.name}",${channel.name}\n`
       // 防盗链频道的请求头必须夹在 EXTINF 和地址之间；无 opts 时为空串，输出不变
       content += renderOpts(channel.opts)

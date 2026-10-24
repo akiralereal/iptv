@@ -5,6 +5,7 @@
  * 关联标记在官网判成未登录的那一刻就被删掉，原先「曾经登录过、现在掉了」这件事无从得知，
  * 会员频道就这么静默播不了。这里钉住：关联过的账号掉登录 / 掉 VIP 才提醒，从没关联过、
  * 一直不是 VIP 的不提醒；重新登录、VIP 回来就消；记录落盘、不含凭据。
+ * 单次读空不算数：隔开 20 秒以上的两次都不认才落失效记录，中途读到正常就作罢（10-21 误报）。
  *
  * 运行： node scripts/test-yangshipin-login-alert.mjs   （或 npm test）
  */
@@ -18,7 +19,11 @@ process.env.mdataDir = DATA_DIR
 const { runtime, credentialRejected, LOGIN_LOST_NOTICE, VIP_LOST_NOTICE } = await import('../extractors/yangshipin/runtime.js')
 const { getModule } = await import('../extractors/registry.js')
 
-const remember = status => runtime.loginLink.remember(status)
+// 假时钟：每次调用往后走 1 分钟，默认就是「隔开够久的又一次读」
+let clock = 1_000_000_000
+const remember = (status, gap = 60_000) => runtime.loginLink.remember(status, clock += gap)
+// 失效要连读两次才坐实
+const lose = status => { remember(status); remember(status) }
 const vip = { authenticated: true, account: { nickname: '测试账号', vip: true } }
 const plain = { authenticated: true, account: { nickname: '测试账号', vip: false } }
 const out = { authenticated: false, account: null }
@@ -39,7 +44,7 @@ test('从没关联过的部署读到未登录不提醒', () => {
 test('关联过的账号掉登录即提醒，记录落盘且不含凭据；重新登录即消', () => {
   remember(vip)
   assert.equal(credentialRejected(), '')
-  remember(out)
+  lose(out)
   assert.equal(credentialRejected(), LOGIN_LOST_NOTICE)
   assert.match(LOGIN_LOST_NOTICE, /10 个会员频道/)
   const marker = runtime.loginLost.markerPath
@@ -66,7 +71,7 @@ test('一直不是 VIP 的账号不提醒', () => {
 test('VIP 从有到无才提醒，要一直提醒到 VIP 回来', () => {
   reset()
   remember(vip)
-  remember(plain)
+  lose(plain)
   assert.equal(credentialRejected(), VIP_LOST_NOTICE)
   remember(plain)
   assert.equal(credentialRejected(), VIP_LOST_NOTICE)
@@ -77,12 +82,47 @@ test('VIP 从有到无才提醒，要一直提醒到 VIP 回来', () => {
 test('原是 VIP 的账号掉登录后重新登录、却已不是 VIP，同样算 VIP 失效', () => {
   reset()
   remember(vip)
-  remember(out)
+  lose(out)
   assert.equal(credentialRejected(), LOGIN_LOST_NOTICE)
-  remember(plain)
+  lose(plain)
   assert.equal(credentialRejected(), VIP_LOST_NOTICE)
   remember(vip)
   assert.equal(credentialRejected(), '')
+})
+
+test('单次读空不提醒，复查读到正常就作罢，关联标记也不动', () => {
+  reset()
+  remember(vip)
+  remember(out)
+  assert.equal(credentialRejected(), '')
+  assert.equal(runtime.loginLink.read()?.vip, true, '疑点期间关联标记必须留着')
+  remember(vip)
+  remember(out)
+  assert.equal(credentialRejected(), '', '作罢后再读空是新的疑点，不是第二次')
+  remember(vip)
+  remember(plain)
+  assert.equal(credentialRejected(), '', 'VIP 字段一次没带回来同样先不报')
+  assert.equal(runtime.loginLink.read()?.vip, true)
+})
+
+test('同一阵抖动里紧挨着的两次读空只算一次', () => {
+  reset()
+  remember(vip)
+  remember(out)
+  remember(out, 1_000)
+  assert.equal(credentialRejected(), '')
+  remember(out, 30_000)
+  assert.equal(credentialRejected(), LOGIN_LOST_NOTICE)
+})
+
+test('疑点放太久就作废，几小时后的单次读空不算第二次', () => {
+  reset()
+  remember(vip)
+  remember(out)
+  remember(out, 6 * 60 * 60_000)
+  assert.equal(credentialRejected(), '')
+  remember(out)
+  assert.equal(credentialRejected(), LOGIN_LOST_NOTICE)
 })
 
 test('模块把失效记录交给后台提醒中心', () => {
@@ -90,7 +130,7 @@ test('模块把失效记录交给后台提醒中心', () => {
   assert.equal(typeof ysp.credentialRejected, 'function')
   reset()
   remember(vip)
-  remember(out)
+  lose(out)
   assert.equal(ysp.credentialRejected({}), LOGIN_LOST_NOTICE)
   remember(vip)
   assert.equal(ysp.credentialRejected({}), '')

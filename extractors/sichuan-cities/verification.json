@@ -1,0 +1,422 @@
+{
+  "verifiedAt": "2026-10-23T15:02:14.634Z",
+  "source": "broadcaster official websites and their public player APIs",
+  "channelCount": 13,
+  "prefectureCount": 8,
+  "mainProject": {
+    "verifiedAt": "2026-10-23T15:00:02.275Z",
+    "viaMainProject": true,
+    "rows": [
+      {
+        "id": "mytv1",
+        "name": "绵阳新闻综合",
+        "city": "绵阳",
+        "ok": true,
+        "segmentBytes": 632620,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 60,
+        "decodeWarning": false
+      },
+      {
+        "id": "lztv1",
+        "name": "泸州新闻综合",
+        "city": "泸州",
+        "ok": true,
+        "segmentBytes": 1328596,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 75,
+        "decodeWarning": false
+      },
+      {
+        "id": "lztv3",
+        "name": "泸州科教生活",
+        "city": "泸州",
+        "ok": true,
+        "segmentBytes": 1081752,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 75,
+        "decodeWarning": false
+      },
+      {
+        "id": "sntv1",
+        "name": "遂宁综合",
+        "city": "遂宁",
+        "ok": true,
+        "segmentBytes": 825696,
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 75,
+        "decodeWarning": true
+      },
+      {
+        "id": "njtv1",
+        "name": "内江综合",
+        "city": "内江",
+        "ok": true,
+        "segmentBytes": 2312400,
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 720
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 75,
+        "decodeWarning": false
+      },
+      {
+        "id": "dztv1",
+        "name": "达州新闻综合",
+        "city": "达州",
+        "ok": true,
+        "segmentBytes": 4016056,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 75,
+        "decodeWarning": false
+      },
+      {
+        "id": "dztv2",
+        "name": "达州文化生活",
+        "city": "达州",
+        "ok": true,
+        "segmentBytes": 4070952,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 75,
+        "decodeWarning": false
+      },
+      {
+        "id": "tctv",
+        "name": "达州通川",
+        "city": "达州",
+        "ok": true,
+        "segmentBytes": 3996128,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 75,
+        "decodeWarning": false
+      },
+      {
+        "id": "bztv1",
+        "name": "巴中综合",
+        "city": "巴中",
+        "ok": true,
+        "segmentBytes": 5648836,
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 75,
+        "decodeWarning": false
+      },
+      {
+        "id": "bztv2",
+        "name": "巴中文旅生活",
+        "city": "巴中",
+        "ok": true,
+        "segmentBytes": 637320,
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 75,
+        "decodeWarning": false
+      },
+      {
+        "id": "gztv1",
+        "name": "甘孜综合",
+        "city": "甘孜",
+        "ok": true,
+        "segmentBytes": 1564348,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 74,
+        "decodeWarning": false
+      },
+      {
+        "id": "abtv1",
+        "name": "阿坝新闻综合",
+        "city": "阿坝",
+        "ok": true,
+        "segmentBytes": 1084572,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 90,
+        "decodeWarning": false
+      },
+      {
+        "id": "abtv2",
+        "name": "阿坝藏语综合",
+        "city": "阿坝",
+        "ok": true,
+        "segmentBytes": 1070848,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 90,
+        "decodeWarning": false
+      }
+    ],
+    "rechecks": [
+      {
+        "id": "gztv1",
+        "initialFailure": "不是 HLS 清单",
+        "latestOk": true,
+        "verifiedAt": "2026-10-23T15:02:14.634Z"
+      }
+    ]
+  },
+  "playlist": {
+    "unique": 13,
+    "rows": [
+      {
+        "id": "lztv3",
+        "name": "泸州科教生活",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/relay/sichuan-cities-lztv3.m3u8"
+      },
+      {
+        "id": "mytv1",
+        "name": "绵阳新闻综合",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/relay/sichuan-cities-mytv1.m3u8"
+      },
+      {
+        "id": "lztv1",
+        "name": "泸州新闻综合",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/relay/sichuan-cities-lztv1.m3u8"
+      },
+      {
+        "id": "sntv1",
+        "name": "遂宁综合",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/proxy/sichuan-cities-sntv1.m3u8"
+      },
+      {
+        "id": "njtv1",
+        "name": "内江综合",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/relay/sichuan-cities-njtv1.m3u8"
+      },
+      {
+        "id": "dztv1",
+        "name": "达州新闻综合",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/proxy/sichuan-cities-dztv1.m3u8"
+      },
+      {
+        "id": "dztv2",
+        "name": "达州文化生活",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/proxy/sichuan-cities-dztv2.m3u8"
+      },
+      {
+        "id": "tctv",
+        "name": "达州通川",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/proxy/sichuan-cities-tctv.m3u8"
+      },
+      {
+        "id": "bztv1",
+        "name": "巴中综合",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/relay/sichuan-cities-bztv1.m3u8"
+      },
+      {
+        "id": "bztv2",
+        "name": "巴中文旅生活",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/relay/sichuan-cities-bztv2.m3u8"
+      },
+      {
+        "id": "gztv1",
+        "name": "甘孜综合",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/relay/sichuan-cities-gztv1.m3u8"
+      },
+      {
+        "id": "abtv1",
+        "name": "阿坝新闻综合",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/relay/sichuan-cities-abtv1.m3u8"
+      },
+      {
+        "id": "abtv2",
+        "name": "阿坝藏语综合",
+        "logoStatus": 200,
+        "localLogo": true,
+        "route": "/relay/sichuan-cities-abtv2.m3u8"
+      }
+    ]
+  },
+  "continuousPlayback": {
+    "id": "abtv1",
+    "routeMode": "relay",
+    "exitCode": 0,
+    "decodedFrames": 2250,
+    "mediaSeconds": 75.010354,
+    "finalSpeed": "1.23x",
+    "warningLines": 0,
+    "notes": "Same official CDN session remains valid beyond the 60-second admission signature; no forced session rotation."
+  },
+  "testSuite": {
+    "command": "npm test",
+    "isolatedStagedSnapshot": true,
+    "exitCode": 0
+  },
+  "notes": [
+    "H.264/AAC decoded for all 13 channels.",
+    "A few single-TS samples warn about initial codec metadata; actual video frames and audio decode successfully.",
+    "No signed playback URLs, public signing keys or CDN session tokens are stored in this report."
+  ]
+}

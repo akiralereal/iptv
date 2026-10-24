@@ -156,6 +156,9 @@ import { shouldFailRound as miguShouldFailRound } from '../extractors/migu/index
 import {
   ExtractorManager, validateConfig, redactConfig, resolveConfig, normalizeGroups, emptyHealth,
 } from '../utils/extractorManager.js'
+// 只用它的纯校验与「校验不过就提前返回」那条路：上面咪咕模块的 import 早已把
+// systemConfigAPI → updateData → channelMerger 整条链拉进来，这里不多带任何副作用
+import { contentFlagChanges, setExtractorsEnabledAPI } from '../utils/extractorsAPI.js'
 
 let passed = 0
 const check = (name, fn) => { fn(); passed++; console.log(`  ✅ ${name}`) }
@@ -769,15 +772,15 @@ check('深圳广电模块已注册，固定周期刷新且逐路径签名流必�
 
 check('省市广电模块卡片只显示地区名，不带平台品牌', () => {
   const expectedNames = {
-    'gdsport-events': '广东体育赛事',
-    anhui: '安徽', beidou: '辽宁', chongqing: '重庆', sichuan: '四川', chengdu: '成都', cztv: '浙江', dalian: '大连', fjtv: '福建', gansu: '甘肃', gdtv: '广东', gxtv: '广西',
+    'gdsport-events': '广东体育赛事', 'sichuan-cities': '四川市州',
+    anhui: '安徽', chongqing: '重庆', sichuan: '四川', chengdu: '成都', cztv: '浙江', dalian: '大连', fjtv: '福建', gansu: '甘肃', gdtv: '广东', gxtv: '广西',
     gztv: '广州', hbtv: '湖北', hebtv: '河北', heilongjiang: '黑龙江', hnntv: '海南', hntv: '河南',
     iqilu: '山东', hangzhou: '杭州', ningbo: '宁波', jiaxing: '嘉兴', taizhou: '台州', shaoxing: '绍兴', jlntv: '吉林', jstv: '江苏', jxntv: '江西', kankanews: '上海', jiangmen: '江门', 'meizhou-hakka': '梅州', mgtv: '湖南', njtv: '南京', nmtv: '内蒙古',
-    'quanzhou-minnan': '泉州', 'quanzhou-county': '晋江、石狮', putian: '莆田', ningde: '宁德', wuxi: '无锡', yangzhou: '扬州', nantong: '南通',
+    'quanzhou-minnan': '泉州', 'quanzhou-county': '晋江、石狮', putian: '莆田', ningde: '宁德', wuxi: '无锡', yangzhou: '扬州', nantong: '南通', yancheng: '盐城',
     ningxia: '宁夏', qinghai: '青海', qingdao: '青岛', qtv: '青岛景观', shaanxi: '陕西', shanxi: '山西', sztv: '深圳', tianjin: '天津',
     xinjiang: '新疆', xizang: '西藏', yunnan: '云南', tdm: '澳门',
   }
-  const groupOverrides = { chengdu: '四川', 'gdsport-events': '广东', dalian: '辽宁', gztv: '广东', sztv: '广东', hangzhou: '浙江', ningbo: '浙江', jiaxing: '浙江', taizhou: '浙江', shaoxing: '浙江', jiangmen: '广东', 'meizhou-hakka': '广东', 'quanzhou-minnan': '福建', 'quanzhou-county': '福建', putian: '福建', ningde: '福建', wuxi: '江苏', yangzhou: '江苏', nantong: '江苏', njtv: '江苏', qingdao: '山东', qtv: '山东' }
+  const groupOverrides = { 'sichuan-cities': '四川', chengdu: '四川', 'gdsport-events': '广东', dalian: '辽宁', gztv: '广东', sztv: '广东', hangzhou: '浙江', ningbo: '浙江', jiaxing: '浙江', taizhou: '浙江', shaoxing: '浙江', jiangmen: '广东', 'meizhou-hakka': '广东', 'quanzhou-minnan': '福建', 'quanzhou-county': '福建', putian: '福建', ningde: '福建', wuxi: '江苏', yangzhou: '江苏', nantong: '江苏', yancheng: '江苏', njtv: '江苏', qingdao: '山东', qtv: '山东' }
   for (const [id, name] of Object.entries(expectedNames)) {
     assert.equal(getModule(id)?.name, name, `${id} 卡片标题应只保留地区名`)
     assert.equal(
@@ -1072,6 +1075,186 @@ try {
     assert.equal(manager.config.modules['bilibili-live'].enabled, true, '普通模块照常存')
   })
 
+  // ---- 批量开关（issue #189「建议出个精简版」）----
+  // 批量写的是每张卡片自己的开关，不是另一层白名单；要验的是「整批原子」与「稀疏存储不被批量破坏」。
+
+  /** 数写盘次数：#saveConfig 是私有的，但 load 之后只有它会读 configPath。 */
+  const countSaves = manager => {
+    const configPath = manager.configPath
+    const counter = { saves: 0 }
+    Object.defineProperty(manager, 'configPath', {
+      configurable: true, enumerable: true, get: () => { counter.saves++; return configPath },
+    })
+    counter.restore = () => Object.defineProperty(manager, 'configPath', {
+      configurable: true, enumerable: true, writable: true, value: configPath,
+    })
+    return counter
+  }
+
+  /**
+   * 临时把模块的开关换成内存里的假 getter/setter。咪咕的真 setter 写 dataPath('system-config.json')，
+   * 测试里就是仓库根目录，绝不能真调；finally 里原样还原（原先没有的属性要删掉，不能留个 undefined）。
+   */
+  const stubSwitch = (id, initial, setter) => {
+    const module = getModule(id)
+    const saved = ['enabledGetter', 'enabledSetter'].map(key => [key, Object.getOwnPropertyDescriptor(module, key)])
+    const state = { on: initial, calls: [] }
+    module.enabledGetter = () => state.on
+    module.enabledSetter = setter || (on => { state.calls.push(on); state.on = on })
+    state.restore = () => {
+      for (const [key, descriptor] of saved) {
+        if (descriptor) Object.defineProperty(module, key, descriptor)
+        else delete module[key]
+      }
+    }
+    return state
+  }
+
+  check('★ 批量开关：整批只写一次盘，重载后仍在；与当前值相同的不落 enabled（稀疏存储）', () => {
+    const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
+    const counter = countSaves(manager)
+    try {
+      manager.setModulesEnabled({ 'bilibili-live': false, kankanews: false, overseas: true, 'huya-live': true })
+      assert.equal(counter.saves, 1, '几十张卡片一次点完也只写一次 extractors.json')
+      manager.setModulesEnabled({ 'huya-live': true, overseas: true })
+      manager.setModulesEnabled({})
+      assert.equal(counter.saves, 1, '一个都没变就不写盘')
+    } finally { counter.restore() }
+
+    manager.load()
+    assert.equal(manager.isModuleEnabled(getModule('bilibili-live')), false)
+    assert.equal(manager.isModuleEnabled(getModule('kankanews')), false)
+    assert.equal(manager.isModuleEnabled(getModule('overseas')), true)
+    assert.equal(manager.isModuleEnabled(getModule('huya-live')), true)
+    const saved = JSON.parse(readFileSync(manager.configPath, 'utf-8')).modules
+    assert.equal(saved['bilibili-live'].enabled, false)
+    assert.equal(saved.overseas.enabled, true)
+    assert.equal(saved['huya-live']?.enabled, undefined,
+      '没点过、默认开的模块请求开：不落值，以后改它的 defaultEnabled 存量用户跟得上')
+    assert.equal(saved.tdm?.enabled, undefined, '没在请求里的模块一概不碰')
+  })
+
+  check('★ 批量开关：未知 id / 非布尔值 / 参数不是对象，整单拒绝且什么都没变', () => {
+    const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
+    const fileBefore = readFileSync(manager.configPath, 'utf-8')
+    const counter = countSaves(manager)
+    try {
+      // 合法项排在前面：校验必须先于任何改动，不能改到一半才发现后面那项不合法
+      assert.throws(() => manager.setModulesEnabled({ 'bilibili-live': false, 'no-such-module': false }), /未知的抓取模块/)
+      assert.throws(() => manager.setModulesEnabled({ kankanews: false, 'bilibili-live': 'false' }), /true \/ false/,
+        "字符串 'false' 是真值，放过去就是把要关的整片打开")
+      for (const bad of [0, 1, null, undefined, 'true']) {
+        assert.throws(() => manager.setModulesEnabled({ 'bilibili-live': bad }), /true \/ false/, `${JSON.stringify(bad)} 不该通过`)
+      }
+      for (const bad of [null, undefined, [], ['bilibili-live'], 'bilibili-live', 1, true]) {
+        assert.throws(() => manager.setModulesEnabled(bad), /对象/, `${JSON.stringify(bad)} 不该通过`)
+      }
+      assert.equal(counter.saves, 0, '拒绝的请求一次盘都不写')
+    } finally { counter.restore() }
+    assert.equal(manager.isModuleEnabled(getModule('bilibili-live')), true)
+    assert.equal(manager.isModuleEnabled(getModule('kankanews')), true)
+    assert.equal('enabled' in (manager.config.modules.kankanews || {}), false, '内存里也不能留下半截改动')
+    assert.equal(readFileSync(manager.configPath, 'utf-8'), fileBefore)
+  })
+
+  check('★ 批量开关：配置损坏时拒绝写盘，内存逐项精确回滚（没点过的回到没有 enabled 键）', () => {
+    const badDir = mkdtempSync(join(tmpdir(), 'iptv-extractors-bulk-corrupt-'))
+    try {
+      const badPath = join(badDir, 'extractors.json')
+      writeFileSync(badPath, '{ 这不是合法 JSON')
+      const manager = new ExtractorManager()
+      manager.configPath = badPath
+      manager.cachePath = join(badDir, 'extractor-cache.json')
+      manager.legacyConfigPath = join(badDir, 'system-config.json')
+      manager.load()
+      assert.ok(manager.corrupt, '前提：损坏标记已置位')
+      manager.config.modules.kankanews = { config: {}, enabled: false }   // 点过的：回滚后仍是 false
+      assert.throws(() => manager.setModulesEnabled({ 'bilibili-live': false, overseas: true, kankanews: true }), /损坏/)
+      assert.equal(manager.isModuleEnabled(getModule('bilibili-live')), true)
+      assert.equal(manager.isModuleEnabled(getModule('overseas')), false)
+      assert.equal(manager.isModuleEnabled(getModule('kankanews')), false)
+      assert.equal('enabled' in manager.config.modules['bilibili-live'], false, '没点过的要回到没有键，不能落成 true')
+      assert.equal('enabled' in manager.config.modules.overseas, false)
+      assert.ok(readFileSync(badPath, 'utf-8').includes('这不是合法 JSON'), '原文件必须原样保留')
+    } finally {
+      rmSync(badDir, { recursive: true, force: true })
+    }
+  })
+
+  check('★ 批量开关：代理模块（咪咕）只在值变了时调 setter，从不写进 extractors.json', () => {
+    const migu = stubSwitch('migu', true)
+    try {
+      const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
+      manager.setModulesEnabled({ migu: true, 'bilibili-live': false })
+      assert.deepEqual(migu.calls, [], '值没变就不调——它要写 system-config.json 并重载整份配置')
+      manager.setModulesEnabled({ migu: false, kankanews: false })
+      assert.deepEqual(migu.calls, [false])
+      assert.equal(manager.isModuleEnabled(getModule('migu')), false)
+      const saved = JSON.parse(readFileSync(manager.configPath, 'utf-8')).modules
+      assert.equal('enabled' in (saved.migu || {}), false, '代理模块的开关存在别处，这里存了也不读')
+      assert.equal(saved.kankanews.enabled, false)
+
+      // 配置损坏挡不住只动咪咕的批量：它根本不写 extractors.json（与单开关一致）
+      manager.corrupt = { message: '测试用损坏', at: Date.now(), path: manager.configPath }
+      manager.setModulesEnabled({ migu: true, kankanews: false })
+      assert.deepEqual(migu.calls, [false, true])
+      // 带上要写盘的非代理模块就整单被拒，且咪咕的 setter 不能先被调
+      assert.throws(() => manager.setModulesEnabled({ migu: false, 'bilibili-live': true }), /损坏/)
+      assert.deepEqual(migu.calls, [false, true], '写盘失败时代理 setter 一次都不该调')
+      assert.equal(manager.isModuleEnabled(getModule('bilibili-live')), false)
+    } finally {
+      migu.restore()
+    }
+    assert.equal(typeof getModule('migu').enabledSetter, 'function', '还原后咪咕仍是代理开关')
+  })
+
+  check('★ 批量开关：代理 setter 失败时撤回已落盘的非代理改动，已调过的 setter 也翻回去', () => {
+    const migu = stubSwitch('migu', true)
+    // 澳门借来当第二个代理模块，验证「前一个 setter 已生效、后一个失败」时前一个被翻回
+    const tdm = stubSwitch('tdm', false, () => { throw new Error('写 system-config.json 失败') })
+    try {
+      const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
+      assert.throws(
+        () => manager.setModulesEnabled({ 'huya-live': false, overseas: true, migu: false, tdm: true }),
+        /写 system-config\.json 失败/)
+      assert.deepEqual(migu.calls, [false, true], '咪咕先关上，tdm 失败后要翻回开')
+      assert.equal(manager.isModuleEnabled(getModule('migu')), true)
+      assert.equal(manager.isModuleEnabled(getModule('huya-live')), true)
+      assert.equal(manager.isModuleEnabled(getModule('overseas')), false)
+      assert.equal('enabled' in manager.config.modules['huya-live'], false)
+      const saved = JSON.parse(readFileSync(manager.configPath, 'utf-8')).modules
+      assert.equal(saved['huya-live']?.enabled, undefined, '磁盘也要写回去，不然重启后半截改动又冒出来')
+      assert.equal(saved.overseas?.enabled, undefined)
+    } finally {
+      tdm.restore()
+      migu.restore()
+    }
+    assert.equal(typeof getModule('tdm').enabledGetter, 'undefined', '借用完的模块要还原成非代理')
+  })
+
+  check('批量开关的内置源开关：只认两个键、值必须严格布尔，只回传与当前值不同的', () => {
+    const current = { enableBuiltInSources: true, enableBuiltInSubscriptions: false }
+    assert.deepEqual(contentFlagChanges(undefined, current), [], '不传就是不改')
+    assert.deepEqual(contentFlagChanges({}, current), [])
+    assert.deepEqual(
+      contentFlagChanges({ enableBuiltInSubscriptions: true, enableBuiltInSources: true }, current),
+      [['enableBuiltInSubscriptions', true]],
+      '与当前值相同的不写')
+    assert.deepEqual(
+      contentFlagChanges({ enableBuiltInSubscriptions: true, enableBuiltInSources: false }, current),
+      [['enableBuiltInSources', false], ['enableBuiltInSubscriptions', true]])
+    assert.throws(() => contentFlagChanges({ enableMigu: false }, current), /不支持的开关/,
+      '咪咕是抓取模块，走 modules 那一半，不能两条路写同一个值')
+    assert.throws(() => contentFlagChanges({ enableBuiltInSources: 'false' }, current), /true \/ false/)
+    for (const bad of [null, [], 'enableBuiltInSources', true]) {
+      assert.throws(() => contentFlagChanges(bad, current), /对象/, `${JSON.stringify(bad)} 不该通过`)
+    }
+    // 内置源开关不合法时 API 在碰任何模块之前就返回（这条路不碰单例、不写盘、不重生成）
+    const rejected = setExtractorsEnabledAPI({ modules: { 'bilibili-live': false }, contentFlags: { enableMigu: false } })
+    assert.equal(rejected.success, false)
+    assert.match(rejected.message, /不支持的开关/)
+  })
+
   check('输出：频道被盖上 source=extractor 与 xt: 命名空间的 sourceId', () => {
     const manager = newManager()
     manager.setModuleEnabled('bilibili-live', true)
@@ -1114,8 +1297,8 @@ try {
 
   check('输出：省市分组与管理卡片同名，旧缓存也立即生效', () => {
     const manager = newManager()
-    manager.cache.modules.beidou = {
-      groups: [{ name: '辽宁频道', dataList: [{ name: '辽宁卫视', deferredRef: 'beidou-liaoning-1' }] }],
+    manager.cache.modules.dalian = {
+      groups: [{ name: '辽宁频道', dataList: [{ name: '大连新闻综合', deferredRef: 'dalian-7' }] }],
       health: { status: 'ok' },
     }
     manager.cache.modules.gztv = {
@@ -1152,8 +1335,8 @@ try {
       ],
       health: { status: 'ok' },
     }
-    manager.cache.modules.beidou = {
-      groups: [{ name: '辽宁频道', dataList: [{ name: '辽宁卫视', deferredRef: 'beidou-liaoning-1' }] }],
+    manager.cache.modules.dalian = {
+      groups: [{ name: '辽宁频道', dataList: [{ name: '大连新闻综合', deferredRef: 'dalian-7' }] }],
       health: { status: 'ok' },
     }
     manager.cache.modules.kankanews = {
@@ -2502,9 +2685,9 @@ check('看看新闻：可播放的 v1 请求验签与官网双 MD5 算法固定�
   })
   assert.equal(headers.timestamp, 1720000000)
   assert.equal(headers['Api-Version'], 'v1')
-  assert.equal(headers.version, '2.42.15')
+  assert.equal(headers.version, '2.45.2')
   assert.equal(headers['m-uuid'], '0123456789ABCDEFGHIJK')
-  assert.equal(headers.sign, '91365fae251585050ea90559bea0f3ea')
+  assert.equal(headers.sign, '3128fcbe0a188dbe4da6d255bd80628a')
 })
 
 check('看看新闻：只收录官网 8 个正式上海频道，规范命名并固定全代理', () => {

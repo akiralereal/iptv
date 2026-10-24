@@ -7,6 +7,8 @@ import { appendModuleEpg } from "./moduleEpg.js"
 import { normalizeKey, logoMatchName } from "./channelNormalize.js"
 import { ensureLogoIndex, resolveLibraryLogo } from "./logoLibrary.js"
 import { renderOpts, needsOpts } from "./channelOpts.js"
+import { renderCatchupAttrs } from "./channelCatchup.js"
+import { hasReplaceToken } from "./replaceToken.js"
 import { refreshToken as enableTokenRefresh, host, pass, enableMigu, externalLogoBase, enableLogoCache } from "../config.js"
 import { finishLogoCache, hostedLogoUrl, prefetchLogos } from "./logoCache.js"
 import { packLogoUrl } from "./logoPack.js"
@@ -18,6 +20,7 @@ import { dataPath } from "./paths.js"
 import { readMiguTokenState, markMiguTokenRefreshed, MIGU_TOKEN_REFRESH_INTERVAL_MS } from "./miguTokenState.js"
 import { readFileSync, existsSync, statSync } from "node:fs"
 import { announcementM3uEntry, announcementTxtEntry } from "./announcement.js"
+import miguDanmaku from "../extractors/migu/danmaku.js"
 
 const PE_CACHE_PATH = dataPath('pe-cache.json')
 
@@ -461,7 +464,9 @@ async function updateTV(hours, options = {}) {
       const optLines = renderOpts(channelItem.opts)
 
       // 写入节目
-      const catchupAttr = channelItem.catchup === 'none' ? ' catchup="none"' : ''
+      // 频道级回看声明：模块的 catchup:'none'（issue #119）与第三方订阅自带的模板 / 天数（issue #190），
+      // 行内覆盖订阅头的咪咕模板。没有声明时为空串，输出与之前逐字节一致。
+      const catchupAttr = renderCatchupAttrs(channelItem)
       appendFileSync(interfacePath, `#EXTINF:-1 tvg-id="${channelItem.name}" tvg-name="${channelItem.name}" tvg-logo="${logoUrl}"${sourceAttr}${catchupAttr} group-title="${datas[i].name}",${channelItem.name}\n${optLines}${playUrl}\n`)
       // txt：diyp/TVBox 格式只有「频道名,地址」两列，放不下请求头，依赖请求头的
       // 频道写进去必定 403——缺一个台好过一个死台，整条跳过。
@@ -566,6 +571,8 @@ async function updatePE(hours) {
   }
   printGreen("体育直播频道获取成功")
   // console.dir(datas, { depth: null })
+  // 直播弹幕的聊天室 ID 随赛事一起记（见 extractors/migu/danmaku.js）：整轮抓完才替换上一份
+  miguDanmaku.beginRound()
 
   copyFileSync(dataPath('interface.txt'), dataPath('interface.txt.bak'), 0)
   copyFileSync(dataPath('interfaceTXT.txt'), dataPath('interfaceTXT.txt.bak'), 0)
@@ -578,6 +585,10 @@ async function updatePE(hours) {
   // 单场赛事抓取失败的计数。收尾统一报一次，避免逐场刷屏。
   let matchFailed = 0
   let lastMatchError = ''
+  // 赛事名、队名、台标、pID 都来自咪咕接口（部分还是明文 http），带占位符 ${replace} 的场次不写：
+  // 输出时它会被换成带访问密码 / 令牌的本机地址（见 replaceToken.js）
+  let foreignTokenSkipped = 0
+  const hasForeignToken = (...parts) => parts.some(hasReplaceToken)
 
   // 缓存本次PE内容，供 regenerateOnly 模式使用
   let peM3uCache = ""
@@ -641,6 +652,10 @@ async function updatePE(hours) {
                 timeStr = peResultStartTimeStr.substring(11, 16)
               }
               const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${replay.name} ${timeStr}`
+              if (hasForeignToken(pkInfoTitle, competitionDesc, data.competitionLogo, replay.pID)) {
+                foreignTokenSkipped++
+                continue
+              }
               const m3uLine = `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" source-ids="migu" group-title="体育-${relativeDate}",${competitionDesc}\n\${replace}/${replay.pID}\n`
               const txtLine = `${competitionDesc},\${replace}/${replay.pID}\n`
               // 写入赛事
@@ -659,8 +674,16 @@ async function updatePE(hours) {
             continue
           }
           const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${live.name} ${live.startTimeStr.substring(11, 16)}`
+          if (hasForeignToken(pkInfoTitle, competitionDesc, data.competitionLogo, live.pID)) {
+            foreignTokenSkipped++
+            continue
+          }
           const m3uLine = `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" source-ids="migu" group-title="体育-${relativeDate}",${competitionDesc}\n\${replace}/${live.pID}\n`
           const txtLine = `${competitionDesc},\${replace}/${live.pID}\n`
+          // 聊天室 ID 只在 basic-data 里有；没有的场次（少数无聊天室的转播）就不带弹幕
+          if (peResult.body.roomId) {
+            miguDanmaku.recordRoom(live.pID, { roomId: peResult.body.roomId, title: competitionDesc, mgdbId: data.mgdbId, endTime: peResult.body.endTime })
+          }
           // 写入赛事
           appendFileSync(interfacePath, m3uLine)
           appendFileSync(interfaceTXTPath, txtLine)
@@ -677,6 +700,9 @@ async function updatePE(hours) {
     printGreen(`日期 ${date} 更新完成！`)
   }
 
+  // 聊天室记录与赛事缓存一起换代；快速模式恢复赛事缓存时沿用上次落盘的记录
+  miguDanmaku.commitRound()
+
   // 保存PE缓存，供 regenerateOnly 模式直接复用
   try {
     writeFileSync(PE_CACHE_PATH, JSON.stringify({ m3u: peM3uCache, txt: peTxtCache, updatedAt: new Date().toISOString() }), 'utf-8')
@@ -687,6 +713,9 @@ async function updatePE(hours) {
   // 重命名
   renameFileSync(interfacePath, interfacePath.replace(".bak", ""))
   renameFileSync(interfaceTXTPath, interfaceTXTPath.replace(".bak", ""))
+  if (foreignTokenSkipped > 0) {
+    printYellow(`体育赛事有 ${foreignTokenSkipped} 条带内部占位符 \${replace}，已跳过`)
+  }
   if (matchFailed > 0) {
     printYellow(`体育赛事有 ${matchFailed} 场抓取失败，本轮不含这些场次：${lastMatchError}`)
   }

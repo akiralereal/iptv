@@ -51,6 +51,11 @@ function fakeUpstream({ manifestStatuses = [], configPayload = CONFIG_PAYLOAD } 
     calls.push({ url: String(url), headers: options.headers || {} })
     if (String(url).startsWith(ANHUI_CONFIG_API)) return response(configPayload, 200, { 'content-type': 'application/json' })
     if (/\/live\/\/[a-z\d]+\.m3u8\?txSecret=/.test(String(url))) {
+      // 2026-10-21 CDN 已拒绝旧 ijkplayer UA；清单回源必须用浏览器标识且不附加防盗链头。
+      if (!/Chrome\//.test(options.headers?.['User-Agent'] || '')
+          || Object.keys(options.headers || {}).some(key => /^(referer|origin)$/i.test(key))) {
+        return response('ua rejected', 403)
+      }
       const status = manifestStatuses.shift() ?? 200
       if (status !== 200) return response('forbidden', status)
       return response(mediaManifest(sequence++), 200, { 'content-type': 'application/vnd.apple.mpegurl' })
@@ -140,9 +145,9 @@ check('只放行官方媒体域名，拒绝下线占位与外域', () => {
   assert.throws(() => officialMediaUrl('not a url'), /无效媒体地址/)
 })
 
-check('上游请求头只带 App 播放器标识，不带浏览器式防盗链头', () => {
+check('上游请求头只带兼容的浏览器标识，不带 Referer 或 Origin', () => {
   assert.deepEqual(upstreamHeadersFor(SIGNED_STREAM), { 'User-Agent': MEDIA_USER_AGENT })
-  assert.equal(MEDIA_USER_AGENT, 'ijkplayer')
+  assert.match(MEDIA_USER_AGENT, /^Mozilla\/5\.0 .*Chrome\//)
   assert.throws(() => upstreamHeadersFor('https://evil.example/segment.ts'), /非官方/)
   const manifest = mediaManifest(1)
   assert.equal(validateHls(manifest, SIGNED_STREAM), manifest)
@@ -151,7 +156,7 @@ check('上游请求头只带 App 播放器标识，不带浏览器式防盗链�
   assert.throws(() => validateHls('<html>', SIGNED_STREAM), /不是 HLS 清单/)
 })
 
-await checkAsync('全链路：拉配置、签名、以 ijkplayer 取清单；密钥与签名短期复用，清单每次重新拉取', async () => {
+await checkAsync('全链路：拉配置、签名、以浏览器标识取清单；密钥与签名短期复用，清单每次重新拉取', async () => {
   const upstream = fakeUpstream()
   const resolver = createResolver({ fetchImpl: upstream.fetchImpl })
   const first = await resolver.resolve('anhui-jjshtv', { now: SIGNING_NOW })
@@ -159,13 +164,13 @@ await checkAsync('全链路：拉配置、签名、以 ijkplayer 取清单；密
   assert.equal(first.manifestUrl, SIGNED_STREAM)
   assert.match(first.manifestText, /^#EXTM3U/)
   assert.equal(first.relayHls, true)
-  assert.equal(first.upstreamHeaders, upstreamHeadersFor, '函数形态请求头，代理层据此放行 App UA')
+  assert.equal(first.upstreamHeaders, upstreamHeadersFor, '函数形态请求头，代理层据此保留兼容 UA')
   assert.equal(first.upstreamUrlTransform, officialMediaUrl)
   assert.throws(() => first.upstreamUrlTransform('https://evil.example/segment.ts'))
   assert.equal(upstream.configCalls().length, 1)
   assert.equal(upstream.configCalls()[0].headers.Accept, 'application/json')
   assert.equal(upstream.manifestCalls().length, 1)
-  assert.deepEqual(upstream.manifestCalls()[0].headers, { 'User-Agent': 'ijkplayer' }, '清单请求只带 App 标识')
+  assert.deepEqual(upstream.manifestCalls()[0].headers, { 'User-Agent': MEDIA_USER_AGENT }, '清单请求只带兼容浏览器标识')
 
   const second = await resolver.resolve('anhui-jjshtv', { now: SIGNING_NOW + AUTH_KEY_TTL_MS - 1 })
   assert.equal(second.url, SIGNED_STREAM, '复用期内沿用同一份签名')

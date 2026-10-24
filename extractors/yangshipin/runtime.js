@@ -68,9 +68,73 @@ export function credentialRejected() {
   return lost.reason === 'vip' ? VIP_LOST_NOTICE : LOGIN_LOST_NOTICE
 }
 
-function rememberLoginLink(status) {
+/**
+ * 判失效前先复查一次。官网用户信息接口偶尔慢或抽风，单次 sdk.info() 读空、VIP 字段没带回来都会
+ * 被当成掉登录；手动点「检查」又一切正常（10-21 作者实例上两天报了两次）。所以第一次读到
+ * 「失效」只记个疑点、30 秒后自己再读一次，隔开至少 20 秒的两次都不认才落失效记录；
+ * 中途任何一次读到正常就作罢。疑点 10 分钟没被证实也作废，免得几小时后的单次读空被当成第二次。
+ */
+const LOST_CONFIRM_DELAY_MS = 30_000
+const LOST_CONFIRM_MIN_GAP_MS = 20_000
+const LOST_SUSPICION_TTL_MS = 10 * 60_000
+let lostSuspicion = null  // { reason, at }
+let lostConfirmTimer = null
+
+function clearLostSuspicion() {
+  lostSuspicion = null
+  clearTimeout(lostConfirmTimer)
+  lostConfirmTimer = null
+}
+
+/** 这次读到的状态要落成哪种失效；不构成新的失效返回空。 */
+function lostReasonOf(status, previous) {
+  if (status?.authenticated) {
+    if (status.account?.vip === true) return ''
+    return previous?.vip === true || readLoginLost()?.wasVip === true ? 'vip' : ''
+  }
+  return previous || existsSync(LOGIN_LINK_MARKER) ? 'login' : ''
+}
+
+/** 这次失效是否已复查坐实；没坐实就记疑点、排一次复查。 */
+function lostConfirmed(reason, now) {
+  // 已经是这种失效了，照旧维持，不必再复查
+  if (readLoginLost()?.reason === reason) return true
+  if (lostSuspicion && now - lostSuspicion.at > LOST_SUSPICION_TTL_MS) clearLostSuspicion()
+  if (!lostSuspicion) {
+    lostSuspicion = { reason, at: now }
+    printYellow(`[央视频] 这次没读到${reason === 'vip' ? ' VIP 权益' : '登录账号'}，${LOST_CONFIRM_DELAY_MS / 1000} 秒后复查一次再下结论`)
+    lostConfirmTimer = setTimeout(confirmLoginLost, LOST_CONFIRM_DELAY_MS)
+    lostConfirmTimer.unref?.()
+    return false
+  }
+  if (now - lostSuspicion.at < LOST_CONFIRM_MIN_GAP_MS) return false
+  clearLostSuspicion()
+  return true
+}
+
+async function confirmLoginLost() {
+  lostConfirmTimer = null
+  if (!lostSuspicion) return
+  // 用户正在登录 / 导入，结果由那边定
+  if (browserLogin.active() || browserSession.visible) return
+  try {
+    vipBridge.lastActivity = Date.now()
+    await browserSession.ensureBrowser({ visible: false })
+    // readAccount 会经 onAccount 回到 rememberLoginLink，由那里落定或作罢
+    const status = await browserSession.readAccount()
+    vipBridge.lastActivity = Date.now()
+    browserLogin.noteAccount(status)
+  } catch (error) {
+    printYellow(`[央视频] 登录态复查没完成：${firstLine(error)}，先不下结论`)
+  }
+}
+
+function rememberLoginLink(status, now = Date.now()) {
   try {
     const previous = readLoginLink()
+    const lostReason = lostReasonOf(status, previous)
+    if (lostReason && !lostConfirmed(lostReason, now)) return
+    if (!lostReason) clearLostSuspicion()
     if (status?.authenticated) {
       mkdirSync(dirname(LOGIN_LINK_MARKER), { recursive: true })
       writeFileSync(LOGIN_LINK_MARKER, JSON.stringify({
@@ -81,11 +145,10 @@ function rememberLoginLink(status) {
       }, null, 2))
       // VIP 从有到无才提醒，一直不是 VIP 的账号不算失效；掉了之后要等 VIP 回来才消
       // 登录掉了又重新登录、但已不是 VIP 的，同样算 VIP 失效（失效记录里留着原先是不是 VIP）
-      if (status.account?.vip === true) clearLoginLost()
-      else if (previous?.vip === true || readLoginLost()?.wasVip === true) writeLoginLost('vip', status.account?.nickname, true)
+      if (lostReason === 'vip') writeLoginLost('vip', status.account?.nickname, true)
       else clearLoginLost()
       scheduleLoginKeepalive()
-    } else if (existsSync(LOGIN_LINK_MARKER)) {
+    } else if (lostReason === 'login') {
       writeLoginLost('login', previous?.nickname, previous?.vip)
       unlinkSync(LOGIN_LINK_MARKER)
     }
@@ -434,6 +497,7 @@ export function shutdown() {
     clearTimeout(keepaliveTimer)
     clearInterval(keepaliveTimer)
     keepaliveTimer = null
+    clearLostSuspicion()
     await browserLogin.cancel({ restore: false })
     await vipBridge.close()
     await browserSession.close()

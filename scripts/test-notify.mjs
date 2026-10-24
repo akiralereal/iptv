@@ -54,7 +54,7 @@ function makeNotifier(fetchImpl = fakeFetch(), host = '') {
 }
 
 const cred = (id = 'migu') => ({ id: `module-credential:${id}`, level: 'error', title: `${id}登录凭证已失效`, text: 'Token 被拒' })
-const failed = (id, failures) => ({ id: `module-failed:${id}`, level: 'error', title: `${id}抓取失败`, text: '超时', failures })
+const failed = id => ({ id: `module-failed:${id}`, level: 'error', title: `${id}抓取失败`, text: '超时' })
 const pass = { id: 'users-no-pass', level: 'warning', title: '没设访问密码，一人一源没生效', text: '…' }
 const evalOf = (alerts, extra = {}) => ({ alerts, activeIds: alerts.map(a => a.id), initial: false, ...extra })
 
@@ -215,7 +215,7 @@ await test('后台点过「知道了」的提醒不推，恢复时也不推', as
   const fetchImpl = fakeFetch()
   const n = makeNotifier(fetchImpl)
   n.addChannel({ type: 'wecom', url: 'https://w/1' })
-  const seen = { ...failed('beidou', 3), level: 'warning', dismissed: true }
+  const seen = { ...failed('beidou'), level: 'warning', dismissed: true }
   await n.handleEvaluation(evalOf([seen]))
   assert.equal(fetchImpl.calls.length, 0)
   await n.handleEvaluation(evalOf([]))
@@ -238,22 +238,19 @@ await test('凭证失效出现即推，只推一次；恢复时推「已恢复�
   assert.match(fetchImpl.calls[1].body.text.content, /^【iPTV】已恢复：migu登录凭证已失效/)
 })
 
-await test('抓取失败连续两次才推；只失败一次就恢复的不推也不报恢复', async () => {
+await test('模块抓取失败、官方故障都不推，恢复也不报；同时出现的凭证失效照推', async () => {
   const fetchImpl = fakeFetch()
   const n = makeNotifier(fetchImpl)
   n.addChannel({ type: 'wecom', url: 'https://w/1' })
-  await n.handleEvaluation(evalOf([failed('gdtv', 1)]))
+  await n.handleEvaluation(evalOf([failed('gdtv'), { ...failed('liaoning'), level: 'warning' }]))
+  await n.handleEvaluation(evalOf([failed('gdtv')]))
   assert.equal(fetchImpl.calls.length, 0)
   await n.handleEvaluation(evalOf([]))
-  assert.equal(fetchImpl.calls.length, 0, '一闪而过')
-  await n.handleEvaluation(evalOf([failed('gdtv', 1)]))
-  await n.handleEvaluation(evalOf([failed('gdtv', 2)]))
+  assert.equal(fetchImpl.calls.length, 0, '恢复不报')
+  await n.handleEvaluation(evalOf([failed('gdtv'), cred()]))
   assert.equal(fetchImpl.calls.length, 1)
-  assert.match(fetchImpl.calls[0].body.text.content, /gdtv抓取失败/)
-  await n.handleEvaluation(evalOf([failed('gdtv', 3)]))
-  assert.equal(fetchImpl.calls.length, 1, '第三次不再发')
-  await n.handleEvaluation(evalOf([]))
-  assert.match(fetchImpl.calls[1].body.text.content, /已恢复：gdtv抓取失败/)
+  assert.doesNotMatch(fetchImpl.calls[0].body.text.content, /gdtv/)
+  assert.match(fetchImpl.calls[0].body.text.content, /migu登录凭证已失效/)
 })
 
 await test('没配渠道时不记，配好后补发当前未处理的；关掉的渠道不发', async () => {

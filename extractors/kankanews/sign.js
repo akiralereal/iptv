@@ -5,9 +5,9 @@
  */
 import { createHash, randomBytes } from 'node:crypto'
 
-// v2 详情接口虽然仍返回成功，但它生成的播放 token 会被 CDN 拒绝（HTTP 403）。
-// 官网兼容的 v1 / 2.42.15 组合生成的同一条 HLS 地址可正常取回。
-const APP_VERSION = '2.42.15'
+// 2026-10-24 官网已使用 2.45.2；旧 2.42.15 仍能取到地址，但电视 CDN 拒绝其 token（403）。
+// 与官网保持同一版本，继续使用已验证的 v1 接口。
+const APP_VERSION = '2.45.2'
 const API_VERSION = 'v1'
 const SIGN_SALT = '28c8edde3d61a0411511d3b1866f0636'
 const NONCE_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz'

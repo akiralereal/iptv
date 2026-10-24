@@ -15,7 +15,7 @@ import { cachedLogoFile } from "./utils/logoCache.js";
 import { packLogoFile } from "./utils/logoPack.js";
 import { getExtractorManager, getModuleConfig } from "./utils/extractorManager.js";
 import { getExtractorsAPI, startModuleLoginAPI, pollModuleLoginAPI, setExtractorEnabledAPI,
-  updateExtractorConfigAPI, runExtractorNowAPI, setContentFlagAPI, startBrowserLoginAPI,
+  updateExtractorConfigAPI, runExtractorNowAPI, setContentFlagAPI, setExtractorsEnabledAPI, startBrowserLoginAPI,
   getBrowserLoginStatusAPI, checkBrowserLoginAPI, cancelBrowserLoginAPI,
   closeBrowserLoginAPI, importBrowserLoginAPI } from "./utils/extractorsAPI.js";
 import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
@@ -747,6 +747,12 @@ async function handleRequest(req, res) {
           case 'contentFlag':
             result = setContentFlagAPI(data.key, data.enabled !== false)
             break
+          // 批量开关（issue #189）：一次写多张卡片自己的开关，外加两个内置源开关。
+          // 原样透传、不像上面那样把值折成 `!== false`——批量一次动几十个模块，
+          // 类型不对就该整单拒绝（由 API 层校验），而不是把 'false' 之类当成「开」
+          case 'bulkToggle':
+            result = setExtractorsEnabledAPI({ modules: data.modules, contentFlags: data.contentFlags })
+            break
           default:
             result = { success: false, message: `未知操作: ${data.action}` }
         }
@@ -1275,6 +1281,8 @@ async function handleRequest(req, res) {
   if (localMediaModule) {
     const local = await localMediaModule.handleLocalRequest({
       path: localMediaPath,
+      // 带查询串的原始路由（弹幕接口要 ?cursor= / ?part=）；path 仍是去掉查询串的
+      url: routeUrl,
       method,
       headers,
       accessPrefix,

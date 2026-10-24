@@ -9,7 +9,7 @@
  * 后台是无鉴权的，别把新增的凭据也做成明文可读。
  */
 import { getExtractorManager } from "./extractorManager.js"
-import { getModule } from "../extractors/registry.js"
+import { getModule, listModules } from "../extractors/registry.js"
 import { setSystemFlagAPI } from "./systemConfigAPI.js"
 import { enableBuiltInSources, enableBuiltInSubscriptions } from "../config.js"
 import { updateExtractors } from "./channelMerger.js"
@@ -48,6 +48,11 @@ function readContentFlags() {
   }
 }
 
+/** 这一页能改的全部内容开关（单开关与批量共用），数组顺序即批量写入顺序。咪咕不在此列，见 contentFlagChanges。 */
+const CONTENT_FLAG_KEYS = ['enableBuiltInSources', 'enableBuiltInSubscriptions']
+/** 报错里用的名字，与后台「内置源」两张卡片的标题一致。 */
+const CONTENT_FLAG_NAMES = { enableBuiltInSources: '内置单频道源', enableBuiltInSubscriptions: '内置订阅源' }
+
 function fail(error) {
   const result = { success: false, message: error?.message || String(error) }
   if (error?.fieldErrors) result.fieldErrors = error.fieldErrors
@@ -64,15 +69,10 @@ export function getExtractorsAPI() {
 }
 
 /**
- * 「源模块」页下半部分那两个内容开关：内置单频道源 / 内置订阅源。
- *
- * 它们不是抓取模块（由 builtInSourceManager 与内置订阅管），但用户希望所有
- * 内容来源的开关集中在一处，所以一并放在这一页、单独成段，避免让人以为
- * 上面那个「启用源模块」总开关也管着它们。
+ * 写一个内容开关，连同它的附带动作。单开关与批量开关共用；不重生成播放列表——
+ * 由调用方在全部改完后统一触发一次。
  */
-export function setContentFlagAPI(key, enabled) {
-  const ALLOWED = new Set(['enableBuiltInSources', 'enableBuiltInSubscriptions'])
-  if (!ALLOWED.has(key)) return { success: false, message: `不支持的开关: ${key}` }
+function writeContentFlag(key, enabled) {
   const result = setSystemFlagAPI(key, enabled)
   if (!result.success) return result
 
@@ -92,8 +92,102 @@ export function setContentFlagAPI(key, enabled) {
       printRed(`重新加入内置订阅源失败: ${error.message}`)
     }
   }
+  return result
+}
+
+/**
+ * 「源模块」页下半部分那两个内容开关：内置单频道源 / 内置订阅源。
+ *
+ * 它们不是抓取模块（由 builtInSourceManager 与内置订阅管），但用户希望所有
+ * 内容来源的开关集中在一处，所以一并放在这一页、单独成段，避免让人以为
+ * 上面那个「启用源模块」总开关也管着它们。
+ */
+export function setContentFlagAPI(key, enabled) {
+  if (!CONTENT_FLAG_KEYS.includes(key)) return { success: false, message: `不支持的开关: ${key}` }
+  const result = writeContentFlag(key, enabled)
+  if (!result.success) return result
   regeneratePlaylist()
   return ok(getExtractorManager())
+}
+
+/**
+ * 批量请求里的内容开关：只认上面那两个键、值必须是严格布尔，否则抛错。
+ * 返回要写的 [key, value]，与当前值相同的跳过（不为没变的开关白写一次 system-config.json）。
+ *
+ * 必须在动任何开关**之前**调——它挡下的请求要保证什么都没变。咪咕不在这里：它是抓取
+ * 模块，走 modules 那一半（代理到 enableMigu 的 setter），两条路写同一个值只会打架。
+ * current 可注入，测试不用碰 config.js 的真实值。
+ */
+export function contentFlagChanges(contentFlags, current = readContentFlags()) {
+  if (contentFlags === undefined) return []
+  if (!contentFlags || typeof contentFlags !== 'object' || Array.isArray(contentFlags)) {
+    throw new Error('contentFlags 要传「开关名 → true/false」的对象')
+  }
+  for (const [key, value] of Object.entries(contentFlags)) {
+    if (!CONTENT_FLAG_KEYS.includes(key)) throw new Error(`不支持的开关: ${key}`)
+    if (typeof value !== 'boolean') throw new Error(`${key} 的值要是 true / false`)
+  }
+  return CONTENT_FLAG_KEYS
+    .filter(key => Object.prototype.hasOwnProperty.call(contentFlags, key) && contentFlags[key] !== current[key])
+    .map(key => [key, contentFlags[key]])
+}
+
+/** 各模块此刻的生效开关，批量前后各取一次，比出「到底变没变」。 */
+function enabledSnapshot(manager) {
+  return new Map(listModules().map(module => [module.id, manager.isModuleEnabled(module)]))
+}
+
+/**
+ * 批量开关（后台「批量开关」弹窗，issue #189「建议出个精简版」）。
+ *
+ * 一次改多张模块卡片 + 两个内置源开关，省掉挨个点七十来张卡片。模块那一半交给
+ * manager.setModulesEnabled（整批原子：报错即什么都没变）；它写的就是每张卡片自己的开关，
+ * 不是另一层白名单，理由见那里的注释。
+ *
+ * 顺序：先校验内容开关 → 再改模块 → 最后写内容开关。内容开关写在最后，是因为模块那一半
+ * 能整批回滚，system-config.json 的写入撤不回来；两边都校验过了才动手。
+ * 播放列表只在真有东西变了时重生成一次，不是每个开关一次。
+ */
+export function setExtractorsEnabledAPI({ modules, contentFlags } = {}) {
+  let flagChanges
+  try {
+    flagChanges = contentFlagChanges(contentFlags)
+  } catch (error) {
+    return fail(error)
+  }
+
+  let manager
+  let modulesChanged = false
+  try {
+    manager = getExtractorManager()
+    const before = enabledSnapshot(manager)
+    manager.setModulesEnabled(modules)
+    for (const [id, on] of enabledSnapshot(manager)) {
+      if (before.get(id) !== on) { modulesChanged = true; break }
+    }
+  } catch (error) {
+    return fail(error)
+  }
+
+  const savedFlags = []
+  for (const [key, value] of flagChanges) {
+    const result = writeContentFlag(key, value)
+    if (!result.success) {
+      // 前面已经落盘生效的（模块开关、先写成功的那个内容开关）不能因为后半截失败就当整单
+      // 没发生：照样重生成，让播放列表跟上已经变了的那部分；报错里说清楚哪些存上了、哪个没有。
+      if (modulesChanged || savedFlags.length) regeneratePlaylist()
+      const saved = [
+        ...(modulesChanged ? ['模块开关'] : []),
+        ...savedFlags.map(flag => `「${CONTENT_FLAG_NAMES[flag]}」`),
+      ]
+      const prefix = saved.length ? `${saved.join('、')}已保存，但` : ''
+      return { success: false, message: `${prefix}「${CONTENT_FLAG_NAMES[key]}」保存失败：${result.message}` }
+    }
+    savedFlags.push(key)
+  }
+
+  if (modulesChanged || savedFlags.length) regeneratePlaylist()
+  return ok(manager)
 }
 
 /**

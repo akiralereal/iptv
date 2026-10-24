@@ -3,6 +3,8 @@ import builtInSourceManager from "./builtInSources.js"
 import { getExtractorManager } from "./extractorManager.js"
 import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 import { isLocalGroup } from "./playlistConfig.js"
+import { sanitizeCatchup } from "./channelCatchup.js"
+import { hasReplaceToken } from "./replaceToken.js"
 
 // 频道的「主来源」标识（issue #29/#68 按档过滤源）：
 // 外部/内置/抓取模块的频道在 getValidChannels 里带上 sourceId（ext:<id> / bi:<id> / xt:<id>），
@@ -35,6 +37,15 @@ function dedupeAllChannels(allChannels) {
             if (!prev.sourceIds.includes(extra)) prev.sourceIds.push(extra)
           }
         }
+        // 留下的那条没给回看模式和模板、被去掉的这条给了：把声明接过来（自己写的天数优先），
+        // 否则同一路流会因为列在前面的源没写而退回订阅头的咪咕模板（issue #190）。
+        // 只在外部订阅之间转交：第三方订阅能把地址写成 migu:<pid> 等撞上咪咕 / 内置 / 模块频道的
+        // 去重键，不能借此改写这些频道的回看
+        if (isExternalChannel(prev) && isExternalChannel(ch)) {
+          const own = sanitizeCatchup(prev)
+          const other = sanitizeCatchup(ch)
+          if (!own.catchup && !own.catchupSource && other.catchup !== 'none') Object.assign(prev, other, own)
+        }
         continue
       }
       seen.set(key, ch)
@@ -43,6 +54,58 @@ function dedupeAllChannels(allChannels) {
     group.dataList = kept
   }
   return removed
+}
+
+// 频道上会写进播放列表的外来字段（台标还有咪咕的 pics.highResolutionH）。汇总到这里时，
+// 本项目自己的占位地址（咪咕 / 模块的 ${replace}/<ref>、本机台标）都还没生成——那是
+// updateData 写盘时才拼的，所以这些字段里出现占位符只可能来自外部数据。
+const FOREIGN_FIELDS = ['name', 'url', 'playURL', 'logo', 'pID', 'deferredRef']
+
+function hasForeignReplaceToken(channel) {
+  return FOREIGN_FIELDS.some(key => hasReplaceToken(channel?.[key])) || hasReplaceToken(channel?.pics?.highResolutionH)
+}
+
+// 丢掉带占位符 ${replace} 的外来频道（纯函数，供测试；原地改 dataList，与 dedupeAllChannels 同）。
+// 输出订阅时占位符会被换成「本机地址 + 访问密码 / 令牌」，第三方订阅、内置源 JSON、平台接口
+// 里写一个，凭据就拼进指向第三方的地址里了。整条丢弃而不是剔掉占位符：剔掉后剩下的是
+// 一条来路可疑、多半也播不了的地址。分组名带它的整组丢弃；因此被清空的分组一并去掉。
+// sources 是被丢频道的源归属（去重），日志里点名，用户才知道该去改哪个源。
+function dropForeignReplaceTokens(groups) {
+  let removed = 0
+  const sources = new Set()
+  const drop = channel => {
+    removed++
+    const sid = primarySourceId(channel)
+    if (sid) sources.add(sid)
+  }
+  const kept = []
+  for (const group of groups) {
+    const list = group.dataList || []
+    if (hasReplaceToken(group.name)) {
+      list.forEach(drop)
+      continue
+    }
+    const clean = []
+    for (const channel of list) {
+      if (hasForeignReplaceToken(channel)) drop(channel)
+      else clean.push(channel)
+    }
+    if (list.length && !clean.length) continue
+    group.dataList = clean
+    kept.push(group)
+  }
+  return { groups: kept, removed, sources: [...sources] }
+}
+
+// 外部源按名字报（ext:<id> 对用户没意义），其余报源归属本身（migu / bi:<id> / xt:<id>）
+function reportForeignReplaceTokens({ removed, sources }) {
+  if (!removed) return
+  const names = sources.map(sid => {
+    const ext = sid.startsWith('ext:') && (externalSourceManager.sources?.sources || []).find(s => s && `ext:${s.id}` === sid)
+    return ext?.name || sid
+  })
+  const from = names.length ? `（来源：${names.join('、')}）` : ''
+  printYellow(`丢弃 ${removed} 个带内部占位符 \${replace} 的频道${from}：输出订阅时它会换成本机地址和访问密码 / 令牌，外部数据里不允许出现`)
 }
 
 /** 「纪实」改名为「文旅」，并合并已经使用新名的其它来源。 */
@@ -348,6 +411,12 @@ async function getAllChannels() {
       }
     })
 
+    // 先清掉带占位符的外来频道，再做归并和去重：放到去重之后的话，恶意条目可能被留下、
+    // 同名同地址的干净条目被当成重复删掉，恶意条目随后再被丢弃，干净的那条就没了
+    const foreign = dropForeignReplaceTokens(allChannels)
+    allChannels = foreign.groups
+    reportForeignReplaceTokens(foreign)
+
     // 平台历史名「纪实」统一显示为「文旅」，外部精选频道
     // 也合并到同一组，避免新旧名并存。
     allChannels = normalizeContentGroupNames(allChannels)
@@ -390,7 +459,9 @@ async function getAllChannels() {
     // 注意不能直接返回 fetchList 的裸数据——那份没有 deferredRef，写盘会变成
     // ${replace}/undefined，比少几个频道糟糕得多。
     try {
-      return getExtractorManager().getValidChannels()
+      const foreign = dropForeignReplaceTokens(getExtractorManager().getValidChannels())
+      reportForeignReplaceTokens(foreign)
+      return foreign.groups
     } catch (fallbackError) {
       printRed(`抓取模块缓存也不可用: ${fallbackError.message}`)
       return []
@@ -480,6 +551,7 @@ export {
   externalSourceManager,
   builtInSourceManager,
   dedupeAllChannels,
+  dropForeignReplaceTokens,
   primarySourceId,
   normalizeContentGroupNames,
   moveTrailingChannelsLast,

@@ -1,0 +1,197 @@
+{
+  "13560916": {
+    "id": 13560916,
+    "title": "新闻综合频道",
+    "exdata": {
+      "lives": [
+        {
+          "m3u8_url": "https://m3u8channel.dzrm.cn/nmip-media/channellive/channel104234/playlist.m3u8",
+          "name": "新闻综合-高清",
+          "id": 104234,
+          "type": 1
+        }
+      ]
+    }
+  },
+  "13560089": {
+    "id": 13560089,
+    "title": "文化生活频道",
+    "exdata": {
+      "lives": [
+        {
+          "m3u8_url": "https://m3u8channel.dzrm.cn/nmip-media/channellive/channel104727/playlist.m3u8",
+          "name": "公共频道-高清",
+          "id": 104727,
+          "type": 1
+        }
+      ]
+    }
+  },
+  "13559838": {
+    "id": 13559838,
+    "title": "通川频道",
+    "exdata": {
+      "lives": [
+        {
+          "m3u8_url": "https://m3u8channel.dzrm.cn/nmip-media/channellive/channel105011/playlist.m3u8",
+          "name": "通川频道-高清",
+          "id": 105011,
+          "type": 1
+        }
+      ]
+    }
+  },
+  "1027139": {
+    "id": 1027139,
+    "title": "综合频道",
+    "exdata": {
+      "lives": [
+        {
+          "m3u8_url": "https://m3u8channel.ganzitv.com/nmip-media/channellive/channel1/playlist.m3u8",
+          "name": "综合频道",
+          "id": 1,
+          "type": 1
+        }
+      ]
+    }
+  },
+  "bazhong": {
+    "data": {
+      "audioChannel": [],
+      "channel": [
+        {
+          "channelId": "6725",
+          "channelName": "巴中综合频道",
+          "channelImage": "/sctv/405/image/public/201910/20191019163535_orxlel1jkn.png",
+          "liveUrl": "https://livetv.bzitv.cn/live/260315BZTVlive1001/hls.m3u8",
+          "liveProgrammeList": "/sctv/tv/index/6725.json"
+        },
+        {
+          "channelId": "6726",
+          "channelName": "巴中文旅生活频道",
+          "channelImage": "/sctv/405/image/public/202205/20220512155532_pqq5revkao.jpg",
+          "liveUrl": "https://livetv.bzitv.cn/live/260613BZTVlive1002/hls.m3u8",
+          "liveProgrammeList": "/sctv/tv/index/6726.json"
+        }
+      ],
+      "liveProgrammeList": [],
+      "lookbackUrl": "/sctv/tv/index/lookback.json",
+      "pageAll": 1,
+      "pageIndex": 0
+    },
+    "error": "",
+    "rs": 200
+  },
+  "aba": {
+    "code": 0,
+    "data": [
+      {
+        "componentCode": "component_tv_radio_live",
+        "propValue": {
+          "children": [
+            {
+              "dataList": [
+                {
+                  "imgs": [
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/c3200/2022/05/10/73ef6821-ff27-47b9-8d32-eda40848f4cf_one.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/c3200/2022/05/10/73ef6821-ff27-47b9-8d32-eda40848f4cf_one_big.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/c3200/2022/05/10/73ef6821-ff27-47b9-8d32-eda40848f4cf_three_one.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/c3200/2022/05/10/73ef6821-ff27-47b9-8d32-eda40848f4cf_three_two.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/c3200/2022/05/10/73ef6821-ff27-47b9-8d32-eda40848f4cf_three_three.jpg",
+                      "height": null
+                    }
+                  ],
+                  "liveStream": "https://apppull.aba-news.com.cn/live/be5325350190100009f6751d00000000/playlist.m3u8",
+                  "jumpId": "1523946498072231937",
+                  "title": "新闻综合频道",
+                  "jumpContentType": 36
+                },
+                {
+                  "imgs": [
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/c3200/2022/05/09/7c8e1b4d-3e0e-440d-b688-fd6564f1250c_one.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/c3200/2022/05/09/7c8e1b4d-3e0e-440d-b688-fd6564f1250c_one_big.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/c3200/2022/05/09/7c8e1b4d-3e0e-440d-b688-fd6564f1250c_three_one.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/c3200/2022/05/09/7c8e1b4d-3e0e-440d-b688-fd6564f1250c_three_two.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/c3200/2022/05/09/7c8e1b4d-3e0e-440d-b688-fd6564f1250c_three_three.jpg",
+                      "height": null
+                    }
+                  ],
+                  "liveStream": "https://apppull.aba-news.com.cn/live/be57fb5401901000b611a82100000000/playlist.m3u8",
+                  "jumpId": "1504727504570355714",
+                  "title": "藏语综合频道",
+                  "jumpContentType": 36
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "mytv1": "<script>var source={\"m3u8\":\"http://fjgcl.myxwcm.cn/live/9ff5a9b001971000b986a10c00000000/playlist.m3u8?wsSecret=offline-fixture&wsTime=2000000000\"}</script>",
+  "lztv1": "<script>var source={\"video\":\"//m3u8channel.luzhoubs.com/nmip-media/channellive/channel106011/playlist.m3u8\"}</script>",
+  "lztv3": "<script>var source={\"video\":\"//m3u8channel.luzhoubs.com/nmip-media/channellive/channel103074/playlist.m3u8\"}</script>",
+  "sntv1": "<script>var source={\"src\":\"https://szyplaytv.snxw.com/live/xwzh/playlist.m3u8\"}</script>",
+  "neijiang": "<input id=\"live_id\" type=\"hidden\" value=\"https://njzb.scnj.tv/hls_njtv_direct/1.m3u8\"><input id=\"live_type\" type=\"hidden\" value=\"107\">",
+  "neijiangApi": {
+    "content": "https://njzb.scnj.tv/hls_njtv_direct/1.m3u8",
+    "flag": "1",
+    "ret": "1"
+  }
+}

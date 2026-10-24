@@ -24,7 +24,6 @@ import { printGreen, printRed, printYellow } from "./colorOut.js"
 export const CHANNELS_FILE = 'notify-channels.json'
 const STATE_FILE = 'notify-state.json'
 const SEND_TIMEOUT_MS = 10 * 1000
-const FAILURES_BEFORE_PUSH = 2
 const MAX_TEXT = 1800   // 企微 text 上限 2048 字节左右，留余量；各家都够用
 
 /**
@@ -336,7 +335,7 @@ export function samplePreviews(host = '') {
   const message = {
     host: host || 'http://192.168.1.10:1905',
     raised: [{ level: 'error', title: '央视频登录凭证已失效', text: '央视频登录态已失效（官网没认出关联过的账号），10 个会员频道暂时播不了；请在后台重新登录或导入登录态' }],
-    resolved: [{ title: '广东抓取失败' }],
+    resolved: [{ title: '咪咕登录凭证已失效' }],
   }
   const previews = {}
   for (const template of ['detailed', 'compact']) previews[template] = `${messageTitle(message)}\n${plainText(message, template)}`
@@ -496,7 +495,8 @@ export class Notifier {
       if (pushed[alert.id]) continue
       // 在后台点过「知道了」：用户已经知道，不再推；恢复时也不推
       if (alert.dismissed) { pushed[alert.id] = { title: alert.title, silent: true }; changed = true; continue }
-      if (alert.id.startsWith('module-failed:') && (alert.failures || 0) < FAILURES_BEFORE_PUSH) continue
+      // 模块抓取失败 / 风控 / 官方故障：用户自己处理不了（只能等更新或关模块），只在后台显示，不推
+      if (alert.id.startsWith('module-failed:')) continue
       raised.push(alert)
     }
 

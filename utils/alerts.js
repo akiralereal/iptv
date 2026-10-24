@@ -74,8 +74,6 @@ export function collectAlerts({ extractors, epg, epgLegacyUrls = [], passSet = t
         text: upstreamDown
           ? `${h.lastError}${kept}。这是官方那边的问题，不用处理：会自动重试，恢复后这条提醒自动消失。`
           : `${h.lastError || '最近一次抓取没有成功'}${kept}。会自动重试；长期失败又用不到的话，可以关掉这个模块。`,
-        // 连续失败次数：后台照旧一次就显示，消息推送要连续两次才发（一闪而过的不打扰）
-        failures: Math.max(1, Number(h.consecutiveFailures) || 0),
         target: { kind: 'module', moduleId: m.id }, ...owner,
       })
     }

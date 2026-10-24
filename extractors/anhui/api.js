@@ -4,9 +4,9 @@
  * 取流链路（由独立实验台 asian-live-lab/anhui-live-lab 验证后移植）：
  *   1. 公开配置接口返回 AES 加密的密钥配置，用租户 id 与固定种子的 md5 片段解出 tx_auth_key；
  *   2. 逐频道按腾讯云直播规则生成两小时有效的 txSecret / txTime；
- *   3. CDN 按播放器标识放行：App 的 ijkplayer 与普通 Chrome UA 能过，VLC / AppleCoreMedia /
- *      ExoPlayer / okhttp / curl 等一律 403，带上 Referer / Origin 也会被拒。播放器不能直连，
- *      清单与分片统一由本机以 App 标识全代理（index.js 声明 channelHlsMode: 'proxy'）。
+ *   3. CDN 按 User-Agent 放行：2026-10-21 复测 ijkplayer 已返回 403，普通 Chrome UA
+ *      仍可获取七路清单与分片。清单与分片统一由本机以兼容的浏览器标识全代理，
+ *      不附加 Referer / Origin（index.js 声明 channelHlsMode: 'proxy'）。
  *
  * 官网旧接口还会返回 8 路地址，能取到清单和分片，但画面全是「网站直播已下线，请使用安徽视讯」
  * 的占位告示，所以只收 App 这条链路；/forbid/ 路径在媒体边界里显式拒绝。
@@ -16,7 +16,8 @@ import { createDecipheriv, createHash } from 'node:crypto'
 import { proxyAwareFetch } from '../../utils/systemProxy.js'
 
 export const ANHUI_CONFIG_API = 'https://console.ahsx.ahtv.cn/api/appapi/api/config-other-encrypt'
-export const MEDIA_USER_AGENT = 'ijkplayer'
+export const MEDIA_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+  + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 export const MEDIA_HOSTS = Object.freeze(['live.ahsx.ahtv.cn', 'lives.ahsx.ahtv.cn', 'nrtapush.ahsx.ahtv.cn'])
 export const APP_TOKEN_LIFETIME_MS = 2 * 60 * 60 * 1000
 export const AUTH_KEY_TTL_MS = 15 * 60 * 1000
@@ -97,7 +98,7 @@ export function officialHlsUrl(raw) {
 }
 
 /**
- * 清单与分片回源统一带 App 播放器标识。刻意不带 Referer / Origin：实测同一 Chrome UA
+ * 清单与分片回源统一带 CDN 放行的浏览器标识。刻意不带 Referer / Origin：实测同一 Chrome UA
  * 加上浏览器式的 Referer / Origin / Sec-Fetch 头后清单与分片全部 403。
  * 函数形态：代理层只对函数返回的 User-Agent 放行（见 utils/hlsProxy.js）。
  */

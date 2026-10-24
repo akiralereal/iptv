@@ -6,6 +6,7 @@ import { enableBuiltInSubscriptions } from "../config.js"
 import { printBlue, printGreen, printGrey, printRed, printYellow } from "./colorOut.js"
 import { extractM3u8FromWeb, validateM3u8 } from "./webSourceExtractor.js"
 import { collectOptsUntilUrl, cleanUserAgent, withUserAgent } from "./channelOpts.js"
+import { parseCatchupAttrs, resolveCatchup, sanitizeCatchup } from "./channelCatchup.js"
 import { FailureBackoff } from "./refreshBackoff.js"
 import fetch from 'node-fetch'
 
@@ -35,9 +36,16 @@ function extractExtinfName(line) {
 function parseM3uContent(content) {
   const lines = content.split('\n').map(l => l.trim()).filter(l => l)
   const channels = []
+  // 文件头的回看声明对其后所有频道生效，行内逐字段覆盖（issue #190）。
+  // 拼接起来的多段列表每段各有文件头，遇到新的 #EXTM3U 就换成新的那份。
+  let headerCatchup = {}
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    if (/^\uFEFF?#EXTM3U/i.test(line)) {
+      headerCatchup = parseCatchupAttrs(line)
+      continue
+    }
     if (!line.startsWith('#EXTINF:')) continue
 
     // 解析 #EXTINF 行
@@ -46,6 +54,8 @@ function parseM3uContent(content) {
     // 仓库自己的海外频道表用它标「服务端转发主清单、最高档挪到最前」的台（extractors/overseas）
     const topFirst = /\sx-top-first="(?:1|true)"/i.test(line)
     const name = extractExtinfName(line)
+    // 源自带的回看模板 / 天数：不收下就只能继承订阅头的咪咕模板，回看静默失效（issue #190）
+    const catchup = resolveCatchup(headerCatchup, line)
 
     // 下一个非注释行是 URL；沿途的 #EXTVLCOPT 收进 opts（防盗链源靠它才播得动）
     const { opts, urlIndex } = collectOptsUntilUrl(lines, i)
@@ -58,7 +68,8 @@ function parseM3uContent(content) {
         logo: logoMatch ? logoMatch[1] : '',
         url: url,
         ...(opts.length ? { opts } : {}),
-        ...(topFirst ? { topFirst: true } : {})
+        ...(topFirst ? { topFirst: true } : {}),
+        ...catchup
       })
     }
   }
@@ -648,6 +659,9 @@ class ExternalSourceManager {
    * 添加新的外部源
    */
   addSource(sourceConfig) {
+    // 「复制到分组」的副本带上原频道的回看声明（issue #190），并记下声明对应的地址：
+    // 之后在后台改了地址，声明就不再输出（见 getValidChannels 的直连分支）
+    const catchup = sanitizeCatchup(sourceConfig)
     const newSource = {
       name: sourceConfig.name,
       group: sourceConfig.group || "其他",
@@ -664,7 +678,9 @@ class ExternalSourceManager {
         waitTime: sourceConfig.waitTime || 5000,
         headless: sourceConfig.headless !== false,
         ...sourceConfig.extractOptions
-      }
+      },
+      ...catchup,
+      ...(Object.keys(catchup).length ? { catchupUrl: sourceConfig.m3u8Url || "" } : {})
     }
     
     this.sources.sources.push(newSource)
@@ -988,7 +1004,8 @@ class ExternalSourceManager {
             groupTitle: group,
             sourceId: source.id ? `ext:${source.id}` : undefined,  // 源归属（issue #29/#68）
             ...(builtInSubscription ? { builtInSubscription: true } : {}),
-            ...(opts && opts.length ? { opts } : {})
+            ...(opts && opts.length ? { opts } : {}),
+            ...sanitizeCatchup(ch)   // 源自带的回看声明（issue #190）；没有就不带，照旧继承订阅头
           })
         })
         return
@@ -1008,7 +1025,9 @@ class ExternalSourceManager {
           url: source.m3u8Url,
           logo: source.logo || "",
           groupTitle: source.group,
-          sourceId: source.id ? `ext:${source.id}` : undefined   // 源归属（issue #29/#68）
+          sourceId: source.id ? `ext:${source.id}` : undefined,   // 源归属（issue #29/#68）
+          // 复制来的副本保留原频道的回看声明（issue #190），地址改过就不再适用
+          ...(source.catchupUrl && source.catchupUrl === source.m3u8Url ? sanitizeCatchup(source) : {})
         })
       }
     })

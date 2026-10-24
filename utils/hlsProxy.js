@@ -187,9 +187,9 @@ function toProxyManifest(text, pid = '', transform, upstreamHeaders, upstreamUrl
  * 码率或流格式。真遇到某个平台因 UA 取流异常，就针对那一个模块改并实测，不要整体翻。
  *
  * 唯一的例外是**函数形态**的 upstreamHeaders：它本就是模块按每一跳目标精确决定请求头的契约，
- * 它返回的 User-Agent 会原样发出。目前只有安徽视讯用到——该 CDN 按播放器标识放行，App 的
- * ijkplayer 与这个 Chrome UA 都能过，VLC / AppleCoreMedia / ExoPlayer 等一律 403，走 App 自己
- * 验证过的标识最稳。加这条例外时其余函数形态模块都没有声明 UA，它们的行为不变。
+ * 它返回的 User-Agent 会原样发出，让模块按 CDN 当前规则选择兼容标识。安徽视讯在
+ * 2026-10-21 已从被拒绝的 ijkplayer 改用实测可用的 Chrome UA。
+ * 加这条例外时其余函数形态模块都没有声明 UA，它们的行为不变。
  */
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 

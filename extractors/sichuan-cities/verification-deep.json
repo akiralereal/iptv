@@ -1,0 +1,95 @@
+{
+  "verifiedAt": "2026-10-23T16:07:17.669Z",
+  "viaMainProject": true,
+  "rows": [
+    {
+      "id": "dytv1",
+      "name": "德阳新闻综合",
+      "city": "德阳",
+      "ok": true,
+      "segmentBytes": 403636,
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 75,
+      "decodeWarning": false
+    },
+    {
+      "id": "pzhtv1",
+      "name": "攀枝花新闻综合",
+      "city": "攀枝花",
+      "ok": true,
+      "segmentBytes": 2734272,
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 71,
+      "decodeWarning": false
+    },
+    {
+      "id": "nctv1",
+      "name": "南充综合",
+      "city": "南充",
+      "ok": true,
+      "segmentBytes": 385212,
+      "streams": [
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        },
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 50,
+      "decodeWarning": false
+    }
+  ],
+  "continuousPlayback": {
+    "id": "nctv1",
+    "viaMainProject": true,
+    "seconds": 70.000998,
+    "decodedFrames": 1750,
+    "droppedFrames": 0,
+    "warnings": 0,
+    "exitCode": 0
+  },
+  "localAcceptance": {
+    "channels": 25,
+    "prefectures": 18,
+    "allLogoHttp200": true,
+    "epg": {
+      "凉山新闻综合": 42,
+      "凉山彝语综合": 36,
+      "攀枝花新闻综合": 53
+    },
+    "epgDays": [
+      "2026-10-24",
+      "2026-10-25"
+    ]
+  }
+}

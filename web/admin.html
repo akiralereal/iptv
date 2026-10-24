@@ -2235,30 +2235,36 @@
         .sb-copy.sb-copy-muted:hover { background: #f5f5f5; }
 
 
-        /* ===== 2026 管理台视觉系统：薄荷、暖白、细玻璃边缘 ===== */
+        /* ===== 管理台视觉系统：白灰层次、墨色操作、深灰选中态 ===== */
         :root {
             color-scheme: light;
-            --ui-bg: #f3f5f1;
-            --ui-page-background: radial-gradient(ellipse at 5% 0%, rgba(177, 216, 188, .24), transparent 55%),
-                radial-gradient(ellipse at 96% 40%, rgba(177, 216, 188, .14), transparent 54%), var(--ui-bg);
-            --ui-surface: #fdfefb;
-            --ui-surface-soft: #f6f8f6;
-            --ui-surface-strong: #e8eeea;
-            --ui-line: #dce4df;
-            --ui-line-strong: #c5d1c9;
-            --ui-text: #24332b;
-            --ui-text-secondary: #526258;
-            --ui-muted: #647269;
-            --ui-accent: #356c50;
-            --ui-accent-hover: #28563d;
-            --ui-accent-soft: #e7f2e8;
-            --ui-accent-line: #daeadd;
-            --ui-accent-fill: #cee9da;
-            --ui-accent-fill-hover: #c1e2cf;
+            --ui-bg: #fff;
+            --ui-page-background: var(--ui-bg);
+            --ui-surface: #fff;
+            --ui-surface-soft: #f6f6f4;
+            --ui-surface-strong: #eeefec;
+            --ui-line: #e8e9e5;
+            --ui-line-strong: #d5d8d2;
+            --ui-text: #191b19;
+            --ui-text-secondary: #565c57;
+            --ui-muted: #747b75;
+            --ui-ink: #191b19;
+            --ui-ink-hover: #343a35;
+            --ui-selected-bg: #303330;
+            --ui-selected-hover: #414541;
+            --ui-selected-text: #fff;
+            --ui-selected-muted: #d7ddd8;
+            --ui-selected-badge: rgba(255,255,255,.16);
+            --ui-accent: #28714f;
+            --ui-accent-hover: #205b40;
+            --ui-accent-soft: #e8f3ec;
+            --ui-accent-line: #d7e8dc;
+            --ui-accent-fill: #e0efe5;
+            --ui-accent-fill-hover: #d4e8db;
             --ui-accent-fill-line: transparent;
-            --ui-heading-bg: linear-gradient(115deg, rgba(206, 237, 220, .72), rgba(235, 248, 231, .62) 60%, rgba(250, 253, 244, .8));
-            --ui-heading-text: #24533c;
-            --ui-heading-muted: #4c6958;
+            --ui-heading-bg: var(--ui-surface-soft);
+            --ui-heading-text: var(--ui-text);
+            --ui-heading-muted: var(--ui-text-secondary);
             --ui-cyan: #087e86;
             --ui-cyan-soft: #ecf9fa;
             --ui-cyan-line: #e0f0f1;
@@ -2277,26 +2283,30 @@
             --ui-danger: #bc3443;
             --ui-danger-soft: #fff0f1;
             --ui-danger-line: #fae1e4;
+            --ui-attention-bg: #ffe1e5;
+            --ui-attention-line: #c93443;
+            --ui-attention-text: #a81f31;
             --ui-radius-panel: 24px;
             --ui-radius-card: 18px;
-            --ui-radius-control: 12px;
-            --ui-glass-edge: rgba(255, 255, 255, .9);
-            --ui-glass-surface: linear-gradient(145deg, rgba(255, 255, 255, .78), rgba(255, 255, 255, .56));
-            --ui-glass-card: linear-gradient(145deg, rgba(255, 255, 255, .96), rgba(255, 255, 255, .82));
-            --ui-shadow-card: 0 8px 24px rgba(35, 61, 43, .035), inset 0 1px 0 rgba(255, 255, 255, .92);
-            --ui-shadow-control: inset 0 1px 0 rgba(255, 255, 255, .9), 0 4px 14px rgba(24, 59, 45, .04);
-            --ui-shadow-header: 0 10px 32px rgba(35, 61, 43, .06), inset 0 1px 0 rgba(255, 255, 255, .9);
-            --ui-shadow-float: 0 24px 70px rgba(35, 61, 43, .16), inset 0 1px 0 rgba(255, 255, 255, .9);
-            --ui-ring: 0 0 0 3px rgba(65, 133, 106, .16);
+            --ui-radius-control: 10px;
+            --ui-glass-edge: var(--ui-line);
+            --ui-glass-surface: var(--ui-surface-soft);
+            --ui-glass-card: var(--ui-surface);
+            --ui-shadow-card: none;
+            --ui-shadow-control: none;
+            --ui-shadow-header: none;
+            --ui-shadow-float: 0 24px 70px -24px rgba(20, 30, 22, .25);
+            --ui-ring: 0 0 0 3px rgba(40, 113, 79, .16);
         }
 
         /* 四个主页面高度不同，预留滚动条位置，切换时内容宽度保持一致。 */
         html { background: var(--ui-bg); scrollbar-gutter: stable; }
         body {
             min-height: 100vh;
-            padding: 26px;
+            padding: 0 32px 24px;
             background: var(--ui-bg);
             color: var(--ui-text);
+            -webkit-font-smoothing: antialiased;
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Segoe UI", sans-serif;
             font-size: 15px;
             line-height: 1.55;
@@ -2308,98 +2318,104 @@
         /* 顶栏：品牌、主导航、运维操作各自成组 */
         /* 吸顶外层覆盖顶部留白和圆角背后，避免滚动内容从顶栏周围露出。 */
         .header-shell {
-            --header-inset: 26px;
+            --header-inset: 0px;
             position: sticky;
             top: 0;
             z-index: 100;
             padding-top: var(--header-inset);
             margin-top: calc(-1 * var(--header-inset));
-            margin-bottom: 14px;
+            margin-bottom: 26px;
             background: var(--ui-page-background);
-            background-attachment: fixed;
         }
         .header {
             position: relative;
             top: auto;
-            padding: 12px 14px;
+            padding: 18px 0;
             margin-bottom: 0;
-            border: 1px solid rgba(255, 255, 255, .9);
-            border-radius: var(--ui-radius-panel);
-            background: linear-gradient(150deg, #fff, #f7fbf6);
-            box-shadow: var(--ui-shadow-header);
+            border: 0;
+            border-bottom: 1px solid var(--ui-line);
+            border-radius: 0;
+            background: var(--ui-surface);
+            box-shadow: none;
         }
         .tabs {
-            min-height: 52px;
-            gap: 18px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            min-height: 40px;
+            gap: 32px;
             border-bottom: 0;
         }
         .brand {
             display: flex;
             align-items: center;
+            justify-self: start;
             flex: 0 0 auto;
-            margin-left: 6px;
-            padding: 0 8px;
+            margin-left: 0;
+            padding: 0;
             text-decoration: none;
         }
         .brand:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 4px; border-radius: 6px; }
-        .brand-mark { display: block; flex: 0 0 auto; width: 44px; height: 44px; border-radius: 10px; object-fit: contain; transition: opacity .16s ease; }
+        .brand-mark { display: block; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 9px; object-fit: contain; transition: opacity .16s ease; }
         .brand:hover .brand-mark { opacity: .86; }
         .tabs-left {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            flex: 0 1 50%;
-            width: 50%;
-            max-width: 860px;
-            padding: 2px;
-            gap: 2px;
-            border: 1px solid var(--ui-line);
-            border-radius: 10px;
-            background: var(--ui-surface-strong);
+            display: flex;
+            flex: 1 1 auto;
+            width: auto;
+            max-width: none;
+            padding: 0;
+            gap: 6px;
+            justify-content: center;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
         }
         .tab {
-            width: 100%;
+            width: auto;
             min-height: 40px;
             padding: 9px 18px;
             border: 0;
-            border-radius: 7px;
+            border-radius: 10px;
             color: var(--ui-text-secondary);
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 500;
             line-height: 1.2;
             text-align: center;
             transition: color .16s ease, background .16s ease, box-shadow .16s ease;
         }
         .tab:hover {
             color: var(--ui-text);
-            background: rgba(255, 255, 255, 0.62);
+            background: var(--ui-surface-soft);
         }
         .tab.active {
-            color: var(--ui-accent-hover);
+            color: var(--ui-selected-text);
             border-bottom-color: transparent;
-            background: var(--ui-accent-fill);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .65);
+            background: var(--ui-selected-bg);
+            box-shadow: none;
         }
-        .tabs-right { padding-right: 0; }
+        .tab.active:hover { background: var(--ui-selected-hover); }
+        .tabs-right { padding-right: 0; justify-self: end; }
         .restart-btn {
-            min-height: 42px;
-            padding: 9px 16px;
-            border: 1px solid var(--ui-violet-line);
-            border-radius: var(--ui-radius-control);
-            background: var(--ui-violet-soft);
-            color: var(--ui-violet);
-            font-weight: 650;
+            min-height: 38px;
+            padding: 8px 15px;
+            border: 1px solid var(--ui-ink);
+            border-radius: 999px;
+            background: var(--ui-ink);
+            color: #fff;
+            font-weight: 600;
             transition: background .16s ease, border-color .16s ease;
         }
-        .restart-btn:hover { color: #fff; border-color: var(--ui-violet); background: var(--ui-violet); }
+        .restart-btn:hover { color: #fff; border-color: var(--ui-ink-hover); background: var(--ui-ink-hover); }
 
         /* 页面容器与标题 */
         .panel {
-            padding: 22px;
+            padding: 24px;
             border: 1px solid var(--ui-line);
             border-radius: var(--ui-radius-panel);
             background: var(--ui-surface);
-            box-shadow: 0 14px 40px rgba(35, 61, 43, .055), inset 0 1px 0 rgba(255, 255, 255, .9);
+            box-shadow: none;
         }
+        .panel.channels-panel { padding: 0; border: 0; border-radius: 0; background: transparent; }
+        .panel.sources-panel { padding: 28px; border: 0; background: var(--ui-surface-soft); }
         .panel h2 { padding-bottom: 0; border-bottom: 0; color: var(--ui-text); }
 
         /* 按钮：主操作实心，其余白底描边，不用立体渐变 */
@@ -2410,29 +2426,29 @@
             border: 1px solid transparent;
             border-radius: var(--ui-radius-control);
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 500;
             line-height: 1.2;
             transition: color .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
         }
         .btn:not(.btn-primary, .btn-success, .btn-danger, .btn-warning, .player-btn),
         .confirm-btn-cancel {
             color: var(--ui-text-secondary);
-            border-color: var(--ui-line-strong);
-            background: var(--ui-surface);
+            border-color: var(--ui-line);
+            background: var(--ui-surface-soft);
         }
         .btn:not(.btn-primary, .btn-success, .btn-danger, .btn-warning, .player-btn):hover:not(:disabled),
         .confirm-btn-cancel:hover {
-            color: var(--ui-accent);
-            border-color: var(--ui-accent-line);
-            background: var(--ui-accent-soft);
+            color: var(--ui-text);
+            border-color: var(--ui-line-strong);
+            background: var(--ui-surface-strong);
         }
         .btn-primary,
         .confirm-btn-confirm {
-            color: var(--ui-accent-hover);
-            border-color: var(--ui-accent-fill-line);
-            background: var(--ui-accent-fill);
+            color: #fff;
+            border-color: var(--ui-ink);
+            background: var(--ui-ink);
         }
-        .btn-primary:hover { border-color: var(--ui-accent-fill-line); background: var(--ui-accent-fill-hover); }
+        .btn-primary:hover, .confirm-btn-confirm:hover { color: #fff; border-color: var(--ui-ink-hover); background: var(--ui-ink-hover); }
         .btn-success {
             color: var(--ui-accent-hover);
             border-color: var(--ui-accent-fill-line);
@@ -2482,23 +2498,24 @@
         select:not([multiple]):disabled { cursor: not-allowed; opacity: .6; }
 
         /* 消息推送：渠道卡片网格。渠道多了也不会一条条往下排 */
-        .notify-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+        .notify-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 14px; }
         .notify-card {
-            display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px;
-            border: 1px solid var(--ui-line, #e8ecef); border-radius: 10px; background: var(--ui-surface, #fff);
+            display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 16px;
+            border: 1px solid var(--ui-line); border-radius: 12px; background: var(--ui-surface-soft);
         }
         .notify-card.is-off { opacity: .6; }
         .notify-card-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-        .notify-card-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .notify-card-meta { font-size: 12px; color: #888; }
-        .notify-card-status { font-size: 12px; color: #999; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
-        .notify-card-status .ok { color: #389e0d; }
-        .notify-card-status .fail { color: #cf1322; }
-        .notify-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
+        .notify-card-head input { flex-shrink: 0; margin: 0; }
+        .notify-card-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-text); font-size: 14px; font-weight: 600; }
+        .notify-card-meta { font-size: 12px; color: var(--ui-text-secondary); }
+        .notify-card-status { font-size: 12px; line-height: 1.8; color: var(--ui-muted); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
+        .notify-card-status .ok { color: var(--ui-success); }
+        .notify-card-status .fail { color: var(--ui-danger); }
+        .notify-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
         .notify-card-add {
-            display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 120px;
-            border: 1px dashed var(--ui-line-strong, #cfd8dc); border-radius: 10px; background: transparent;
-            color: var(--ui-text-secondary, #5b6b80); font-size: 14px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 140px;
+            border: 1px dashed var(--ui-line-strong); border-radius: 12px; background: var(--ui-surface);
+            color: var(--ui-text-secondary); font-size: 13px; cursor: pointer;
         }
         .notify-card-add:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
 
@@ -2525,14 +2542,16 @@
         /* 消息推送：样式选择与预览 */
         .notify-template-options { display: flex; gap: 8px; flex-wrap: wrap; }
         .notify-template-option {
-            display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; min-width: 120px;
+            display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; min-width: 120px;
             border: 1px solid var(--ui-line-strong); border-radius: var(--ui-radius-control);
             background: var(--ui-surface); cursor: pointer; text-align: left; font-size: 13px; color: var(--ui-text);
         }
-        .notify-template-option small { color: #888; font-size: 11.5px; }
-        .notify-template-option.active { border-color: var(--ui-accent); box-shadow: var(--ui-ring); font-weight: 600; }
-        .notify-preview { margin-top: 8px; max-width: 460px; border: 1px solid #e5e9f0; border-radius: 8px; background: #fff; overflow: hidden; font-size: 13px; line-height: 1.6; color: #1f2329; }
-        .notify-preview-label { padding: 4px 10px; font-size: 11.5px; color: #888; background: #f7f9fc; border-bottom: 1px solid #eef1f6; }
+        .notify-template-option small { color: var(--ui-muted); font-size: 11.5px; line-height: 1.6; }
+        .notify-template-option.active { color: var(--ui-selected-text); border-color: var(--ui-selected-bg); background: var(--ui-selected-bg); box-shadow: none; font-weight: 600; }
+        .notify-template-option.active small { color: var(--ui-selected-muted); }
+        .notify-template-option:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+        .notify-preview { margin-top: 12px; max-width: 460px; border: 1px solid var(--ui-line); border-radius: 10px; background: #fff; overflow: hidden; font-size: 13px; line-height: 1.7; color: var(--ui-text); }
+        .notify-preview-label { padding: 6px 12px; font-size: 11.5px; color: var(--ui-muted); background: var(--ui-surface-soft); border-bottom: 1px solid var(--ui-line); }
         .notify-preview-text { margin: 0; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; font-family: inherit; }
         .notify-preview-card-head { padding: 10px 12px; color: #fff; font-weight: 600; }
         .notify-preview-card-head.red { background: #f54a45; }
@@ -2616,10 +2635,10 @@
         }
         .mode-switch-btn:hover { color: var(--ui-accent); border-color: var(--ui-accent-line); }
         .mode-switch-btn.active {
-            color: var(--ui-accent-hover);
+            color: var(--ui-selected-text);
             font-weight: 600;
-            border-color: var(--ui-accent-fill-line);
-            background: var(--ui-accent-fill);
+            border-color: var(--ui-selected-bg);
+            background: var(--ui-selected-bg);
             box-shadow: none;
         }
         .source-tab-count { margin-left: 5px; padding: 1px 6px; border-radius: 999px; background: rgba(255,255,255,.2); }
@@ -2630,115 +2649,114 @@
             background: var(--ui-surface-soft);
         }
 
-        /* 我的频道：保留高频操作的效率，但拉开栏间和行间 */
+        /* 我的频道：分组与隐藏栏为浅灰辅助区，频道保持紧凑、清晰。 */
         .my-playlist-header {
             margin-bottom: 0;
             padding: 0;
             gap: 0;
             overflow: hidden;
-            /* 描边不再把色块向内推 1px。 */
             border: 0;
-            border-radius: 16px;
+            border-radius: 0;
             background: var(--ui-surface);
             box-shadow: none;
         }
-        .my-playlist-header-row { padding: 12px 16px; background: var(--ui-heading-bg); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .85); }
-        /* 「我的频道」页头标题 16px 加粗（作者 10-06）：标题只是标明在哪一页，不抢内容；源管理、设置、关于不再有页头条（标题与顶部导航重复） */
-        .my-playlist-info h3 { color: var(--ui-heading-text); font-size: 16px; font-weight: 700; }
-        .my-playlist-info #myChannelTotal { color: var(--ui-heading-muted) !important; }
-        .my-playlist-actions { gap: 12px; }
-        .my-playlist-actions > span { color: var(--ui-heading-muted) !important; }
-        .my-playlist-header .btn-primary { color: var(--ui-accent-hover); border-color: var(--ui-accent-fill-line); background: var(--ui-accent-fill); }
-        .my-playlist-header .btn-primary:hover { border-color: var(--ui-accent-fill-line); background: var(--ui-accent-fill-hover); }
-        /* 订阅地址是标题卡的第二行；标题行自带底色，两行之间不再加分隔线（作者 10-06） */
+        .my-playlist-header-row {
+            min-height: 62px;
+            padding: 0 0 16px;
+            gap: 16px;
+            background: transparent;
+            box-shadow: none;
+        }
+        .my-playlist-info h3 { color: var(--ui-text); font-size: 24px; font-weight: 600; letter-spacing: -.5px; }
+        .my-playlist-info #myChannelTotal { margin-left: 8px; color: var(--ui-muted) !important; letter-spacing: 0; }
+        .my-playlist-actions { gap: 8px; }
+        .my-playlist-actions > span { margin-right: 6px; color: var(--ui-text-secondary) !important; }
+        .my-playlist-actions .btn { min-height: 36px; padding: 8px 13px; font-size: 13px; }
         .subscribe-bar {
             margin: 0;
-            padding: 12px 16px 6px;
-            gap: 8px 22px;
+            padding: 12px 14px;
+            gap: 10px 20px;
             border: 0;
-            border-radius: 0;
-            background: transparent;
+            border-radius: 14px;
+            background: var(--ui-surface-soft);
         }
-        .subscribe-bar .sb-label { color: var(--ui-accent); font-weight: 700; }
+        .subscribe-bar .sb-label, .subscribe-bar .sb-sep { color: var(--ui-text-secondary); font-size: 12px; font-weight: 500; }
         .subscribe-bar code {
-            min-height: 32px;
-            padding: 6px 9px;
+            min-height: 30px;
+            min-width: 0;
+            padding: 5px 8px;
+            border: 0;
+            border-radius: 7px;
+            background: var(--ui-surface);
+            color: var(--ui-text-secondary);
+            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        }
+        .subscribe-bar .sb-group { min-width: 0; gap: 7px; }
+        .subscribe-bar .sb-group-main { flex: 1.5 1 410px; }
+        .subscribe-bar .sb-group-epg { flex: 1 1 280px; max-width: none; }
+        .sb-copy {
+            min-height: 30px;
+            padding: 5px 10px;
             border: 1px solid var(--ui-line);
             border-radius: 8px;
-            background: var(--ui-surface-soft);
-            color: #3c5961;
+            background: var(--ui-surface);
+            color: var(--ui-text);
+            font-weight: 500;
         }
-        .subscribe-bar .sb-group { gap: 9px; }
-        .subscribe-bar .sb-sep { color: var(--ui-text-secondary); }
-        .sb-copy {
-            min-height: 32px;
-            padding: 5px 10px;
-            border: 1px solid var(--ui-cyan-line);
-            border-radius: 8px;
-            background: #fff;
-            color: var(--ui-cyan);
-            font-weight: 600;
-        }
-        .sb-copy:hover, .sb-copy.sb-copy-muted:hover { border-color: var(--ui-cyan); background: #fff; }
-        .sb-copy.sb-copy-muted { color: var(--ui-text-secondary); border-color: var(--ui-line-strong); }
-        /* 高度 = 视口减去三栏上下所有东西（--mp-offset 由 fitMyPlaylistHeight() 实测写入），
-           刚好一屏；写死常数会跟着顶部改动失准，要么页面多滚一截、要么底部留空 */
+        .sb-copy:hover, .sb-copy.sb-copy-muted:hover { color: var(--ui-text); border-color: var(--ui-line-strong); background: var(--ui-surface-strong); }
+        .sb-copy.sb-copy-muted { color: var(--ui-text-secondary); border-color: var(--ui-line); }
+        /* 高度仍由 fitMyPlaylistHeight() 实测，避免改动页头后出现空白或多余滚动。 */
         .my-playlist-container {
-            height: calc(100vh - var(--mp-offset, 180px));
+            height: calc(100vh - var(--mp-offset, 140px));
             min-height: 500px;
             margin-top: 0;
-            gap: 6px 20px;
+            gap: 20px 24px;
         }
-        .my-playlist-left { width: 242px; }
-        .my-playlist-right { width: 226px; }
+        .my-playlist-left { width: 220px; }
+        .my-playlist-right { width: 176px; }
         .my-playlist-section {
-            border: 1px solid var(--ui-glass-edge);
-            border-radius: var(--ui-radius-card);
-            background: var(--ui-glass-card);
-            box-shadow: var(--ui-shadow-card);
+            border: 0;
+            border-radius: 18px;
+            background: var(--ui-surface-soft);
+            box-shadow: none;
         }
         .my-playlist-section-title {
             min-height: 54px;
-            padding: 13px 15px;
-            border-bottom: 1px solid var(--ui-line);
-            background: var(--ui-surface-strong);
+            padding: 16px 14px 12px;
+            border-bottom: 0;
+            background: transparent;
             color: var(--ui-text);
             font-size: 14px;
-            font-weight: 700;
-        }
-        /* 「频道分组」标题条和右边「我的频道」标题行并排：字号同为 16px 加粗，底边对齐
-           （分组栏外框有 1px 边，所以条高 63px = 标题行 64px 减去上边框） */
-        .my-playlist-left .my-playlist-section-title { min-height: 63px; padding: 12px 16px; border-bottom: 0; font-size: 16px; }
-        .my-playlist-right .my-playlist-section-title {
-            color: var(--ui-pink);
-            border-bottom-color: var(--ui-pink-line);
-            background: var(--ui-pink-soft);
-        }
-        .my-playlist-section-title button {
-            min-height: 30px;
-            padding: 5px 9px;
-            border: 1px solid var(--ui-accent-line);
-            border-radius: 8px;
-            background: #fff;
-            color: var(--ui-accent);
             font-weight: 600;
         }
-        .my-playlist-section-title button:hover { border-color: var(--ui-accent); background: #fff; }
-        /* 分组栏里的频道搜索框（issue #159）：压到和分组行一样高，只占一行分组的位置 */
-        .my-playlist-search { position: relative; flex: 0 0 auto; padding: 10px 10px 0; }
+        .my-playlist-left .my-playlist-section-title { min-height: 62px; padding: 16px 14px 12px; font-size: 14px; }
+        .my-playlist-right .my-playlist-section-title { color: var(--ui-text-secondary); border-bottom: 0; background: transparent; }
+        .my-playlist-section-title button {
+            min-height: 30px;
+            padding: 5px 8px;
+            border: 1px solid var(--ui-line);
+            border-radius: 8px;
+            background: var(--ui-surface);
+            color: var(--ui-text-secondary);
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .my-playlist-section-title button:hover { color: var(--ui-text); border-color: var(--ui-line-strong); background: var(--ui-surface); }
+        .my-playlist-search { position: relative; flex: 0 0 auto; padding: 0 10px 6px; }
         .my-playlist-search input[type="text"] {
             width: 100%;
-            min-height: 34px;
-            padding: 5px 30px 5px 11px;
+            min-height: 36px;
+            padding: 7px 30px 7px 11px;
+            border-color: var(--ui-line);
             border-radius: 9px;
-            font-size: 13px;
+            font-size: 12px;
         }
         .my-playlist-search button {
             position: absolute;
-            top: 10px;
+            top: 0;
             right: 10px;
             width: 30px;
-            height: 34px;
+            height: 36px;
             padding: 0;
             border: 0;
             background: transparent;
@@ -2749,11 +2767,12 @@
         }
         .my-playlist-search button:hover { color: var(--ui-text); }
         .my-playlist-search button[hidden] { display: none; }
-        .my-playlist-group-list { padding: 10px; }
+        .my-playlist-group-list { padding: 6px 10px 10px; scrollbar-width: thin; scrollbar-color: var(--ui-line-strong) transparent; }
         .my-playlist-group-item {
-            min-height: 34px;
+            min-height: 38px;
             margin-bottom: 3px;
-            padding: 6px 12px;
+            padding: 8px 11px;
+            gap: 8px;
             border: 1px solid transparent;
             border-radius: 9px;
             background: transparent;
@@ -2763,94 +2782,71 @@
         }
         .my-playlist-group-item:hover {
             color: var(--ui-text);
-            border-color: var(--ui-line);
-            background: #fff;
+            border-color: transparent;
+            background: var(--ui-surface-strong);
             box-shadow: none;
             transform: none;
         }
         .my-playlist-group-item.active,
-        .my-playlist-group-item.active:hover {
-            color: var(--ui-accent);
-            border-color: var(--ui-accent-line);
-            background: var(--ui-accent-soft);
-            box-shadow: none;
-        }
-        .my-playlist-group-item.deleted,
-        .my-playlist-group-item.deleted:hover {
-            color: var(--ui-text-secondary);
+        .my-playlist-group-item.active:hover,
+        .my-playlist-group-item.deleted.active,
+        .my-playlist-group-item.deleted.active:hover {
+            color: var(--ui-selected-text);
             border-color: transparent;
-            background: transparent;
+            background: var(--ui-selected-bg);
+            box-shadow: none;
+            font-weight: 600;
         }
+        .my-playlist-group-item.deleted { color: var(--ui-text-secondary); border-color: transparent; background: transparent; }
+        .my-playlist-group-item.deleted:hover { color: var(--ui-text); border-color: transparent; background: var(--ui-surface-strong); }
+        .my-playlist-group-item > span:last-child { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+        .my-playlist-group-item.active > span:last-child { color: var(--ui-selected-muted) !important; }
         .my-playlist-detail-header {
             min-height: 0;
             flex-shrink: 0;
-            margin-bottom: 10px;
-            padding: 10px 14px;
-            border: 1px solid var(--ui-line);
-            border-radius: 14px;
+            margin-bottom: 16px;
+            padding: 4px 0 16px;
+            gap: 16px;
+            border: 0;
+            border-bottom: 1px solid var(--ui-line);
+            border-radius: 0;
             background: var(--ui-surface);
             box-shadow: none;
         }
-        /* 分组名和配对说明合在左侧，操作区保留两行；窄窗口再上下排列。 */
-        .my-playlist-detail-header { gap: 14px; }
-        .my-playlist-detail-info { display: flex; flex-direction: column; gap: 5px; flex: 1 1 0; min-width: 0; }
+        .my-playlist-detail-info { display: flex; flex-direction: column; gap: 7px; flex: 1 1 0; min-width: 0; }
         .announcement-header { align-content: flex-start; }
         .announcement-header .my-playlist-detail-info { min-height: var(--group-detail-info-height, 0px); }
-        .my-playlist-detail-title { color: var(--ui-text); font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
+        .my-playlist-detail-title { color: var(--ui-text); font-size: 17px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
         .my-playlist-detail-actions {
             display: flex;
             flex: 0 1 auto;
-            max-width: 56%;
+            max-width: 62%;
             flex-wrap: wrap;
             justify-content: flex-end;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
         }
         .my-playlist-detail-actions button {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 3px;
-            min-height: 24px;
+            min-height: 28px;
             margin-left: 0;
-            padding: 3px 7px;
-            border-radius: 6px;
+            padding: 4px 6px;
+            border-radius: 7px;
             font-family: inherit;
-            font-size: 10.5px;
+            font-size: 11px;
             font-weight: 500;
             line-height: 1.3;
             white-space: nowrap;
         }
-        .my-playlist-detail-actions .btn-primary { font-weight: 600; }
-        .my-playlist-detail-actions select { min-height: 24px; font-family: inherit; font-size: 10.5px; }
-        /* 分组详情的按钮固定排两行：上行管分组本身，下行管组内频道，左侧小字对齐（issue #165 有人把上移下移看成调频道） */
-        .group-action-grid {
-            display: grid;
-            grid-template-columns: auto minmax(0, 1fr);
-            align-items: start;
-            gap: 5px 8px;
-        }
-        .group-action-label {
-            display: flex;
-            align-items: center;
-            min-height: 24px;
-            color: var(--ui-muted);
-            font-size: 10px;
-            font-weight: 400;
-            line-height: 1.3;
-            white-space: nowrap;
-        }
+        .my-playlist-detail-actions select { min-height: 28px; font-family: inherit; font-size: 11px; }
+        /* 分组操作与组内排序保持原来的两行分区，防止混淆移动对象。 */
+        .group-action-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 6px 8px; }
+        .group-action-label { display: flex; align-items: center; min-height: 28px; color: var(--ui-muted); font-size: 11px; font-weight: 400; line-height: 1.3; white-space: nowrap; }
         .group-action-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; white-space: nowrap; }
-        .group-action-icon {
-            flex: 0 0 auto;
-            width: 11px;
-            height: 11px;
-            fill: none;
-            stroke: currentColor;
-            stroke-width: 1.5;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
+        .group-action-icon { flex: 0 0 auto; width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
         .ch-status-legend {
             min-height: 0;
             margin: 0;
@@ -2861,207 +2857,227 @@
             background: transparent;
             color: var(--ui-muted);
             font-size: 11px;
-            line-height: 1.5;
+            line-height: 1.6;
         }
         .ch-status-legend b { color: var(--ui-text-secondary); }
         .ch-status-legend .seg { max-width: 100%; gap: 4px; }
         .ch-status-legend .dot { width: 6px; height: 6px; flex-shrink: 0; }
-        .dot.ok { background: #27a777; }
-        .dot.no { background: #dc6571; }
-        .my-playlist-groups { gap: 18px; padding: 0 4px 4px; }
-        .my-playlist-group,
-        .group {
-            padding: 18px;
-            border: 1px solid var(--ui-line);
-            border-radius: var(--ui-radius-card);
-            background: var(--ui-surface);
-            box-shadow: none;
-        }
+        .dot.ok { background: #2e9c70; }
+        .dot.no { background: #d46a70; }
+        .my-playlist-groups { gap: 18px; padding: 0 3px 4px 0; scrollbar-width: thin; scrollbar-color: var(--ui-line-strong) transparent; }
+        .my-playlist-group, .group { padding: 18px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius-card); background: var(--ui-surface); box-shadow: none; }
         .my-playlist-group-header { margin-bottom: 13px; padding-bottom: 12px; border-bottom-color: var(--ui-line); }
         .my-playlist-group-title { color: var(--ui-text); }
-        .my-playlist-channels { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 11px; }
-        .my-playlist-channel,
-        .channel-item {
-            min-height: 46px;
-            padding: 10px 13px;
-            border: 1px solid var(--ui-line);
+        .my-playlist-channels { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 9px; }
+        .my-playlist-channel, .channel-item {
+            min-height: 56px;
+            min-width: 0;
+            padding: 11px 12px;
+            gap: 0;
+            border: 1px solid transparent;
             border-radius: 12px;
             background: var(--ui-surface-soft);
-            transition: background .16s ease, border-color .16s ease, box-shadow .16s ease;
+            transition: background .16s ease, border-color .16s ease;
         }
-        .my-playlist-channel:hover,
-        .channel-item:hover {
-            border-color: var(--ui-accent-line);
-            background: #fff;
-            box-shadow: var(--ui-ring);
-            transform: none;
+        .my-playlist-channel:hover, .my-playlist-channel:focus-within, .channel-item:hover { border-color: var(--ui-accent-line); background: var(--ui-surface); box-shadow: none; transform: none; }
+        .my-playlist-channel.drag-over-top { box-shadow: inset 0 3px 0 var(--ui-accent); }
+        .my-playlist-channel.drag-over-bottom { box-shadow: inset 0 -3px 0 var(--ui-accent); }
+        .my-playlist-channel-name {
+            min-width: 0;
+            color: var(--ui-text);
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1.6;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
         }
-        .my-playlist-channel-name { color: var(--ui-text); }
-        .channel-detail-hint, .channel-drag-handle { color: #a8b0bd; }
-        .my-playlist-channel:hover .channel-detail-hint,
-        .my-playlist-channel:hover .channel-drag-handle { color: var(--ui-accent); }
-        .channel-source-badge {
-            color: var(--ui-violet);
-            border-color: var(--ui-violet-line);
-            border-radius: 999px;
-            background: var(--ui-violet-soft);
-        }
-        /* 搜索结果行（issue #159）：整行可点（跳到分组；批量模式下是勾选，issue #176），右侧标出所在分组 */
+        .channel-detail-hint, .channel-drag-handle { color: #a0a69f; }
+        .channel-drag-handle { margin-right: 6px; }
+        .ch-status { margin-right: 7px; gap: 3px; }
+        .ch-status .dot { width: 6px; height: 6px; }
+        .channel-detail-hint { margin-right: 4px; font-size: 12px; }
+        .my-playlist-channel:hover .channel-detail-hint, .my-playlist-channel:hover .channel-drag-handle { color: var(--ui-accent); }
+        .channel-source-badge { margin-left: 5px; color: var(--ui-text-secondary); border-color: var(--ui-line); border-radius: 5px; background: var(--ui-surface-strong); font-size: 10px; }
         .my-playlist-channel.search-result { gap: 10px; cursor: pointer; }
         .my-playlist-channel.search-result.locked { cursor: default; }
-        .channel-group-tag {
-            flex: 0 0 auto;
-            max-width: 45%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            padding: 2px 9px;
-            border: 1px solid var(--ui-accent-line);
-            border-radius: 999px;
-            background: var(--ui-accent-soft);
-            color: var(--ui-accent);
-            font-size: 12px;
-        }
-        .channel-group-tag.in-hidden {
-            border-color: var(--ui-line);
-            background: var(--ui-surface-strong);
-            color: var(--ui-text-secondary);
-        }
+        .channel-group-tag { flex: 0 0 auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 8px; border: 0; border-radius: 7px; background: var(--ui-accent-soft); color: var(--ui-accent); font-size: 11px; }
+        .channel-group-tag.in-hidden { background: var(--ui-surface-strong); color: var(--ui-text-secondary); }
         .channel-search-note { grid-column: 1 / -1; padding: 4px 2px; color: var(--ui-muted); font-size: 13px; }
-        .my-playlist-channel-actions { opacity: 1; gap: 5px; }
-        .my-playlist-channel-actions button:not(.channel-play-btn) { opacity: 0; transition: opacity .18s ease; }
+        .my-playlist-channel-actions { flex: 0 0 auto; opacity: 1; gap: 4px; margin-left: 8px; }
+        .my-playlist-channel-actions button:not(.channel-play-btn) { opacity: 0; transition: opacity .16s ease; }
         .my-playlist-channel:hover .my-playlist-channel-actions button:not(.channel-play-btn),
+        .my-playlist-channel:focus-within .my-playlist-channel-actions button:not(.channel-play-btn),
         .my-playlist-channel.deleted .my-playlist-channel-actions button { opacity: 1; }
         .my-playlist-channel-actions button {
             min-height: 28px;
-            padding: 3px 9px;
-            border: 1px solid var(--ui-line-strong);
-            border-radius: 8px;
-            background: #fff;
+            padding: 4px 6px;
+            border: 1px solid transparent;
+            border-radius: 7px;
+            background: var(--ui-surface);
             color: var(--ui-text-secondary);
-            font-size: 12px;
+            font-size: 11px;
+            white-space: nowrap;
         }
-        .my-playlist-channel-actions button:hover { color: var(--ui-accent); border-color: var(--ui-accent-line); background: var(--ui-accent-soft); }
-        .my-playlist-channel-actions .channel-play-btn { color: var(--ui-accent); border-color: var(--ui-accent-line); }
-        .my-playlist-channel-actions .channel-play-btn:hover { color: #fff; border-color: var(--ui-accent); background: var(--ui-accent); }
+        .my-playlist-channel-actions button:hover { color: var(--ui-text); border-color: var(--ui-line-strong); background: var(--ui-surface-strong); }
+        .my-playlist-channel-actions .channel-play-btn { color: var(--ui-accent); border-color: var(--ui-line); }
+        .my-playlist-channel-actions .channel-play-btn:hover { color: var(--ui-accent-hover); border-color: var(--ui-accent-line); background: var(--ui-accent-soft); }
+        @media (hover: none) {
+            .my-playlist-channel-actions button:not(.channel-play-btn) { opacity: 1; }
+        }
 
-        /* 内容源卡片：卡片本身保持中性，颜色只用于类型和状态 */
-        .source-section-head { margin-bottom: 18px; }
-        .source-section-hint { max-width: 920px; color: var(--ui-text-secondary); font-size: 13px; line-height: 1.75; }
+        /* 内容源：白色卡片承载配置，来源页签用深灰按钮突出选中项。 */
+        .sources-panel .source-subtabs {
+            width: 100%;
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 0 0 16px;
+            border: 0;
+            border-bottom: 1px solid var(--ui-line);
+            border-radius: 0;
+            background: transparent;
+            overflow-x: auto;
+        }
+        .sources-panel .source-subtabs > .mode-switch-btn {
+            flex: 0 0 auto;
+            min-height: 44px;
+            padding: 10px 16px;
+            border: 1px solid var(--ui-line-strong);
+            border-radius: var(--ui-radius-control);
+            background: var(--ui-surface);
+            color: var(--ui-text-secondary);
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: none;
+        }
+        .sources-panel .source-subtabs > .mode-switch-btn:hover { color: var(--ui-text); border-color: var(--ui-selected-bg); background: var(--ui-surface-strong); }
+        .sources-panel .source-subtabs > .mode-switch-btn.active {
+            color: var(--ui-selected-text);
+            border-color: var(--ui-selected-bg);
+            background: var(--ui-selected-bg);
+            font-weight: 650;
+            box-shadow: none;
+        }
+        .sources-panel .source-subtabs > .mode-switch-btn.active:hover { border-color: var(--ui-selected-hover); background: var(--ui-selected-hover); }
+        .sources-panel .source-tab-count {
+            margin-left: 5px;
+            padding: 2px 6px;
+            border-radius: 5px;
+            background: var(--ui-surface-strong);
+            color: var(--ui-muted);
+            font-size: 11px;
+            font-weight: 500;
+            opacity: 1;
+        }
+        .sources-panel .source-subtabs > .mode-switch-btn.active .source-tab-count { background: var(--ui-selected-badge); color: var(--ui-selected-text); }
+        .sources-panel .mode-switch-btn:focus-visible,
+        .external-detail .mode-switch-btn:focus-visible,
+        .extractor-filter-btn:focus-visible,
+        .extractor-category-btn:focus-visible {
+            outline: 2px solid var(--ui-accent);
+            outline-offset: -3px;
+        }
+        .source-section-head { margin-bottom: 22px; }
+        .source-section-hint { max-width: 920px; margin-top: 0; color: var(--ui-text-secondary); font-size: 13px; line-height: 1.8; }
         .source-category-list { gap: 0; }
-        .source-category-head { gap: 9px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--ui-line-strong); }
-        .source-category-desc { color: var(--ui-muted); font-size: 13px; }
+        .source-category-head { gap: 9px; margin-bottom: 18px; padding-bottom: 15px; border-bottom: 1px solid var(--ui-line); }
+        .source-category-desc { color: var(--ui-muted); font-size: 13px; line-height: 1.8; }
 
-        /* 抓取模块按开关筛选（issue #164）。比二级标签轻一档：描边小胶囊，
-           选中只换浅底，不和上面「自定义源 / 内置抓取模块 / 内置源」抢层级。 */
-        .extractor-filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+        /* 开关筛选为辅助控件，模块分类用深色选中态建立清晰层级。 */
+        .extractor-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 22px; }
         .extractor-filter:empty { display: none; }
         .extractor-filter-btn {
             display: inline-flex;
             align-items: center;
             gap: 6px;
             min-height: 32px;
-            padding: 5px 13px;
-            border: 1px solid var(--ui-line-strong);
-            border-radius: 999px;
-            background: var(--ui-surface);
+            padding: 5px 11px;
+            border: 1px solid var(--ui-line);
+            border-radius: 7px;
+            background: #fff;
+            color: var(--ui-text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color .16s ease, background .16s ease, border-color .16s ease;
+        }
+        .extractor-filter-btn:hover { color: var(--ui-text); border-color: var(--ui-line-strong); background: var(--ui-surface-soft); }
+        .extractor-filter-btn.active { color: var(--ui-selected-text); border-color: var(--ui-selected-bg); background: var(--ui-selected-bg); }
+        .extractor-filter-count {
+            min-width: 19px;
+            padding: 0 5px;
+            border-radius: 4px;
+            background: var(--ui-surface-strong);
+            color: var(--ui-muted);
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 18px;
+            text-align: center;
+        }
+        .extractor-filter-btn.active .extractor-filter-count { background: var(--ui-selected-badge); color: var(--ui-selected-text); }
+        .extractor-filter-group { display: flex; flex-wrap: wrap; gap: 6px; }
+        /* 「批量开关」是动作不是筛选：推到这一行最右，用主色和三个筛选按钮区分开。 */
+        .extractor-bulk-btn { margin-left: auto; color: var(--ui-accent); border-color: var(--ui-accent-line); background: var(--ui-accent-soft); font-weight: 600; }
+        .extractor-bulk-btn:hover { color: var(--ui-accent-hover); border-color: var(--ui-accent); background: var(--ui-accent-fill); }
+        .extractor-category-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .extractor-category-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 38px;
+            padding: 8px 13px;
+            border: 1px solid var(--ui-line);
+            border-radius: 8px;
+            background: #fff;
             color: var(--ui-text-secondary);
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
             transition: color .16s ease, background .16s ease, border-color .16s ease;
         }
-        .extractor-filter-btn:hover { color: var(--ui-accent); border-color: var(--ui-accent-line); }
-        .extractor-filter-btn.active { color: var(--ui-accent); border-color: var(--ui-accent-line); background: var(--ui-accent-soft); }
-        .extractor-filter-count {
-            min-width: 20px;
-            padding: 0 6px;
-            border-radius: 999px;
-            background: var(--ui-surface-strong);
-            color: var(--ui-text-secondary);
-            font-size: 11px;
-            line-height: 18px;
-            text-align: center;
-        }
-        .extractor-filter-btn.active .extractor-filter-count { background: var(--ui-accent); color: #fff; }
-        /* 抓取模块分类按钮（作者 10-06）：一次只显示一类。比开关筛选重一档（圆角矩形、加粗、选中实底），
-           比上面「自定义源 / 内置抓取模块 / 内置源」轻一档 */
-        .extractor-category-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-        .extractor-category-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            min-height: 40px;
-            padding: 8px 16px;
-            border: 1px solid var(--ui-line-strong);
-            border-radius: 12px;
-            background: var(--ui-surface);
-            color: var(--ui-text);
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: color .16s ease, background .16s ease, border-color .16s ease;
-        }
-        .extractor-category-btn:hover { color: var(--ui-accent); border-color: var(--ui-accent-line); }
-        .extractor-category-btn.active { color: var(--ui-heading-text); border-color: transparent; background: var(--ui-accent-fill); }
-        .extractor-category-btn.active .extractor-filter-count { background: var(--ui-accent); color: #fff; }
+        .extractor-category-btn:hover { color: var(--ui-text); border-color: var(--ui-line-strong); background: var(--ui-surface-soft); }
+        .extractor-category-btn.active { color: var(--ui-selected-text); border-color: var(--ui-selected-bg); background: var(--ui-selected-bg); }
+        .extractor-category-btn.active .extractor-filter-count { background: var(--ui-selected-badge); color: var(--ui-selected-text); }
         .extractor-category-btn .attention-dot { margin-left: 0; }
-        /* 分类说明里要用户特别留意的话：浅黄底、深黄字 */
-        .category-note { padding: 1px 4px; border-radius: 4px; background: var(--ui-warning-soft); color: var(--ui-warning); font-weight: 600; }
-        .extractor-filter-empty {
-            padding: 16px 18px;
-            border: 1px dashed var(--ui-line-strong);
-            border-radius: var(--ui-radius-card);
-            color: var(--ui-muted);
-            font-size: 13px;
-        }
-        .source-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 17px; }
+        .category-note { padding: 1px 4px; border-radius: 4px; background: var(--ui-warning-soft); color: var(--ui-warning); font-weight: 500; }
+        .extractor-filter-empty { padding: 22px; border: 1px dashed var(--ui-line-strong); border-radius: 12px; background: var(--ui-surface-soft); color: var(--ui-muted); font-size: 13px; }
+        .source-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
         .source-card,
         .external-nav-item {
-            min-height: 158px;
-            padding: 18px;
-            gap: 10px;
-            border: 1px solid var(--ui-glass-edge);
-            border-top: 1px solid var(--ui-glass-edge);
-            border-radius: var(--ui-radius-card);
-            background: var(--ui-glass-card);
-            box-shadow: var(--ui-shadow-card);
-            transition: background .16s ease, border-color .16s ease, box-shadow .16s ease;
+            min-height: 154px;
+            padding: 19px;
+            gap: 12px;
+            border: 1px solid var(--ui-line);
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: none;
+            transition: background .16s ease, border-color .16s ease;
         }
         .source-card:hover,
-        .external-nav-item:hover {
-            border-color: var(--ui-accent-line);
-            border-top-color: var(--ui-accent-line);
-            background: var(--ui-surface);
-            box-shadow: var(--ui-ring);
-        }
+        .external-nav-item:hover { border-color: var(--ui-line-strong); background: #fff; box-shadow: none; }
         .source-card.active,
-        .external-nav-item.active {
-            border-color: var(--ui-accent-line);
-            border-top-color: var(--ui-accent-line);
-            background: var(--ui-accent-soft);
-            box-shadow: none;
-        }
+        .external-nav-item.active { border-color: var(--ui-selected-bg); background: var(--ui-surface-strong); box-shadow: none; }
         .source-card.static,
-        .source-card.static:hover {
-            border-color: var(--ui-line);
-            border-top-color: var(--ui-line);
-            background: var(--ui-surface-soft);
-            box-shadow: none;
-        }
-        /* 已关闭的模块（issue #164）。主题本身是浅绿，深一档浅一档的底色看不出来，
-           所以不靠色差：虚线空心边框 + 内容褪到一半 + 底部明写「已关闭」，开关保持原样
-           （还能点）。仍可点开看详情、改配置；放在 .source-card.active 之后，打开着的
-           卡片底色仍以「选中」为准。 */
+        .source-card.static:hover { border-color: var(--ui-line); background: #fff; box-shadow: none; }
+        /* 已关闭仍可点开：虚线边框和明确文字同时标记停用状态。 */
         .source-card.is-off { border-style: dashed; border-color: var(--ui-line-strong); }
-        .source-card.is-off:not(.active) { background: transparent; }
+        .source-card.is-off.active { border-color: var(--ui-selected-bg); }
+        .source-card.is-off:not(.active) { background: var(--ui-surface-soft); }
         .source-card.is-off .name,
-        .source-card.is-off .source-card-desc { opacity: .5; }
-        .source-card.is-off .source-badge { filter: grayscale(1); opacity: .45; }
-        .module-off-label { color: var(--ui-muted); font-weight: 600; }
-        /* 登录凭证失效：红框浅红底，在一屏几十张卡片里一眼找到；打开着的卡片仍以「选中」为准 */
-        .source-card.needs-attention:not(.active) { border-color: var(--ui-danger); background: var(--ui-danger-soft); }
-        .credential-flag { color: var(--ui-danger); font-weight: 600; }
+        .source-card.is-off .source-card-desc { opacity: .65; }
+        .source-card.is-off .source-badge { filter: grayscale(1); opacity: .6; }
+        .module-off-label { color: var(--ui-muted); font-weight: 500; }
+        .source-card.needs-attention {
+            border-color: var(--ui-attention-line);
+            background: var(--ui-attention-bg);
+            box-shadow: inset 4px 0 0 var(--ui-attention-line);
+        }
+        .source-card.needs-attention .credential-flag { color: var(--ui-attention-text); font-weight: 650; }
+        .source-card.needs-attention .source-card-foot { color: #7b424a; }
         /* 顶部提醒条：有异常（error）为红，只有提醒（warning）为橙 */
         .alert-bar {
             display: flex;
@@ -3129,267 +3145,201 @@
         .alert-dismiss-btn:hover { color: var(--ui-text); }
         .alert-item.is-dismissed { opacity: 0.6; }
         .alert-dismissed-head { margin-top: 6px; font-size: 12px; color: var(--ui-text-secondary); }
-        /* 模块开关：拨动开关代替勾选框——开是实心主题绿、关是灰，扫一眼就分得清；
-           「点了立刻生效」也比勾选框（像要按保存的表单项）更贴切。
-           单个 input 用 appearance:none + 背景渐变画滑块，不靠伪元素，键盘与读屏照常。 */
+        /* 保留即时生效的开关形态与原生键盘行为。 */
         .source-card-toggle .module-switch {
             appearance: none;
             -webkit-appearance: none;
             flex-shrink: 0;
-            width: 38px;
-            height: 22px;
+            width: 36px;
+            height: 21px;
             margin: 0;
             border-radius: 999px;
-            background: #c4cbc6 radial-gradient(circle, #fff 0 8px, transparent 8.5px) no-repeat left center / 22px 22px;
+            background: #d5d8d7 radial-gradient(circle, #fff 0 7.5px, transparent 8px) no-repeat left center / 21px 21px;
             cursor: pointer;
             transition: background-color .18s ease, background-position .18s ease;
         }
         .source-card-toggle .module-switch:checked { background-color: var(--ui-accent); background-position: right center; }
-        .source-card-toggle .module-switch:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
-        .source-card-toggle { gap: 7px; }
-        /* 详情弹窗里的频道名单（issue #164）：小标签换行排，频道多时限高、内部滚动，
-           不把下面的配置表单顶出视野 */
-        .extractor-channels {
-            margin: 0 0 14px;
-            padding: 12px 14px;
-            border: 1px solid var(--ui-line);
-            border-radius: 12px;
+        .source-card-toggle .module-switch:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
+        .source-card-toggle { gap: 6px; color: var(--ui-text-secondary); font-size: 11px; }
+        .source-card-title, .external-nav-title { color: var(--ui-text); font-size: 15px; font-weight: 650; }
+        .external-nav-item.active .external-nav-title { color: var(--ui-text); }
+        .source-card-desc { color: var(--ui-text-secondary); font-size: 13px; line-height: 1.7; }
+        .source-card-foot { padding-top: 4px; color: var(--ui-muted); font-size: 12px; }
+        .external-nav-meta { justify-content: flex-start; flex-wrap: wrap; gap: 7px; color: var(--ui-muted); font-size: 12px; }
+        .card-open-hint { padding: 3px 8px; border: 1px solid var(--ui-line); border-radius: 6px; background: var(--ui-surface-soft); color: var(--ui-text-secondary); font-size: 11px; font-weight: 500; }
+        .source-card:hover .card-open-hint,
+        .external-nav-item:hover .card-open-hint { color: #fff; border-color: var(--ui-text); background: var(--ui-text); }
+        .source-card.active .card-open-hint,
+        .external-nav-item.active .card-open-hint { color: var(--ui-text); border-color: var(--ui-line-strong); background: #fff; }
+        .source-card.active:hover .card-open-hint,
+        .external-nav-item.active:hover .card-open-hint { color: #fff; border-color: var(--ui-text); background: var(--ui-text); }
+        .source-card-add { min-height: 154px; padding: 18px; gap: 7px; border: 1px dashed var(--ui-line-strong); border-radius: 12px; background: var(--ui-surface-soft); color: var(--ui-text-secondary); font-weight: 500; }
+        .source-card-add:hover { border-color: var(--ui-accent-line); background: var(--ui-accent-soft); color: var(--ui-accent); }
+        .source-card-add .plus { color: var(--ui-text); font-size: 28px; font-weight: 300; }
+        .source-card-add small { color: var(--ui-muted); font-size: 11px; line-height: 1.7; }
+        .source-badge, .status-badge, .external-mode-badge, .mode-badge,
+        .instant-badge, .login-state-badge, .channel-tag { padding: 2px 7px; border-radius: 5px; font-weight: 500; }
+        .source-badge.builtin, .source-badge.account, .source-badge.live,
+        .source-badge.standard, .source-badge.overseas,
+        .external-mode-badge.fetch, .external-mode-badge.direct, .external-mode-badge.subscription,
+        .mode-badge, .mode-badge.mode-direct, .mode-badge.mode-subscription {
+            color: var(--ui-text-secondary);
+            border-color: var(--ui-line);
             background: var(--ui-surface-soft);
         }
-        .extractor-channels-head {
-            display: flex;
-            align-items: baseline;
-            flex-wrap: wrap;
-            gap: 8px;
-            color: var(--ui-text);
-            font-size: 13px;
-            font-weight: 650;
-            margin-bottom: 9px;
-        }
+        .status-badge.enabled, .login-state-badge.on, .instant-badge { color: var(--ui-success); border-color: var(--ui-success-line); background: var(--ui-success-soft); }
+        .status-badge.disabled, .login-state-badge.off { color: var(--ui-muted); border-color: var(--ui-line); background: var(--ui-surface-strong); }
+        .external-order-btn { min-width: 25px; min-height: 24px; color: var(--ui-muted); border: 1px solid var(--ui-line); border-radius: 5px; background: #fff; }
+        .external-order-btn:hover:not(:disabled) { color: var(--ui-text); border-color: var(--ui-line-strong); background: var(--ui-surface-soft); }
+        .source-card-foot [style*="#52c41a"],
+        .external-nav-meta > [style*="#52c41a"],
+        .external-detail .form-hint[style*="#52c41a"] { color: var(--ui-success) !important; }
+        .source-card-foot [style*="#faad14"] { color: var(--ui-warning) !important; }
+        .source-card-foot [style*="#ff4d4f"] { color: var(--ui-danger) !important; }
+
+        /* 展开的源配置与帮助块：灰色分区标题、白色表单，延续卡片层级。 */
+        .external-detail-wrap { gap: 20px; margin-top: 22px; min-width: 0; }
+        .external-detail,
+        .external-item { min-width: 0; border: 1px solid var(--ui-line); border-radius: 12px; background: #fff; box-shadow: none; }
+        .external-item:hover { border-color: var(--ui-line-strong); box-shadow: none; transform: none; }
+        .external-detail-header,
+        .external-item-header { gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--ui-line); border-radius: 12px 12px 0 0; background: var(--ui-surface-soft); }
+        .external-detail-title, .external-item-title { min-width: 0; overflow-wrap: anywhere; color: var(--ui-text); font-size: 15px; font-weight: 650; }
+        .external-detail-body, .external-item-body { padding: 20px; }
+        .external-detail-footer,
+        .external-item-footer { gap: 14px; flex-wrap: wrap; padding: 14px 20px; border-top: 1px solid var(--ui-line); background: var(--ui-surface-soft); }
+        .external-instant-block { padding: 14px 20px; border-top-color: var(--ui-line); background: #fff; }
+        .external-instant-block > label, .external-field label { color: var(--ui-text-secondary); }
+        .form-hint { color: var(--ui-muted); }
+        .external-detail .mode-switcher { padding: 8px 12px; background: #fff; }
+        .external-detail .mode-switch-btn { border-radius: 6px; }
+        .external-detail .mode-switch-btn.active { border-color: var(--ui-selected-bg); background: var(--ui-selected-bg); color: var(--ui-selected-text); box-shadow: none; }
+        .external-detail .mode-switch-btn.active:hover { background: var(--ui-selected-hover); color: var(--ui-selected-text); }
+        .external-usage-side,
+        .external-usage { padding: 18px; border: 1px solid var(--ui-line); border-radius: 12px; background: var(--ui-surface-soft); color: var(--ui-text-secondary); }
+        .external-usage-side h4, .external-usage h4 { margin-bottom: 14px; color: var(--ui-text); font-size: 13px; font-weight: 650; }
+        .external-usage-side ol, .external-usage ol { color: var(--ui-text-secondary); }
+        .external-usage-side > div[style] { padding: 0 !important; margin-bottom: 0 !important; background: transparent !important; }
+        .external-usage-side > div > strong[style] { color: var(--ui-text-secondary) !important; font-size: 12px; }
+        .external-usage-side ol[style] { color: var(--ui-text-secondary) !important; font-size: 12px !important; }
+        .xt-cols { gap: 16px; }
+        .xt-col { padding: 16px 17px 8px; border: 1px solid var(--ui-line); border-radius: 10px; background: var(--ui-surface-soft); }
+        .xt-col-title, .xt-section { color: var(--ui-text); }
+        .xt-section { border-top-color: var(--ui-line); }
+        .xt-choice { min-height: 38px; padding: 8px 10px; border-color: var(--ui-line); border-radius: 7px; color: var(--ui-text-secondary); }
+        .xt-choice:hover { border-color: var(--ui-line-strong); }
+        .xt-choice:has(input:checked) { color: var(--ui-text); border-color: var(--ui-selected-bg); background: var(--ui-surface-strong); }
+        .extractor-channels { margin: 0 0 16px; padding: 14px; border: 1px solid var(--ui-line); border-radius: 10px; background: var(--ui-surface-soft); }
+        .extractor-channels-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; color: var(--ui-text); font-size: 13px; font-weight: 600; }
         .extractor-channels-note { color: var(--ui-muted); font-size: 12px; font-weight: 400; }
         .extractor-channels-body { max-height: 110px; overflow-y: auto; }
         .extractor-channel-group + .extractor-channel-group { margin-top: 10px; }
-        .extractor-channel-group-name { margin-bottom: 5px; color: var(--ui-text-secondary); font-size: 12px; }
+        .extractor-channel-group-name { margin-bottom: 6px; color: var(--ui-text-secondary); font-size: 12px; }
         .extractor-channel-chips { display: flex; flex-wrap: wrap; gap: 5px; }
-        .extractor-channel-chip {
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            padding: 2px 9px;
-            border: 1px solid var(--ui-line);
-            border-radius: 999px;
-            background: #fff;
-            color: var(--ui-text);
-            font-size: 12px;
-        }
+        .extractor-channel-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 8px; border: 1px solid var(--ui-line); border-radius: 5px; background: #fff; color: var(--ui-text-secondary); font-size: 12px; }
         .extractor-channels-empty { color: var(--ui-muted); font-size: 12px; }
-        .source-card-title, .external-nav-title { color: var(--ui-text); font-size: 15px; font-weight: 700; }
-        .external-nav-item.active .external-nav-title { color: var(--ui-accent); }
-        .source-card-desc { color: var(--ui-text-secondary); font-size: 13px; line-height: 1.65; }
-        .source-card-foot { padding-top: 4px; color: var(--ui-muted); font-size: 12px; }
-        .external-nav-meta { color: var(--ui-muted); font-size: 12px; }
-        .source-card-toggle { color: var(--ui-text-secondary); }
-        .card-open-hint {
-            padding: 3px 9px;
-            border: 1px solid var(--ui-accent-line);
-            border-radius: 999px;
-            background: var(--ui-accent-soft);
-            color: var(--ui-accent);
-        }
-        .source-card:hover .card-open-hint,
-        .external-nav-item:hover .card-open-hint { color: #fff; border-color: var(--ui-accent); background: var(--ui-accent); }
-        .source-card.active .card-open-hint,
-        .external-nav-item.active .card-open-hint { color: var(--ui-text-secondary); border-color: var(--ui-line); background: #fff; }
-        .source-card.active:hover .card-open-hint,
-        .external-nav-item.active:hover .card-open-hint { color: var(--ui-accent); border-color: var(--ui-accent-line); background: #fff; }
-        .source-card-add {
-            min-height: 158px;
-            border: 1px dashed var(--ui-accent-line);
-            border-radius: var(--ui-radius-card);
-            background: var(--ui-accent-soft);
-            color: var(--ui-accent);
-        }
-        .source-card-add:hover { border-color: var(--ui-accent-line); background: var(--ui-accent-soft); }
-        .source-card-add .plus { font-size: 28px; font-weight: 300; }
-        .source-badge, .status-badge, .external-mode-badge, .mode-badge,
-        .instant-badge, .login-state-badge, .channel-tag {
-            padding: 2px 8px;
-            border-radius: 999px;
-            font-weight: 650;
-        }
-        .source-badge.builtin {
-            color: var(--ui-accent);
-            border-color: var(--ui-accent-line);
-            background: var(--ui-accent-soft);
-        }
-        .source-badge.account {
-            color: var(--ui-violet);
-            border-color: var(--ui-violet-line);
-            background: var(--ui-violet-soft);
-        }
-        .source-badge.live,
-        .external-mode-badge.fetch,
-        .mode-badge {
-            color: var(--ui-cyan);
-            border-color: var(--ui-cyan-line);
-            background: var(--ui-cyan-soft);
-        }
-        .source-badge.standard,
-        .external-mode-badge.direct,
-        .mode-badge.mode-direct,
-        .status-badge.enabled,
-        .login-state-badge.on,
-        .instant-badge {
-            color: var(--ui-success);
-            border-color: var(--ui-success-line);
-            background: var(--ui-success-soft);
-        }
-        .source-badge.overseas,
-        .external-mode-badge.subscription,
-        .mode-badge.mode-subscription {
-            color: var(--ui-pink);
-            border-color: var(--ui-pink-line);
-            background: var(--ui-pink-soft);
-        }
-        .status-badge.disabled, .login-state-badge.off {
-            color: var(--ui-muted);
-            border-color: var(--ui-line);
-            background: var(--ui-surface-strong);
-        }
-        .external-order-btn {
-            min-width: 25px;
-            min-height: 24px;
-            color: var(--ui-text-secondary);
-            border-color: var(--ui-line-strong);
-            border-radius: 7px;
-            background: #fff;
-        }
-        .external-order-btn:hover:not(:disabled) { color: var(--ui-accent); border-color: var(--ui-accent); }
+        #extractorNotice > div[style] { padding: 12px 14px !important; border-color: var(--ui-danger-line) !important; border-radius: 9px !important; background: var(--ui-danger-soft) !important; color: var(--ui-danger) !important; }
 
-        /* 展开的源配置与帮助块 */
-        .external-detail-wrap { gap: 22px; margin-top: 22px; }
-        .external-detail,
-        .external-item {
+        /* 设置：与源管理共用白灰底板、线形标签和墨色主操作。 */
+        .panel.settings-panel { padding: 28px; border: 0; background: var(--ui-surface-soft); }
+        .settings-panel .settings-subtabs {
+            display: flex;
+            width: 100%;
+            max-width: 100%;
+            gap: 24px;
+            margin-bottom: 24px;
+            padding: 0;
+            border: 0;
+            border-bottom: 1px solid var(--ui-line);
+            border-radius: 0;
+            background: transparent;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+        }
+        .settings-panel .settings-subtabs > .mode-switch-btn {
+            flex: 0 0 auto;
+            min-height: 44px;
+            padding: 0 0 13px;
+            border: 0;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
+            color: var(--ui-muted);
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .settings-panel .settings-subtabs > .mode-switch-btn:hover { color: var(--ui-text); background: transparent; }
+        .settings-panel .settings-subtabs > .mode-switch-btn.active { color: var(--ui-text); border-bottom-color: var(--ui-text); font-weight: 650; background: transparent; }
+        .settings-panel .settings-subtabs > .mode-switch-btn:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -3px; }
+        .settings-panel .btn-success, .form-modal .btn-success, #notifyModal .btn-success { color: #fff; border-color: var(--ui-ink); background: var(--ui-ink); box-shadow: none; }
+        .settings-panel .btn-success:hover:not(:disabled), .form-modal .btn-success:hover:not(:disabled), #notifyModal .btn-success:hover:not(:disabled) { color: #fff; border-color: var(--ui-ink-hover); background: var(--ui-ink-hover); }
+        .system-config-grid { gap: 18px 24px; margin-bottom: 22px; }
+        .system-config-item { min-width: 0; padding: 18px; border: 1px solid var(--ui-line); border-radius: 12px; background: var(--ui-surface); box-shadow: none; }
+        .system-config-item label { margin-bottom: 8px; color: var(--ui-text); font-size: 13px; font-weight: 500; }
+        .system-config-hint { margin-top: 8px; color: var(--ui-muted); font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+        .system-config-actions { gap: 8px; margin-top: 4px; flex-wrap: wrap; justify-content: flex-end; }
+        .settings-panel .system-config-actions .btn-primary { color: var(--ui-text-secondary); border-color: var(--ui-line-strong); background: var(--ui-surface); }
+        .settings-panel .system-config-actions .btn-primary:hover { color: var(--ui-text); background: var(--ui-surface-strong); }
+        .sys-section {
+            margin-bottom: 18px;
+            padding: 22px;
             border: 1px solid var(--ui-line);
-            border-radius: var(--ui-radius-card);
+            border-radius: 12px;
             background: var(--ui-surface);
             box-shadow: none;
         }
-        .external-item:hover { box-shadow: var(--ui-ring); transform: none; }
-        .external-detail-header,
-        .external-item-header {
-            padding: 16px 19px;
-            border-bottom: 1px solid var(--ui-line);
-            border-radius: var(--ui-radius-card) var(--ui-radius-card) 0 0;
-            background: var(--ui-surface-soft);
-        }
-        .external-detail-title, .external-item-title { color: var(--ui-text); }
-        .external-detail-body, .external-item-body { padding: 20px; }
-        .external-detail-footer,
-        .external-item-footer {
-            padding: 14px 19px;
-            border-top: 1px solid var(--ui-line);
-            background: var(--ui-surface-soft);
-        }
-        .external-instant-block { padding: 13px 18px; border-top-color: var(--ui-line); background: #fbfcff; }
-        .external-instant-block > label, .external-field label { color: var(--ui-text-secondary); }
-        .form-hint { color: var(--ui-muted); }
-        .external-usage-side,
-        .external-usage {
-            padding: 18px;
-            border: 1px solid var(--ui-line);
-            border-radius: var(--ui-radius-card);
-            background: var(--ui-surface-soft);
-            color: var(--ui-text-secondary);
-        }
-        .external-usage-side h4, .external-usage h4 { color: var(--ui-accent); }
-        .external-usage-side ol, .external-usage ol { color: var(--ui-text-secondary); }
-        .xt-cols { gap: 16px; }
-        .xt-col {
-            padding: 16px 17px 8px;
-            border: 1px solid var(--ui-line);
-            border-radius: 13px;
-            background: var(--ui-surface-soft);
-        }
-        .xt-col-title, .xt-section { color: var(--ui-text); }
-        .xt-section { border-top-color: var(--ui-line); }
-        .xt-choice {
-            min-height: 39px;
-            padding: 8px 10px;
-            border-color: var(--ui-line-strong);
-            border-radius: 9px;
-            color: var(--ui-text-secondary);
-        }
-        .xt-choice:hover { border-color: var(--ui-accent-line); }
-        .xt-choice:has(input:checked) { color: var(--ui-accent); border-color: var(--ui-accent-line); background: var(--ui-accent-soft); }
-
-        /* 设置：字段各自成卡，强化层级和可扫读性 */
-        .system-config-grid { gap: 17px; margin-bottom: 22px; }
-        .system-config-item {
-            min-width: 0;
-            padding: 18px;
-            border: 1px solid var(--ui-glass-edge);
-            border-radius: var(--ui-radius-card);
-            background: var(--ui-glass-card);
-            box-shadow: var(--ui-shadow-card);
-        }
-        .system-config-item label { margin-bottom: 8px; color: var(--ui-text); font-size: 14px; font-weight: 700; }
-        .system-config-hint { margin-top: 8px; color: var(--ui-muted); font-size: 12px; line-height: 1.6; }
-        .system-config-actions { gap: 10px; margin-top: 4px; justify-content: flex-end; }
-        /* 系统配置按用途分区：区块成卡，区块里的字段不再各自套卡 */
-        .sys-section {
-            margin-bottom: 18px; padding: 20px;
-            border: 1px solid var(--ui-glass-edge); border-radius: var(--ui-radius-card);
-            background: var(--ui-glass-card); box-shadow: var(--ui-shadow-card);
-        }
-        .sys-section-head { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--ui-line); }
+        .sys-section-head { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--ui-line); }
         .sys-section-title { font-size: 16px; font-weight: 600; color: var(--ui-text); }
-        .sys-section-desc { margin-top: 4px; font-size: 12px; color: var(--ui-muted); }
-        .sys-section .system-config-grid { margin-bottom: 0; gap: 18px 24px; }
-        .sys-section .system-config-item { padding: 0; border: 0; background: none; box-shadow: none; }
+        .sys-section-desc { margin-top: 5px; font-size: 12px; line-height: 1.8; color: var(--ui-muted); }
+        .sys-section .system-config-grid { margin-bottom: 0; gap: 20px 28px; }
+        .sys-section .system-config-item { padding: 0; border: 0; background: transparent; box-shadow: none; }
         .sys-section .system-config-item label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .sys-section .system-config-item label.sys-check-label { font-weight: 600; cursor: pointer; }
+        .sys-section .system-config-item label.sys-check-label { font-weight: 500; cursor: pointer; }
         .sys-section .system-config-item label.sys-check-label input { width: auto; min-height: 0; margin: 0; }
-        .sys-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500; line-height: 1.6; white-space: nowrap; cursor: help; }
-        .sys-badge.is-restart { color: #ad4e00; background: #fff4e5; border: 1px solid #ffd8a8; }
-        .sys-badge.is-address { color: #36597a; background: #eef4fb; border: 1px solid #cfe0f2; }
-        .settings-backup {
-            margin-top: 26px !important;
-            padding: 20px !important;
-            border: 1px solid var(--ui-line) !important;
-            border-radius: var(--ui-radius-card);
-            background: var(--ui-surface-soft);
-        }
-        .settings-backup > div:first-child { color: var(--ui-text) !important; }
+        .sys-badge { display: inline-block; padding: 2px 7px; border-radius: 5px; font-size: 11px; font-weight: 500; line-height: 1.6; white-space: nowrap; cursor: help; }
+        .sys-badge.is-restart { color: var(--ui-warning); background: var(--ui-warning-soft); border: 1px solid var(--ui-warning-line); }
+        .sys-badge.is-address { color: var(--ui-text-secondary); background: var(--ui-surface-soft); border: 1px solid var(--ui-line); }
         .settings-editor-card {
+            min-width: 0;
             margin-top: 0 !important;
             padding: 22px;
-            border: 1px solid var(--ui-glass-edge);
-            border-radius: var(--ui-radius-card);
-            background: var(--ui-glass-card);
-            box-shadow: var(--ui-shadow-card);
+            border: 1px solid var(--ui-line);
+            border-radius: 12px;
+            background: var(--ui-surface);
+            box-shadow: none;
         }
-        .settings-editor-card > div:first-child { padding-bottom: 14px; border-bottom: 1px solid var(--ui-line); }
+        .settings-editor-card > div:first-child { padding-bottom: 16px; border-bottom: 1px solid var(--ui-line); }
         .settings-editor-card > div:first-child > div:first-child,
-        .settings-editor-card > div:first-child > div > div:first-child { color: var(--ui-text) !important; font-size: 18px !important; font-weight: 700 !important; }
-        .user-guide-card {
-            padding: 16px !important;
-            border-color: var(--ui-cyan-line) !important;
-            border-radius: 13px !important;
-            background: var(--ui-cyan-soft) !important;
-            color: var(--ui-text-secondary) !important;
-        }
+        .settings-editor-card > div:first-child > div > div:first-child { color: var(--ui-text) !important; font-size: 17px !important; font-weight: 600 !important; }
+        .settings-backup { margin-top: 0 !important; padding: 22px !important; border: 1px solid var(--ui-line) !important; border-radius: 12px; background: var(--ui-surface); }
+        .settings-backup > div:first-child { color: var(--ui-text) !important; font-size: 17px !important; font-weight: 600 !important; }
+        #configImportFile { width: 100%; min-width: 0; }
+        .user-guide-card { padding: 14px 16px !important; border-color: var(--ui-line) !important; border-radius: 10px !important; background: var(--ui-surface-soft) !important; color: var(--ui-text-secondary) !important; }
+        .settings-panel a:not(.btn) { color: #2563eb; text-decoration: none; }
+        .settings-panel a:not(.btn):hover { text-decoration: underline; }
+        .settings-panel :is(#envOverrideWarning, #userPassWarning) { border: 1px solid var(--ui-warning-line) !important; border-radius: 10px !important; background: var(--ui-warning-soft) !important; color: var(--ui-warning) !important; }
+        .settings-panel .system-config-hint[style*="#d4380d"] { padding: 10px 12px; border-radius: 9px; color: var(--ui-warning) !important; background: var(--ui-warning-soft); }
         #aliasList > div:not(.system-config-hint),
         #groupRuleList > div:not(.system-config-hint),
         #epgSourceList > div:not(.system-config-hint),
         #userList > div:not(.system-config-hint) {
+            min-width: 0;
             margin-bottom: 10px !important;
             padding: 14px !important;
             border: 1px solid var(--ui-line) !important;
-            border-radius: 12px !important;
-            background: #fff;
+            border-radius: 10px !important;
+            background: var(--ui-surface-soft);
         }
+        #aliasList strong, #groupRuleList strong, #epgSourceList strong, #userList strong { color: var(--ui-text); font-size: 13px; font-weight: 600; }
+        #aliasList, #groupRuleList, #epgSourceList { scrollbar-width: thin; scrollbar-color: var(--ui-line-strong) transparent; }
+        #epgSourceList [style*="#52c41a"] { color: var(--ui-success) !important; }
+        #epgSourceList [style*="#ff4d4f"] { color: var(--ui-danger) !important; }
+        #epgSourceList [style*="#d46b08"] { color: var(--ui-warning) !important; }
+        #epgSourceList input[type="number"], #userList select { min-height: 32px; padding-block: 5px; font-size: 12px; background-color: var(--ui-surface); }
+        #epgSourceList input[type="checkbox"], #userList input[type="checkbox"] { flex-shrink: 0; }
+
         .content-switches {
             border-color: var(--ui-danger-line);
             border-radius: var(--ui-radius-card);
@@ -3414,16 +3364,18 @@
 
         /* 全局通知与状态 */
         .group-merge-notice { border-radius: 12px; border-left-width: 1px; }
-        .status {
+        .status,
+        .status.success {
             padding: 16px 22px;
+            border: 1px solid #505851;
             border-radius: 13px;
-            background: #fff;
-            box-shadow: 0 16px 42px rgba(31,45,78,.17);
+            color: #fff;
+            background: #3c423e;
+            box-shadow: 0 16px 42px rgba(25,27,25,.24);
         }
-        .status.success { color: var(--ui-success); border-color: var(--ui-success-line); background: var(--ui-success-soft); }
         .status.error { color: var(--ui-danger); border-color: var(--ui-danger-line); background: var(--ui-danger-soft); }
         .profile-row { padding: 15px; border-color: var(--ui-line); border-radius: 13px; }
-        .profile-row.active { border-color: var(--ui-accent-line); background: var(--ui-accent-soft); }
+        .profile-row.active { border-color: var(--ui-selected-bg); background: var(--ui-surface-strong); }
         .profile-url { color: var(--ui-muted); }
         .profile-url code { background: rgba(255,255,255,.85); }
         .btn.save-dirty { box-shadow: 0 0 0 3px rgba(214,139,19,.18); }
@@ -3440,6 +3392,16 @@
             box-shadow: var(--ui-shadow-float);
         }
         .confirm-title, .modal-content h3 { color: var(--ui-text); }
+        /* 设置页表单沿用统一控件，保持消息预览与底部操作区的独立滚动布局。 */
+        .form-modal .modal-content { padding: 24px; border-color: var(--ui-line); border-radius: 18px; }
+        .form-modal .modal-content h3, #notifyModal h3 { padding-bottom: 16px; border-bottom: 1px solid var(--ui-line); font-size: 18px; font-weight: 600; }
+        .form-modal .modal-content label, #notifyModal label { color: var(--ui-text-secondary) !important; }
+        .form-modal .modal-content input, .form-modal .modal-content select, .form-modal-body div { min-width: 0; }
+        .form-modal .modal-actions { padding-top: 16px; border-top: 1px solid var(--ui-line); }
+        .form-modal .form-modal-body { gap: 16px; }
+        #notifyModal .notify-modal-content { padding: 24px 24px 0; border-color: var(--ui-line); border-radius: 18px; }
+        #notifyModal .notify-modal-actions { margin: 0 -24px; padding: 16px 24px; background: var(--ui-surface-soft); }
+        #notifyModal .notify-preview-label { color: var(--ui-muted); }
         .confirm-message { color: var(--ui-text-secondary); }
         /* 确认框的文案里有换行（如「屏蔽规则会命中这些频道：…」逐行列出）。
            默认 white-space 会把 \n 折叠成空格，多行提示挤成一坨；长清单还会把按钮顶出可视区。 */
@@ -3451,6 +3413,50 @@
         #groupChoiceOverlay .confirm-btn { flex: 0 0 auto; white-space: nowrap; }
         .confirm-btn-confirm { background: var(--ui-danger); border-color: var(--ui-danger); }
         .confirm-btn-confirm:hover { background: #a92b38; border-color: #a92b38; }
+        .prompt-dialog {
+            position: fixed;
+            inset: 0;
+            width: min(440px, calc(100% - 28px));
+            max-width: none;
+            max-height: calc(100% - 28px);
+            margin: auto;
+            padding: 26px 28px;
+            overflow: auto;
+            color: var(--ui-text);
+            border: 1px solid var(--ui-line);
+            border-radius: 20px;
+            background: var(--ui-surface);
+            box-shadow: var(--ui-shadow-float);
+        }
+        .prompt-dialog::backdrop { background: rgba(15, 23, 42, .48); }
+        #confirmOverlay {
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            max-height: none;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+        }
+        #confirmOverlay::backdrop { background: rgba(15, 23, 42, .48); }
+        .prompt-dialog .confirm-title { margin: 0 0 20px; font-size: 18px; }
+        .prompt-dialog input {
+            display: block;
+            width: 100%;
+            min-width: 0;
+            min-height: 44px;
+            margin-bottom: 24px;
+            padding: 10px 12px;
+            border: 1px solid var(--ui-line-strong);
+            border-radius: var(--ui-radius-control);
+            background: var(--ui-surface);
+            color: var(--ui-text);
+            font: inherit;
+            font-size: 14px;
+        }
+        .prompt-dialog input:focus { outline: none; border-color: var(--ui-accent); box-shadow: 0 0 0 3px var(--ui-accent-soft); }
+        @media (max-width: 560px) { .prompt-dialog { padding: 22px; } }
         .reset-option { padding: 12px 13px; border-color: var(--ui-line); border-radius: 11px; }
         .reset-option:hover { background: var(--ui-surface-soft); }
         .reset-option-info strong { color: var(--ui-text); }
@@ -3459,6 +3465,48 @@
         .extractor-modal-close { top: 14px; right: 15px; background: var(--ui-surface-strong); color: var(--ui-text-secondary); }
         .extractor-modal-close:hover { background: var(--ui-accent-soft); color: var(--ui-accent); }
         .extractor-detail { padding: 27px; border-radius: 20px; background: #fff; }
+        /* 模块详情沿用白灰表面与深色主操作，登录状态继续保留各自语义色。 */
+        #extractorDetail .bookmarklet-section {
+            border-color: var(--ui-line-strong);
+            background: var(--ui-surface-soft);
+        }
+        #extractorDetail .bookmarklet-title {
+            flex-wrap: wrap;
+            color: var(--ui-text);
+        }
+        #extractorDetail .bookmarklet-title > span:first-child { flex: 0 0 auto; }
+        #extractorDetail .login-state-badge { max-width: 100%; margin-left: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
+        #extractorDetail .login-state-badge.off { color: var(--ui-text-secondary); }
+        #extractorDetail .bookmarklet-actions { flex-wrap: wrap; }
+        #extractorDetail .bookmarklet-link,
+        #extractorDetail .btn-success {
+            color: #fff;
+            border-color: var(--ui-ink);
+            background: var(--ui-ink);
+        }
+        #extractorDetail .bookmarklet-link:hover,
+        #extractorDetail .btn-success:hover:not(:disabled) {
+            color: #fff;
+            border-color: var(--ui-ink-hover);
+            background: var(--ui-ink-hover);
+        }
+        #extractorDetail .bookmarklet-actions > a:not(.bookmarklet-link) { color: #2563eb; text-underline-offset: 3px; }
+        #extractorDetail .bookmarklet-actions > a:not(.bookmarklet-link):hover { color: #1d4ed8; }
+        #extractorDetail .bookmarklet-help-btn { border-color: var(--ui-line-strong); color: var(--ui-text-secondary); }
+        #extractorDetail .bookmarklet-help-btn:hover { border-color: var(--ui-ink); background: var(--ui-ink); color: #fff; }
+        #extractorDetail .bookmarklet-section > div[style*="color:#888"]:not(#yspLoginMessage) { color: var(--ui-text-secondary) !important; }
+        #extractorDetail [style*="color:#ff4d4f"] { color: var(--ui-attention-text) !important; }
+        #extractorDetail div[style*="color:#ff4d4f"] {
+            padding: 10px 12px;
+            border: 1px solid var(--ui-attention-line);
+            border-radius: var(--ui-radius-control);
+            background: var(--ui-attention-bg);
+            font-weight: 600;
+        }
+        @media (max-width: 560px) {
+            #extractorDetailModal .extractor-modal-content { padding: 0; }
+            #extractorDetail { padding: 22px; }
+        }
         dialog.inline-player {
             margin: auto;
             width: min(960px, calc(100% - 32px));
@@ -3479,121 +3527,104 @@
         .inline-player-status { min-height: 20px; margin: 11px 0 0; color: var(--ui-muted); font-size: 13px; }
         .inline-player-status.bad { color: var(--ui-danger); }
 
-        /* 关于页独立配色，其他业务页面沿用原有视觉系统。 */
+        /* 关于页：沿用管理台的白灰层次与墨色操作。 */
         .panel.about-panel {
-            --ui-bg: #faf9f6;
-            --ui-page-background: var(--ui-bg);
-            --ui-surface: #fff;
-            --ui-surface-soft: #f6f6f2;
-            --ui-surface-strong: #eeeee7;
-            --ui-line: #e2e3da;
-            --ui-text: #282c29;
-            --ui-text-secondary: #62675f;
-            --ui-muted: #73796f;
-            --ui-accent: #35735c;
-            --ui-accent-hover: #343a36;
-            --ui-accent-soft: #efefeb;
-            --ui-accent-line: #dcded6;
-            --ui-accent-fill: #e4e6e1;
-            --ui-accent-fill-hover: #d9dcd5;
-            --ui-accent-fill-line: #d2d6ce;
-            --ui-heading-bg: #f0f2ed;
-            --ui-radius-panel: 10px;
-            --ui-radius-control: 8px;
-            --ui-shadow-control: none;
-            color: var(--ui-text);
-            border-color: var(--ui-line);
+            padding: 28px;
+            border: 0;
             border-radius: var(--ui-radius-panel);
-            background: var(--ui-surface);
+            background: var(--ui-surface-soft);
             box-shadow: none;
-            -webkit-backdrop-filter: none;
-            backdrop-filter: none;
         }
-        .about-panel .btn-sm { border-radius: 6px; }
-        /* 关于页：用与其他页一致的信息卡格式 */
+        .about-page { min-width: 0; }
         .about-info-card {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 14px;
-            padding: 0 !important;
-            border-radius: 0 !important;
-            background: transparent !important;
-            box-shadow: none !important;
         }
         .about-info-card > div {
             min-width: 0;
-            margin-bottom: 0 !important;
-            padding: 19px;
-            border: 1px solid var(--ui-glass-edge);
-            border-radius: 14px;
-            background: var(--ui-glass-card);
-            box-shadow: var(--ui-shadow-card);
+            padding: 22px;
+            border: 1px solid var(--ui-line);
+            border-radius: 12px;
+            background: var(--ui-surface);
         }
-        .about-info-card strong { color: var(--ui-text) !important; }
-        .about-info-card a { color: var(--ui-accent) !important; }
-        .about-card-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 16px; }
+        .about-info-card strong { color: var(--ui-text); font-weight: 600; }
+        .about-card-heading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            color: var(--ui-text);
+            font-size: 15px;
+        }
         .about-card-icon {
             display: inline-grid;
             place-items: center;
             flex: 0 0 auto;
             width: 36px;
             height: 36px;
-            border-radius: 8px;
+            border: 1px solid var(--ui-line);
+            border-radius: 9px;
             background: var(--ui-surface-soft);
             color: var(--ui-text-secondary);
-            box-shadow: none;
         }
-        .about-card-icon svg { width: 20px; height: 20px; }
-        .about-card-content { padding-left: 46px; font-size: 15px; color: var(--ui-text-secondary); }
-        .about-card-content a { text-decoration: none; overflow-wrap: anywhere; }
-        .about-card-content a:hover { text-decoration: underline; }
+        .about-card-icon svg { width: 19px; height: 19px; }
+        .about-card-content { padding-left: 46px; color: var(--ui-text-secondary); font-size: 14px; line-height: 1.8; }
+        .about-card-content a { color: #2563eb; text-decoration: none; overflow-wrap: anywhere; }
+        .about-card-content a:hover { color: #1d4ed8; text-decoration: underline; text-underline-offset: 3px; }
+        .about-card-content a:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 4px; border-radius: 3px; }
         .about-version-card { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; }
         .about-version-card .about-card-heading { margin-bottom: 0; }
-        .about-version-body { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        #versionText { color: var(--ui-text); font-size: 15px; font-weight: 600; }
-        .about-update-info { grid-column: 1 / -1; padding-left: 46px; font-size: 13px; }
+        .about-version-body { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .about-panel #versionText { color: var(--ui-text); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+        .about-panel #checkUpdateBtn { background: var(--ui-surface); }
+        .about-panel #checkUpdateBtn:hover:not(:disabled) { background: var(--ui-surface-soft); }
+        .about-update-info { grid-column: 1 / -1; padding-left: 46px; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
         .about-community-card { grid-column: 1 / -1; }
-        .about-community-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding-left: 46px; }
-        .about-community-entry { display: flex; align-items: center; justify-content: flex-start; gap: 16px; flex-wrap: wrap; min-width: 0; }
+        .about-community-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; padding-left: 46px; }
+        .about-community-entry { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; min-width: 0; }
         .about-community-copy { min-width: 0; }
-        .about-community-name { display: block; font-size: 15px; font-weight: 600; }
+        .about-community-name { display: block; font-size: 14px; }
         .about-community-handle { display: block; margin-top: 3px; color: var(--ui-muted); font-size: 12px; }
         .about-community-card .about-community-link {
             display: inline-flex;
             align-items: center;
             gap: 6px;
             flex: 0 0 auto;
+            color: #fff;
             text-decoration: none;
-            color: var(--ui-accent-hover) !important;
+            white-space: nowrap;
         }
         .about-community-link svg { width: 14px; height: 14px; }
 
         @media (max-width: 1180px) {
-            .my-playlist-left { width: 216px; }
-            .my-playlist-right { width: 202px; }
-            .my-playlist-channels { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+            .my-playlist-left { width: 200px; }
+            .my-playlist-right { width: 160px; }
+            .my-playlist-channels { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
             .my-playlist-detail-header { flex-wrap: wrap; gap: 8px; }
             .my-playlist-detail-info { flex-basis: 100%; }
             .my-playlist-detail-actions { flex: 1 1 100%; max-width: none; justify-content: flex-start; }
             .external-detail-wrap { grid-template-columns: 1fr 250px; }
         }
         @media (max-width: 900px) {
-            body { padding: 18px; }
-            .header-shell { --header-inset: 18px; }
+            body { padding: 0 20px 20px; }
+            .header-shell { --header-inset: 0px; }
             .panel { padding: 22px; }
             .tabs { gap: 10px; }
             .tab { padding-inline: 13px; }
             .my-playlist-container { gap: 6px 14px; }
-            .my-playlist-left, .my-playlist-right { width: 190px; }
+            .my-playlist-left { width: 176px; }
+            .my-playlist-right { width: 148px; }
             .system-config-grid { grid-template-columns: 1fr; }
             .external-detail-wrap { grid-template-columns: 1fr; }
             .external-usage-side { display: block; max-height: none; }
         }
         @media (max-width: 768px) {
-            body { padding: 14px; }
-            .header-shell { --header-inset: 14px; margin-bottom: 16px; }
-            .header { padding: 10px; border-radius: 16px; }
+            body { padding: 0 14px 20px; }
+            .header-shell { --header-inset: 0px; margin-bottom: 20px; }
+            .header { padding: 14px 0; border-radius: 0; }
             .tabs {
+                display: flex;
                 flex-direction: row;
                 flex-wrap: wrap;
                 align-items: center;
@@ -3604,6 +3635,7 @@
             .tabs-right { width: auto; margin-left: auto; }
             .restart-btn { width: auto; min-height: 38px; padding: 8px 12px; }
             .tabs-left {
+                display: grid;
                 order: 3;
                 flex: 1 0 100%;
                 width: 100%;
@@ -3614,10 +3646,11 @@
             .tabs-left::-webkit-scrollbar { display: none; }
             .tab { flex: 0 0 auto; white-space: nowrap; }
             .panel { padding: 18px; border-radius: 16px; }
-            .panel.about-panel { border-radius: 10px; }
+            .panel.sources-panel { padding: 18px; }
+            .panel.about-panel, .panel.settings-panel { padding: 18px; border-radius: 16px; }
             .settings-subtabs, .source-subtabs { margin-bottom: 19px; }
             .my-playlist-header { padding: 0; gap: 0; }
-            .my-playlist-header-row { padding: 14px; align-items: flex-start; gap: 14px; }
+            .my-playlist-header-row { padding: 0 0 14px; align-items: flex-start; gap: 14px; }
             .my-playlist-container {
                 height: auto;
                 min-height: 0;
@@ -3644,15 +3677,27 @@
         @media (max-width: 560px) {
             .about-community-grid { padding-left: 0; }
             .panel { padding: 15px; }
+            .panel.about-panel, .panel.settings-panel { padding: 15px; }
+            .settings-panel .settings-subtabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; margin-bottom: 18px; overflow: visible; }
+            .settings-panel .settings-subtabs > .mode-switch-btn { min-width: 0; min-height: 36px; padding: 6px 2px 10px; font-size: 12px; white-space: normal; }
+            .sys-section { padding: 16px; }
+            .settings-editor-card { padding: 16px; }
+            .about-info-card > div { padding: 16px; }
+            .about-card-content, .about-version-body, .about-update-info, .about-community-grid { padding-left: 0; }
+            .about-community-entry { justify-content: space-between; gap: 12px; }
             .brand { padding-inline: 5px; }
             .tabs-left {
                 display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                grid-template-columns: repeat(4, minmax(0, 1fr));
                 overflow: visible;
             }
-            .tab { width: 100%; padding-inline: 8px; text-align: center; }
+            .tab { width: 100%; padding-inline: 6px; font-size: 12px; text-align: center; }
             .my-playlist-header-row { flex-direction: column; }
-            .my-playlist-actions { width: 100%; justify-content: space-between; }
+            .my-playlist-info h3 { font-size: 22px; }
+            .my-playlist-info #myChannelTotal { margin-left: 4px; }
+            .my-playlist-actions { width: 100%; justify-content: flex-start; gap: 6px; }
+            .my-playlist-actions > span { flex: 1 0 100%; margin: 0 0 2px; font-size: 12px !important; }
+            .my-playlist-actions .btn { flex: 1 1 auto; padding-inline: 10px; }
             .subscribe-bar { align-items: stretch; }
             .subscribe-bar .sb-label { flex: 1 0 100%; }
             .subscribe-bar code,
@@ -3681,49 +3726,26 @@
             .settings-backup { padding: 16px !important; }
             .modal-content, .confirm-dialog { width: calc(100% - 28px) !important; min-width: 0; padding: 22px; }
         }
+        @media (max-width: 560px) {
+            .sources-panel .source-subtabs { gap: 6px; }
+            .sources-panel .source-subtabs > .mode-switch-btn { flex: 1 1 0; min-width: 0; padding: 8px 6px; font-size: 12px; white-space: normal; line-height: 1.5; }
+            .sources-panel .source-tab-count { margin-left: 3px; padding-inline: 4px; font-size: 10px; }
+            .extractor-filter { margin-bottom: 18px; }
+            .extractor-category-bar { gap: 6px; }
+            .extractor-category-btn { padding-inline: 10px; font-size: 12px; }
+            .source-card, .external-nav-item { padding: 16px; }
+            .external-detail-header, .external-detail-footer, .external-detail-body, .external-instant-block { padding: 15px; }
+        }
+        @media (max-width: 380px) {
+            .sources-panel .source-subtabs { gap: 6px; }
+            .sources-panel .source-subtabs > .mode-switch-btn { padding-inline: 4px; }
+            .sources-panel .source-subtabs > .mode-switch-btn:nth-child(2) { flex-grow: 1.4; }
+        }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
         }
 
-        /* Ceaule 的轻玻璃材质：薄荷填色、白色高光与柔和阴影代替深色轮廓。 */
-        body { isolation: isolate; -webkit-font-smoothing: antialiased; }
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-            pointer-events: none;
-            background: var(--ui-page-background);
-        }
-        .panel { border-color: var(--ui-glass-edge); background: var(--ui-surface-soft); }
-        @supports ((backdrop-filter: blur(16px)) or (-webkit-backdrop-filter: blur(16px))) {
-            .panel {
-                background: var(--ui-glass-surface);
-                -webkit-backdrop-filter: blur(16px);
-                backdrop-filter: blur(16px);
-            }
-        }
-        .tabs-left {
-            border-color: rgba(255, 255, 255, .7);
-            background: rgba(229, 237, 226, .62);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7);
-        }
-        .btn-primary, .confirm-btn-confirm, .mode-switch-btn.active {
-            border-color: var(--ui-accent-fill-line);
-            background: var(--ui-accent-fill);
-            color: var(--ui-accent-hover);
-            box-shadow: var(--ui-shadow-control);
-        }
-        .btn-primary:hover:not(:disabled), .confirm-btn-confirm:hover:not(:disabled),
-        .mode-switch-btn.active:hover { border-color: var(--ui-accent-fill-line); background: var(--ui-accent-fill-hover); color: var(--ui-accent-hover); }
-        .btn:focus-visible, .confirm-btn:focus-visible, .tab:focus-visible,
-        .mode-switch-btn:focus-visible { box-shadow: var(--ui-ring); }
-        .restart-btn { background: var(--ui-surface); color: var(--ui-text-secondary); border-color: var(--ui-line-strong); }
-        .restart-btn:hover { color: var(--ui-accent); border-color: var(--ui-accent-line); background: var(--ui-accent-soft); }
-        .subscribe-bar { background: transparent; }
-        .subscribe-bar code { color: var(--ui-text-secondary); }
-        code { color: var(--ui-text-secondary); }
-        /* 频道详情沿用主界面的薄荷玻璃材质，所有编辑行共用一套尺寸与对齐。 */
+        /* 频道详情与列表共用白灰表面，所有编辑行共用一套尺寸与对齐。 */
         #channelDetailModal .modal-content {
             display: flex;
             flex-direction: column;
@@ -3853,6 +3875,79 @@
             .channel-detail-logo .btn { justify-self: start; min-width: 84px; }
             #channelDetailModal .modal-actions { padding: 14px 20px; }
         }
+        /* 批量开关弹窗：标题、快捷操作和页脚固定，只有中间的清单滚动——七十多个模块在手机上
+           很长，「应用」和改动摘要不能跟着滚出视野。 */
+        #extractorBulkModal .modal-content {
+            display: flex;
+            flex-direction: column;
+            width: min(680px, calc(100% - 32px)) !important;
+            max-width: none;
+            max-height: calc(100vh - 40px);
+            max-height: calc(100dvh - 40px);
+            padding: 0;
+            overflow: hidden;
+        }
+        .extractor-bulk-head { flex: 0 0 auto; padding: 24px 24px 14px; border-bottom: 1px solid var(--ui-line); }
+        .extractor-bulk-head h3 { margin: 0 40px 8px 0; font-size: 18px; font-weight: 600; }
+        .extractor-bulk-hint { color: var(--ui-text-secondary); font-size: 13px; line-height: 1.7; }
+        .extractor-bulk-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+        .extractor-bulk-tools .extractor-filter-btn:disabled { opacity: .48; cursor: not-allowed; }
+        .extractor-bulk-body { flex: 1 1 auto; min-height: 0; padding: 4px 24px 16px; overflow-y: auto; overscroll-behavior: contain; }
+        .extractor-bulk-section { padding: 14px 0; }
+        .extractor-bulk-section + .extractor-bulk-section { border-top: 1px solid var(--ui-line); }
+        .extractor-bulk-section-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; color: var(--ui-text); font-size: 14px; }
+        .extractor-bulk-section-head .extractor-filter-count { padding: 0 6px; }
+        .extractor-bulk-section-actions { display: inline-flex; gap: 2px; margin-left: auto; }
+        .extractor-bulk-link { padding: 3px 8px; border: 0; border-radius: 6px; background: none; color: var(--ui-accent); font-size: 12px; font-weight: 500; cursor: pointer; }
+        .extractor-bulk-link:hover:not(:disabled) { background: var(--ui-accent-soft); }
+        .extractor-bulk-link:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
+        .extractor-bulk-link:disabled { opacity: .48; cursor: not-allowed; }
+        .extractor-bulk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+        .extractor-bulk-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 38px;
+            padding: 7px 10px;
+            border: 1px solid var(--ui-line);
+            border-radius: 8px;
+            background: var(--ui-surface);
+            color: var(--ui-text);
+            font-size: 13px;
+            line-height: 1.4;
+            cursor: pointer;
+        }
+        .extractor-bulk-item:hover { border-color: var(--ui-line-strong); background: var(--ui-surface-soft); }
+        /* 通用 .modal-content input 会把复选框撑成整行文本框，这里恢复成普通勾选框。 */
+        .extractor-bulk-item input[type="checkbox"] { flex: 0 0 auto; width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; cursor: pointer; }
+        .extractor-bulk-item input[type="checkbox"]:disabled { cursor: not-allowed; }
+        .extractor-bulk-name { min-width: 0; overflow-wrap: anywhere; }
+        /* 和打开时不一样的项单独标出来：七十多个里改了哪几个，不用逐个比对 */
+        .extractor-bulk-item[data-change="on"] { border-color: var(--ui-accent-line); background: var(--ui-accent-soft); }
+        .extractor-bulk-item[data-change="off"] { border-style: dashed; border-color: var(--ui-line-strong); background: var(--ui-surface-soft); }
+        .extractor-bulk-item[data-change="on"]::after,
+        .extractor-bulk-item[data-change="off"]::after { flex: 0 0 auto; margin-left: auto; font-size: 11px; white-space: nowrap; }
+        .extractor-bulk-item[data-change="on"]::after { content: '将启用'; color: var(--ui-accent); }
+        .extractor-bulk-item[data-change="off"]::after { content: '将关闭'; color: var(--ui-muted); }
+        .extractor-bulk-note { margin-top: 10px; color: var(--ui-muted); font-size: 12px; line-height: 1.7; }
+        .extractor-bulk-foot { flex: 0 0 auto; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; padding: 14px 24px; border-top: 1px solid var(--ui-line); background: var(--ui-surface-soft); }
+        .extractor-bulk-status { display: flex; flex: 1 1 220px; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; line-height: 1.6; }
+        .extractor-bulk-summary { color: var(--ui-text); font-weight: 600; }
+        .extractor-bulk-warning { color: var(--ui-warning); font-size: 12px; }
+        .extractor-bulk-corrupt { color: var(--ui-danger); font-size: 12px; }
+        .extractor-bulk-foot .modal-actions { margin-left: auto; }
+        @media (max-width: 560px) {
+            #extractorBulkModal .modal-content { width: calc(100% - 20px) !important; max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); }
+            .extractor-bulk-head { padding: 20px 18px 12px; }
+            .extractor-bulk-body { padding: 2px 18px 12px; }
+            .extractor-bulk-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+            /* 两列太窄，「将关闭」小字会把模块名挤成两三行；手机上只留底色 / 虚线标记，数字看页脚摘要 */
+            .extractor-bulk-item[data-change="on"]::after,
+            .extractor-bulk-item[data-change="off"]::after { display: none; }
+            .extractor-bulk-foot { padding: 12px 18px; }
+            .extractor-bulk-foot .modal-actions { flex: 1 1 100%; }
+            .extractor-bulk-foot .modal-actions .btn { flex: 1 1 0; }
+        }
         /* 占位文字要明显浅于填进去的内容，不然看着像已经填了值 */
         input::placeholder, textarea::placeholder { color: #a3ada6; opacity: 1; }
         @media (prefers-reduced-motion: reduce) {
@@ -3861,6 +3956,18 @@
     </style>
 </head>
 <body>
+    <!-- 页面内输入框：居中显示，并由 dialog 管理焦点和键盘取消。 -->
+    <dialog class="prompt-dialog" id="promptDialog" aria-labelledby="promptTitle">
+        <form id="promptForm">
+            <h3 class="confirm-title" id="promptTitle"></h3>
+            <input id="promptInput" type="text" aria-labelledby="promptTitle" autocomplete="off" autofocus>
+            <div class="confirm-buttons">
+                <button class="confirm-btn confirm-btn-cancel" id="promptCancel" type="button">取消</button>
+                <button class="btn btn-primary" type="submit">确定</button>
+            </div>
+        </form>
+    </dialog>
+
     <!-- 多选一对话框：隐藏 / 恢复分组时要在「只这一个」和「这一整批」之间选，是非两态不够用 -->
     <div class="confirm-overlay" id="groupChoiceOverlay">
         <div class="confirm-dialog">
@@ -3871,16 +3978,18 @@
     </div>
 
     <!-- 自定义确认对话框 -->
-    <div class="confirm-overlay" id="confirmOverlay">
+    <dialog class="confirm-overlay" id="confirmOverlay" aria-labelledby="confirmTitle" aria-describedby="confirmMessage"
+        oncancel="event.preventDefault(); hideConfirm(false)" onclose="if (!this.open) hideConfirm(false)"
+        onkeydown="event.stopPropagation(); if ((event.key === 'Enter' || event.key === 'Escape') && (event.isComposing || event.keyCode === 229)) event.preventDefault()">
         <div class="confirm-dialog">
-            <div class="confirm-title" id="confirmTitle">localhost:1905 显示</div>
+            <div class="confirm-title" id="confirmTitle">确认操作</div>
             <div class="confirm-message" id="confirmMessage">确认要删除这个外部源吗？</div>
             <div class="confirm-buttons">
                 <button class="confirm-btn confirm-btn-cancel" onclick="hideConfirm(false)">取消</button>
-                <button class="confirm-btn confirm-btn-confirm" onclick="hideConfirm(true)">确定</button>
+                <button class="confirm-btn confirm-btn-confirm" onclick="hideConfirm(true)" autofocus>确定</button>
             </div>
         </div>
-    </div>
+    </dialog>
     
     <!-- 重置选项弹窗 -->
     <div class="modal" id="resetModal">
@@ -4051,6 +4160,35 @@
             <button type="button" class="extractor-modal-close" onclick="closeAlertCenter()" aria-label="关闭提醒列表">×</button>
             <h3 id="alertCenterTitle">需要处理的提醒</h3>
             <div class="alert-center-list" id="alertCenterList"></div>
+        </div>
+    </div>
+
+    <!-- 批量开关（issue #189）：一次勾好要保留的模块和内置源，点「应用」一起保存。
+         只是把卡片上的开关一次写多个，不是另一套白名单；清单和摘要由 renderExtractorBulk / paintExtractorBulk 填 -->
+    <div class="modal" id="extractorBulkModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="extractorBulkTitle">
+        <div class="modal-content">
+            <button type="button" class="extractor-modal-close" onclick="closeExtractorBulk()" aria-label="关闭批量开关">×</button>
+            <div class="extractor-bulk-head">
+                <h3 id="extractorBulkTitle">批量开关</h3>
+                <div class="extractor-bulk-hint">勾选要保留的来源，点「应用」一次保存；没勾的关闭，配置原样保留，随时可以开回来。</div>
+                <div class="extractor-bulk-tools" role="group" aria-label="批量勾选">
+                    <button type="button" class="extractor-filter-btn" onclick="setExtractorBulkAll(true)">全选</button>
+                    <button type="button" class="extractor-filter-btn" onclick="setExtractorBulkAll(false)">全不选</button>
+                    <button type="button" class="extractor-filter-btn" onclick="resetExtractorBulk()" title="回到打开时（服务端当前）的开关状态">还原</button>
+                </div>
+            </div>
+            <div class="extractor-bulk-body" id="extractorBulkBody"></div>
+            <div class="extractor-bulk-foot">
+                <div class="extractor-bulk-status">
+                    <span class="extractor-bulk-summary" id="extractorBulkSummary" role="status" aria-live="polite"></span>
+                    <span class="extractor-bulk-warning" id="extractorBulkWarning" hidden></span>
+                    <span class="extractor-bulk-corrupt" id="extractorBulkCorrupt" hidden>抓取模块配置文件损坏，修复前普通模块的开关改不了；咪咕和内置源不受影响，可以去掉其他模块的改动后单独应用。</span>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeExtractorBulk()">取消</button>
+                    <button type="button" class="btn btn-primary" id="extractorBulkApply" onclick="applyExtractorBulk()" disabled>应用</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -4430,7 +4568,8 @@
                     </div>
 
                     <div id="extractorNotice"></div>
-                    <div class="extractor-filter" id="extractorFilter" role="group" aria-label="按开关筛选模块"></div>
+                    <!-- 筛选按钮组（role=group）和「批量开关」都由 renderExtractorFilter 填；零模块时留空，靠 :empty 隐藏整行 -->
+                    <div class="extractor-filter" id="extractorFilter"></div>
                     <div class="source-category-list" id="extractorList"></div>
                 </div>
                 </div>
@@ -4642,10 +4781,10 @@
                 <div class="settings-editor-card" style="margin-top: 4px;">
                     <div>
                         <div style="font-size:16px; font-weight:600; color:#333;">消息推送</div>
-                        <div class="system-config-hint">后台顶部「需要处理的提醒」出现新的一条（登录凭证失效、模块抓取失败、EPG 源失败等）或问题恢复时，发一条消息到飞书、企业微信、钉钉、Telegram、Bark 或你自己的 Webhook，不用开着后台也能知道。只发消息，不接收任何指令。</div>
+                        <div class="system-config-hint">后台顶部「需要处理的提醒」里出现需要你动手处理的新问题（登录凭证失效、EPG 源失败、模块配置损坏等）或问题恢复时，发一条消息到飞书、企业微信、钉钉、Telegram、Bark 或你自己的 Webhook，不用开着后台也能知道。只发消息，不接收任何指令。</div>
                     </div>
                     <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
-                        <div>• 抓取失败要<strong>连续失败两次</strong>才发，一闪而过的不打扰；其他提醒出现即发，恢复时再发一条「已恢复」；</div>
+                        <div>• 模块抓取失败、官方服务故障<strong>不推送</strong>（你处理不了，会自动重试），只在后台提醒里显示；其他提醒出现即发，恢复时再发一条「已恢复」；</div>
                         <div>• 升级前就已存在的提醒不发；同一个问题没恢复前只发一次；</div>
                         <div>• Telegram 的接口在大陆连不上：部署在大陆需给容器设 <code>HTTPS_PROXY</code>，或在「API 地址」填自己的反代；</div>
                         <div>• 机器人地址和 Token 存在数据目录 <code>notify-channels.json</code>，会随「备份迁移」里的配置导出一起导出，别把备份发给别人。</div>
@@ -4685,7 +4824,7 @@
                                 <strong>当前版本</strong>
                             </div>
                             <div class="about-version-body">
-                                <span id="versionText">v4.41.0</span>
+                                <span id="versionText">v4.46.0</span>
                                 <button class="btn btn-sm" onclick="checkUpdate()" id="checkUpdateBtn">检查更新</button>
                             </div>
                             <div id="updateInfo" class="about-update-info" style="display: none;"></div>
@@ -5402,11 +5541,326 @@
                 ['on', '已启用', enabledCount],
                 ['off', '已关闭', modules.length - enabledCount],
             ];
-            bar.innerHTML = modules.length ? options.map(([value, label, count]) =>
+            // 「批量开关」和筛选挤在同一行、但不放进筛选的 role=group：它是动作，不是第四种筛选。
+            // 零模块时整行留空（.extractor-filter:empty 隐藏），没东西可批量开关，按钮也就不出现。
+            bar.innerHTML = modules.length ? `<div class="extractor-filter-group" role="group" aria-label="按开关筛选模块">${options.map(([value, label, count]) =>
                 `<button type="button" class="extractor-filter-btn${extractorFilter === value ? ' active' : ''}"
                          aria-pressed="${extractorFilter === value}" onclick="setExtractorFilter('${value}')">
                     ${label}<span class="extractor-filter-count">${count}</span>
-                </button>`).join('') : '';
+                </button>`).join('')}</div>
+                <button type="button" class="extractor-filter-btn extractor-bulk-btn" aria-haspopup="dialog"
+                        title="一次勾选要保留的模块和内置源，统一保存" onclick="openExtractorBulk()">批量开关</button>` : '';
+        }
+
+        // ===== 批量开关（issue #189）=====
+        // 只想留几个来源（如 央视频 + 凤凰 + 咪咕）的用户，原来要把七十多张卡片挨个点关。
+        // 这里一次勾好、一次提交（action: 'bulkToggle'），服务端照样逐个写每个模块自己的开关。
+        // 刻意不做环境变量白名单 / 总开关：旧总开关 enableExtractors 就是因为会悄悄盖过卡片上的
+        // 选择才退役的（见 extractorManager 的迁移注释），卡片开关必须仍是唯一的真相。
+        // 勾选只存在弹窗的草稿里，点「应用」之前不碰服务端；「还原」回到服务端当前状态。
+        let extractorBulkBase = null;    // 服务端当前状态的快照：{ modules: { id: 开/关 }, flags: { key: 开/关 } }
+        let extractorBulkDraft = null;   // 用户勾出来的目标状态，同结构；null = 弹窗没开
+        let extractorBulkBusy = false;   // 请求在路上：禁用所有勾选和「应用」，防止重复提交、改了也白改
+        // 打开 / 关闭各加一：请求没回来用户就关掉又重开，旧请求的回调不该把新开的弹窗关掉
+        let extractorBulkSession = 0;
+
+        /** 快照：模块看 enabled；内置源看 contentFlags，缺省视为开（同 renderContentFlags）。 */
+        function extractorBulkSnapshot(state) {
+            const modules = {};
+            for (const m of (state && state.modules) || []) modules[m.id] = !!m.enabled;
+            const flags = (state && state.contentFlags) || {};
+            return {
+                modules,
+                flags: {
+                    enableBuiltInSources: flags.enableBuiltInSources !== false,
+                    enableBuiltInSubscriptions: flags.enableBuiltInSubscriptions !== false,
+                },
+            };
+        }
+
+        /**
+         * 弹窗分节：分类的标题和顺序跟卡片区用同一份（extractorCategories），最后是「内置源」。
+         * 分类没登记的模块收进「其他」——卡片区看不到它们，但「全不选」不能把它们漏掉。
+         * 节 id 带 __ 前缀的是弹窗自己的，不会和注册表的分类 id 撞上。
+         */
+        function extractorBulkSections(state) {
+            const modules = (state && state.modules) || [];
+            const categories = extractorCategories();
+            const known = new Set(categories.map(category => category.id));
+            const categoryOf = m => known.has(m.category || 'standard') ? (m.category || 'standard') : '__other';
+            const sections = categories.concat([{ id: '__other', title: '其他' }])
+                .map(category => ({
+                    id: category.id,
+                    title: category.title,
+                    items: modules.filter(m => categoryOf(m) === category.id)
+                        .map(m => ({ kind: 'module', id: m.id, name: m.name || m.id })),
+                }))
+                .filter(section => section.items.length);
+            sections.push({
+                id: '__builtin',
+                title: '内置源',
+                items: [
+                    { kind: 'flag', id: 'enableBuiltInSources', name: '内置单频道源' },
+                    { kind: 'flag', id: 'enableBuiltInSubscriptions', name: '内置订阅源（精选频道）' },
+                ],
+            });
+            return sections;
+        }
+
+        /** 把一批勾选项统一设成开或关（节标题和顶部的「全选 / 全不选」）。只认快照里有的 id。 */
+        function extractorBulkSetItems(draft, items, on) {
+            for (const item of items) {
+                const bucket = item.kind === 'flag' ? draft.flags : draft.modules;
+                if (Object.prototype.hasOwnProperty.call(bucket, item.id)) bucket[item.id] = !!on;
+            }
+            return draft;
+        }
+
+        /**
+         * 草稿与基准逐项比对，只留真正要改的：请求体只带这些（服务端也只写有变化的，
+         * 保持「没点过的模块不落 enabled 键」的稀疏存储），摘要也只数这些。
+         * 基准里没有的模块（弹窗开着时被下架了）不提交，免得整批被服务端以「未知模块」拒掉。
+         */
+        function extractorBulkChanges(base, draft) {
+            const modules = {};
+            const contentFlags = {};
+            let enable = 0;
+            let disable = 0;
+            const collect = (from, to, out) => {
+                for (const [id, on] of Object.entries(to)) {
+                    if (!Object.prototype.hasOwnProperty.call(from, id) || from[id] === on) continue;
+                    out[id] = on;
+                    if (on) enable++;
+                    else disable++;
+                }
+            };
+            collect(base.modules, draft.modules, modules);
+            collect(base.flags, draft.flags, contentFlags);
+            return { modules, contentFlags, enable, disable };
+        }
+
+        /** 「将启用 2 个、关闭 70 个」；为 0 的半句省掉，一个都没有就是「没有改动」。prefix 传「已」用作成功提示。 */
+        function extractorBulkSummary(changes, prefix = '将') {
+            const parts = [];
+            if (changes.enable) parts.push(`启用 ${changes.enable} 个`);
+            if (changes.disable) parts.push(`关闭 ${changes.disable} 个`);
+            return parts.length ? prefix + parts.join('、') : '没有改动';
+        }
+
+        /** 摘要下面的额外提醒：关「内置订阅源」一下少约 150 个频道，在数字里只算 1 个，得单独说。 */
+        function extractorBulkWarning(changes) {
+            return changes.contentFlags.enableBuiltInSubscriptions === false
+                ? '含「内置订阅源」：约 150 个精选频道将不再出现在播放列表里，随时可以开回来。'
+                : '';
+        }
+
+        /** bulkToggle 请求体：modules 总是带（只改内置源时是空对象），contentFlags 没改动就整个不带。 */
+        function extractorBulkBody(changes) {
+            const body = { action: 'bulkToggle', modules: changes.modules };
+            if (Object.keys(changes.contentFlags).length) body.contentFlags = changes.contentFlags;
+            return body;
+        }
+
+        /**
+         * 弹窗开着时服务端状态变了，换基准：用户**改过**的项（草稿 ≠ 旧基准）保留勾选，
+         * 没动过的项跟着新状态走；新出现的模块按新状态补上，已下架的丢掉。
+         * 典型是「应用」失败之后——模块已存好、只有内置源没存上，摘要就只剩还没生效的那部分。
+         * 只留「改过的」而不是整份草稿：请求没回来就关掉重开的弹窗，草稿是旧状态的原样拷贝，
+         * 整份保留的话旧请求一落地，摘要就会变成「把刚关掉的七十个全开回来」。
+         */
+        function extractorBulkRebase(base, draft, next) {
+            const has = (bucket, id) => Object.prototype.hasOwnProperty.call(bucket, id);
+            const merge = (from, to, latest) => {
+                const out = {};
+                for (const [id, on] of Object.entries(latest)) {
+                    out[id] = has(to, id) && has(from, id) && to[id] !== from[id] ? to[id] : on;
+                }
+                return out;
+            };
+            return { modules: merge(base.modules, draft.modules, next.modules), flags: merge(base.flags, draft.flags, next.flags) };
+        }
+
+        function openExtractorBulk() {
+            const modal = document.getElementById('extractorBulkModal');
+            if (!modal) return;
+            extractorBulkSession++;
+            extractorBulkBase = extractorBulkSnapshot(extractorsState);
+            extractorBulkDraft = extractorBulkSnapshot(extractorsState);
+            renderExtractorBulk();
+            modal.style.display = 'block';
+            modal.setAttribute('aria-hidden', 'false');
+            const body = document.getElementById('extractorBulkBody');
+            if (body) body.scrollTop = 0;
+            setTimeout(() => {
+                const closeButton = modal.querySelector('.extractor-modal-close');
+                if (closeButton) closeButton.focus();
+            }, 0);
+        }
+
+        /** 关闭即放弃草稿：勾选还没提交，没有要确认的；焦点还给「批量开关」按钮。 */
+        function closeExtractorBulk() {
+            const modal = document.getElementById('extractorBulkModal');
+            if (!modal || modal.style.display !== 'block') return;
+            extractorBulkSession++;
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
+            extractorBulkBase = null;
+            extractorBulkDraft = null;
+            const opener = document.querySelector('#extractorFilter .extractor-bulk-btn');
+            if (opener) opener.focus({ preventScroll: true });
+        }
+
+        /** 弹窗正文按节列出复选框。只在打开、或模块清单变了时整份重建；勾选变化走 paintExtractorBulk。 */
+        function renderExtractorBulk() {
+            const box = document.getElementById('extractorBulkBody');
+            if (!box || !extractorBulkDraft) return;
+            // id 和名字都走 escapeHtml 放进 data-* / 文本，事件里只读 dataset，不往 JS 字符串里拼
+            box.innerHTML = extractorBulkSections(extractorsState).map(section => `
+                <section class="extractor-bulk-section" data-bulk-section="${escapeHtml(section.id)}" aria-label="${escapeHtml(section.title)}">
+                    <div class="extractor-bulk-section-head">
+                        <strong>${escapeHtml(section.title)}</strong>
+                        <span class="extractor-filter-count" data-bulk-count></span>
+                        <span class="extractor-bulk-section-actions">
+                            <button type="button" class="extractor-bulk-link" aria-label="${escapeHtml(section.title)}：全选"
+                                    onclick="setExtractorBulkSection(this, true)">全选</button>
+                            <button type="button" class="extractor-bulk-link" aria-label="${escapeHtml(section.title)}：全不选"
+                                    onclick="setExtractorBulkSection(this, false)">全不选</button>
+                        </span>
+                    </div>
+                    <div class="extractor-bulk-grid">${section.items.map(item => `
+                        <label class="extractor-bulk-item">
+                            <input type="checkbox" data-bulk-kind="${escapeHtml(item.kind)}" data-bulk-id="${escapeHtml(item.id)}"
+                                   onchange="toggleExtractorBulkItem(this)">
+                            <span class="extractor-bulk-name">${escapeHtml(item.name)}</span>
+                        </label>`).join('')}
+                    </div>
+                    ${section.id === '__builtin'
+                        ? '<div class="extractor-bulk-note">自定义源（自己添加的直连 / 抓取 / 订阅源）不在这里，到「自定义源」标签里逐个启用或停用。</div>'
+                        : ''}
+                </section>`).join('');
+            paintExtractorBulk();
+        }
+
+        /** 把草稿同步到界面：复选框、改动标记、各节「已选 x/y」、页脚摘要和「应用」按钮。 */
+        function paintExtractorBulk() {
+            const modal = document.getElementById('extractorBulkModal');
+            if (!modal || !extractorBulkDraft || !extractorBulkBase) return;
+            const busy = extractorBulkBusy;
+            const pick = (snapshot, kind, id) => (kind === 'flag' ? snapshot.flags : snapshot.modules)[id];
+            modal.querySelectorAll('[data-bulk-section]').forEach(section => {
+                const inputs = Array.from(section.querySelectorAll('input[data-bulk-id]'));
+                let checked = 0;
+                for (const input of inputs) {
+                    const { bulkKind: kind, bulkId: id } = input.dataset;
+                    const on = !!pick(extractorBulkDraft, kind, id);
+                    input.checked = on;
+                    input.disabled = busy;
+                    if (on) checked++;
+                    const item = input.closest('.extractor-bulk-item');
+                    if (item) item.dataset.change = on === !!pick(extractorBulkBase, kind, id) ? '' : (on ? 'on' : 'off');
+                }
+                const count = section.querySelector('[data-bulk-count]');
+                if (count) count.textContent = `已选 ${checked}/${inputs.length}`;
+            });
+            modal.querySelectorAll('.extractor-bulk-tools button, .extractor-bulk-section-actions button')
+                .forEach(button => { button.disabled = busy; });
+
+            const changes = extractorBulkChanges(extractorBulkBase, extractorBulkDraft);
+            const summary = document.getElementById('extractorBulkSummary');
+            if (summary) summary.textContent = extractorBulkSummary(changes);
+            const warning = document.getElementById('extractorBulkWarning');
+            if (warning) {
+                warning.textContent = extractorBulkWarning(changes);
+                warning.hidden = !warning.textContent;
+            }
+            // extractors.json 损坏时服务端拒绝写普通模块的开关（见 renderExtractorNotice），提前说清楚、别让人点了再报错。
+            // 咪咕（代理开关）和内置源写的是 system-config.json，照样能改，不跟着挡
+            const blocked = extractorBulkBlocked(changes);
+            const corruptNote = document.getElementById('extractorBulkCorrupt');
+            if (corruptNote) corruptNote.hidden = !blocked;
+            const apply = document.getElementById('extractorBulkApply');
+            if (apply) {
+                apply.disabled = busy || blocked || !(changes.enable + changes.disable);
+                apply.textContent = busy ? '应用中…' : '应用';
+            }
+        }
+
+        /** 配置文件损坏时这批改动会不会被服务端拒：只看要改的非代理模块（它们才写 extractors.json）。 */
+        function extractorBulkBlocked(changes) {
+            if (!(extractorsState && extractorsState.corrupt)) return false;
+            const modules = extractorsState.modules || [];
+            return Object.keys(changes.modules).some(id => !(modules.find(m => m.id === id) || {}).enabledProxied);
+        }
+
+        function toggleExtractorBulkItem(input) {
+            if (!extractorBulkDraft) return;
+            extractorBulkSetItems(extractorBulkDraft, [{ kind: input.dataset.bulkKind, id: input.dataset.bulkId }], input.checked);
+            paintExtractorBulk();
+        }
+
+        function setExtractorBulkSection(button, on) {
+            const section = button.closest('[data-bulk-section]');
+            if (!section || !extractorBulkDraft) return;
+            const target = extractorBulkSections(extractorsState).find(s => s.id === section.dataset.bulkSection);
+            if (target) extractorBulkSetItems(extractorBulkDraft, target.items, on);
+            paintExtractorBulk();
+        }
+
+        function setExtractorBulkAll(on) {
+            if (!extractorBulkDraft) return;
+            for (const section of extractorBulkSections(extractorsState)) extractorBulkSetItems(extractorBulkDraft, section.items, on);
+            paintExtractorBulk();
+        }
+
+        function resetExtractorBulk() {
+            if (!extractorBulkBase) return;
+            extractorBulkDraft = { modules: { ...extractorBulkBase.modules }, flags: { ...extractorBulkBase.flags } };
+            paintExtractorBulk();
+        }
+
+        /** renderExtractors 每次拿到新状态都调：弹窗开着就换基准（见 extractorBulkRebase），模块清单变了才重建正文。 */
+        function syncExtractorBulkBase() {
+            if (!extractorBulkDraft || !extractorBulkBase) return;
+            const next = extractorBulkSnapshot(extractorsState);
+            const sameModules = Object.keys(next.modules).join('\n') === Object.keys(extractorBulkBase.modules).join('\n');
+            extractorBulkDraft = extractorBulkRebase(extractorBulkBase, extractorBulkDraft, next);
+            extractorBulkBase = next;
+            if (sameModules) paintExtractorBulk();
+            else renderExtractorBulk();
+        }
+
+        async function applyExtractorBulk() {
+            if (!extractorBulkDraft || !extractorBulkBase || extractorBulkBusy) return;
+            const changes = extractorBulkChanges(extractorBulkBase, extractorBulkDraft);
+            if (!(changes.enable + changes.disable) || extractorBulkBlocked(changes)) return;
+            const session = extractorBulkSession;
+            extractorBulkBusy = true;
+            paintExtractorBulk();
+            let r;
+            try {
+                r = await extractorPost(extractorBulkBody(changes));
+            } catch (e) {
+                // 断网 / 返回的不是 JSON：交给 applyExtractorResult 报错并重拉状态，按钮不能一直卡在「应用中…」
+                r = { success: false, message: '批量开关失败：' + e.message };
+            } finally {
+                extractorBulkBusy = false;
+            }
+            // 成功：renderExtractors 会顺手把弹窗的基准换成新状态，随后关掉。
+            // 失败：弹窗留着，applyExtractorResult 报错并重拉，重拉回来再换基准（syncExtractorBulkBase），
+            // 已经生效的部分从摘要里消失，用户能看清还剩什么没改成。
+            applyExtractorResult(r, extractorBulkSummary(changes, '已'));
+            paintExtractorBulk();
+            if (session === extractorBulkSession) {
+                if (r && r.success) closeExtractorBulk();
+                else {
+                    // 应用中按钮被禁用过，焦点已掉到 <body>，Tab 会跑到遮罩后面去；失败时弹窗还开着，把焦点拉回来
+                    const apply = document.getElementById('extractorBulkApply');
+                    const target = apply && !apply.disabled ? apply : document.querySelector('#extractorBulkModal .extractor-modal-close');
+                    if (target) target.focus({ preventScroll: true });
+                }
+            }
+            // 同 setContentFlag：「内置订阅源」决定自定义源里「精选频道」是否生效，卡片要跟着重画
+            if (Object.prototype.hasOwnProperty.call(changes.contentFlags, 'enableBuiltInSubscriptions')) renderExternalSources();
         }
 
         // ===== 提醒中心 =====
@@ -5568,31 +6022,10 @@
             }
         }
 
-        function renderExtractors() {
-            renderExtractorNotice();
-            renderContentFlags();
-
-            const box = document.getElementById('extractorList');
-            if (!box) return;
-            const modules = extractorsState.modules || [];
-            const tabCount = document.getElementById('sourceTabExtractorCount');
-            if (tabCount) {
-                const enabledCount = modules.filter(module => module.enabled).length;
-                tabCount.textContent = modules.length ? `${enabledCount}/${modules.length}` : '0';
-            }
-            renderAlerts();
-            renderExtractorFilter(modules);
-            if (!modules.length) {
-                box.innerHTML = '<div class="system-config-hint" style="margin:0;">本版本没有内置任何抓取模块。</div>';
-                renderExtractorDetail();
-                return;
-            }
-
-            // 选中的模块若已不存在（换版本、模块被下架），关闭详情而不是渲染空白
-            if (selectedExtractorId && !modules.some(m => m.id === selectedExtractorId)) {
-                selectedExtractorId = null;
-            }
-
+        // 模块分类：标题、角标、说明和先后顺序。卡片区（renderExtractors）和「批量开关」弹窗共用这一份，
+        // 两处的分类名或顺序对不上，用户在弹窗里勾的「免账号模块」和卡片区看到的就不是同一批了。
+        // 注册表每加一个分类都要在这里补一节，scripts/test-extractors.mjs 会检查。
+        function extractorCategories() {
             const categories = [
                 {
                     id: 'account',
@@ -5620,6 +6053,37 @@
                     description: ['面向大陆以外的频道，默认关闭，需要时手动打开。', { mark: '能不能看取决于网络：海外频道由播放器直连，看播放设备；澳门等后续其他独立模块还要部署的机器能连到大陆以外。' }],
                 },
             ];
+            return categories;
+        }
+
+        function renderExtractors() {
+            renderExtractorNotice();
+            renderContentFlags();
+            // 也得在下面两条提前 return 之前：批量开关弹窗开着时，新状态要换成它的「还原」基准
+            syncExtractorBulkBase();
+
+            const box = document.getElementById('extractorList');
+            if (!box) return;
+            const modules = extractorsState.modules || [];
+            const tabCount = document.getElementById('sourceTabExtractorCount');
+            if (tabCount) {
+                const enabledCount = modules.filter(module => module.enabled).length;
+                tabCount.textContent = modules.length ? `${enabledCount}/${modules.length}` : '0';
+            }
+            renderAlerts();
+            renderExtractorFilter(modules);
+            if (!modules.length) {
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">本版本没有内置任何抓取模块。</div>';
+                renderExtractorDetail();
+                return;
+            }
+
+            // 选中的模块若已不存在（换版本、模块被下架），关闭详情而不是渲染空白
+            if (selectedExtractorId && !modules.some(m => m.id === selectedExtractorId)) {
+                selectedExtractorId = null;
+            }
+
+            const categories = extractorCategories();
 
             const moduleCardHtml = (m, category) => {
                 const h = m.health || {};
@@ -5777,7 +6241,7 @@
                         <strong id="extractorDetailTitle" style="font-size:17px;">${escapeHtml(m.name)}</strong>
                         ${m.enabledEnv ? `<span style="font-size:12px; color:#888;">（启用开关也可用环境变量 <code>${escapeHtml(m.enabledEnv)}</code> 控制）</span>` : ''}
                     </div>
-                    ${canManualRefresh ? `<button class="btn btn-sm" onclick="refreshExtractorNow('${escapeHtml(m.id)}')">立即刷新</button>` : ''}
+                    ${canManualRefresh ? `<button class="btn btn-sm btn-primary" onclick="refreshExtractorNow('${escapeHtml(m.id)}')">立即刷新</button>` : ''}
                 </div>
                 <div style="font-size:12px; margin-bottom:12px;">${extractorHealthHtml(m.health || {})}</div>
                 ${extractorChannelsHtml(m)}
@@ -6690,7 +7154,7 @@
 
         async function deleteNotifyChannel(id) {
             const channel = (notifyState.channels || []).find(c => c.id === id);
-            if (!confirm(`删除推送渠道「${channel ? channel.name : ''}」？`)) return;
+            if (!await showConfirm(`删除推送渠道「${channel ? channel.name : ''}」？`, '删除推送渠道')) return;
             const r = await notifyPost({ action: 'remove', id });
             if (r.success) {
                 notifyState = r.data;
@@ -8391,15 +8855,74 @@
             }
         }
 
+        // 返回原始输入或 null，校验和保存仍由原来的业务函数处理。
+        let cancelActivePrompt = null;
+        function showPrompt(title, defaultValue = '') {
+            if (cancelActivePrompt) cancelActivePrompt();
+            const dialog = document.getElementById('promptDialog');
+            const form = document.getElementById('promptForm');
+            const input = document.getElementById('promptInput');
+            const cancel = document.getElementById('promptCancel');
+            document.getElementById('promptTitle').textContent = title;
+            input.value = defaultValue;
+
+            return new Promise(resolve => {
+                let settled = false;
+                function finish(value) {
+                    if (settled) return;
+                    settled = true;
+                    form.removeEventListener('submit', onSubmit);
+                    cancel.removeEventListener('click', onCancel);
+                    dialog.removeEventListener('cancel', onCancel);
+                    dialog.removeEventListener('close', onClose);
+                    dialog.removeEventListener('keydown', onKeydown);
+                    cancelActivePrompt = null;
+                    if (dialog.open) dialog.close();
+                    resolve(value);
+                }
+                function onSubmit(event) {
+                    event.preventDefault();
+                    finish(input.value);
+                }
+                function onCancel(event) {
+                    if (event) event.preventDefault();
+                    finish(null);
+                }
+                function onClose() {
+                    // 上一次 close 的异步事件可能在下一次打开后才到达。
+                    if (!dialog.open) finish(null);
+                }
+                function onKeydown(event) {
+                    // 避免 Esc 同时关闭背后的设置或配置档弹窗。
+                    event.stopPropagation();
+                    if ((event.key === 'Enter' || event.key === 'Escape') && (event.isComposing || event.keyCode === 229)) {
+                        event.preventDefault();
+                    }
+                }
+                cancelActivePrompt = onCancel;
+                form.addEventListener('submit', onSubmit);
+                cancel.addEventListener('click', onCancel);
+                dialog.addEventListener('cancel', onCancel);
+                dialog.addEventListener('close', onClose);
+                dialog.addEventListener('keydown', onKeydown);
+                dialog.showModal();
+                input.focus();
+                input.select();
+            });
+        }
+
         // 自定义确认对话框
         let confirmCallback = null;
 
-        function showConfirm(message, title = 'localhost:1905 显示') {
+        function showConfirm(message, title = '确认操作') {
+            if (confirmCallback) hideConfirm(false);
             return new Promise((resolve) => {
                 document.getElementById('confirmTitle').textContent = title;
                 document.getElementById('confirmMessage').textContent = message;
-                document.getElementById('confirmOverlay').classList.add('show');
+                const dialog = document.getElementById('confirmOverlay');
                 confirmCallback = resolve;
+                dialog.classList.add('show');
+                dialog.showModal();
             });
         }
 
@@ -8423,7 +8946,9 @@
         }
 
         function hideConfirm(result) {
-            document.getElementById('confirmOverlay').classList.remove('show');
+            const dialog = document.getElementById('confirmOverlay');
+            dialog.classList.remove('show');
+            if (dialog.open) dialog.close();
             if (confirmCallback) {
                 confirmCallback(result);
                 confirmCallback = null;
@@ -9763,7 +10288,7 @@ if(success){
             id = id || activeProfile;
             if (id === 'default') { showStatus('默认档不可改名', 'error'); return; }
             const cur = (profileList.find(p => p.id === id) || {}).name || id;
-            const name = prompt('重命名配置档显示名：', cur);
+            const name = await showPrompt('重命名配置档显示名：', cur);
             if (name === null) return;
             const displayName = name.trim();
             if (!displayName) { showStatus('档名不能为空', 'error'); return; }
@@ -9786,7 +10311,7 @@ if(success){
             id = id || activeProfile;
             if (id === 'default') { showStatus('默认档不可删除', 'error'); return; }
             const nm = (profileList.find(p => p.id === id) || {}).name || id;
-            if (!confirm(`确定删除配置档「${nm}」？\n该档的隐藏/分组/排序设置会一并删除（不影响其它档和底层频道）。`)) return;
+            if (!await showConfirm(`确定删除配置档「${nm}」？\n该档的隐藏/分组/排序设置会一并删除（不影响其它档和底层频道）。`, '删除配置档')) return;
             try {
                 const res = await fetch(API_PREFIX + '/api/' + 'my-playlist-profiles', {
                     method: 'POST',
@@ -10754,7 +11279,7 @@ if(success){
         }
 
         async function addGroup() {
-            const newName = prompt('新建分组', '');
+            const newName = await showPrompt('新建分组', '');
             if (!newName) return;
 
             const trimmed = newName.trim();
@@ -10903,7 +11428,7 @@ if(success){
 
             const isCustomGroup = isCustomGroupName(currentName);
 
-            const newName = prompt('重命名分组', currentName);
+            const newName = await showPrompt('重命名分组', currentName);
             if (!newName || newName.trim() === '' || newName === currentName) return;
 
             const trimmed = newName.trim();
@@ -12158,7 +12683,11 @@ if(success){
                 showStatus('正在复制...', 'info');
                 const resp = await fetch(API_PREFIX + '/api/copy-channel', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: currentChannelDetail.name, url: currentChannelDetail.url, logo: currentChannelDetail.logo || '', groups })
+                    // 回看声明随副本带过去，否则副本会继承订阅头的咪咕回看模板（issue #190）
+                    body: JSON.stringify({
+                        name: currentChannelDetail.name, url: currentChannelDetail.url, logo: currentChannelDetail.logo || '', groups,
+                        catchup: currentChannelDetail.catchup, catchupDays: currentChannelDetail.catchupDays, catchupSource: currentChannelDetail.catchupSource
+                    })
                 });
                 const result = await resp.json();
                 if (result.success === false) { showStatus('复制失败: ' + (result.message || ''), 'error'); return; }
@@ -12586,6 +13115,15 @@ if(success){
         document.addEventListener('keydown', function(event) {
             const modal = document.getElementById('alertCenterModal');
             if (event.key === 'Escape' && modal && modal.style.display === 'block') closeAlertCenter();
+        });
+
+        // 批量开关：点遮罩或按 Esc 关闭。勾选只是草稿、还没提交，关掉即放弃，不需要确认
+        document.addEventListener('click', function(event) {
+            if (event.target === document.getElementById('extractorBulkModal')) closeExtractorBulk();
+        });
+        document.addEventListener('keydown', function(event) {
+            const modal = document.getElementById('extractorBulkModal');
+            if (event.key === 'Escape' && modal && modal.style.display === 'block') closeExtractorBulk();
         });
 
         // 抓取模块详情支持 Esc 关闭；若上面还叠着登录/帮助等子弹窗，则先留给子弹窗处理。

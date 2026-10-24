@@ -15,7 +15,11 @@
  * 注意：opts 可能来自用户添加的第三方订阅（不可信输入）。渲染进播放列表等于
  * 把内容写进一个换行敏感的格式里，因此这里做两层限制——键名白名单 + 含换行/
  * 控制字符者整条拒收，防止一条 opt 撑开成任意 M3U 指令（与 EXTINF 属性消毒同理）。
+ * 含本机地址占位符 ${replace} 的也整条拒收：输出时它会被换成带访问密码 / 令牌的本机地址，
+ * 再作为 Referer / UA 发给第三方 CDN（见 replaceToken.js）。
  */
+
+import { hasReplaceToken } from './replaceToken.js'
 
 const OPT_PREFIX = '#EXTVLCOPT:'
 
@@ -69,6 +73,7 @@ export function sanitizeOpt(raw) {
   if (raw.length > MAX_OPT_LENGTH) return null
   // 换行会撑出额外的 M3U 指令；其余 C0 控制字符进请求头同样无意义
   if (/[\r\n\u0000-\u001f\u007f]/.test(raw)) return null
+  if (hasReplaceToken(raw)) return null
 
   const trimmed = raw.trim()
   const eq = trimmed.indexOf('=')

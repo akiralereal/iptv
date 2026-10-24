@@ -262,8 +262,11 @@ await test('订阅方抛错不影响评估与其他订阅方；并发评估合�
 await test('alertSnapshot 与 getState 对凭证失效的判断一致（央视频失效记录）', async () => {
   const { runtime } = await import('../extractors/yangshipin/runtime.js')
   const { ExtractorManager } = await import('../utils/extractorManager.js')
-  runtime.loginLink.remember({ authenticated: true, account: { nickname: '测试', vip: true } })
-  runtime.loginLink.remember({ authenticated: false, account: null })
+  const t0 = Date.now()
+  runtime.loginLink.remember({ authenticated: true, account: { nickname: '测试', vip: true } }, t0)
+  // 失效要隔开 20 秒以上连读两次才坐实
+  runtime.loginLink.remember({ authenticated: false, account: null }, t0 + 1_000)
+  runtime.loginLink.remember({ authenticated: false, account: null }, t0 + 60_000)
   const manager = new ExtractorManager().load()
   const card = manager.getState().modules.find(m => m.id === 'yangshipin')
   const snap = manager.alertSnapshot().modules.find(m => m.id === 'yangshipin')

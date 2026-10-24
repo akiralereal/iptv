@@ -1,0 +1,490 @@
+{
+  "verifiedAt": "2026-10-23T15:44:25.363Z",
+  "viaMainProject": true,
+  "rows": [
+    {
+      "id": "gytv1",
+      "name": "广元新闻综合",
+      "city": "广元",
+      "ok": true,
+      "segmentBytes": 1938656,
+      "streams": [
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        },
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 75,
+      "decodeWarning": false
+    },
+    {
+      "id": "ybtv1",
+      "name": "宜宾新闻综合",
+      "city": "宜宾",
+      "ok": true,
+      "segmentBytes": 842616,
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 60,
+      "decodeWarning": false
+    },
+    {
+      "id": "ybtv2",
+      "name": "宜宾科教文旅",
+      "city": "宜宾",
+      "ok": true,
+      "segmentBytes": 774560,
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 60,
+      "decodeWarning": false
+    },
+    {
+      "id": "lstv1",
+      "name": "凉山新闻综合",
+      "city": "凉山",
+      "ok": true,
+      "segmentBytes": 1757612,
+      "streams": [
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        },
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 720,
+          "height": 404
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 73,
+      "decodeWarning": false
+    },
+    {
+      "id": "lstv2",
+      "name": "凉山彝语综合",
+      "city": "凉山",
+      "ok": true,
+      "segmentBytes": 1718132,
+      "streams": [
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        },
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 720,
+          "height": 404
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 73,
+      "decodeWarning": false
+    },
+    {
+      "id": "yatv1",
+      "name": "雅安新闻综合",
+      "city": "雅安",
+      "ok": true,
+      "segmentBytes": 1720200,
+      "streams": [
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        },
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 75,
+      "decodeWarning": false
+    },
+    {
+      "id": "lshantv1",
+      "name": "乐山新闻综合",
+      "city": "乐山",
+      "ok": true,
+      "segmentBytes": 985120,
+      "streams": [
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        },
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 75,
+      "decodeWarning": false
+    },
+    {
+      "id": "mstv1",
+      "name": "眉山综合",
+      "city": "眉山",
+      "ok": true,
+      "segmentBytes": 1752536,
+      "streams": [
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        },
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 90,
+      "decodeWarning": false
+    },
+    {
+      "id": "zytv1",
+      "name": "资阳新闻综合",
+      "city": "资阳",
+      "ok": true,
+      "segmentBytes": 3788388,
+      "streams": [
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        },
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080
+        }
+      ],
+      "decodeExit": 0,
+      "decodedFrames": 73,
+      "decodeWarning": false
+    }
+  ],
+  "source": "official app public player APIs and official website player interfaces",
+  "addedPrefectureCount": 7,
+  "addedChannelCount": 9,
+  "catalogTotal": {
+    "prefectures": 15,
+    "channels": 22,
+    "catalogVersion": 2
+  },
+  "playlist": [
+    {
+      "id": "lztv3",
+      "name": "泸州科教生活",
+      "logo": "http://127.0.0.1:1924/logo-cache/ae0083c6ae327cf1bf00.png?v=1792766649471&from=source",
+      "route": "/relay/sichuan-cities-lztv3.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "ybtv2",
+      "name": "宜宾科教文旅",
+      "logo": "http://127.0.0.1:1924/logo-cache/51e5d8e9ec885251ea95.jpg?v=1792770228901&from=source",
+      "route": "/relay/sichuan-cities-ybtv2.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "mytv1",
+      "name": "绵阳新闻综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/ded8ba7c00388f76b2db.png?v=1792766649471&from=source",
+      "route": "/relay/sichuan-cities-mytv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "lztv1",
+      "name": "泸州新闻综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/ae0083c6ae327cf1bf00.png?v=1792766649471&from=source",
+      "route": "/relay/sichuan-cities-lztv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "sntv1",
+      "name": "遂宁综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/2927a218724700fc9aaa.png?v=1792766649471&from=source",
+      "route": "/proxy/sichuan-cities-sntv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "njtv1",
+      "name": "内江综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/32a6b6df09347692c627.png?v=1792766649471&from=source",
+      "route": "/relay/sichuan-cities-njtv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "dztv1",
+      "name": "达州新闻综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/2bae4979867fdc962925.png?v=1792766649471&from=source",
+      "route": "/proxy/sichuan-cities-dztv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "dztv2",
+      "name": "达州文化生活",
+      "logo": "http://127.0.0.1:1924/logo-cache/483c6f12715086c36c7c.png?v=1792766649471&from=source",
+      "route": "/proxy/sichuan-cities-dztv2.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "tctv",
+      "name": "达州通川",
+      "logo": "http://127.0.0.1:1924/logo-cache/d8f9c13ca1d88db7385d.png?v=1792766649471&from=source",
+      "route": "/proxy/sichuan-cities-tctv.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "bztv1",
+      "name": "巴中综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/292ad2e2fd846510cd9c.png?v=1792766649471&from=source",
+      "route": "/relay/sichuan-cities-bztv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "bztv2",
+      "name": "巴中文旅生活",
+      "logo": "http://127.0.0.1:1924/logo-cache/8d56d73c73e4d29f9680.jpg?v=1792766649471&from=source",
+      "route": "/relay/sichuan-cities-bztv2.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "gztv1",
+      "name": "甘孜综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/c6d887346e1d3e1d2f93.png?v=1792766649471&from=source",
+      "route": "/relay/sichuan-cities-gztv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "abtv1",
+      "name": "阿坝新闻综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/c79ea723040623c6c43d.jpg?v=1792766649471&from=source",
+      "route": "/relay/sichuan-cities-abtv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "abtv2",
+      "name": "阿坝藏语综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/9f88c3e5348d11a3689d.jpg?v=1792766649471&from=source",
+      "route": "/relay/sichuan-cities-abtv2.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "gytv1",
+      "name": "广元新闻综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/9ef20a134d63459f27a4.jpg?v=1792770228901&from=source",
+      "route": "/relay/sichuan-cities-gytv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "ybtv1",
+      "name": "宜宾新闻综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/51e5d8e9ec885251ea95.jpg?v=1792770228901&from=source",
+      "route": "/relay/sichuan-cities-ybtv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "lstv1",
+      "name": "凉山新闻综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/e1513b017ad0f38989f9.jpg?v=1792770228901&from=source",
+      "route": "/proxy/sichuan-cities-lstv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "lstv2",
+      "name": "凉山彝语综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/e1513b017ad0f38989f9.jpg?v=1792770228901&from=source",
+      "route": "/proxy/sichuan-cities-lstv2.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "yatv1",
+      "name": "雅安新闻综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/17a642e851e29633aaf3.png?v=1792770228901&from=source",
+      "route": "/relay/sichuan-cities-yatv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "lshantv1",
+      "name": "乐山新闻综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/cc6873d6cc1a16ded56a.jpg?v=1792770228901&from=source",
+      "route": "/relay/sichuan-cities-lshantv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "mstv1",
+      "name": "眉山综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/8b27c68b0002a2461305.png?v=1792770228901&from=source",
+      "route": "/relay/sichuan-cities-mstv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    },
+    {
+      "id": "zytv1",
+      "name": "资阳新闻综合",
+      "logo": "http://127.0.0.1:1924/logo-cache/1395cb3f083d9fbaa94a.png?v=1792770228901&from=source",
+      "route": "/proxy/sichuan-cities-zytv1.m3u8",
+      "logoStatus": 200,
+      "logoLocal": true
+    }
+  ],
+  "epg": {
+    "channels": [
+      "凉山新闻综合",
+      "凉山彝语综合"
+    ],
+    "dates": [
+      "2026-10-23",
+      "2026-10-24"
+    ],
+    "totalProgrammes": 78
+  },
+  "continuousPlayback": {
+    "id": "mstv1",
+    "mediaSeconds": 75.004667,
+    "decodedFrames": 2250,
+    "exitCode": 0,
+    "finalSpeed": "1.14x",
+    "warningLines": 0
+  },
+  "tests": {
+    "command": "npm test",
+    "exitCode": 0,
+    "regression": "Tenant-isolated configuration cache, official public dispatch IP validation, exact channel IDs and Shanghai EPG dates"
+  },
+  "notes": [
+    "宜宾接口与资阳媒体初次探测出现过超时；后续当前入口及主项目路由验证通过。",
+    "无签名地址、签名配置键或 CDN 会话令牌写入本报告。"
+  ],
+  "crossTenantPlayback": {
+    "verifiedAt": "2026-10-23T15:50:10.627Z",
+    "viaMainProject": true,
+    "rows": [
+      {
+        "id": "abtv1",
+        "name": "阿坝新闻综合",
+        "city": "阿坝",
+        "ok": true,
+        "segmentBytes": 193452,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 91,
+        "decodeWarning": false
+      },
+      {
+        "id": "abtv2",
+        "name": "阿坝藏语综合",
+        "city": "阿坝",
+        "ok": true,
+        "segmentBytes": 1075924,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 90,
+        "decodeWarning": false
+      },
+      {
+        "id": "mstv1",
+        "name": "眉山综合",
+        "city": "眉山",
+        "ok": true,
+        "segmentBytes": 235188,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "decodeExit": 0,
+        "decodedFrames": 90,
+        "decodeWarning": false
+      }
+    ]
+  }
+}

@@ -312,15 +312,19 @@ try {
     assert.equal(existsSync(marker), false)
     assert.deepEqual(await runLoginKeepalive(), { skipped: 'unlinked' })
 
-    runtime.loginLink.remember({ authenticated: true, account: { nickname: '测试账号', vip: true } })
+    const t0 = Date.now()
+    runtime.loginLink.remember({ authenticated: true, account: { nickname: '测试账号', vip: true } }, t0)
     assert.equal(existsSync(marker), true)
     assert.equal(runtime.loginLink.read().nickname, '测试账号')
     assert.equal(runtime.loginLink.read().vip, true)
     const linkedAt = runtime.loginLink.read().linkedAt
-    runtime.loginLink.remember({ authenticated: true, account: { nickname: '测试账号', vip: false } })
+    runtime.loginLink.remember({ authenticated: true, account: { nickname: '测试账号', vip: true } }, t0 + 1_000)
     assert.equal(runtime.loginLink.read().linkedAt, linkedAt, '重复确认不改首次关联时间')
 
-    runtime.loginLink.remember({ authenticated: false, account: null })
+    // 单次读到未登录先不动标记，隔开 20 秒以上再读到才清
+    runtime.loginLink.remember({ authenticated: false, account: null }, t0 + 2_000)
+    assert.equal(existsSync(marker), true)
+    runtime.loginLink.remember({ authenticated: false, account: null }, t0 + 60_000)
     assert.equal(existsSync(marker), false)
     assert.deepEqual(await runLoginKeepalive(), { skipped: 'unlinked' })
   })

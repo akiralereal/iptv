@@ -151,11 +151,11 @@ import bilibiliLive from './bilibili-live/index.js'
 import douyinLive from './douyin-live/index.js'
 import asianLive from './asian-live/index.js'
 import anhui from './anhui/index.js'
-import beidou from './beidou/index.js'
 import beijing from './beijing/index.js'
 import chongqing from './chongqing/index.js'
 import sichuan from './sichuan/index.js'
 import chengdu from './chengdu/index.js'
+import sichuanCities from './sichuan-cities/index.js'
 import cztv from './cztv/index.js'
 import dalian from './dalian/index.js'
 import douyuLive from './douyu-live/index.js'
@@ -212,6 +212,7 @@ import xizang from './xizang/index.js'
 import wuxi from './wuxi/index.js'
 import yangzhou from './yangzhou/index.js'
 import nantong from './nantong/index.js'
+import yancheng from './yancheng/index.js'
 import yunnan from './yunnan/index.js'
 import tdm from './tdm/index.js'
 import overseas from './overseas/index.js'
@@ -235,11 +236,11 @@ const MODULES = [
   huyaLive,
   douyuLive,
   anhui,
-  beidou,
   beijing,
   chongqing,
   sichuan,
   chengdu,
+  sichuanCities,
   dalian,
   gansu,
   gdtv,
@@ -269,6 +270,7 @@ const MODULES = [
   wuxi,
   yangzhou,
   nantong,
+  yancheng,
   iqilu,
   sztv,
   meizhouHakka,

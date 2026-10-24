@@ -240,7 +240,7 @@ const cdn = http.createServer((req, res) => {
     return
   }
   if (path === '/ua-gated/segment.ts') {
-    // 安徽视讯 CDN 形态：按 User-Agent 放行，只认 App 播放器标识
+    // 模拟按 User-Agent 放行的 CDN，验证模块声明的标识不会被代理覆盖。
     if (req.headers['user-agent'] !== 'ijkplayer') { res.writeHead(403); res.end('ua rejected'); return }
     res.writeHead(200, { 'Content-Type': 'video/mp2t', 'Content-Length': SEG_BODY.length })
     res.end(SEG_BODY)

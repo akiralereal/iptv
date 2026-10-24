@@ -4,6 +4,8 @@
 #       原在内置精选列表 IPTV.m3u，v4.7.0 复核后移出。本项目不维护、不保证可用，失效不作为 bug 受理。
 # 复核：2026-09-07 海外逐条可拉取清单与媒体分片；大陆直连全部不可达（域名污染）。
 #       纬来日本 / 纬来育乐为 RTMP，仅验证转发站在线，需播放器支持。
+# 2026-10-22：翡翠台与三条第三方凤凰线路（凤凰中文 / 资讯 / 香港）也从 IPTV.m3u 移入，未重新复核；
+#       凤凰三台的官方源由「凤凰卫视」模块提供。
 
 #EXTINF:-1 tvg-logo="https://epg.pw/media/images/channel/2023/07/22/large/20230722105459178241_22.png" group-title="台湾",纬来日本
 rtmp://f13h.mine.nu/sat/tv771
@@ -35,6 +37,14 @@ https://cdn.qd.je/163189/now
 https://cdn.qd.je/163189/rthk31
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/RTHK32.png" group-title="香港",RTHK32
 https://cdn.qd.je/163189/rthk32
+#EXTINF:-1 group-title="香港",翡翠台
+https://cdn3.indevs.in/stream/tvb/fct/
+#EXTINF:-1 group-title="香港",凤凰中文
+http://zmgd.zyrnet.com:8888/hls/110/index.m3u8
+#EXTINF:-1 group-title="香港",凤凰资讯
+http://zmgd.zyrnet.com:8888/hls/109/index.m3u8
+#EXTINF:-1 group-title="香港",凤凰香港
+https://cdn.qd.je/163189/fhhk
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%BE%B3%E8%A7%86%E6%BE%B3%E9%97%A8.png" group-title="澳门",澳视澳门
 https://cdn.qd.je/163189/asam
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%BE%B3%E8%A7%86%E5%8D%AB%E6%98%9F.png" group-title="澳门",澳视卫星

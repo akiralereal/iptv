@@ -7,6 +7,7 @@
  * 模块开关关掉后都是「不联网、不出现在播放列表、磁盘数据原样保留、
  * 开回来即恢复」：
  *   单模块 enabled（extractors.json）—— 用户在卡片上点过就是唯一真相。
+ *   后台「批量开关」也只是一次写多张卡片的这个值，不另成一层（见 setModulesEnabled）。
  *   没点过的不存 enabled，按模块声明的 defaultEnabled（不声明即开）；v4.29.0 及以前
  *   会把没点过的落成 enabled:true，那批存量配置照旧按存的值来。
  *   代理开关的模块（咪咕→config.js:enableMigu）走自己的 getter。
@@ -31,6 +32,8 @@ import { enableExtractors } from "../config.js"
 
 const CONFIG_FILE = 'extractors.json'
 const CACHE_FILE = 'extractor-cache.json'
+// 官方入口持续 WAF 405，2026-10-22 移除。加载或导入旧备份时同步清掉配置与缓存。
+const RETIRED_MODULE_IDS = ['beidou']
 
 // 单个模块一轮的墙钟上限。模块内部也该自己设超时，这层是兜底——外部源那边
 // 整轮没有任何时间上限，一个慢源能把后面全拖住。
@@ -362,6 +365,17 @@ class ExtractorManager {
     // 磁盘上的配置可能整份换过（备份导入走 reload→load）：把所有模块的配置代数
     // +1，作废还在飞的抓取轮——它们跑的是换盘前的配置（见 #runOne）。
     let cacheChanged = false
+    let configChanged = false
+    for (const id of RETIRED_MODULE_IDS) {
+      if (Object.hasOwn(this.config.modules, id)) {
+        delete this.config.modules[id]
+        configChanged = true
+      }
+      if (Object.hasOwn(this.cache.modules, id)) {
+        delete this.cache.modules[id]
+        cacheChanged = true
+      }
+    }
     for (const module of listModules()) {
       this.configGen.set(module.id, (this.configGen.get(module.id) || 0) + 1)
       const cacheEntry = this.#cacheEntry(module.id)
@@ -387,6 +401,7 @@ class ExtractorManager {
       }
     }
     this.loaded = true
+    if (configChanged && !this.corrupt) this.#saveConfig()
     if (cacheChanged) this.#saveCache()
     // 放在 load() 而不是启动流程里：配置导入会调 reload()，用户导入一份「搬家之前
     // 导出的备份」时，包里 extractors.json 没有这些字段、system-config.json 有，
@@ -762,6 +777,96 @@ class ExtractorManager {
       // 否则开关在内存里已翻转并即刻影响抓取，重启后又弹回，与报错自相矛盾。
       if (prev === undefined) delete entry.enabled
       else entry.enabled = prev
+      throw error
+    }
+    return this.getState()
+  }
+
+  /**
+   * 批量开关：一次改多张卡片各自的开关（issue #189「只想留央视频、凤凰、咪咕」）。
+   *
+   * 写的仍是每张卡片自己的 enabled，**不是**另起一份白名单 / 环境变量。那等于把刚退休的
+   * 部署级总开关请回来——它会静默压过卡片上的明确选择，界面上还管不到咪咕（见
+   * #migrateMasterSwitch）。批量只是「替用户连点几十下」，点完每张卡片照旧是唯一真相，
+   * 之后单独点开某一个立刻生效。
+   *
+   * 与 setModuleEnabled 同一约定「接口报失败 ⇒ 开关没变」，整批要么全变、要么全不变：
+   *   1. 先整份校验（id 都认识、值都是严格布尔），任何一项不过就什么都不动——批量一次
+   *      动几十个模块，'false' 字符串被当真值放过去的后果是整片打开；
+   *   2. 非代理模块在内存里改完只写一次盘；写盘被拒（配置损坏）就逐项精确回滚，
+   *      没点过的（原先没有 enabled 键）回滚成删键，不能落成 true/false；
+   *   3. 写盘成功后才调代理模块（咪咕）的 setter——它写的是 system-config.json，撤不回
+   *      的动作放最后。setter 失败就撤回前面的非代理改动并尽力重新落盘，已经调过的
+   *      setter 也尽力翻回去。
+   * 只写与当前生效值不同的项：没点过、默认开的模块请求开时仍然不落 enabled（稀疏存储，
+   * 见 #entry），以后改它的 defaultEnabled 存量用户跟得上。一个非代理模块都没变时不碰
+   * extractors.json——配置损坏不该挡住只动咪咕的批量，与单开关对代理模块的处理一致。
+   *
+   * @param changes { [模块 id]: true/false }
+   */
+  setModulesEnabled(changes) {
+    if (!isPlainObject(changes)) throw new Error('批量开关要传「模块 id → true/false」的对象')
+    const plan = []
+    for (const [id, on] of Object.entries(changes)) {
+      const module = getModule(id)
+      if (!module) throw new Error(`未知的抓取模块: ${id}`)
+      if (typeof on !== 'boolean') throw new Error(`${module.name} 的开关值要是 true / false`)
+      if (this.isModuleEnabled(module) === on) continue
+      // 只读代理（有 getter 没 setter）的模块单开关也改不了，放到这里先拦，免得改到一半才抛
+      if (typeof module.enabledSetter !== 'function' && typeof module.enabledGetter === 'function') {
+        throw new Error(`${module.name} 的开关在「系统配置」页，不在这里`)
+      }
+      plan.push({ module, on })
+    }
+
+    const proxied = plan.filter(({ module }) => typeof module.enabledSetter === 'function')
+    const local = plan
+      .filter(({ module }) => typeof module.enabledSetter !== 'function')
+      .map(({ module, on }) => {
+        const entry = this.#entry(module.id)
+        return { module, on, entry, prev: entry.enabled }
+      })
+    const rollbackLocal = () => {
+      for (const { entry, prev } of local) {
+        if (prev === undefined) delete entry.enabled
+        else entry.enabled = prev
+      }
+    }
+
+    if (local.length) {
+      for (const { module, on } of local) this.#setModuleEnabledValue(module, on)
+      try {
+        this.#saveConfig()
+      } catch (error) {
+        rollbackLocal()
+        throw error
+      }
+    }
+
+    const applied = []
+    try {
+      for (const { module, on } of proxied) {
+        this.#setModuleEnabledValue(module, on)
+        applied.push({ module, on })
+      }
+    } catch (error) {
+      rollbackLocal()
+      if (local.length) {
+        try {
+          this.#saveConfig()
+        } catch (saveError) {
+          // 内存已回滚、磁盘还是新值：重启前一切照旧，重启后这批非代理开关会以新值出现。
+          // 写不回去多半是磁盘出了问题，报出来让人看日志，比静默吞掉强。
+          printRed(`批量开关回滚写盘失败（内存已撤回，磁盘上仍是新值，重启后会生效）：${saveError.message}`)
+        }
+      }
+      for (const { module, on } of applied.reverse()) {
+        try {
+          this.#setModuleEnabledValue(module, !on)
+        } catch (revertError) {
+          printRed(`批量开关回滚 ${module.name} 失败：${revertError.message}`)
+        }
+      }
       throw error
     }
     return this.getState()

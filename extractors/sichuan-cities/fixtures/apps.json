@@ -1,0 +1,1062 @@
+{
+  "gytv1": {
+    "id": 1006352,
+    "type": "live",
+    "title": "广元新闻频道",
+    "fields": {
+      "live_id": 100999
+    }
+  },
+  "gytv1Live": {
+    "lives": [
+      {
+        "id": 100999,
+        "type": 1,
+        "m3u8_url": "https://m3u8.channel.dzsm.com/nmip-media/channellive/channel100999/playlist.m3u8"
+      }
+    ]
+  },
+  "ybtv1": {
+    "id": 43174882,
+    "type": "live",
+    "title": "新闻综合",
+    "fields": {
+      "link_url": "https://aliplay.yibinrm.cn/live/1.m3u8?auth_key=offline-fixture",
+      "live_id": 100134,
+      "show_program_list": "false"
+    }
+  },
+  "ybtv2": {
+    "id": 43174964,
+    "type": "live",
+    "title": "科教文旅",
+    "fields": {
+      "link_url": "https://aliplay.yibinrm.cn/live/2.m3u8?auth_key=offline-fixture",
+      "live_id": 100989,
+      "show_program_list": "false"
+    }
+  },
+  "lstv1": {
+    "id": 1052185,
+    "type": "live",
+    "title": "新闻综合频道",
+    "fields": {
+      "live_id": 114103,
+      "show_program_list": "true"
+    }
+  },
+  "lstv1Live": {
+    "lives": [
+      {
+        "id": 114103,
+        "type": 1,
+        "m3u8_url": "https://tvlive.i0834.cn/nmip-media/channellive/channel114103/playlist.m3u8"
+      }
+    ]
+  },
+  "lstv2": {
+    "id": 1056318,
+    "type": "live",
+    "title": "彝语综合频道",
+    "fields": {
+      "live_id": 115044,
+      "show_program_list": "true"
+    }
+  },
+  "lstv2Live": {
+    "lives": [
+      {
+        "id": 115044,
+        "type": 1,
+        "m3u8_url": "https://tvlive.i0834.cn/nmip-media/channellive/channel115044/playlist.m3u8"
+      }
+    ]
+  },
+  "yatv1": {
+    "id": 1030244,
+    "type": "live",
+    "title": "新闻综合",
+    "fields": {
+      "link_url": "http://m3u8channel.yunxya.com/nmip-media/channellive/channel100966/playlist.m3u8",
+      "live_id": 100028,
+      "show_program_list": "false"
+    }
+  },
+  "lshantv1": {
+    "code": 0,
+    "data": [
+      {
+        "componentCode": "component_tv_radio_live",
+        "propValue": {
+          "children": [
+            {
+              "componentType": 1,
+              "dataList": [
+                {
+                  "jumpId": "1742401486903521281",
+                  "jumpContentType": 36,
+                  "liveStream": "http://pwpull.leshan.cn/live/21609091019110008654ed1a00000000/playlist.m3u8"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "mstv1": {
+    "code": 0,
+    "data": [
+      {
+        "componentCode": "component_tv_radio_live",
+        "propValue": {
+          "children": [
+            {
+              "componentType": 1,
+              "dataList": [
+                {
+                  "jumpId": "1867078614933381121",
+                  "jumpContentType": 36,
+                  "liveStream": "http://mspull.scmstv.cn/live/4c0403ef019d1000d9803a5e00000000/playlist.m3u8"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "mstv1Config": {
+    "code": 0,
+    "data": {
+      "antiTheftChainAddress": "http://mspull.scmstv.cn",
+      "antiTheftChainKey": "b2ZmbGluZS1rZXk="
+    }
+  },
+  "zytv1": {
+    "code": 200,
+    "data": {
+      "tv_id": 1,
+      "status": 2,
+      "is_app_auth": 1,
+      "url": "https://zytvpull.zyrb.com.cn/live/sobeystream_1752554871.m3u8?sign=offline-fixture&t=offline"
+    }
+  },
+  "lstv1Epg": {
+    "2026-10-24": [
+      {
+        "name": "凉山新闻联播",
+        "start_time": 1792797060,
+        "stop_time": 1792798500
+      },
+      {
+        "name": "今晚800",
+        "start_time": 1792798500,
+        "stop_time": 1792800720
+      },
+      {
+        "name": "电视剧",
+        "start_time": 1792800720,
+        "stop_time": 1792805040
+      },
+      {
+        "name": "凉山新闻联播",
+        "start_time": 1792805040,
+        "stop_time": 1792807560
+      },
+      {
+        "name": "今晚800",
+        "start_time": 1792811160,
+        "stop_time": 1792813440
+      },
+      {
+        "name": "电视剧",
+        "start_time": 1792813440,
+        "stop_time": 1792814400
+      },
+      {
+        "name": "凉山新闻联播",
+        "start_time": 1792814400,
+        "stop_time": 1792815780
+      },
+      {
+        "name": "今晚800",
+        "start_time": 1792815780,
+        "stop_time": 1792819200
+      },
+      {
+        "name": "手语新闻",
+        "start_time": 1792819200,
+        "stop_time": 1792821000
+      },
+      {
+        "name": "电视剧",
+        "start_time": 1792821000,
+        "stop_time": 1792837800
+      },
+      {
+        "name": "四川新闻联播",
+        "start_time": 1792837800,
+        "stop_time": 1792839300
+      },
+      {
+        "name": "四川天气预报",
+        "start_time": 1792839300,
+        "stop_time": 1792839600
+      },
+      {
+        "name": "中央台新闻联播",
+        "start_time": 1792839600,
+        "stop_time": 1792841640
+      },
+      {
+        "name": "凉山新闻联播",
+        "start_time": 1792841640,
+        "stop_time": 1792842780
+      },
+      {
+        "name": "天气预报",
+        "start_time": 1792842780,
+        "stop_time": 1792843200
+      },
+      {
+        "name": "今晚800",
+        "start_time": 1792843200,
+        "stop_time": 1792844640
+      },
+      {
+        "name": "法治凉山",
+        "start_time": 1792844640,
+        "stop_time": 1792846680
+      },
+      {
+        "name": "晚间剧场",
+        "start_time": 1792846680,
+        "stop_time": 1792848600
+      },
+      {
+        "name": "凉山新闻联播",
+        "start_time": 1792852200,
+        "stop_time": 1792853580
+      },
+      {
+        "name": "今晚800",
+        "start_time": 1792853580,
+        "stop_time": 1792855140
+      },
+      {
+        "name": "晚间剧场",
+        "start_time": 1792855140,
+        "stop_time": 1792858560
+      }
+    ],
+    "2026-10-23": [
+      {
+        "name": "凉山新闻联播",
+        "start_time": 1792710660,
+        "stop_time": 1792712100
+      },
+      {
+        "name": "今晚800",
+        "start_time": 1792712100,
+        "stop_time": 1792714320
+      },
+      {
+        "name": "电视剧",
+        "start_time": 1792714320,
+        "stop_time": 1792718640
+      },
+      {
+        "name": "凉山新闻联播",
+        "start_time": 1792718640,
+        "stop_time": 1792721160
+      },
+      {
+        "name": "今晚800",
+        "start_time": 1792724760,
+        "stop_time": 1792727040
+      },
+      {
+        "name": "电视剧",
+        "start_time": 1792727040,
+        "stop_time": 1792728000
+      },
+      {
+        "name": "凉山新闻联播",
+        "start_time": 1792728000,
+        "stop_time": 1792729380
+      },
+      {
+        "name": "今晚800",
+        "start_time": 1792729380,
+        "stop_time": 1792732800
+      },
+      {
+        "name": "手语新闻",
+        "start_time": 1792732800,
+        "stop_time": 1792734600
+      },
+      {
+        "name": "电视剧",
+        "start_time": 1792734600,
+        "stop_time": 1792751400
+      },
+      {
+        "name": "四川新闻联播",
+        "start_time": 1792751400,
+        "stop_time": 1792752900
+      },
+      {
+        "name": "四川天气预报",
+        "start_time": 1792752900,
+        "stop_time": 1792753200
+      },
+      {
+        "name": "中央台新闻联播",
+        "start_time": 1792753200,
+        "stop_time": 1792755240
+      },
+      {
+        "name": "凉山新闻联播",
+        "start_time": 1792755240,
+        "stop_time": 1792756380
+      },
+      {
+        "name": "天气预报",
+        "start_time": 1792756380,
+        "stop_time": 1792756800
+      },
+      {
+        "name": "今晚800",
+        "start_time": 1792756800,
+        "stop_time": 1792758240
+      },
+      {
+        "name": "法治凉山",
+        "start_time": 1792758240,
+        "stop_time": 1792760280
+      },
+      {
+        "name": "晚间剧场",
+        "start_time": 1792760280,
+        "stop_time": 1792762200
+      },
+      {
+        "name": "凉山新闻联播",
+        "start_time": 1792765800,
+        "stop_time": 1792767180
+      },
+      {
+        "name": "今晚800",
+        "start_time": 1792767180,
+        "stop_time": 1792768740
+      },
+      {
+        "name": "晚间剧场",
+        "start_time": 1792768740,
+        "stop_time": 1792772160
+      }
+    ]
+  },
+  "lstv2Epg": {
+    "2026-10-24": [
+      {
+        "name": "彝语凉山新闻联播",
+        "start_time": 1792797000,
+        "stop_time": 1792798200
+      },
+      {
+        "name": "手语新闻",
+        "start_time": 1792798200,
+        "stop_time": 1792799400
+      },
+      {
+        "name": "电视剧",
+        "start_time": 1792799400,
+        "stop_time": 1792805400
+      },
+      {
+        "name": "彝语栏目",
+        "start_time": 1792805400,
+        "stop_time": 1792806900
+      },
+      {
+        "name": "彝语电影",
+        "start_time": 1792806900,
+        "stop_time": 1792814400
+      },
+      {
+        "name": "彝语凉山新闻联播",
+        "start_time": 1792814400,
+        "stop_time": 1792815600
+      },
+      {
+        "name": "访谈时空",
+        "start_time": 1792815600,
+        "stop_time": 1792817100
+      },
+      {
+        "name": "彝语电影",
+        "start_time": 1792817100,
+        "stop_time": 1792825200
+      },
+      {
+        "name": "彝语凉山新闻联播",
+        "start_time": 1792825200,
+        "stop_time": 1792826400
+      },
+      {
+        "name": "彝文电视剧",
+        "start_time": 1792826400,
+        "stop_time": 1792836000
+      },
+      {
+        "name": "彝州艺苑",
+        "start_time": 1792836000,
+        "stop_time": 1792837800
+      },
+      {
+        "name": "彝语凉山新闻联播",
+        "start_time": 1792837800,
+        "stop_time": 1792839600
+      },
+      {
+        "name": "中央电视台新闻联播",
+        "start_time": 1792839600,
+        "stop_time": 1792841400
+      },
+      {
+        "name": "彝语天气预报",
+        "start_time": 1792841400,
+        "stop_time": 1792842000
+      },
+      {
+        "name": "彝语栏目",
+        "start_time": 1792842000,
+        "stop_time": 1792843200
+      },
+      {
+        "name": "彝语电影",
+        "start_time": 1792843200,
+        "stop_time": 1792850700
+      },
+      {
+        "name": "彝语凉山新闻联播",
+        "start_time": 1792850700,
+        "stop_time": 1792852200
+      },
+      {
+        "name": "彝文电视剧",
+        "start_time": 1792852200,
+        "stop_time": 1792861200
+      }
+    ],
+    "2026-10-23": [
+      {
+        "name": "彝语凉山新闻联播",
+        "start_time": 1792710600,
+        "stop_time": 1792711800
+      },
+      {
+        "name": "手语新闻",
+        "start_time": 1792711800,
+        "stop_time": 1792713000
+      },
+      {
+        "name": "电视剧",
+        "start_time": 1792713000,
+        "stop_time": 1792719000
+      },
+      {
+        "name": "彝语栏目",
+        "start_time": 1792719000,
+        "stop_time": 1792720500
+      },
+      {
+        "name": "彝语电影",
+        "start_time": 1792720500,
+        "stop_time": 1792728000
+      },
+      {
+        "name": "彝语凉山新闻联播",
+        "start_time": 1792728000,
+        "stop_time": 1792729200
+      },
+      {
+        "name": "访谈时空",
+        "start_time": 1792729200,
+        "stop_time": 1792730700
+      },
+      {
+        "name": "彝语电影",
+        "start_time": 1792730700,
+        "stop_time": 1792738800
+      },
+      {
+        "name": "彝语凉山新闻联播",
+        "start_time": 1792738800,
+        "stop_time": 1792740000
+      },
+      {
+        "name": "彝文电视剧",
+        "start_time": 1792740000,
+        "stop_time": 1792749600
+      },
+      {
+        "name": "彝州艺苑",
+        "start_time": 1792749600,
+        "stop_time": 1792751400
+      },
+      {
+        "name": "彝语凉山新闻联播",
+        "start_time": 1792751400,
+        "stop_time": 1792753200
+      },
+      {
+        "name": "中央电视台新闻联播",
+        "start_time": 1792753200,
+        "stop_time": 1792755000
+      },
+      {
+        "name": "彝语天气预报",
+        "start_time": 1792755000,
+        "stop_time": 1792755600
+      },
+      {
+        "name": "彝语栏目",
+        "start_time": 1792755600,
+        "stop_time": 1792756800
+      },
+      {
+        "name": "彝语电影",
+        "start_time": 1792756800,
+        "stop_time": 1792764300
+      },
+      {
+        "name": "彝语凉山新闻联播",
+        "start_time": 1792764300,
+        "stop_time": 1792765800
+      },
+      {
+        "name": "彝文电视剧",
+        "start_time": 1792765800,
+        "stop_time": 1792774800
+      }
+    ]
+  },
+  "dytv1": {
+    "code": 1,
+    "status": 200,
+    "message": "请求成功！",
+    "data": [
+      {
+        "id": 1,
+        "mark": "tv",
+        "title": "德阳新闻综合频道",
+        "icon": "https://api.deyangnews.cn/file/statics/2023/01/30/新闻1_20230130170210A555.jpg",
+        "stream": "rtmp://zb.dywang.cn/live/xwpd",
+        "startTime": null,
+        "endTime": null,
+        "video": null,
+        "videoStatus": 1,
+        "videoTime": null,
+        "click": 0,
+        "likes": 0,
+        "streamH5": "https://zb.dywang.cn/live/xwpd.m3u8"
+      }
+    ]
+  },
+  "pzhtv1": {
+    "status": "200",
+    "msg": "操作成功",
+    "list": [
+      {
+        "channelName": "新闻综合",
+        "chatRoomType": 2,
+        "chatType": 0,
+        "checkedStatus": 1,
+        "city": "",
+        "cityCode": "",
+        "code": "pzhsrmtzx",
+        "copyrightParty": "攀枝花市融媒体中心",
+        "county": "",
+        "countyCode": "",
+        "coverImg": "https://www.pzhxinwen.cn/upload/rft/image/2025/09/12/473bd594a85049aca768f0c8a233760d.jpg",
+        "coverImg_s": "https://www.pzhxinwen.cn/upload/rft/image/2025/09/12/473bd594a85049aca768f0c8a233760d_s.jpg",
+        "createtime": "2025-08-14 21:04:10",
+        "id": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "isBroadcastImg": 0,
+        "level": 0,
+        "linkType": 0,
+        "liveProgramEndTime": "",
+        "liveProgramName": "共和国血脉（34）",
+        "liveProgramStartTime": "",
+        "mCarouselImg": "",
+        "mCoverImg": "https://www.pzhxinwen.cn/upload/rft/image/2025/09/12/473bd594a85049aca768f0c8a233760d.jpg",
+        "mCoverImg1": "",
+        "mCoverImg1_s": "",
+        "mCoverImg2": "",
+        "mCoverImg2_s": "",
+        "mCoverImg3": "",
+        "mCoverImg3_s": "",
+        "mCoverImg_s": "https://www.pzhxinwen.cn/upload/rft/image/2025/09/12/473bd594a85049aca768f0c8a233760d_s.jpg",
+        "mListpattern": 0,
+        "otherUrl": "",
+        "province": "",
+        "provinceCode": "",
+        "recordSwitch": 1,
+        "recordUrl": "",
+        "roomId": "",
+        "shareUrl": "https://www.pzhxinwen.cn/html/rft/live.html?channelId=d1f8066886ea4ed1a4f55acea5ef42bc&type=1&siteId=4399a78804af48b285f25614750a77fe",
+        "shieldStatus": 0,
+        "siteId": "4399a78804af48b285f25614750a77fe",
+        "sort": 1,
+        "status": 1,
+        "tally": "",
+        "timeShift": 24,
+        "type": 1,
+        "url": "https://pzhlive.pzhxinwen.cn/pzhxw/pzh_xw.m3u8?auth_key=offline"
+      }
+    ]
+  },
+  "pzhtv1Config": {
+    "id": "4399a78804af48b285f25614750a77fe",
+    "domain": "https://www.pzhxinwen.cn",
+    "apiSign": "offlinePublicConfig1234567890"
+  },
+  "nctv1": {
+    "code": 0,
+    "tenantDomainName": "https://rmt.cnncw.cn",
+    "data": [
+      {
+        "componentCode": "component_tv_radio_live",
+        "showComponent": null,
+        "name": "电视和广播直播",
+        "nodeComponentId": "1835203968634773506",
+        "sortNum": "0",
+        "propValue": {
+          "styleType": "3",
+          "children": [
+            {
+              "componentType": 1,
+              "total": "1",
+              "totalPage": "1",
+              "dataList": [
+                {
+                  "jumpType": 2,
+                  "imgs": [
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/N1300/2025/09/02/8bbb0d94-6c27-4856-8def-d1148d692f19_one.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/N1300/2025/09/02/8bbb0d94-6c27-4856-8def-d1148d692f19_one_big.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/N1300/2025/09/02/8bbb0d94-6c27-4856-8def-d1148d692f19_three_one.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/N1300/2025/09/02/8bbb0d94-6c27-4856-8def-d1148d692f19_three_two.jpg",
+                      "height": null
+                    },
+                    {
+                      "contentImgUrl": null,
+                      "uploadImgUrl": null,
+                      "width": null,
+                      "url": "/file/N1300/2025/09/02/8bbb0d94-6c27-4856-8def-d1148d692f19_three_three.jpg",
+                      "height": null
+                    }
+                  ],
+                  "publishTime": "2026-02-06 09:50:50",
+                  "author": "南充融媒",
+                  "bindTitle": null,
+                  "liveStream": "https://ncpull.cnncw.cn/live/2be69226019c10009bf1323e00000000/playlist.m3u8",
+                  "replay": null,
+                  "source": null,
+                  "jumpId": "1962907990741680130",
+                  "title": "综合频道",
+                  "pageViewsCount": null,
+                  "jumpUrl": "/file/N1300/2025/09/02/8bbb0d94-6c27-4856-8def-d1148d692f19_one.jpg",
+                  "coverUrl": null,
+                  "likesCount": null,
+                  "shareCount": null,
+                  "styleType": "1",
+                  "jumpContentType": 36,
+                  "para": null,
+                  "commentsCount": null,
+                  "liveStatus": 2
+                }
+              ],
+              "name": "电视"
+            }
+          ],
+          "nickName": "电视"
+        },
+        "nodeId": "1835203958696394753"
+      }
+    ],
+    "msg": "ok",
+    "path": null,
+    "extra": null,
+    "isSuccess": true,
+    "isError": false
+  },
+  "nctv1Config": {
+    "code": 0,
+    "data": {
+      "antiTheftChainAddress": "https://ncpull.cnncw.cn",
+      "antiTheftChainAddressHD": null,
+      "antiTheftChainKey": "b2ZmbGluZS1uYW5jaG9uZw=="
+    }
+  },
+  "pzhtv1Epg20261024": {
+    "status": "200",
+    "msg": "操作成功",
+    "channelName": "新闻综合",
+    "liveSt": 1792771465911,
+    "dateTime": "2026-10-24",
+    "list": [
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792771200000,
+        "endTime": 1792773480000,
+        "title": "共和国血脉（34）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792773480000,
+        "endTime": 1792777080000,
+        "title": "  共和国血脉（35）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792777080000,
+        "endTime": 1792796400000,
+        "title": "  晚安"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792796400000,
+        "endTime": 1792796460000,
+        "title": "  国歌"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792796460000,
+        "endTime": 1792797060000,
+        "title": "金色攀枝花"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792797060000,
+        "endTime": 1792799520000,
+        "title": "谢谢你来了"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792799520000,
+        "endTime": 1792801200000,
+        "title": "奇妙之旅"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792801200000,
+        "endTime": 1792815120000,
+        "title": "伟大的转折（8-12）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792815120000,
+        "endTime": 1792816020000,
+        "title": "  民生实验室"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792816020000,
+        "endTime": 1792816200000,
+        "title": "  攀枝花新故事"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792816200000,
+        "endTime": 1792817100000,
+        "title": "重播攀枝花新闻联播"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792817100000,
+        "endTime": 1792825500000,
+        "title": "长征大会师（30-32）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792825500000,
+        "endTime": 1792834440000,
+        "title": "  红星照耀中国（9-11）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792834440000,
+        "endTime": 1792836180000,
+        "title": "奇妙之旅"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792836180000,
+        "endTime": 1792837080000,
+        "title": "民生实验室"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792837560000,
+        "endTime": 1792837800000,
+        "title": "  天气预报"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792837800000,
+        "endTime": 1792839600000,
+        "title": "少儿节目"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792839600000,
+        "endTime": 1792841460000,
+        "title": "转播中央台新闻联播"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792841460000,
+        "endTime": 1792842060000,
+        "title": "攀枝花新闻联播"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792842060000,
+        "endTime": 1792842720000,
+        "title": "  攀钢新闻"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792842720000,
+        "endTime": 1792843020000,
+        "title": "天气预报"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792843020000,
+        "endTime": 1792848300000,
+        "title": " 长征大会师（33-35）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792848300000,
+        "endTime": 1792849800000,
+        "title": "  嘻游记"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792849800000,
+        "endTime": 1792852200000,
+        "title": "新闻大求真"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792852200000,
+        "endTime": 1792853280000,
+        "title": "重播攀枝花新闻联播  天气预报"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792853280000,
+        "endTime": 1792854480000,
+        "title": "新闻大求真"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792854480000,
+        "endTime": 1792857540000,
+        "title": " 共和国血脉（36）"
+      }
+    ]
+  },
+  "pzhtv1Epg20261025": {
+    "status": "200",
+    "msg": "操作成功",
+    "channelName": "新闻综合",
+    "liveSt": 1792771466586,
+    "dateTime": "2026-10-25",
+    "list": [
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792857600000,
+        "endTime": 1792862400000,
+        "title": "执行法官（1）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792862400000,
+        "endTime": 1792882800000,
+        "title": "  晚安"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792882800000,
+        "endTime": 1792882860000,
+        "title": "  国歌"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792882860000,
+        "endTime": 1792883220000,
+        "title": "金色攀枝花"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792883220000,
+        "endTime": 1792885980000,
+        "title": "谢谢你来了"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792885980000,
+        "endTime": 1792887660000,
+        "title": "奇妙之旅"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792887660000,
+        "endTime": 1792901580000,
+        "title": "伟大的转折（13-17）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792901580000,
+        "endTime": 1792902480000,
+        "title": "  民生实验室"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792902480000,
+        "endTime": 1792902600000,
+        "title": "  金色攀枝花"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792902600000,
+        "endTime": 1792903800000,
+        "title": "重播攀枝花新闻联播"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792903800000,
+        "endTime": 1792912260000,
+        "title": "  长征大会师（33-35）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792912260000,
+        "endTime": 1792920420000,
+        "title": " 红星照耀中国（12-14）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792920420000,
+        "endTime": 1792922040000,
+        "title": "奇妙之旅"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792922040000,
+        "endTime": 1792924140000,
+        "title": "民生实验室"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792924140000,
+        "endTime": 1792924320000,
+        "title": "  天气预报"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792924320000,
+        "endTime": 1792926000000,
+        "title": "少儿节目"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792926000000,
+        "endTime": 1792927860000,
+        "title": "转播中央台新闻联播"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792927860000,
+        "endTime": 1792928340000,
+        "title": "  攀枝花新闻联播"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792928340000,
+        "endTime": 1792928760000,
+        "title": "  天气预报"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792928760000,
+        "endTime": 1792929900000,
+        "title": "长征大会师（36）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792929900000,
+        "endTime": 1792936200000,
+        "title": "  十送红军（1-2）"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792936200000,
+        "endTime": 1792937700000,
+        "title": "  嘻游记"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792937700000,
+        "endTime": 1792938600000,
+        "title": "  新闻大求真"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792938600000,
+        "endTime": 1792939260000,
+        "title": "  重播攀枝花新闻联播    天气预报"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792939260000,
+        "endTime": 1792941780000,
+        "title": "新闻大求真"
+      },
+      {
+        "channelId": "d1f8066886ea4ed1a4f55acea5ef42bc",
+        "startTime": 1792941780000,
+        "endTime": 1792943940000,
+        "title": "执行法官（2-3）"
+      }
+    ]
+  }
+}

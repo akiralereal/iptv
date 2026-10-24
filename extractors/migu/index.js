@@ -34,6 +34,7 @@ import { resolve, clearCache } from "./resolve.js"
 import { enableMigu } from "../../config.js"
 import { setSystemFlagAPI } from "../../utils/systemConfigAPI.js"
 import { checkAccount, credentialRejected } from "./account.js"
+import danmaku from "./danmaku.js"
 
 /**
  * 跨分组去重：同一个 pID 只留在**最先出现**的那个分组里；
@@ -328,6 +329,12 @@ export default {
   resolveBurstGuard: true,
 
   clearResolveCache: clearCache,
+
+  // 体育赛事直播弹幕（统一弹幕接口的直播扩展，见 DANMAKU.md）：/danmaku/migu/<pID>[/live|/segments]
+  // 走 app.js 的本机路由钩子，鉴权与频道地址同一套；聊天室 ID 由 updatePE 抓赛事时记下
+  claimsLocalPath: danmaku.claimsLocalPath,
+  handleLocalRequest: danmaku.handleLocalRequest,
+  shutdown: danmaku.shutdown,
 
   credentialRejected,
 

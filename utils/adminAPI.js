@@ -252,8 +252,9 @@ export async function removeLogoAPI(name) {
 /**
  * 把一个频道（同名同地址）复制到一个或多个分组（issue #37）：每个目标分组建一条独立的「直连」副本。
  * 副本是固定地址的独立频道（独立隐藏/排序/删除）；咪咕频道地址为服务端跳转，暂不支持。
+ * 原频道的回看声明（catchup / catchupDays / catchupSource）随副本带过去，由 addSource 消毒（issue #190）。
  */
-export async function copyChannelToGroupsAPI({ name, url, logo, groups } = {}) {
+export async function copyChannelToGroupsAPI({ name, url, logo, groups, catchup, catchupDays, catchupSource } = {}) {
   try {
     if (!name || !url) return { success: false, message: '缺少频道名或地址' }
     if (String(url).includes('${replace}')) return { success: false, message: '咪咕频道暂不支持复制（地址为服务端跳转）' }
@@ -262,7 +263,7 @@ export async function copyChannelToGroupsAPI({ name, url, logo, groups } = {}) {
     const safeLogo = (typeof logo === 'string' && /^https?:\/\//.test(logo)) ? logo : ''
     let added = 0
     for (const group of targets) {
-      externalSourceManager.addSource({ name, group, m3u8Url: url, logo: safeLogo, enabled: true, autoRefresh: false })
+      externalSourceManager.addSource({ name, group, m3u8Url: url, logo: safeLogo, enabled: true, autoRefresh: false, catchup, catchupDays, catchupSource })
       added++
     }
     await update(0, { regenerateOnly: true }).catch(err => console.error('复制频道后重新生成失败:', err))

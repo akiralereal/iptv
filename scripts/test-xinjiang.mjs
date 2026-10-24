@@ -201,9 +201,10 @@ check('字符串表里有模板插值就整张表作废，不许猜出配置', (
 check('接口签名、上海日期和 Nuxt 脚本发现均受严格约束', () => {
   const material = extractSigningMaterial(signingBundle, '2029-01-01')
   const signed = createSignedParams(XINJIANG_CHANNEL_ENDPOINT, '1861920000000', material, {
-    now, random: () => 0.25,
+    now, random: () => 0.123456789,
   })
-  assert.match(signed.guid, /^[a-z0-9]+-[a-z0-9]{7}$/)
+  assert.match(signed.guid, /^[a-z0-9]{9}C[a-z0-9]+$/)
+  assert.equal(signed.guid[9], 'C')
   assert.match(signed.sign, /^[a-f0-9]{32}[A-Za-z0-9+/]+=*$/)
   assert.equal(shanghaiDate(Date.parse('2028-12-31T16:01:00Z')), '2029-01-01')
   assert.deepEqual(scriptUrls(

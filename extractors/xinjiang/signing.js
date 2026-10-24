@@ -339,7 +339,9 @@ export function createSignedParams(endpoint, stamp, material, options = {}) {
   }
   const now = Number(options.now ?? Date.now())
   const random = options.random ?? Math.random
-  const guid = `${now.toString(36)}-${random().toString(36).slice(2, 9).padEnd(7, '0')}`
+  const randomPart = random().toString(36).slice(2, 9)
+  const guidSource = `${now.toString(36)}${randomPart}`
+  const guid = `${guidSource.slice(0, 9)}C${guidSource.slice(10)}`
   const token = randomString.slice(0, randomNumber) + randomString.slice(randomNumber + 1)
   const message = `${token}${randomNumber >= 15 ? guid : ''}${stamp}${endpoint.slice(1)}`
   const digest = createHash('md5').update(message, 'ascii').digest('hex')

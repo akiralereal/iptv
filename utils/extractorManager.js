@@ -32,8 +32,7 @@ import { enableExtractors } from "../config.js"
 
 const CONFIG_FILE = 'extractors.json'
 const CACHE_FILE = 'extractor-cache.json'
-// 官方入口持续 WAF 405，2026-10-22 移除。加载或导入旧备份时同步清掉配置与缓存。
-const RETIRED_MODULE_IDS = ['beidou']
+const RETIRED_MODULE_IDS = []
 
 // 单个模块一轮的墙钟上限。模块内部也该自己设超时，这层是兜底——外部源那边
 // 整轮没有任何时间上限，一个慢源能把后面全拖住。

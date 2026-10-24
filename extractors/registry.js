@@ -158,6 +158,7 @@ import chengdu from './chengdu/index.js'
 import sichuanCities from './sichuan-cities/index.js'
 import cztv from './cztv/index.js'
 import dalian from './dalian/index.js'
+import beidou from './beidou/index.js'
 import douyuLive from './douyu-live/index.js'
 import fjtv from './fjtv/index.js'
 import fengshows from './fengshows/index.js'
@@ -242,6 +243,7 @@ const MODULES = [
   chengdu,
   sichuanCities,
   dalian,
+  beidou,
   gansu,
   gdtv,
   gdsportEvents,

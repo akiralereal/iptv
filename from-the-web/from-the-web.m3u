@@ -1,11 +1,14 @@
 #EXTM3U
 # === 来源于网络（from-the-web） ===
-# 说明：以下频道来自网络上流传的第三方转发站（cdn.qd.je、cdn6.cc.cd 等），非官方源，
-#       原在内置精选列表 IPTV.m3u，v4.7.0 复核后移出。本项目不维护、不保证可用，失效不作为 bug 受理。
+# 说明：以下频道来自网络上流传的第三方转发站（cdn.qd.je、cdn6.cc.cd、cdn3.indevs.in 等），非官方源，
+#       大部分原在内置精选列表 IPTV.m3u，v4.7.0 复核后移出。本项目不维护、不保证可用，失效不作为 bug 受理。
 # 复核：2026-09-07 海外逐条可拉取清单与媒体分片；大陆直连全部不可达（域名污染）。
 #       纬来日本 / 纬来育乐为 RTMP，仅验证转发站在线，需播放器支持。
 # 2026-10-22：翡翠台与三条第三方凤凰线路（凤凰中文 / 资讯 / 香港）也从 IPTV.m3u 移入，未重新复核；
 #       凤凰三台的官方源由「凤凰卫视」模块提供。
+# 2026-10-26：按 issue #202 收入 cdn3.indevs.in 的 7 个新频道，另给明珠台、天映频道、Astro AOD、Astro欢喜台、
+#       TVB星河 各加一条同名备用线路。GitHub Actions 美国东部 runner 深度复核：全部 HLS 条目可取到清单与分片；
+#       纬来日本 / 纬来育乐 在该 runner 上 RTMP connect 无回应，维护者实测可播，保留。cdn3.indevs.in 未做大陆复核。
 
 #EXTINF:-1 tvg-logo="https://epg.pw/media/images/channel/2023/07/22/large/20230722105459178241_22.png" group-title="台湾",纬来日本
 rtmp://f13h.mine.nu/sat/tv771
@@ -15,6 +18,8 @@ rtmp://f13h.mine.nu/sat/tv701
 https://cdn6.cc.cd/163189/wxxw
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%98%8E%E7%8F%A0%E5%8F%B0(%E5%AD%97%E5%B9%95).png" group-title="香港",明珠台
 https://cdn.qd.je/163189/mzt
+#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%98%8E%E7%8F%A0%E5%8F%B0(%E5%AD%97%E5%B9%95).png" group-title="香港",明珠台
+https://cdn3.indevs.in/stream/tvb/mzt/
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB%E5%A8%B1%E4%B9%90%E6%96%B0%E9%97%BB%E5%8F%B0.png" group-title="香港",TVB娱乐新闻台
 https://cdn6.cc.cd/163189/ylxw
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB1.png" group-title="香港",TVB1
@@ -39,6 +44,10 @@ https://cdn.qd.je/163189/rthk31
 https://cdn.qd.je/163189/rthk32
 #EXTINF:-1 group-title="香港",翡翠台
 https://cdn3.indevs.in/stream/tvb/fct/
+#EXTINF:-1 group-title="香港",翡翠台4K
+https://cdn3.indevs.in/stream/tvb/fct4k/
+#EXTINF:-1 group-title="香港",华丽翡翠台
+https://cdn3.indevs.in/stream/live/jade/
 #EXTINF:-1 group-title="香港",凤凰中文
 http://zmgd.zyrnet.com:8888/hls/110/index.m3u8
 #EXTINF:-1 group-title="香港",凤凰资讯
@@ -63,10 +72,22 @@ https://cdn.qd.je/163189/ch8
 https://cdn.qd.je/163189/chu
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/Astro%20AOD.png" group-title="马来西亚",Astro AOD
 https://cdn.qd.je/163189/aod
+#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/Astro%20AOD.png" group-title="马来西亚",Astro AOD
+https://cdn3.indevs.in/stream/live/aod/
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/Astro%E6%AC%A2%E5%96%9C%E5%8F%B0.png" group-title="马来西亚",Astro欢喜台
 https://cdn.qd.je/163189/hxt
+#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/Astro%E6%AC%A2%E5%96%9C%E5%8F%B0.png" group-title="马来西亚",Astro欢喜台
+https://cdn3.indevs.in/stream/live/hxt/
+#EXTINF:-1 group-title="马来西亚",Astro AEC
+https://cdn3.indevs.in/stream/live/aec/
+#EXTINF:-1 group-title="马来西亚",华丽台
+https://cdn3.indevs.in/stream/live/hlt/
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB%E6%98%9F%E6%B2%B3.png" group-title="影视",TVB星河
 https://cdn6.cc.cd/163189/tvbxh
+#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB%E6%98%9F%E6%B2%B3.png" group-title="影视",TVB星河
+https://cdn3.indevs.in/stream/live/tvbxh/
+#EXTINF:-1 group-title="影视",千禧经典台
+https://cdn3.indevs.in/stream/live/tvbc/
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB%E4%BA%9A%E6%B4%B2%E6%AD%A6%E4%BE%A0.png" group-title="影视",TVB亚洲武侠
 https://cdn6.cc.cd/163189/yzwx
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E9%87%8D%E6%B8%A9%E7%BB%8F%E5%85%B8.png" group-title="影视",重温经典
@@ -87,3 +108,9 @@ https://cdn.qd.je/163189/lhyp
 https://cdn.qd.je/163189/lhkt
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%A4%A9%E6%98%A0%E6%96%B0%E5%8A%A0%E5%9D%A1.png" group-title="影视",天映频道
 https://cdn.qd.je/163189/typd
+#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E5%A4%A9%E6%98%A0%E6%96%B0%E5%8A%A0%E5%9D%A1.png" group-title="影视",天映频道
+https://cdn3.indevs.in/stream/live/typd/
+#EXTINF:-1 group-title="影视",天映经典
+https://cdn3.indevs.in/stream/live/ccm/
+#EXTINF:-1 group-title="影视",爱奇艺
+https://cdn3.indevs.in/stream/live/iqiyi/

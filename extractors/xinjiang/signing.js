@@ -340,16 +340,30 @@ export function createSignedParams(endpoint, stamp, material, options = {}) {
   const now = Number(options.now ?? Date.now())
   const random = options.random ?? Math.random
   const randomPart = random().toString(36).slice(2, 9)
-  const guidSource = `${now.toString(36)}${randomPart}`
-  const guid = `${guidSource.slice(0, 9)}C${guidSource.slice(10)}`
+  const guid = `${now.toString(36)}-${randomPart}`
+  const signGuid = `${guid.slice(0, 8)}y${guid.slice(9)}`
   const token = randomString.slice(0, randomNumber) + randomString.slice(randomNumber + 1)
-  const message = `${token}${randomNumber >= 15 ? guid : ''}${stamp}${endpoint.slice(1)}`
+  const message = `${token}${randomNumber >= 15 ? signGuid : ''}${stamp}${endpoint.slice(1)}`
   const digest = createHash('md5').update(message, 'ascii').digest('hex')
   const encrypted = publicEncrypt(
     { key: publicKey, padding: constants.RSA_PKCS1_PADDING },
     Buffer.from(token, 'ascii'),
   ).toString('base64')
-  return { stamp: String(stamp), guid, sign: digest + encrypted }
+  const powTs = Number(options.powTs ?? Date.now())
+  let x = 0
+  let hash
+  do {
+    hash = createHash('sha256').update(`${powTs}${x}`).digest('hex')
+    x += 1
+  } while (!hash.startsWith('000'))
+  return {
+    stamp: String(stamp),
+    guid,
+    sign: digest + encrypted,
+    x: x - 1,
+    ts: powTs,
+    hash,
+  }
 }
 
 export function scriptUrls(html, pageUrl) {

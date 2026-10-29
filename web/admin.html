@@ -4796,12 +4796,13 @@
                 <div class="settings-editor-card" style="margin-top: 4px;">
                     <div>
                         <div style="font-size:16px; font-weight:600; color:#333;">消息推送</div>
-                        <div class="system-config-hint">后台顶部「需要处理的提醒」里出现需要你动手处理的新问题（登录凭证失效、EPG 源失败、模块配置损坏等）或问题恢复时，发一条消息到飞书、企业微信、钉钉、Telegram、Bark 或你自己的 Webhook，不用开着后台也能知道。只发消息，不接收任何指令。</div>
+                        <div class="system-config-hint">后台顶部「需要处理的提醒」里出现需要你动手处理的新问题（登录凭证失效、EPG 源失败、模块配置损坏等）或问题恢复时，发一条消息到飞书、企业微信（群机器人或自建应用）、钉钉、Telegram、Bark 或你自己的 Webhook，不用开着后台也能知道。只发消息，不接收任何指令。</div>
                     </div>
                     <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
                         <div>• 模块抓取失败、官方服务故障<strong>不推送</strong>（你处理不了，会自动重试），只在后台提醒里显示；其他提醒出现即发，恢复时再发一条「已恢复」；</div>
                         <div>• 升级前就已存在的提醒不发；同一个问题没恢复前只发一次；</div>
                         <div>• Telegram 的接口在大陆连不上：部署在大陆需给容器设 <code>HTTPS_PROXY</code>，或在「API 地址」填自己的反代；</div>
+                        <div>• 企业微信应用：成员在企业微信里收到，关注了企业「微信插件」的在微信里也能收到；2022 年 6 月以后新建的应用要把服务器公网 IP 加进应用的「企业可信IP」，否则发送失败（60020），IP 不固定的在「API 地址」填一台固定 IP 服务器上转发 <code>qyapi.weixin.qq.com</code> 的反代；</div>
                         <div>• 机器人地址和 Token 存在数据目录 <code>notify-channels.json</code>，会随「备份迁移」里的配置导出一起导出，别把备份发给别人。</div>
                     </div>
 

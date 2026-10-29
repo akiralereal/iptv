@@ -1,6 +1,6 @@
 /**
- * 消息推送：把提醒中心（utils/alerts.js）的「新出现 / 已恢复」发到企业微信、飞书、钉钉、
- * Telegram、Bark 或任意 Webhook。只做出站推送，不接收任何指令。
+ * 消息推送：把提醒中心（utils/alerts.js）的「新出现 / 已恢复」发到企业微信（群机器人 / 应用消息）、
+ * 飞书、钉钉、Telegram、Bark 或任意 Webhook。只做出站推送，不接收任何指令。
  *
  * 两份文件，刻意分开：
  *   notify-channels.json  渠道配置（含机器人地址 / Token，敏感）。小、少变、进配置备份。
@@ -42,6 +42,16 @@ export const CHANNEL_TYPES = {
     name: '企业微信群机器人',
     fields: [{ key: 'url', label: 'Webhook 地址', secret: true, required: true, placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…' }],
   },
+  wecomApp: {
+    name: '企业微信应用',
+    fields: [
+      { key: 'corpId', label: '企业 ID（我的企业 → 企业信息 → 企业ID）', required: true, placeholder: 'ww…' },
+      { key: 'agentId', label: 'AgentId（应用管理 → 自建应用详情页）', required: true, placeholder: '1000002' },
+      { key: 'secret', label: 'Secret（同一页，点「查看」后发到企业微信里）', secret: true, required: true },
+      { key: 'toUser', label: '接收人（成员账号，多个用 | 隔开；留空发给应用可见范围内的所有人）', placeholder: '@all 或 ZhangSan|LiSi' },
+      { key: 'apiBase', label: 'API 地址（服务器 IP 不固定、加不进「企业可信IP」时填反代地址，留空用官方）', placeholder: 'https://qyapi.weixin.qq.com' },
+    ],
+  },
   dingtalk: {
     name: '钉钉群机器人',
     fields: [
@@ -71,7 +81,8 @@ const MASK = '••••••'
 
 /**
  * 消息样式，每个渠道单独选。卡片只给有富文本消息的四家：飞书发彩色标题的消息卡片，
- * 企业微信 / 钉钉发 Markdown，Telegram 发 HTML 加粗。别的类型选了卡片按详细发。
+ * 企业微信群机器人 / 钉钉发 Markdown，Telegram 发 HTML 加粗。别的类型选了卡片按详细发。
+ * 企业微信应用不给卡片：应用的 Markdown 消息在微信里（企业微信插件）显示不了。
  */
 export const TEMPLATES = {
   detailed: { name: '详细', description: '标题、每条提醒的说明、来自哪台服务器' },
@@ -131,6 +142,7 @@ function validateChannel(channel) {
   for (const key of ['url', 'apiBase']) {
     if (channel[key] && !isHttpUrl(channel[key])) return '地址要以 http:// 或 https:// 开头'
   }
+  if (channel.agentId && !/^\d+$/.test(channel.agentId)) return 'AgentId 是一串数字，如 1000002'
   return ''
 }
 
@@ -212,8 +224,10 @@ function feishuBody(message, template) {
   }
 }
 
-/** 组一个请求：{ url, body }。纯函数，测试直接看它。 */
-export function buildRequest(channel, message, now = Date.now()) {
+const wecomBase = channel => (channel.apiBase || 'https://qyapi.weixin.qq.com').replace(/\/+$/, '')
+
+/** 组一个请求：{ url, body }。纯函数，测试直接看它。企业微信应用要先换好 accessToken 传进来。 */
+export function buildRequest(channel, message, now = Date.now(), accessToken = '') {
   const template = templateOf(channel)
   const title = messageTitle(message)
   const full = `${title}\n${plainText(message, template)}`
@@ -222,6 +236,11 @@ export function buildRequest(channel, message, now = Date.now()) {
       return template === 'card'
         ? { url: channel.url, body: { msgtype: 'markdown', markdown: { content: `**${title}**\n\n${richBody(message, 'wecom')}${footerLine(message, 'wecom')}` } } }
         : { url: channel.url, body: { msgtype: 'text', text: { content: full } } }
+    case 'wecomApp':
+      return {
+        url: `${wecomBase(channel)}/cgi-bin/message/send?access_token=${encodeURIComponent(accessToken)}`,
+        body: { touser: channel.toUser || '@all', msgtype: 'text', agentid: Number(channel.agentId), text: { content: full } },
+      }
     case 'feishu': {
       const body = feishuBody(message, template)
       if (channel.secret) {
@@ -267,6 +286,22 @@ export function buildRequest(channel, message, now = Date.now()) {
   }
 }
 
+// 企业微信应用最常见的几个配置错误：原样的 errmsg 是英文，还看不出该改哪一项
+const WECOM_APP_HINTS = {
+  40001: 'Secret 不对，要填这个应用自己的 Secret',
+  40013: '企业 ID 不对',
+  40056: 'AgentId 不对',
+  60020: '服务器 IP 不在这个应用的「企业可信IP」里',
+  81013: '接收人都不在这个应用的可见范围里，要填成员账号而不是名字',
+}
+
+function wecomAppError({ errcode, errmsg = '' }) {
+  const hint = WECOM_APP_HINTS[errcode]
+  if (!hint) return `${errcode} ${errmsg}`.trim()
+  const ip = errcode === 60020 && /from ip: ?([\da-f.:]+)/i.exec(errmsg)?.[1]
+  return `${errcode} ${hint}${ip ? `（本机出口 IP ${ip}）` : ''}`
+}
+
 /** 各家「HTTP 200 但其实失败」的判断，返回错误信息或 ''。 */
 function responseError(type, status, payload) {
   if (status < 200 || status >= 300) {
@@ -274,6 +309,7 @@ function responseError(type, status, payload) {
     return `HTTP ${status}${detail ? `：${detail}` : ''}`
   }
   if (!payload || typeof payload !== 'object') return ''
+  if (type === 'wecomApp') return payload.errcode ? wecomAppError(payload) : ''
   if (type === 'wecom' || type === 'dingtalk') return payload.errcode ? `${payload.errcode} ${payload.errmsg || ''}`.trim() : ''
   if (type === 'feishu') {
     const code = payload.code ?? payload.StatusCode
@@ -290,23 +326,67 @@ function scrub(message, channel) {
   for (const field of CHANNEL_TYPES[channel.type]?.fields || []) {
     if (field.secret && channel[field.key]) out = out.split(channel[field.key]).join(MASK)
   }
+  // 企业微信应用换来的 access_token 不在配置里，按参数名打码
+  out = out.replace(/(access_token|corpsecret)=[^&\s]+/g, `$1=${MASK}`)
   return out.slice(0, 200)
 }
 
+/**
+ * 企业微信应用：先用企业 ID + Secret 换 access_token，再带着它发应用消息。token 有效 2 小时，
+ * 企业微信要求缓存、频繁换会被限频，所以按「API 地址 + 企业 ID + Secret」记在内存里，提前 5 分钟换新。
+ */
+const wecomTokens = new Map()
+const WECOM_TOKEN_INVALID = new Set([40014, 42001])   // token 不合法 / 已过期（重置了 Secret 等）
+
+async function wecomAccessToken(channel, call, now, fresh) {
+  const base = wecomBase(channel)
+  const key = `${base}\n${channel.corpId}\n${channel.secret}`
+  const cached = wecomTokens.get(key)
+  if (!fresh && cached && cached.expiresAt > now) return { token: cached.token }
+  wecomTokens.delete(key)
+  const { status, payload } = await call(`${base}/cgi-bin/gettoken?corpid=${encodeURIComponent(channel.corpId)}&corpsecret=${encodeURIComponent(channel.secret)}`)
+  const error = responseError('wecomApp', status, payload) || (payload?.access_token ? '' : '没换到 access_token')
+  if (error) return { error }
+  wecomTokens.set(key, { token: payload.access_token, expiresAt: now + ((Number(payload.expires_in) || 7200) - 300) * 1000 })
+  return { token: payload.access_token }
+}
+
+/** 发出去，返回错误信息或 ''。call(url, body) 发一个请求，没有 body 时是 GET。 */
+async function deliver(channel, message, call, now) {
+  if (channel.type !== 'wecomApp') {
+    const { url, body } = buildRequest(channel, message, now)
+    const { status, payload } = await call(url, body)
+    return responseError(channel.type, status, payload)
+  }
+  // 缓存的 token 被提前作废时换一次新的重发
+  for (const fresh of [false, true]) {
+    const { token, error } = await wecomAccessToken(channel, call, now, fresh)
+    if (error) return error
+    const { url, body } = buildRequest(channel, message, now, token)
+    const { status, payload } = await call(url, body)
+    if (!fresh && WECOM_TOKEN_INVALID.has(payload?.errcode)) continue
+    return responseError(channel.type, status, payload)
+  }
+}
+
 export async function sendToChannel(channel, message, { fetchImpl = proxyAwareFetch, now = Date.now() } = {}) {
-  const { url, body } = buildRequest(channel, message, now)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS)
-  try {
-    const res = await fetchImpl(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json;charset=UTF-8', 'User-Agent': 'iptv-notify' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    })
+  const call = async (url, body) => {
+    const res = await fetchImpl(url, body === undefined
+      ? { method: 'GET', headers: { 'User-Agent': 'iptv-notify' }, signal: controller.signal }
+      : {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json;charset=UTF-8', 'User-Agent': 'iptv-notify' },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        })
     let payload = null
     try { payload = JSON.parse(await res.text()) } catch { /* 有的服务回纯文本 */ }
-    const error = responseError(channel.type, res.status, payload)
+    return { status: res.status, payload }
+  }
+  try {
+    const error = await deliver(channel, message, call, now)
     return error ? { ok: false, message: scrub(error, channel) } : { ok: true, message: '' }
   } catch (error) {
     // undici 只给一句「fetch failed」，真正原因（域名解析失败、连接被拒、超时）在 cause 里

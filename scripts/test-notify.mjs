@@ -34,7 +34,7 @@ async function test(name, fn) {
 function fakeFetch(reply = () => ({ status: 200, body: { errcode: 0 } })) {
   const calls = []
   const fn = async (url, init) => {
-    calls.push({ url, body: JSON.parse(init.body) })
+    calls.push({ url, method: init.method, body: init.body ? JSON.parse(init.body) : null })
     const r = reply(url, calls.length)
     if (r instanceof Error) throw r
     return { status: r.status, text: async () => typeof r.body === 'string' ? r.body : JSON.stringify(r.body) }
@@ -101,6 +101,84 @@ await test('Telegram：默认官方地址，可换反代（去掉末尾斜杠）
   assert.equal('parse_mode' in official.body, false)
   assert.equal(buildRequest({ type: 'telegram', botToken: '1:A', chatId: '1', apiBase: 'https://tg.example.com/' }, message).url,
     'https://tg.example.com/bot1:A/sendMessage')
+})
+
+// ── 企业微信应用：先换 access_token 再发 ───────────────────────────────────
+let corpSeq = 0
+const wecomApp = (extra = {}) => ({ type: 'wecomApp', corpId: `ww${++corpSeq}`, agentId: '1000002', secret: 'APPSECRET', ...extra })
+/** 假的企业微信：gettoken 发 TOKEN<n>，message/send 按 sendReply 回 */
+function fakeWecom(sendReply = () => ({ errcode: 0, errmsg: 'ok' }), tokenReply) {
+  let issued = 0
+  return fakeFetch((url, n) => url.includes('/cgi-bin/gettoken')
+    ? { status: 200, body: tokenReply ? tokenReply() : { errcode: 0, access_token: `TOKEN${++issued}`, expires_in: 7200 } }
+    : { status: 200, body: sendReply(url, n) })
+}
+
+await test('企业微信应用：请求体发纯文本，默认 @all，卡片按详细发，可换反代', () => {
+  const { url, body } = buildRequest(wecomApp(), message, 0, 'T/1')
+  assert.equal(url, 'https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=T%2F1')
+  assert.deepEqual(body, { touser: '@all', msgtype: 'text', agentid: 1000002, text: { content: FULL } })
+  const card = buildRequest(wecomApp({ toUser: 'ZhangSan|LiSi', template: 'card', apiBase: 'https://wx.example.com/' }), message, 0, 'T')
+  assert.equal(card.url, 'https://wx.example.com/cgi-bin/message/send?access_token=T')
+  assert.equal(card.body.touser, 'ZhangSan|LiSi')
+  assert.equal(card.body.msgtype, 'text', '应用的 Markdown 在微信插件里显示不了，不给卡片')
+})
+
+await test('企业微信应用：先 GET 换 token 再 POST 发；token 缓存到快过期才重换', async () => {
+  const channel = wecomApp({ apiBase: 'https://wx.example.com' })
+  const fetchImpl = fakeWecom()
+  assert.deepEqual(await sendToChannel(channel, message, { fetchImpl, now: 0 }), { ok: true, message: '' })
+  assert.equal(fetchImpl.calls[0].method, 'GET')
+  assert.equal(fetchImpl.calls[0].url, `https://wx.example.com/cgi-bin/gettoken?corpid=${channel.corpId}&corpsecret=APPSECRET`)
+  assert.equal(fetchImpl.calls[1].method, 'POST')
+  assert.equal(fetchImpl.calls[1].url, 'https://wx.example.com/cgi-bin/message/send?access_token=TOKEN1')
+  await sendToChannel(channel, message, { fetchImpl, now: 60 * 60 * 1000 })
+  assert.equal(fetchImpl.calls.length, 3, '一小时后还用缓存的 token')
+  assert.match(fetchImpl.calls[2].url, /access_token=TOKEN1$/)
+  await sendToChannel(channel, message, { fetchImpl, now: 2 * 60 * 60 * 1000 - 4 * 60 * 1000 })
+  assert.equal(fetchImpl.calls.length, 5, '离过期不到 5 分钟就重换')
+  assert.match(fetchImpl.calls[4].url, /access_token=TOKEN2$/)
+  await sendToChannel({ ...channel, secret: 'NEWSECRET' }, message, { fetchImpl, now: 2 * 60 * 60 * 1000 })
+  assert.match(fetchImpl.calls[5].url, /corpsecret=NEWSECRET$/, '改了 Secret 不用旧 token')
+})
+
+await test('企业微信应用：缓存的 token 被作废时换一次新的重发，再失败就报错', async () => {
+  const channel = wecomApp()
+  await sendToChannel(channel, message, { fetchImpl: fakeWecom(), now: 0 })
+  const retried = fakeWecom((url, n) => n === 1 ? { errcode: 42001, errmsg: 'access_token expired' } : { errcode: 0 })
+  assert.equal((await sendToChannel(channel, message, { fetchImpl: retried, now: 1000 })).ok, true)
+  assert.deepEqual(retried.calls.map(c => c.method), ['POST', 'GET', 'POST'])
+  assert.match(retried.calls[2].url, /access_token=TOKEN1$/)
+  const dead = fakeWecom(() => ({ errcode: 40014, errmsg: 'invalid access_token' }))
+  const result = await sendToChannel(channel, message, { fetchImpl: dead, now: 2000 })
+  assert.equal(result.ok, false)
+  assert.match(result.message, /^40014 invalid access_token/)
+  assert.equal(dead.calls.length, 3, '只重试一次')
+})
+
+await test('企业微信应用：常见配置错误给中文提示；错误里不带 Secret 和 access_token', async () => {
+  const wrongSecret = await sendToChannel(wecomApp(), message, { fetchImpl: fakeWecom(undefined, () => ({ errcode: 40001, errmsg: 'invalid credential' })) })
+  assert.equal(wrongSecret.ok, false)
+  assert.match(wrongSecret.message, /^40001 Secret 不对/)
+  const noToken = await sendToChannel(wecomApp(), message, { fetchImpl: fakeWecom(undefined, () => ({ errcode: 0 })) })
+  assert.match(noToken.message, /没换到 access_token/)
+  const ip = await sendToChannel(wecomApp(), message, {
+    fetchImpl: fakeWecom(() => ({ errcode: 60020, errmsg: 'not allow to access from your ip, hint: [1], from ip: 203.0.113.7, more info at https://open.work.weixin.qq.com/devtool/query?e=60020' })),
+  })
+  assert.equal(ip.message, '60020 服务器 IP 不在这个应用的「企业可信IP」里（本机出口 IP 203.0.113.7）')
+  const users = await sendToChannel(wecomApp({ toUser: '张三' }), message, { fetchImpl: fakeWecom(() => ({ errcode: 81013, errmsg: 'user & party & tag all invalid' })) })
+  assert.match(users.message, /^81013 接收人都不在/)
+  const leakChannel = wecomApp()
+  await sendToChannel(leakChannel, message, { fetchImpl: fakeWecom() })
+  const leak = await sendToChannel(leakChannel, message, {
+    fetchImpl: fakeFetch(() => new Error('connect ETIMEDOUT https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=TOKEN1&debug=1')),
+  })
+  assert.equal(leak.ok, false)
+  assert.equal(leak.message.includes('TOKEN1'), false)
+  const leakSecret = await sendToChannel(wecomApp(), message, {
+    fetchImpl: fakeFetch(() => new Error('connect ETIMEDOUT https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=ww1&corpsecret=APPSECRET')),
+  })
+  assert.equal(leakSecret.message.includes('APPSECRET'), false)
 })
 
 await test('正文过长截断', () => {
@@ -293,6 +371,9 @@ await test('添加校验必填与地址格式；后台列表打码；编辑时�
   assert.throws(() => n.addChannel({ type: 'nope' }), /不支持/)
   assert.throws(() => n.addChannel({ type: 'telegram', botToken: '1:A' }), /Chat ID/)
   assert.throws(() => n.addChannel({ type: 'wecom', url: 'ftp://x' }), /http/)
+  assert.throws(() => n.addChannel({ type: 'wecomApp', corpId: 'ww1', agentId: '1000002' }), /Secret/)
+  assert.throws(() => n.addChannel({ type: 'wecomApp', corpId: 'ww1', agentId: 'abc', secret: 'S' }), /AgentId 是一串数字/)
+  assert.throws(() => n.addChannel({ type: 'wecomApp', corpId: 'ww1', agentId: '1', secret: 'S', apiBase: 'wx.example.com' }), /http/)
   const id = n.addChannel({ type: 'feishu', name: '家', url: 'https://f/hook', secret: 'S' })
   const [listed] = n.publicChannels()
   assert.equal(listed.id, id)
@@ -309,6 +390,18 @@ await test('添加校验必填与地址格式；后台列表打码；编辑时�
   assert.equal(JSON.parse(readFileSync(n.channelsPath, 'utf-8')).channels[0].url, 'https://f/new')
   n.removeChannel(id)
   assert.deepEqual(n.publicChannels(), [])
+  const appId = n.addChannel({ type: 'wecomApp', corpId: 'ww1', agentId: '1000002', secret: 'S', toUser: 'ZhangSan' })
+  const [app] = n.publicChannels()
+  assert.equal(app.name, '企业微信应用')
+  assert.equal(app.corpId, 'ww1')
+  assert.equal(app.agentId, '1000002')
+  assert.equal(app.toUser, 'ZhangSan')
+  assert.equal('secret' in app, false)
+  assert.deepEqual(app.secretsSet, { secret: true })
+  n.updateChannel(appId, { secret: '', toUser: '' })
+  const storedApp = JSON.parse(readFileSync(n.channelsPath, 'utf-8')).channels[0]
+  assert.equal(storedApp.secret, 'S', 'Secret 留空保持不变')
+  assert.equal('toUser' in storedApp, false, '接收人清空 = 发给所有人')
 })
 
 await test('样式随渠道保存、可修改；未知样式与不支持卡片的类型退回详细', async () => {
@@ -324,6 +417,8 @@ await test('样式随渠道保存、可修改；未知样式与不支持卡片�
   assert.equal(templateOf(n.publicChannels()[0]), 'detailed')
   assert.equal(templateOf({ type: 'bark', template: 'card' }), 'detailed')
   assert.equal(templateOf({ type: 'telegram', template: 'card' }), 'card')
+  assert.equal(templateOf({ type: 'wecomApp', template: 'card' }), 'detailed')
+  assert.equal(templateOf({ type: 'wecomApp', template: 'compact' }), 'compact')
 })
 
 await test('测试消息：发到指定渠道并记录结果', async () => {
@@ -336,6 +431,13 @@ await test('测试消息：发到指定渠道并记录结果', async () => {
   assert.match(fetchImpl.calls[0].body.body, /「手机」配置正确/)
   assert.match(fetchImpl.calls[0].body.body, /来自 http:\/\/nas:1905/)
   assert.equal(n.publicChannels()[0].lastResult.ok, true)
+  const wecomFetch = fakeWecom()
+  const app = makeNotifier(wecomFetch, 'http://nas:1905')
+  const appId = app.addChannel({ ...wecomApp({ toUser: 'ZhangSan' }), name: '企微应用' })
+  assert.equal((await app.testChannel(appId)).ok, true)
+  const sent = wecomFetch.calls.at(-1).body
+  assert.equal(sent.touser, 'ZhangSan')
+  assert.match(sent.text.content, /^【iPTV】测试消息\n收到这条说明「企微应用」配置正确/)
 })
 
 // ── 和 AlertTracker 连起来 ─────────────────────────────────────────────────

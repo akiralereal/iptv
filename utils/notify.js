@@ -156,6 +156,19 @@ function clip(text) {
   return text.length > MAX_TEXT ? `${text.slice(0, MAX_TEXT)}…` : text
 }
 
+/** 按 UTF-8 字节截断（不切开多字节字符），截了补「…」（3 字节）。 */
+function clipBytes(text, max) {
+  if (Buffer.byteLength(text) <= max) return text
+  let bytes = 3
+  let out = ''
+  for (const char of text) {
+    bytes += Buffer.byteLength(char)
+    if (bytes > max) break
+    out += char
+  }
+  return `${out}…`
+}
+
 const icon = alert => alert.level === 'error' ? '❗' : '⚠️'
 
 /** 标题：一条就用它的标题，多条说条数。 */
@@ -225,6 +238,10 @@ function feishuBody(message, template) {
 }
 
 const wecomBase = channel => (channel.apiBase || 'https://qyapi.weixin.qq.com').replace(/\/+$/, '')
+// 「ZhangSan | LiSi」里的空格会被当成账号的一部分，那几个人就收不到
+const wecomToUser = channel => (channel.toUser || '').split('|').map(s => s.trim()).filter(Boolean).join('|') || '@all'
+// 应用消息 text.content 最长 2048 字节（UTF-8，一个汉字 3 字节）；clip 按字符数截，多条提醒合在一起会超
+const WECOM_APP_MAX_BYTES = 2048
 
 /** 组一个请求：{ url, body }。纯函数，测试直接看它。企业微信应用要先换好 accessToken 传进来。 */
 export function buildRequest(channel, message, now = Date.now(), accessToken = '') {
@@ -239,7 +256,7 @@ export function buildRequest(channel, message, now = Date.now(), accessToken = '
     case 'wecomApp':
       return {
         url: `${wecomBase(channel)}/cgi-bin/message/send?access_token=${encodeURIComponent(accessToken)}`,
-        body: { touser: channel.toUser || '@all', msgtype: 'text', agentid: Number(channel.agentId), text: { content: full } },
+        body: { touser: wecomToUser(channel), msgtype: 'text', agentid: Number(channel.agentId), text: { content: clipBytes(full, WECOM_APP_MAX_BYTES) } },
       }
     case 'feishu': {
       const body = feishuBody(message, template)

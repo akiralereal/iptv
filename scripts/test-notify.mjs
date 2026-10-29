@@ -122,6 +122,18 @@ await test('企业微信应用：请求体发纯文本，默认 @all，卡片按
   assert.equal(card.url, 'https://wx.example.com/cgi-bin/message/send?access_token=T')
   assert.equal(card.body.touser, 'ZhangSan|LiSi')
   assert.equal(card.body.msgtype, 'text', '应用的 Markdown 在微信插件里显示不了，不给卡片')
+  assert.equal(buildRequest(wecomApp({ toUser: ' ZhangSan | LiSi |' }), message, 0, 'T').body.touser, 'ZhangSan|LiSi', '去掉 | 两边的空格')
+  assert.equal(buildRequest(wecomApp({ toUser: ' | ' }), message, 0, 'T').body.touser, '@all')
+})
+
+await test('企业微信应用：正文按 2048 字节截断，不切坏汉字', () => {
+  const alerts = Array.from({ length: 8 }, (_, i) => ({ level: 'error', title: `第 ${i} 个模块登录凭证已失效`, text: '登录态已失效，会员频道暂时播不了；请在后台重新登录或导入登录态。'.repeat(3) }))
+  const content = buildRequest(wecomApp(), { raised: alerts, host: 'http://nas:1905' }, 0, 'T').body.text.content
+  assert.ok(Buffer.byteLength(content) <= 2048, `${Buffer.byteLength(content)} 字节`)
+  assert.ok(Buffer.byteLength(content) > 2040, '尽量用满')
+  assert.ok(content.endsWith('…'))
+  assert.equal(content.includes('\uFFFD'), false)
+  assert.equal(buildRequest(wecomApp(), message, 0, 'T').body.text.content, FULL, '没超的不动')
 })
 
 await test('企业微信应用：先 GET 换 token 再 POST 发；token 缓存到快过期才重换', async () => {

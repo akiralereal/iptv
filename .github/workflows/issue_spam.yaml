@@ -1,0 +1,45 @@
+name: issue_spam
+# 新 issue 若判定为 IPTV 广告软文（判定规则见 scripts/issue-spam.mjs），自动打 spam 标签、关闭并锁定。
+# GITHUB_TOKEN 删不了 issue；要连页面一起清掉（不给它留 SEO），按 spam 标签找到后在网页上手动删除。
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: read
+  issues: write
+jobs:
+  check:
+    # 仓库成员和提过 PR 的贡献者不检查
+    if: ${{ !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.issue.author_association) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: scripts/issue-spam.mjs
+          sparse-checkout-cone-mode: false
+      - name: Close spam issue
+        uses: actions/github-script@v9
+        with:
+          # issue 标题、正文只从 context.payload 读，不要用 Actions 表达式直接拼进脚本（会被注入代码）
+          script: |
+            const { detectSpam } = await import('${{ github.workspace }}/scripts/issue-spam.mjs')
+            const { issue } = context.payload
+            const { spam, score, reasons } = detectSpam(issue.title, issue.body)
+            core.info(`#${issue.number} 得分 ${score}：${reasons.join('；') || '无'}`)
+            if (!spam) return
+
+            const target = { ...context.repo, issue_number: issue.number }
+            try {
+              await github.rest.issues.createLabel({ ...context.repo, name: 'spam', color: 'e4e669', description: '自动判定的广告 issue' })
+            } catch (e) {
+              if (e.status !== 422) throw e // 422：标签已存在
+            }
+            await github.rest.issues.addLabels({ ...target, labels: ['spam'] })
+            await github.rest.issues.createComment({
+              ...target,
+              body: '此 issue 被自动判定为广告并关闭。如属误判，请用中文重新描述问题后另开 issue。\n\nThis issue was automatically closed as spam. If this is a mistake, please open a new issue describing your problem.',
+            })
+            await github.rest.issues.update({ ...target, state: 'closed', state_reason: 'not_planned' })
+            await github.rest.issues.lock({ ...target, lock_reason: 'spam' })

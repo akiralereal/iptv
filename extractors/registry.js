@@ -45,6 +45,7 @@
  *   preserveGroupSuffixes array   可选；命中这些后缀的特殊分组不被 outputGroupName 覆盖
  *   channelHlsMode        string  可选；'proxy' 或 'relay'，在输出时覆盖频道缓存中的
  *                                 HLS 路由标记，适合整个平台统一要求代理的模块
+ *   channelHlsModeForConfig(config) 可选；按当前生效配置返回 'proxy'/'relay'，覆盖上面的固定模式
  *   relayProxyCompatible boolean 可选；true 表示模块的 relay 频道可被 `?relay=2`
  *                                 安全升级为全代理；默认不升级，避免破坏拒绝服务端分片的 CDN
  *   resolveBurstGuard     boolean 可选；true 表示播放请求经 utils/clientScanGuard.js 的客户端
@@ -81,6 +82,8 @@
  *
  *   async resolve(ref, ctx) → { url, desc, segmentTransform?, upstreamHeaders?,
  *                                upstreamUrlTransform?, manifestText?, manifestUrl? }
+ *       upstreamFamily 可选 4/6；显式直连该地址族，清单/子清单/分片/HEAD 共用，需同时要求 proxyHls。
+ *       proxyHls=true 可要求旧 relay 入口也转发媒体，供 IPv6 上游与 IPv4 播放器组合使用。
  *       可选，capabilities.resolve 为真时必需。用于「播放时才算地址」的模块：
  *       fetch() 里频道给 deferredRef，写盘时落成 ${replace}/<ref>，播放请求
  *       到达时才调 resolve。B 站不需要——它是直链。
@@ -345,6 +348,9 @@ export function validateModule(module) {
   }
   if (module.channelHlsMode != null && !['proxy', 'relay'].includes(module.channelHlsMode)) {
     throw new Error(`抓取模块 ${module.id} 的 channelHlsMode 非法: ${JSON.stringify(module.channelHlsMode)}`)
+  }
+  if (module.channelHlsModeForConfig != null && typeof module.channelHlsModeForConfig !== 'function') {
+    throw new Error(`抓取模块 ${module.id} 的 channelHlsModeForConfig 必须是函数`)
   }
   if (module.relayProxyCompatible != null && typeof module.relayProxyCompatible !== 'boolean') {
     throw new Error(`抓取模块 ${module.id} 的 relayProxyCompatible 必须是布尔值`)

@@ -83,10 +83,11 @@ function bodySnippet(text) {
 // 取回一份 HLS 清单文本（跟随 302），非 200 或非 HLS 内容返回 null。
 // 失败时把原因写进 diag.reason：此前这里静默返回 null，用户日志只剩一行「取回失败」，
 // CDN 到底回了 403 还是回了一页 HTML，排查者对着日志猜不出来（北京时间电视台就卡在这一步）。
-async function fetchHls(url, signal, upstreamHeaders = {}, diag = {}) {
+async function fetchHls(url, signal, upstreamHeaders = {}, diag = {}, upstreamFamily) {
   const resp = await fetchUpstreamResponse(url, {
     signal,
     upstreamHeaders,
+    upstreamFamily,
   })
   const type = resp.headers.get('content-type') || '未知类型'
   const text = await resp.text()
@@ -130,16 +131,16 @@ function firstVariantUrl(text, base) {
 // 兼容模式面向 NAS 与播放设备同一网络的家庭场景，正好不需要就近取流。
 // 返回 null 表示取清单失败或内容不是 HLS，调用方应回退 302；失败原因写进 diag.reason，
 // 由调用方拼进它自己那行限流过的「取回失败」日志，不在这里另起一行。
-async function fetchManifestDirect(playURL, upstreamHeaders = {}, diag = {}) {
+async function fetchManifestDirect(playURL, upstreamHeaders = {}, diag = {}, upstreamFamily) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 10000)   // 覆盖两跳
   try {
-    const master = await fetchHls(playURL, ctrl.signal, upstreamHeaders, diag)
+    const master = await fetchHls(playURL, ctrl.signal, upstreamHeaders, diag, upstreamFamily)
     if (!master) return null
 
     const variantUrl = firstVariantUrl(master.text, master.finalUrl)
     if (variantUrl) {
-      const media = await fetchHls(variantUrl, ctrl.signal, upstreamHeaders)
+      const media = await fetchHls(variantUrl, ctrl.signal, upstreamHeaders, {}, upstreamFamily)
       // 拍平成功：直接给播放器分片列表；失败则退回改写后的 master（跟随能力正常的播放器仍可播）
       if (media) return rewriteManifest(media.text, media.finalUrl)
       printDebug(`子清单取回失败，退回 master 清单: ${variantUrl}`)
@@ -430,6 +431,8 @@ async function channel(url, urlUserId, urlToken, client, request = {}) {
   result.manifestUrl = resolved.manifestUrl
   // 平台可要求旧的无后缀入口也直出动态 HLS 清单；用于兼容已收藏/已下发的旧地址。
   result.relayHls = resolved.relayHls === true
+  result.proxyHls = resolved.proxyHls === true
+  result.upstreamFamily = resolved.upstreamFamily === 4 || resolved.upstreamFamily === 6 ? resolved.upstreamFamily : undefined
   result.streamType = resolved.streamType || module.streamType || 'hls'
   result.validateMediaUrl = resolved.validateMediaUrl
   return result

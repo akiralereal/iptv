@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { ProxyAgent, fetch as undiciFetch } from 'undici'
+import { Agent, ProxyAgent, fetch as undiciFetch } from 'undici'
 
 let detected = false
 let proxyUrl = ''
@@ -54,4 +54,13 @@ function isLoopback(raw) {
 export function proxyAwareFetch(url, options = {}) {
   const dispatcher = isLoopback(url) ? undefined : systemProxyDispatcher()
   return undiciFetch(url, { ...options, ...(dispatcher ? { dispatcher } : {}) })
+}
+
+// 仅供显式选择「IPv4/IPv6 直连」的模块使用；默认请求仍遵循原代理配置。
+// 保留官方主机名及 TLS 证书校验，让 Node 按正常 DNS 选择对应地址族。
+const familyAgents = new Map()
+export function directFamilyFetch(url, options = {}, family = 6) {
+  if (family !== 4 && family !== 6) throw new Error('直连地址族只能是 IPv4 或 IPv6')
+  if (!familyAgents.has(family)) familyAgents.set(family, new Agent({ connect: { family, autoSelectFamily: false } }))
+  return undiciFetch(url, { ...options, dispatcher: familyAgents.get(family) })
 }

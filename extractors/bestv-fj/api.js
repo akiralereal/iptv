@@ -1,6 +1,17 @@
-import { proxyAwareFetch } from '../../utils/systemProxy.js'
+import { directFamilyFetch, proxyAwareFetch } from '../../utils/systemProxy.js'
 import { createApiClient, requestText } from './auth.js'
 import { CHANNELS, DEFAULT_CHANNEL_IDS, GROUP, channelForRef, refOf } from './channels.js'
+
+export function networkMode(config = {}) {
+  const mode = config.networkMode ?? 'auto'
+  if (!['auto', 'ipv6'].includes(mode)) throw new Error('百视通网络模式无效')
+  return mode
+}
+export function networkFetch(config = {}) {
+  return networkMode(config) === 'ipv6'
+    ? (url, options) => directFamilyFetch(url, options, 6)
+    : proxyAwareFetch
+}
 
 export function selectedIds(config = {}) {
   if (config.channels === undefined) return [...DEFAULT_CHANNEL_IDS]
@@ -39,7 +50,7 @@ export function buildChannels(payload, ids, absent = []) {
   return output
 }
 export async function fetchChannels(config, ctx = {}) {
-  const api = createApiClient({ fetchImpl: ctx.fetchImpl || proxyAwareFetch, timeoutMs: ctx.timeoutMs || 12000 })
+  const api = createApiClient({ fetchImpl: ctx.fetchImpl || networkFetch(config), timeoutMs: ctx.timeoutMs || 12000 })
   const ids = selectedIds(config)
   const absent = []
   const channels = buildChannels(await api.request('/tvs'), ids, absent)
@@ -88,7 +99,7 @@ export function validateManifest(text, base) {
   return text
 }
 
-export function createResolver({ fetchImpl = proxyAwareFetch, now = () => Date.now(), timeoutMs = 12000 } = {}) {
+export function createResolver({ fetchImpl = proxyAwareFetch, now = () => Date.now(), timeoutMs = 12000, family } = {}) {
   const api = createApiClient({ fetchImpl, now, timeoutMs })
   const cache = new Map(), pending = new Map()
   let generation = 0
@@ -98,7 +109,10 @@ export function createResolver({ fetchImpl = proxyAwareFetch, now = () => Date.n
     if (!pending.has(channel.id)) {
       const gen = generation, started = now()
       const promise = api.request(`/tv/now/${channel.id}`).then(data => {
-        if (String(data?.tvid) !== channel.id || data.tv_name !== channel.name || data.state !== 'live' || data.paid !== false || !data.playUrl) throw new Error('频道不可播、需要付费或身份不匹配')
+        // 上海目录的公开频道同时返回 paid=true、contentIsFree=true；paid 不能单独当作收费拦截标志。
+        // 只增加官方明确标为免费的情况，paid=true 且没有免费标记仍然拒绝。
+        const playable = data?.paid === false || data?.contentIsFree === true
+        if (String(data?.tvid) !== channel.id || data.tv_name !== channel.name || data.state !== 'live' || !playable || !data.playUrl) throw new Error('频道不可播、需要付费或身份不匹配')
         const url = mediaUrl(data.playUrl)
         const valid = Number(data.validSeconds)
         if (!Number.isFinite(valid) || valid <= 30) throw new Error('播放地址缺少足够有效期')
@@ -121,6 +135,7 @@ export function createResolver({ fetchImpl = proxyAwareFetch, now = () => Date.n
         text = validateManifest(await requestText(url, { fetchImpl, timeoutMs }), url)
       }
       return { url, desc: '福建百视通直播', relayHls: true, manifestText: text, manifestUrl: url,
+        ...(family === 6 ? { proxyHls: true, upstreamFamily: 6 } : {}),
         upstreamUrlTransform: raw => mediaUrl(raw, url) }
     } catch (error) {
       cache.delete(channel.id)
@@ -130,6 +145,16 @@ export function createResolver({ fetchImpl = proxyAwareFetch, now = () => Date.n
   function clear() { generation++; cache.clear(); pending.clear(); api.clear() }
   return { resolve, clear }
 }
-const resolver = createResolver()
-export const resolveChannel = resolver.resolve
-export const clearResolveCache = resolver.clear
+const resolvers = {
+  auto: createResolver(),
+  ipv6: createResolver({ fetchImpl: networkFetch({ networkMode: 'ipv6' }), family: 6 }),
+}
+export async function resolveChannel(ref, ctx = {}) {
+  try {
+    const mode = networkMode(ctx.config)
+    const result = await resolvers[mode].resolve(ref)
+    if (!result.url && mode === 'ipv6') result.desc += '（IPv6直连需要容器具备原生IPv6、DNS返回AAAA记录；不会自动回退IPv4或代理）'
+    return result
+  } catch (error) { return { url: '', desc: error.message || '百视通网络模式无效' } }
+}
+export function clearResolveCache() { for (const resolver of Object.values(resolvers)) resolver.clear() }

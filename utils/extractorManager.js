@@ -1159,7 +1159,9 @@ class ExtractorManager {
           if (!channel?.name) continue
           // 平台级 HLS 模式在输出时覆盖频道缓存，既避免每条频道重复声明，
           // 也让平台防盗链规则变化后能立即修正旧磁盘缓存，无需等待下一轮抓取。
-          const hlsMode = module.channelHlsMode
+          const hlsMode = typeof module.channelHlsModeForConfig === 'function'
+            ? module.channelHlsModeForConfig(this.effectiveConfig(module))
+            : module.channelHlsMode
           const hlsRouting = hlsMode === 'proxy'
             ? { proxyHls: true, relayHls: false }
             : hlsMode === 'relay'

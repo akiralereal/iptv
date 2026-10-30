@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /** 2026-10-29 真实目录/响应裁剪夹具；签名目录使用合成值，不保存 clientID 或播放凭据。 */
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import module from '../extractors/bestv-fj/index.js'
 import { CHANNELS, DEFAULT_CHANNEL_IDS, refOf } from '../extractors/bestv-fj/channels.js'
 import { buildChannels, createResolver, mediaUrl, selectedIds, validateManifest } from '../extractors/bestv-fj/api.js'
 import { API_BASE, createApiClient } from '../extractors/bestv-fj/auth.js'
-import { getModule, resolverFor } from '../extractors/registry.js'
-import { resolveConfig, validateConfig } from '../utils/extractorManager.js'
+import { getModule, resolverFor, listModules } from '../extractors/registry.js'
+import { resolveConfig, validateConfig, ExtractorManager } from '../utils/extractorManager.js'
 
 const catalog = JSON.parse(readFileSync(new URL('./fixtures/bestv-fj/catalog.json', import.meta.url)))
 const stream = token => `http://fjnetv51.live.bestvcdn.com.cn/${token.repeat(64)}/live/program/live/hxjchd/4000000/mnf.m3u8?userid=test`
@@ -23,6 +25,11 @@ await check('模块默认开，64 路可选、默认七路、旧 ID 205 不认�
   assert.equal(module.region, '百视通')
   assert.notEqual(module.defaultEnabled, false)
   assert.equal(module.channelHlsMode, 'relay')
+  assert.equal(module.channelHlsModeForConfig({}), 'relay')
+  assert.equal(module.channelHlsModeForConfig({ networkMode: 'ipv6' }), 'proxy')
+  assert.equal(resolveConfig(module).networkMode, 'auto')
+  assert.equal(validateConfig(module, { networkMode: 'ipv6' }).ok, true)
+  assert.equal(validateConfig(module, { networkMode: 'invalid' }).ok, false)
   assert.equal(module.relayProxyCompatible, true)
   assert.equal(module.capabilities.catchup, false)
   assert.equal(CHANNELS.length, 64)
@@ -138,6 +145,55 @@ await check('付费、错误频道、缺有效期、非直播均不放行，未�
   }
   const resolver = createResolver({ fetchImpl: () => { throw new Error('should not run') } })
   assert.equal((await resolver.resolve('bestv-fj-205')).url, '')
+});
+await check('上海版明确免费频道允许 paid=true + contentIsFree=true，未标免费仍拒绝', async () => {
+  // 2026-10-30 真实匿名上海身份的福建新闻 / 陕西卫视等响应；播放目录使用合成签名。
+  for (const contentIsFree of [true, false, undefined, 'true']) {
+    const url = stream('A').replace('fjnetv51.live', 'dongfang5g-pc-v52-live').replace('hxjchd', 'fjxwpd')
+    const resolver = createResolver({ fetchImpl: async target => {
+      if (target.includes('client-id-by-region')) return response({ clientID: 'test' })
+      if (target.startsWith(API_BASE)) return response({ tvid: '157', tv_name: '福建新闻', state: 'live', paid: true, contentIsFree, validSeconds: 17900, playUrl: url })
+      return new Response(manifest(100))
+    } })
+    const result = await resolver.resolve(refOf('157'))
+    assert.equal(Boolean(result.url), contentIsFree === true)
+  }
+});
+await check('IPv6 模式要求媒体全代理并将同一地址族交给分片链路', async () => {
+  const resolver = createResolver({ family: 6, fetchImpl: async url => {
+    if (url.includes('client-id-by-region')) return response({ clientID: 'test' })
+    if (url.startsWith(API_BASE)) return response(play(stream('A')))
+    return new Response(manifest(100))
+  } })
+  const result = await resolver.resolve(refOf('219'))
+  assert.equal(result.proxyHls, true)
+  assert.equal(result.upstreamFamily, 6)
+  assert.ok(result.manifestText.startsWith('#EXTM3U'))
+});
+await check('切换网络模式立即覆盖旧磁盘频道的路由，无需等旧缓存过期', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bestv-mode-test-'))
+  try {
+    const modules = Object.fromEntries(listModules().map(m => [m.id, { enabled: false }]))
+    modules['bestv-fj'] = { enabled: true, config: { networkMode: 'ipv6' } }
+    writeFileSync(join(dir, 'extractors.json'), JSON.stringify({ masterSwitchRetired: true, modules }))
+    writeFileSync(join(dir, 'extractor-cache.json'), JSON.stringify({ modules: { 'bestv-fj': {
+      catalogVersion: module.catalogVersion,
+      groups: [{ name: '百视通', dataList: [{ name: '多彩文体4K', deferredRef: refOf('219'), relayHls: true }] }],
+      health: { lastSuccessAt: Date.now(), channelCount: 1 },
+    } } }))
+    const manager = new ExtractorManager()
+    manager.configPath = join(dir, 'extractors.json')
+    manager.cachePath = join(dir, 'extractor-cache.json')
+    manager.legacyConfigPath = join(dir, 'system-config.json')
+    manager.load()
+    let channel = manager.getValidChannels().flatMap(g => g.dataList).find(c => c.deferredRef === refOf('219'))
+    assert.equal(channel.proxyHls, true)
+    assert.equal(channel.relayHls, false)
+    manager.updateModuleConfig('bestv-fj', { networkMode: 'auto' })
+    channel = manager.getValidChannels().flatMap(g => g.dataList).find(c => c.deferredRef === refOf('219'))
+    assert.equal(channel.proxyHls, false)
+    assert.equal(channel.relayHls, true)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
 });
 await check('API 拒绝 clientID 时仅更新一次；超大响应与跳转失败', async () => {
   let clients = 0, attempts = 0

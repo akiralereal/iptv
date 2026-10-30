@@ -1225,14 +1225,14 @@ async function handleRequest(req, res) {
       // 上游不支持 HEAD 或分片需要转换时 probeUpstream 会回退旧的合成 200，GET 行为不变。
       noteProxySegment(target.pid, req)
       const started = Date.now()
-      const result = await probeUpstream(target.url, req, res, target.transform, target.upstreamHeaders)
+      const result = await probeUpstream(target.url, req, res, target.transform, target.upstreamHeaders, target.upstreamFamily)
       logProxyProbe(target.pid, req, result, Date.now() - started)
       return
     }
     // 上游若给的是嵌套子清单（拍平失败时才会出现），同样改写成同源相对地址再下发，
     // 直接透传会让播放器拿着 CDN 的相对路径去请求本机、必然 404
     if (/\.m3u8(?:\?|$)/i.test(routeUrl)) {
-      const nested = await fetchNested(target.url, target.upstreamHeaders)
+      const nested = await fetchNested(target.url, target.upstreamHeaders, target.upstreamFamily)
       if (nested) {
         const body = Buffer.from(toProxyManifest(
           rewriteManifest(nested.text, nested.finalUrl),
@@ -1240,6 +1240,7 @@ async function handleRequest(req, res) {
           target.transform,
           target.upstreamHeaders,
           target.upstreamUrlTransform,
+          target.upstreamFamily,
         ), 'utf-8')
         res.writeHead(200, {
           'Content-Type': 'application/vnd.apple.mpegurl',
@@ -1259,7 +1260,7 @@ async function handleRequest(req, res) {
     }
     noteProxySegment(target.pid, req)
     const started = Date.now()
-    const result = await pipeUpstream(target.url, req, res, target.transform, target.upstreamHeaders)
+    const result = await pipeUpstream(target.url, req, res, target.transform, target.upstreamHeaders, target.upstreamFamily)
     logProxySegmentResult(target.pid, req, result, Date.now() - started)
     return
   }
@@ -1433,17 +1434,25 @@ async function handleRequest(req, res) {
     return
   }
 
+  // 模块的网络模式可能要求清单与分片同走服务端（IPv6 上游、IPv4 播放器）。
+  // 同时覆盖客户端仍收藏旧 /relay/ 地址的情况，不能只依赖新订阅的路径。
+  const forceProxyFromLegacyPath = result.proxyHls && !proxyMode
+  if (result.proxyHls) {
+    proxyMode = true
+    proxyPid ||= routeUrl.split('?')[0].split('/').filter(Boolean).at(-1).replace(/\.m3u8$/, '')
+  }
   if (relayMode || proxyMode || result.relayHls) {
     // 服务端取回清单、相对路径改写为绝对地址后直出，播放器无需跟随任何跳转
     const failKey = proxyMode ? proxyPid : routeUrl.split('?')[0]
-    let manifest = null
+    let manifest = inlineResolvedManifest(result)
     const manifestDiag = {}
-    if (manifestCooling(failKey)) {
+    if (manifest != null) {
+      markManifestResult(failKey, true)
+    } else if (manifestCooling(failKey)) {
       // 熔断窗口内：直接走下方 302 回退，不再替播放器把重试打到上游
       manifestDiag.reason = '熔断窗口内未打上游'
     } else {
-      manifest = inlineResolvedManifest(result)
-      if (manifest == null) manifest = await fetchManifestDirect(result.playURL, result.upstreamHeaders, manifestDiag)
+      manifest = await fetchManifestDirect(result.playURL, result.upstreamHeaders, manifestDiag, result.upstreamFamily)
       markManifestResult(failKey, manifest != null)
     }
     // 全代理：再把清单里的绝对地址换成本机同源相对地址，分片改由 /proxy/s<key>.ts 转发
@@ -1454,6 +1463,8 @@ async function handleRequest(req, res) {
         result.segmentTransform,
         result.upstreamHeaders,
         result.upstreamUrlTransform,
+        result.upstreamFamily,
+        forceProxyFromLegacyPath ? (relayMode ? '../proxy/' : 'proxy/') : '',
       )
     }
     if (manifest != null) {
@@ -1469,6 +1480,11 @@ async function handleRequest(req, res) {
       if (proxyMode) logProxyManifest(proxyPid, req, body.length)
       res.end(body)
       if (!proxyMode) logRelayManifest(routeUrl.split('?')[0].replace(/^\//, ''), req, manifest)
+      return
+    }
+    if (result.proxyHls) {
+      res.writeHead(502, { 'Content-Type': 'text/plain;charset=UTF-8', 'Cache-Control': 'no-store' })
+      res.end('当前网络模式要求服务器转发媒体，但直播清单获取失败，请稍后重试')
       return
     }
     // 取清单失败（网络抖动/非 HLS 内容）：回退 302，能跟随跳转的播放器仍可播。

@@ -586,7 +586,7 @@ async function handleRequest(req, res) {
       return
     }
 
-    // 消息推送渠道（utils/notify.js）：企微群机器人 / 企微应用 / 飞书 / 钉钉 / Telegram / Bark / 通用 Webhook
+    // 消息推送渠道（utils/notify.js）：企微群机器人 / 企微应用 / 飞书 / 钉钉 / Telegram / Bark / 通用 Webhook / 自定义接口
     if (routePath === '/api/notify' && method === 'GET') {
       const result = await getNotifyAPI()
       res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });

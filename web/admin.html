@@ -2846,6 +2846,9 @@
         .group-action-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 6px 8px; }
         .group-action-label { display: flex; align-items: center; min-height: 28px; color: var(--ui-muted); font-size: 11px; font-weight: 400; line-height: 1.3; white-space: nowrap; }
         .group-action-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; white-space: nowrap; }
+        /* 批量管理里「移动到 + 下拉 + 移动」「组内排序 + 最前/最后」各成一组：窄屏换行时小标签跟着自己的按钮走，不会孤零零留在上一行 */
+        .group-action-set { display: inline-flex; align-items: center; gap: 4px; }
+        .group-action-sub { margin-left: 4px; color: var(--ui-muted); font-size: 11px; line-height: 1.3; white-space: nowrap; }
         .group-action-icon { flex: 0 0 auto; width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
         .ch-status-legend {
             min-height: 0;
@@ -11068,17 +11071,29 @@ if(success){
                         return `<option value="${v}">${g.name}</option>`;
                     }).join('');
                     actions.innerHTML = `
-                        <button class="btn btn-sm" onclick="selectAllChannels()">全选</button>
-                        <button class="btn btn-sm" onclick="deselectAllChannels()">取消全选</button>
-                        <button class="btn btn-warning btn-sm" onclick="hideSelectedChannels()" ${selectedCount === 0 ? 'disabled' : ''}>隐藏选中 (${selectedCount})</button>
-                        <button class="btn btn-danger btn-sm" onclick="keepSelectedChannels()" ${selectedCount === 0 ? 'disabled' : ''}>只保留选中 (${selectedCount})</button>
-                        <span style="margin-left: 6px; color: #555; font-size: 13px;">移动选中到</span>
-                        <select id="batchMoveSelect" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ddd; max-width: 160px;" ${selectedCount === 0 ? 'disabled' : ''}>${batchMoveOpts}</select>
-                        <button class="btn btn-success btn-sm" onclick="moveSelectedChannels()" ${selectedCount === 0 ? 'disabled' : ''}>移动 (${selectedCount})</button>
-                        <span style="margin-left: 6px; color: #555; font-size: 13px;">组内排序</span>
-                        <button class="btn btn-sm" onclick="moveSelectedToEdge('top')" ${selectedCount === 0 || isNameSorted ? 'disabled' : ''} title="${isNameSorted ? '该分组为「名称自动排序」，切换为手动排序后才能整块移动' : '把选中的频道整块移到本分组最前'}">⤒ 移到最前 (${selectedCount})</button>
-                        <button class="btn btn-sm" onclick="moveSelectedToEdge('bottom')" ${selectedCount === 0 || isNameSorted ? 'disabled' : ''} title="${isNameSorted ? '该分组为「名称自动排序」，切换为手动排序后才能整块移动' : '把选中的频道整块移到本分组最后'}">⤓ 移到最后 (${selectedCount})</button>
-                        <button class="btn btn-primary btn-sm" onclick="toggleBatchMode()">退出批量</button>
+                        <div class="group-action-grid">
+                            <span class="group-action-label">勾选</span>
+                            <div class="group-action-btns">
+                                <button class="btn btn-sm" onclick="selectAllChannels()">全选</button>
+                                <button class="btn btn-sm" onclick="deselectAllChannels()">取消全选</button>
+                                <button class="btn btn-primary btn-sm" onclick="toggleBatchMode()">退出批量</button>
+                            </div>
+                            <span class="group-action-label">选中频道</span>
+                            <div class="group-action-btns">
+                                <button class="btn btn-warning btn-sm" onclick="hideSelectedChannels()" ${selectedCount === 0 ? 'disabled' : ''}>隐藏选中 (${selectedCount})</button>
+                                <button class="btn btn-danger btn-sm" onclick="keepSelectedChannels()" ${selectedCount === 0 ? 'disabled' : ''}>只保留选中 (${selectedCount})</button>
+                                <span class="group-action-set">
+                                    <span class="group-action-sub">移动到</span>
+                                    <select id="batchMoveSelect" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ddd; max-width: 160px;" ${selectedCount === 0 ? 'disabled' : ''}>${batchMoveOpts}</select>
+                                    <button class="btn btn-success btn-sm" onclick="moveSelectedChannels()" ${selectedCount === 0 ? 'disabled' : ''}>移动 (${selectedCount})</button>
+                                </span>
+                                <span class="group-action-set">
+                                    <span class="group-action-sub">组内排序</span>
+                                    <button class="btn btn-sm" onclick="moveSelectedToEdge('top')" ${selectedCount === 0 || isNameSorted ? 'disabled' : ''} title="${isNameSorted ? '该分组为「名称自动排序」，切换为手动排序后才能整块移动' : '把选中的频道整块移到本分组最前'}">⤒ 移到最前 (${selectedCount})</button>
+                                    <button class="btn btn-sm" onclick="moveSelectedToEdge('bottom')" ${selectedCount === 0 || isNameSorted ? 'disabled' : ''} title="${isNameSorted ? '该分组为「名称自动排序」，切换为手动排序后才能整块移动' : '把选中的频道整块移到本分组最后'}">⤓ 移到最后 (${selectedCount})</button>
+                                </span>
+                            </div>
+                        </div>
                     `;
                 } else {
                     actions.innerHTML = groupDetailActionsMarkup(group, groupIndex);

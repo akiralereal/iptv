@@ -2540,6 +2540,9 @@
         .notify-modal-actions { flex: 0 0 auto; margin: 0 -24px; padding: 14px 24px; border-top: 1px solid var(--ui-line, #eef1f6); }
 
         /* 消息推送：样式选择与预览 */
+        .notify-presets { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--ui-text-secondary); }
+        .notify-preset-tip { flex-basis: 100%; color: var(--ui-muted); line-height: 1.7; }
+        .notify-preset-tip:empty { display: none; }
         .notify-template-options { display: flex; gap: 8px; flex-wrap: wrap; }
         .notify-template-option {
             display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; min-width: 120px;
@@ -4796,13 +4799,14 @@
                 <div class="settings-editor-card" style="margin-top: 4px;">
                     <div>
                         <div style="font-size:16px; font-weight:600; color:#333;">消息推送</div>
-                        <div class="system-config-hint">后台顶部「需要处理的提醒」里出现需要你动手处理的新问题（登录凭证失效、EPG 源失败、模块配置损坏等）或问题恢复时，发一条消息到飞书、企业微信（群机器人或自建应用）、钉钉、Telegram、Bark 或你自己的 Webhook，不用开着后台也能知道。只发消息，不接收任何指令。</div>
+                        <div class="system-config-hint">后台顶部「需要处理的提醒」里出现需要你动手处理的新问题（登录凭证失效、EPG 源失败、模块配置损坏等）或问题恢复时，发一条消息到飞书、企业微信（群机器人或自建应用）、钉钉、Telegram、Bark、你自己的 Webhook，或 PushPlus、Server酱 这类推送平台（自定义接口），不用开着后台也能知道。只发消息，不接收任何指令。</div>
                     </div>
                     <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
                         <div>• 模块抓取失败、官方服务故障<strong>不推送</strong>（你处理不了，会自动重试），只在后台提醒里显示；其他提醒出现即发，恢复时再发一条「已恢复」；</div>
                         <div>• 升级前就已存在的提醒不发；同一个问题没恢复前只发一次；</div>
                         <div>• Telegram 的接口在大陆连不上：部署在大陆需给容器设 <code>HTTPS_PROXY</code>，或在「API 地址」填自己的反代；</div>
                         <div>• 企业微信应用：成员在企业微信里收到，关注了企业「微信插件」的在微信里也能收到；2022 年 6 月以后新建的应用要把服务器公网 IP 加进应用的「企业可信IP」，否则发送失败（60020），IP 不固定的在「API 地址」填一台固定 IP 服务器上转发 <code>qyapi.weixin.qq.com</code> 的反代；</div>
+                        <div>• 自定义接口：PushPlus、Server酱、WxPusher、ntfy、Gotify 这类发一个 HTTP 请求就能推送的平台都能接；选「自定义接口」后点「按示例填」，再填上密钥，别的平台照它的接口文档改地址和请求体模板；</div>
                         <div>• 机器人地址和 Token 存在数据目录 <code>notify-channels.json</code>，会随「备份迁移」里的配置导出一起导出，别把备份发给别人。</div>
                     </div>
 
@@ -7144,23 +7148,56 @@
                 + `<div class="notify-preview-card-note">来自 ${escapeHtml(m.host)}</div>`;
         }
 
-        /** 按所选类型画字段。编辑时敏感字段留空 = 不改，占位里注明已设置。 */
+        /** 按所选类型画字段（输入框 / 下拉 / 多行）。编辑时敏感字段留空 = 不改，占位里注明已设置。 */
         function renderNotifyFields() {
             renderNotifyTemplates();
             const type = notifyTypeOf(document.getElementById('notifyType').value);
             const box = document.getElementById('notifyFields');
             if (!type || !box) return;
             const editing = notifyEditingId ? (notifyState.channels || []).find(c => c.id === notifyEditingId) : null;
-            box.innerHTML = type.fields.map(f => {
+            const placeholderCode = text => escapeHtml(text).replace(/\{\{\w+\}\}/g, '<code>$&</code>');
+            const help = type.help ? `<div class="system-config-hint" style="margin:0;">${placeholderCode(type.help)}</div>` : '';
+            const presets = (type.presets || []).length
+                ? `<div class="notify-presets"><span>按示例填：</span>${type.presets.map((p, i) =>
+                    `<button type="button" class="btn btn-sm" onclick="applyNotifyPreset(${i})">${escapeHtml(p.name)}</button>`).join('')}
+                    <div class="notify-preset-tip" id="notifyPresetTip" aria-live="polite"></div></div>`
+                : '';
+            box.innerHTML = help + presets + type.fields.map(f => {
                 const isSet = editing && editing.secretsSet && editing.secretsSet[f.key];
                 const value = editing && !f.secret ? (editing[f.key] || '') : '';
                 const placeholder = isSet ? '已设置，留空保持不变' : (f.placeholder || '');
+                const attrs = `data-notify-field="${escapeHtml(f.key)}"`;
+                let control;
+                if (f.options) {
+                    control = `<select ${attrs} style="width:100%;">${f.options.map(o =>
+                        `<option value="${escapeHtml(o.value)}"${o.value === value ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}</select>`;
+                } else if (f.multiline) {
+                    control = `<textarea ${attrs} rows="4" placeholder="${escapeHtml(placeholder)}" spellcheck="false" autocomplete="off"
+                           style="width:100%; font-family:monospace; font-size:12px; resize:vertical;">${escapeHtml(value)}</textarea>`;
+                } else {
+                    control = `<input type="${f.secret ? 'password' : 'text'}" ${attrs} value="${escapeHtml(value)}"
+                           placeholder="${escapeHtml(placeholder)}" autocomplete="off" style="width:100%;">`;
+                }
                 return `<div>
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${escapeHtml(f.label)}${f.required ? '' : '（可选）'}</label>
-                    <input type="${f.secret ? 'password' : 'text'}" data-notify-field="${escapeHtml(f.key)}" value="${escapeHtml(value)}"
-                           placeholder="${escapeHtml(placeholder)}" autocomplete="off" style="width:100%;">
+                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${escapeHtml(f.label)}${f.required || f.options ? '' : '（可选）'}</label>
+                    ${control}
                 </div>`;
             }).join('');
+        }
+
+        /** 自定义接口「按示例填」：换上那家平台的地址和模板（密钥不动），名称没填的顺手填上 */
+        function applyNotifyPreset(index) {
+            const type = notifyTypeOf(document.getElementById('notifyType').value);
+            const preset = type && (type.presets || [])[index];
+            if (!preset) return;
+            document.querySelectorAll('#notifyFields [data-notify-field]').forEach(input => {
+                const key = input.dataset.notifyField;
+                if (key in preset.values) input.value = preset.values[key];
+            });
+            const name = document.getElementById('notifyName');
+            if (!name.value.trim()) name.value = preset.name;
+            const tip = document.getElementById('notifyPresetTip');
+            if (tip) tip.textContent = preset.tip || '';
         }
 
         function readNotifyForm() {

@@ -1,6 +1,7 @@
 /**
  * 消息推送：把提醒中心（utils/alerts.js）的「新出现 / 已恢复」发到企业微信（群机器人 / 应用消息）、
- * 飞书、钉钉、Telegram、Bark 或任意 Webhook。只做出站推送，不接收任何指令。
+ * 飞书、钉钉、Telegram、Bark、任意 Webhook，或按用户自己填的请求模板发到 PushPlus、Server酱
+ * 这类推送平台（自定义接口）。只做出站推送，不接收任何指令。
  *
  * 两份文件，刻意分开：
  *   notify-channels.json  渠道配置（含机器人地址 / Token，敏感）。小、少变、进配置备份。
@@ -75,6 +76,57 @@ export const CHANNEL_TYPES = {
     name: '通用 Webhook',
     fields: [{ key: 'url', label: 'POST 地址（收到 JSON：title / text / raised / resolved）', secret: true, required: true, placeholder: 'https://example.com/hook' }],
   },
+  // 用户照着对方平台的文档自己填请求；密钥单独放 token（打码），地址和模板不打码，方便回来改
+  custom: {
+    name: '自定义接口（PushPlus、Server酱 等）',
+    help: '照着推送平台的接口文档填。请求地址、请求头、请求体里可以用占位符：{{title}} 标题，{{content}} 正文（纯文本，按下面选的样式排），{{markdown}} 正文的 Markdown 版，{{token}} 下面填的密钥。JSON 里的占位符写在引号里，换行和引号会自动转义。',
+    fields: [
+      { key: 'url', label: '请求地址', required: true, placeholder: 'https://www.pushplus.plus/send' },
+      { key: 'token', label: '密钥 / Token（在地址、请求头、请求体里用 {{token}} 引用，保存后不再显示）', secret: true },
+      { key: 'method', label: '请求方式', options: [{ value: 'POST', label: 'POST' }, { value: 'GET', label: 'GET（不带请求体，内容写进地址）' }] },
+      { key: 'bodyType', label: '请求体格式', options: [{ value: 'json', label: 'JSON' }, { value: 'form', label: '表单（a=1&b=2）' }, { value: 'text', label: '纯文本' }] },
+      { key: 'body', label: '请求体模板', multiline: true, placeholder: '{"token": "{{token}}", "title": "{{title}}", "content": "{{content}}"}' },
+      { key: 'headers', label: '请求头（一行一个「名称: 值」）', multiline: true, placeholder: 'Authorization: Bearer {{token}}' },
+      { key: 'success', label: '成功条件（返回的 JSON 里哪个字段等于什么算发送成功；留空只看 HTTP 状态码）', placeholder: 'code=200' },
+    ],
+    // 后台「按示例填」：只填地址和模板，密钥还要自己填
+    presets: [
+      customPreset('PushPlus', '密钥填 PushPlus 的用户 token。', {
+        url: 'https://www.pushplus.plus/send',
+        body: jsonTemplate({ token: '{{token}}', title: '{{title}}', content: '{{markdown}}', template: 'markdown' }),
+        success: 'code=200',
+      }),
+      customPreset('Server酱', '密钥填 Server酱 Turbo 的 SendKey（SCT 开头）。', {
+        url: 'https://sctapi.ftqq.com/{{token}}.send',
+        bodyType: 'form',
+        body: 'title={{title}}&desp={{markdown}}',
+        success: 'code=0',
+      }),
+      customPreset('WxPusher', '密钥填应用的 appToken（AT_ 开头），再把请求体里的 UID 换成你自己的。', {
+        url: 'https://wxpusher.zjiecode.com/api/send/message',
+        body: jsonTemplate({ appToken: '{{token}}', content: '{{title}}\n{{content}}', contentType: 1, uids: ['UID_换成你的'] }),
+        success: 'code=1000',
+      }),
+      customPreset('ntfy', '把请求体里的主题换成你订阅的主题；自建的换掉地址，开了访问控制的在请求头加一行 Authorization: Bearer {{token}}。', {
+        url: 'https://ntfy.sh/',
+        body: jsonTemplate({ topic: '换成你的主题', title: '{{title}}', message: '{{content}}' }),
+      }),
+      customPreset('Gotify', '把地址换成你自己的 Gotify，密钥填应用的 Token。', {
+        url: 'https://gotify.example.com/message',
+        body: jsonTemplate({ title: '{{title}}', message: '{{content}}', priority: 5 }),
+        headers: 'X-Gotify-Key: {{token}}',
+      }),
+    ],
+  },
+}
+
+function jsonTemplate(value) {
+  return JSON.stringify(value, null, 2)
+}
+
+/** 示例把每个字段都给全，后台套用时不会留着上一个示例的请求头 / 成功条件。 */
+function customPreset(name, tip, values) {
+  return { name, tip, values: { method: 'POST', bodyType: 'json', body: '', headers: '', success: '', ...values } }
 }
 
 const MASK = '••••••'
@@ -129,7 +181,8 @@ function normalizeChannel(raw) {
   if (TEMPLATES[raw.template] && raw.template !== 'detailed') channel.template = raw.template
   for (const field of CHANNEL_TYPES[type].fields) {
     const value = trimStr(raw[field.key])
-    if (value) channel[field.key] = value.slice(0, 1000)
+    if (!value || (field.options && !field.options.some(option => option.value === value))) continue
+    channel[field.key] = value.slice(0, field.multiline ? 4000 : 1000)
   }
   return channel
 }
@@ -143,6 +196,77 @@ function validateChannel(channel) {
     if (channel[key] && !isHttpUrl(channel[key])) return '地址要以 http:// 或 https:// 开头'
   }
   if (channel.agentId && !/^\d+$/.test(channel.agentId)) return 'AgentId 是一串数字，如 1000002'
+  if (channel.type === 'custom') return validateCustom(channel)
+  return ''
+}
+
+// ---- 自定义接口：占位符、请求头、成功条件 ----
+
+const PLACEHOLDER = /\{\{\s*(\w+)\s*\}\}/g
+const PLACEHOLDERS = ['title', 'content', 'markdown', 'token']
+
+const CUSTOM_CONTENT_TYPES = {
+  json: 'application/json;charset=UTF-8',
+  form: 'application/x-www-form-urlencoded;charset=UTF-8',
+  text: 'text/plain;charset=UTF-8',
+}
+
+function fillPlaceholders(template, values, encode = value => value) {
+  return template.replace(PLACEHOLDER, (all, name) => Object.hasOwn(values, name) ? encode(values[name]) : all)
+}
+
+/** 只替换 JSON 里的字符串值，再整体序列化：标题里的引号、换行不会弄坏 JSON。 */
+function fillJson(node, values) {
+  if (typeof node === 'string') return fillPlaceholders(node, values)
+  if (Array.isArray(node)) return node.map(item => fillJson(item, values))
+  if (node && typeof node === 'object') return Object.fromEntries(Object.entries(node).map(([key, value]) => [key, fillJson(value, values)]))
+  return node
+}
+
+/** 「名称: 值」一行一个，返回 [[名称, 值]]；写错的行抛错，说明是第几行。 */
+function parseHeaders(text = '') {
+  const headers = []
+  text.split(/\r?\n/).forEach((line, index) => {
+    if (!line.trim()) return
+    const at = line.indexOf(':')
+    const name = at > 0 ? line.slice(0, at).trim() : ''
+    if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(name)) throw new Error(`请求头第 ${index + 1} 行要写成「名称: 值」`)
+    headers.push([name, line.slice(at + 1).trim()])
+  })
+  return headers
+}
+
+// 请求头里只能放 ASCII：中文标题、换行按 RFC 2047 编码（ntfy 等认这种写法），否则 fetch 直接报错
+const headerValue = value => /[^\x20-\x7e\t]/.test(value) ? `=?UTF-8?B?${Buffer.from(value).toString('base64')}?=` : value
+
+/** 名称不分大小写：用户写的 content-type 要顶掉默认的 Content-Type，而不是并成两个值。 */
+function setHeader(headers, name, value) {
+  for (const key of Object.keys(headers)) if (key.toLowerCase() === name.toLowerCase()) delete headers[key]
+  headers[name] = value
+}
+
+/** 「code=200」→ { path: 'code', expected: '200' }；写错或没填返回 null。 */
+function parseSuccess(rule = '') {
+  const match = /^([\w.-]+)\s*={1,2}\s*(.+)$/.exec(rule)
+  return match ? { path: match[1], expected: match[2].trim().replace(/^(["'])(.*)\1$/, '$2') } : null
+}
+
+function validateCustom(channel) {
+  let usesToken = false
+  for (const key of ['url', 'body', 'headers']) {
+    for (const [, name] of (channel[key] || '').matchAll(PLACEHOLDER)) {
+      if (!PLACEHOLDERS.includes(name)) return `不认识的占位符 {{${name}}}，能用的有 ${PLACEHOLDERS.map(n => `{{${n}}}`).join(' ')}`
+      if (name === 'token') usesToken = true
+    }
+  }
+  // 套了示例忘填密钥最常见：不拦的话要等对方平台回一句含糊的「token 无效」
+  if (usesToken && !channel.token) return '模板里用了 {{token}}，请填写「密钥 / Token」'
+  if (channel.method === 'GET' && channel.body) return 'GET 请求不带请求体：把内容写进请求地址（如 ?title={{title}}），或改用 POST'
+  if (channel.body && (channel.bodyType || 'json') === 'json') {
+    try { JSON.parse(channel.body) } catch { return '请求体不是合法的 JSON：占位符要写在引号里，如 "title": "{{title}}"' }
+  }
+  try { parseHeaders(channel.headers) } catch (error) { return error.message }
+  if (channel.success && !parseSuccess(channel.success)) return '成功条件要写成「字段=值」，如 code=200'
   return ''
 }
 
@@ -190,6 +314,18 @@ export function plainText(message, template = 'detailed') {
     ? [...raised.map(a => `${icon(a)} ${a.title}`), ...resolved.map(a => `✅ 已恢复：${a.title}`)].join('\n')
     : [...raised.map(a => `${icon(a)} ${a.title}\n${a.text}`), ...resolved.map(a => `✅ 已恢复：${a.title}`)].join('\n\n')
   return clip(lines + footer)
+}
+
+/** 自定义接口 {{markdown}} 的正文：段与段之间空一行（Markdown 里单个换行会并成一行）。 */
+function markdownText(message, template = 'detailed') {
+  const footer = message.host ? `\n\n> 来自 ${message.host}` : ''
+  if (message.test) return clip(testText(message) + footer)
+  const { raised = [], resolved = [] } = message
+  const blocks = [
+    ...raised.map(a => `**${icon(a)} ${a.title}**${template !== 'compact' && a.text ? `\n\n${a.text}` : ''}`),
+    ...resolved.map(a => `**✅ 已恢复：${a.title}**`),
+  ]
+  return clip(blocks.join('\n\n') + footer)
 }
 
 const escapeHtml = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -288,6 +424,22 @@ export function buildRequest(channel, message, now = Date.now(), accessToken = '
     }
     case 'bark':
       return { url: channel.url, body: { title, body: plainText(message, template), group: 'iPTV' } }
+    case 'custom': {
+      // 返回的 body 是排好的字符串（JSON / 表单 / 纯文本），sendToChannel 原样发出
+      const values = { title, content: plainText(message, template), markdown: markdownText(message, template), token: channel.token || '' }
+      const method = channel.method === 'GET' ? 'GET' : 'POST'
+      const headers = {}
+      let body
+      if (method === 'POST' && channel.body) {
+        const bodyType = CUSTOM_CONTENT_TYPES[channel.bodyType] ? channel.bodyType : 'json'
+        headers['Content-Type'] = CUSTOM_CONTENT_TYPES[bodyType]
+        if (bodyType === 'json') body = JSON.stringify(fillJson(JSON.parse(channel.body), values))
+        else if (bodyType === 'form') body = new URLSearchParams([...new URLSearchParams(channel.body)].map(([key, value]) => [key, fillPlaceholders(value, values)])).toString()
+        else body = fillPlaceholders(channel.body, values)
+      }
+      for (const [name, value] of parseHeaders(channel.headers)) setHeader(headers, name, headerValue(fillPlaceholders(value, values)))
+      return { url: fillPlaceholders(channel.url, values, encodeURIComponent), method, headers, body }
+    }
     case 'webhook':
     default:
       return {
@@ -337,6 +489,22 @@ function responseError(type, status, payload) {
   return ''
 }
 
+/** 自定义接口：先看 HTTP 状态码；填了成功条件再看返回 JSON 里的那个字段。 */
+function customError(channel, status, payload, text) {
+  const httpError = responseError('custom', status, payload)
+  const rule = parseSuccess(channel.success)
+  if (httpError || !rule) return httpError
+  if (!payload || typeof payload !== 'object') {
+    const snippet = trimStr(text).slice(0, 80)
+    return `返回的不是 JSON，判断不了「${channel.success}」${snippet ? `：${snippet}` : ''}`
+  }
+  const actual = rule.path.split('.').reduce((node, key) => node && typeof node === 'object' ? node[key] : undefined, payload)
+  if (String(actual) === rule.expected) return ''
+  const detail = [payload.msg, payload.message, payload.errmsg, payload.description, payload.error].find(value => typeof value === 'string' && value)
+  const got = actual === undefined ? `返回里没有 ${rule.path}` : `返回 ${rule.path}=${typeof actual === 'object' ? JSON.stringify(actual) : actual}`
+  return `${got}，不是 ${rule.expected}${detail ? `：${detail}` : ''}`
+}
+
 /** 错误信息里别带出机器人地址 / Token（日志和后台都会显示它）。 */
 function scrub(message, channel) {
   let out = String(message || '')
@@ -370,6 +538,11 @@ async function wecomAccessToken(channel, call, now, fresh) {
 
 /** 发出去，返回错误信息或 ''。call(url, body) 发一个请求，没有 body 时是 GET。 */
 async function deliver(channel, message, call, now) {
+  if (channel.type === 'custom') {
+    const { url, method, headers, body } = buildRequest(channel, message, now)
+    const { status, payload, text } = await call(url, body, { method, headers })
+    return customError(channel, status, payload, text)
+  }
   if (channel.type !== 'wecomApp') {
     const { url, body } = buildRequest(channel, message, now)
     const { status, payload } = await call(url, body)
@@ -389,18 +562,18 @@ async function deliver(channel, message, call, now) {
 export async function sendToChannel(channel, message, { fetchImpl = proxyAwareFetch, now = Date.now() } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS)
-  const call = async (url, body) => {
-    const res = await fetchImpl(url, body === undefined
-      ? { method: 'GET', headers: { 'User-Agent': 'iptv-notify' }, signal: controller.signal }
-      : {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json;charset=UTF-8', 'User-Agent': 'iptv-notify' },
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        })
+  // body 是对象时按 JSON 发；字符串（自定义接口排好的）原样发，Content-Type 由 headers 给
+  const call = async (url, body, { method, headers: extra = {} } = {}) => {
+    const headers = { 'User-Agent': 'iptv-notify' }
+    if (body !== undefined && typeof body !== 'string') headers['Content-Type'] = 'application/json;charset=UTF-8'
+    for (const [name, value] of Object.entries(extra)) setHeader(headers, name, value)
+    const init = { method: method || (body === undefined ? 'GET' : 'POST'), headers, signal: controller.signal }
+    if (body !== undefined) init.body = typeof body === 'string' ? body : JSON.stringify(body)
+    const res = await fetchImpl(url, init)
+    const text = await res.text()
     let payload = null
-    try { payload = JSON.parse(await res.text()) } catch { /* 有的服务回纯文本 */ }
-    return { status: res.status, payload }
+    try { payload = JSON.parse(text) } catch { /* 有的服务回纯文本 */ }
+    return { status: res.status, payload, text }
   }
   try {
     const error = await deliver(channel, message, call, now)
@@ -635,7 +808,7 @@ export async function getNotifyAPI() {
   try {
     const notifier = await getNotifier()
     const types = Object.entries(CHANNEL_TYPES).map(([id, type]) => ({
-      id, name: type.name, fields: type.fields,
+      id, name: type.name, fields: type.fields, help: type.help, presets: type.presets,
       templates: Object.entries(TEMPLATES).filter(([, t]) => !t.types || t.types.includes(id)).map(([key]) => key),
     }))
     const templates = Object.entries(TEMPLATES).map(([id, t]) => ({ id, name: t.name, description: t.description }))

@@ -19,11 +19,11 @@ const play = url => ({ tvid: 219, state: 'live', paid: false, contentIsFree: fal
 let passed = 0
 async function check(name, fn) { await fn(); passed++; console.log(`  ✅ ${name}`) }
 
-await check('模块默认开，64 路可选、默认七路、旧 ID 205 不认领', () => {
+await check('模块默认关，64 路可选、预选七路、旧 ID 205 不认领', () => {
   assert.equal(getModule('bestv-fj'), module)
   assert.equal(module.name, '百视通')
   assert.equal(module.region, '百视通')
-  assert.notEqual(module.defaultEnabled, false)
+  assert.equal(module.defaultEnabled, false)
   assert.equal(module.channelHlsMode, 'relay')
   assert.equal(module.channelHlsModeForConfig({}), 'relay')
   assert.equal(module.channelHlsModeForConfig({ networkMode: 'ipv6' }), 'proxy')

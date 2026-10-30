@@ -1005,6 +1005,7 @@ try {
         ...modules.filter(module => module.category === 'overseas').map(module => module.id),
         ...modules.filter(module => module.category === 'institution').map(module => module.id),
         'shandong-counties',
+        'bestv-fj',
         ...modules.filter(module => module.id.startsWith('guangdianyun-')).map(module => module.id),
       ].sort(),
     )
@@ -1068,7 +1069,7 @@ try {
       '用户明确保存的关闭态不能被默认值覆盖')
   })
 
-  check('★ 海外频道、高校与场馆、澳门、山东市县、市县台默认关闭，用户打开后保持打开；没点过的开关不落盘', () => {
+  check('★ 百视通、海外频道、高校与场馆、澳门、山东市县、市县台默认关闭，用户打开后保持打开；没点过的开关不落盘', () => {
     const optIn = listModules().filter(module => module.defaultEnabled === false).map(module => module.id)
     const gdy = optIn.filter(id => id.startsWith('guangdianyun-'))
     assert.ok(gdy.length >= 20, '市县台各省模块都默认关闭')
@@ -1076,16 +1077,22 @@ try {
     const inst = optIn.filter(id => id.startsWith('inst-'))
     assert.equal(inst.length, 25, '高校与场馆 25 个来源都默认关闭')
     assert.deepEqual(optIn.filter(id => !id.startsWith('guangdianyun-') && !id.startsWith('inst-')).sort(),
-      ['overseas', 'shandong-counties', 'tdm'],
-      '默认关的只有海外两个、山东市县、市县台各省和高校与场馆；新增要想清楚（百视通 v4.53.1 起默认开）')
+      ['bestv-fj', 'overseas', 'shandong-counties', 'tdm'],
+      '百视通因出口可用性差异默认关闭；其余默认关闭模块保持不变')
     const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
     for (const id of optIn) assert.equal(manager.isModuleEnabled(getModule(id)), false, id)
     manager.setModuleEnabled('overseas', true)
+    manager.setModuleEnabled('bestv-fj', true)
     manager.load()
     assert.equal(manager.isModuleEnabled(getModule('overseas')), true)
+    assert.equal(manager.isModuleEnabled(getModule('bestv-fj')), true, '用户手动开启百视通后，重载仍保持开启')
     assert.equal(manager.isModuleEnabled(getModule('tdm')), false)
     const saved = JSON.parse(readFileSync(manager.configPath, 'utf-8')).modules
     assert.equal(saved.overseas.enabled, true)
+    assert.equal(saved['bestv-fj'].enabled, true)
+    manager.setModuleEnabled('bestv-fj', false)
+    manager.load()
+    assert.equal(manager.isModuleEnabled(getModule('bestv-fj')), false, '用户手动关闭百视通后，重载仍保持关闭')
     assert.equal(saved.tdm?.enabled, undefined, '没点过的不落值，以后改这个模块的默认值时存量用户跟得上')
     assert.equal(saved.kankanews?.enabled, undefined)
     assert.throws(() => validateModule({ id: 'probe', name: 'probe', defaultEnabled: 'no', fetch: async () => ({ groups: [] }) }), /defaultEnabled/)

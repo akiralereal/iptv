@@ -4829,6 +4829,13 @@
                     </div>
                     <div class="system-config-hint" style="margin-top:6px;">导入会<strong>覆盖当前同名配置</strong>（导入前会自动把当前配置备份到数据目录 <code>config-pre-import-backup.json</code>，写坏可手动恢复）；导入后多数配置即时生效，端口修改需重启。</div>
                 </div>
+                <div class="settings-backup settings-editor-card" style="margin-top: 12px;">
+                    <div style="font-size:16px; font-weight:600; color:#333;">清理崩溃转储</div>
+                    <div class="system-config-hint">程序崩溃时系统可能在服务器上留下 <code>core.数字</code> 文件，每个几十 MB。服务启动时和之后每小时会自动清理，也可以马上清一次。只删这类文件，不影响配置和缓存。</div>
+                    <div style="margin-top:10px;">
+                        <button class="btn btn-primary" onclick="cleanCoreDumps()">立即清理</button>
+                    </div>
+                </div>
                 </div>
             </div>
 
@@ -9814,6 +9821,17 @@ if(success){
                 redirectTo: moved && moved.entry !== window.location.pathname ? moved.entry : null,
                 portChanged: !!(moved && moved.portChanged),
             });
+        }
+
+        async function cleanCoreDumps() {
+            try {
+                const res = await fetch(API_PREFIX + '/api/core-dumps/clean', { method: 'POST' });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message || '清理失败');
+                showStatus(data.count ? `已清理 ${data.count} 个文件，释放 ${(data.bytes / 1024 / 1024).toFixed(1)} MB` : '没有需要清理的文件', 'success');
+            } catch (e) {
+                showStatus('清理失败: ' + e.message, 'error');
+            }
         }
 
         // ===== 配置备份 / 迁移（issue #99）=====

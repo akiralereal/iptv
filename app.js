@@ -40,6 +40,7 @@ import { GITHUB_RAW_MIRRORS, isBuiltInSubscriptionSource } from "./utils/externa
 import { startProbe, getProbeStatus, cancelProbe } from "./utils/sourceProbe.js";
 import { cleanUserAgent, userAgentOf } from "./utils/channelOpts.js";
 import { SYSTEM_ASSET_PATHS, readAnnouncementAsset } from "./utils/announcement.js";
+import { cleanCoreDumps } from "./utils/coreDumpCleanup.js";
 
 // 全代理/兼容模式（issue #98）的服务端可观测性。上一版的日志设计在实战里分不清三种情况
 // （首行不带分片数、每 pid 每分钟一行会让 curl 与播放器互吞对方的行、分片 404 与上游失败全静默），
@@ -406,6 +407,13 @@ async function handleRequest(req, res) {
         res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
         res.end(JSON.stringify({ success: false, message: error.message }));
       }
+      return
+    }
+
+    if (routePath === '/api/core-dumps/clean' && method === 'POST') {
+      printBlue("API: 清理崩溃转储")
+      res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
+      res.end(JSON.stringify({ success: true, ...cleanCoreDumps() }));
       return
     }
 
@@ -1610,6 +1618,10 @@ server.listen(port, async () => {
 
   // 用户令牌用量（最近访问 / 次数）节流落盘：内存累加，每 60 秒 flush 一次，避免每请求写磁盘
   setInterval(() => userManager.flushUsage(), 60 * 1000)
+
+  // 崩溃转储启动时清一次，之后每小时清一次
+  cleanCoreDumps()
+  setInterval(() => cleanCoreDumps(), 60 * 60 * 1000)
 
   // 定时任务1: 完整更新（咪咕 + 外部源 + 节目单）
   setInterval(async () => {

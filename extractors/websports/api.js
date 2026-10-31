@@ -1,6 +1,7 @@
 import builtInSourceManager from '../../utils/builtInSources.js'
 import { decodeM3u8FromPage, SANDBOX_UA } from '../../utils/playerPageSandbox.js'
 import { printBlue, printYellow } from '../../utils/colorOut.js'
+import { declaredHeight, firstUri, heightOfSegment } from './resolution.js'
 
 export const GROUP_NAME = '赛事直播'
 // 来源站常换域名：域名池放在 built-in-sources.json 的这一段，改完 push 到 main 即生效，不用发版
@@ -22,6 +23,15 @@ const REMOTE_MAX_AGE_MS = 9 * 60 * 1000
 const PAGE_TIMEOUT_MS = 6000
 const FIND_BUDGET_MS = 20 * 1000
 const MAX_LINES = 6
+// 起播时并行查线路：出现 1080p 立刻选，否则最多等这么久选最高的；一条都没查出来才继续等到 FIND_BUDGET_MS
+const PICK_BUDGET_MS = 3000
+const TARGET_HEIGHT = 1080
+// 读分片开头看分辨率：SPS 在分片最前面，几百 KB 足够，不用下完
+const SEGMENT_PROBE_BYTES = 256 * 1024
+// 这么久没刷新清单算退出了频道，再进来时重挑一次，晚上线的高画质线路这时能用上
+const REENTRY_GAP_MS = 20 * 1000
+// 一次重挑要打二十来个请求，同一场一分钟内不重复
+const REPICK_MS = 60 * 1000
 // 快到期的地址也留够这么久，不然每次清单刷新都要重走整条链路
 const MIN_TTL_MS = 60 * 1000
 // 个别线路时通时断（10-31 hello.ooo0ooo.top 通过一次检查后马上 404）：断过的地址先避开一阵，换别的线路
@@ -63,11 +73,11 @@ export function parseMatches(script) {
   return [...matches.values()]
 }
 
-// 10-31 博洛尼亚对蒙扎实测：pao 是 1080p，mgxl、wlive、wen 都是 720p。pao 有的场次会 404，不通往后换。
-// sm.html 不走下面的播放器包装，放最后
+// 线路都是并行查、按实际分辨率选，顺序只决定分辨率相同时选谁，以及 MAX_LINES 截掉哪些。
+// 10-31 实测 pao 上线后是 1080p，同分辨率时优先；sm.html 不走下面的播放器包装，放最后
 const lineRank = path => (path.startsWith('/play/pao/') ? 0 : path.startsWith('/play/sm.html') ? 2 : 1)
 
-/** 入口页的线路：高画质优先，其余保持站点顺序；被注释掉的和「=&id2=」这种空线路不算 */
+/** 入口页的线路；被注释掉的和「=&id2=」这种空线路不算 */
 export function linePaths(html) {
   const paths = [...html.replace(/<!--[\s\S]*?-->/g, ' ').matchAll(/\bdata-play="(\/[^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&'))
   return [...new Set(paths)].sort((a, b) => lineRank(a) - lineRank(b))
@@ -122,9 +132,14 @@ export function expiryOf(raw, now) {
   return seconds > 0 ? seconds * 1000 - EXPIRY_MARGIN_MS : now + DEFAULT_TTL_MS
 }
 
-export function createProvider({ fetchImpl = fetch, now = Date.now, decode = decodeM3u8FromPage, siteConfig = readSiteConfig } = {}) {
+/** 分辨率高的在前，一样高时按线路顺序；分辨率未知（0）的排最后，但仍然能用 */
+const bestOf = streams => [...streams].sort((a, b) => b.height - a.height || a.order - b.order)[0]
+const heightLabel = height => (height ? `${height}p` : '分辨率未知')
+
+export function createProvider({ fetchImpl = fetch, now = Date.now, decode = decodeM3u8FromPage, siteConfig = readSiteConfig, pickBudgetMs = PICK_BUDGET_MS } = {}) {
   let site = null, lastHome = ''
-  const streams = new Map()  // 场次 id → { url, line, expiresAt }
+  const streams = new Map()  // 场次 id → { url, line, height, expiresAt, pickedAt, usedAt }
+  const later = new Map()    // 场次 id → 这次没赶上、比当前线路好的结果，下次进频道用
   const failures = new Map() // 场次 id → { message, until }
   const avoided = new Map()  // 播放地址 → 避开到什么时候
   const pending = new Map()
@@ -141,6 +156,7 @@ export function createProvider({ fetchImpl = fetch, now = Date.now, decode = dec
     return response
   }
   const read = (url, options) => request(url, options).then(response => response.text())
+  const expiresAtOf = url => Math.max(expiryOf(url, now()), now() + MIN_TTL_MS)
 
   /** 取在播的清单；不在播、取不到都返回 null。text 交回给 resolve 直出，播放器不再等本机二次回源 */
   async function liveManifest(url) {
@@ -149,6 +165,41 @@ export function createProvider({ fetchImpl = fetch, now = Date.now, decode = dec
       const text = await response.text()
       return isLiveManifest(text) ? { text, manifestUrl: response.url || url } : null
     } catch { return null }
+  }
+
+  /** 只读开头，够看 SPS 就断开 */
+  async function readHead(url, limit) {
+    const response = await request(url)
+    const reader = response.body.getReader()
+    const chunks = []
+    let total = 0
+    try {
+      while (total < limit) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+        total += value.length
+      }
+    } finally { await reader.cancel().catch(() => {}) }
+    return Buffer.concat(chunks)
+  }
+
+  /** 在播清单的视频高度，取不到返回 0：清单写了 RESOLUTION 就用，否则看第一个分片 */
+  async function streamHeight(text, manifestUrl) {
+    try {
+      const declared = declaredHeight(text)
+      if (declared) return declared
+      let media = text, base = manifestUrl
+      if (text.includes('#EXT-X-STREAM-INF')) {
+        const variant = new URL(firstUri(text), base).href
+        const response = await request(variant)
+        media = await response.text()
+        base = response.url || variant
+      }
+      if (/#EXT-X-KEY:METHOD=(?!NONE)/.test(media)) return 0
+      const segment = new URL(firstUri(media), base).href
+      return isPublicUrl(segment) ? heightOfSegment(await readHead(segment, SEGMENT_PROBE_BYTES)) : 0
+    } catch { return 0 }
   }
 
   async function loadSite() {
@@ -173,43 +224,89 @@ export function createProvider({ fetchImpl = fetch, now = Date.now, decode = dec
     for (const url of links.filter(isPublicUrl)) {
       if ((avoided.get(url) || 0) > now()) continue
       const manifest = await liveManifest(url)
-      if (manifest) return { url, ...manifest }
+      if (manifest) return { url, ...manifest, height: await streamHeight(manifest.text, manifest.manifestUrl) }
     }
     return null
   }
 
-  async function findStream(id) {
-    const { hosts, prefix, suffix, home } = site || await loadSite()
-    const deadline = now() + FIND_BUDGET_MS
-    let blocked = 0
-    for (const host of hosts) {
-      const entryUrl = `${host}${prefix}${id}${suffix}`
-      let html
-      try { html = await read(entryUrl, { referer: home }) } catch (error) {
-        if (error.status === 403) blocked++
-        continue
-      }
-      // 三个域名是同一份页面，能打开一个就够了，解不出换域名也没用
-      for (const path of linePaths(html).slice(0, MAX_LINES)) {
-        if (now() > deadline) break
-        const stream = await lineStream(new URL(path, entryUrl).href, entryUrl).catch(() => null)
-        if (stream) return { ...stream, line: path }
-      }
-      throw new Error('这场暂无可用线路（可能未开赛或已结束）')
-    }
-    throw new Error(blocked ? '入口页拒绝访问：这台机器的网络需要是大陆或香港出口' : '入口页打不开，请检查网络')
+  /** 线路全部同时查，详见 PICK_BUDGET_MS。选完后还没查完的继续跑，比选中的好就记进 later */
+  async function pickLine(id, paths, entryUrl, seeds) {
+    const found = [...seeds]
+    const watchers = new Set()
+    const wake = () => watchers.forEach(check => check())
+    let finished = false
+    const settled = Promise.allSettled(paths.map((path, order) => lineStream(new URL(path, entryUrl).href, entryUrl).then(stream => {
+      if (stream) found.push({ ...stream, line: path, order })
+      wake()
+    }))).then(() => { finished = true; wake() })
+    const waitUntil = (test, ms) => new Promise(resolve => {
+      const stop = () => { clearTimeout(timer); watchers.delete(check); resolve() }
+      const check = () => { if (test()) stop() }
+      const timer = setTimeout(stop, ms)
+      watchers.add(check)
+      check()
+    })
+    await waitUntil(() => finished || found.some(stream => stream.height >= TARGET_HEIGHT), pickBudgetMs)
+    if (!found.length) await waitUntil(() => finished || found.length > 0, FIND_BUDGET_MS - pickBudgetMs)
+    const chosen = bestOf(found)
+    if (chosen) settled.then(() => {
+      const top = bestOf(found)
+      if (top.height > chosen.height) later.set(id, { ...top, expiresAt: expiresAtOf(top.url) })
+    })
+    return chosen && { ...chosen, candidates: [...found] }
   }
 
-  async function freshStream(id) {
+  async function findStream(id, seeds) {
+    const { hosts, prefix, suffix, home } = site || await loadSite()
+    const NO_LINES = '这场暂无可用线路（可能未开赛或已结束）'
+    // 几个域名是同一份页面，谁先回用谁：10-31 大陆探针上 Cloudflare 的两个域名偶发挂住 15 秒，按顺序等会拖慢首次起播
+    const { entryUrl, lines } = await Promise.any(hosts.map(async host => {
+      const url = `${host}${prefix}${id}${suffix}`
+      const paths = linePaths(await read(url, { referer: home }))
+      if (!paths.length) throw new Error(NO_LINES)
+      return { entryUrl: url, lines: paths }
+    })).catch(({ errors }) => {
+      if (errors.some(error => error.message === NO_LINES)) throw new Error(NO_LINES)
+      throw new Error(errors.some(error => error.status === 403) ? '入口页拒绝访问：这台机器的网络需要是大陆或香港出口' : '入口页打不开，请检查网络')
+    })
+    const chosen = await pickLine(id, lines.slice(0, MAX_LINES), entryUrl, seeds)
+    if (chosen) return chosen
+    throw new Error(NO_LINES)
+  }
+
+  /** 手上已有的结果（当前线路、上次没赶上的）：还活着才算，已到目标分辨率就不用再查站点 */
+  async function liveSeeds(id, current) {
+    const kept = later.get(id)
+    later.delete(id)
+    const seeds = await Promise.all([current, kept].filter(stream => stream && now() < stream.expiresAt).map(async stream => {
+      const manifest = await liveManifest(stream.url)
+      return manifest && { ...stream, ...manifest, order: -1 }
+    }))
+    return seeds.filter(Boolean)
+  }
+
+  async function freshStream(id, current) {
     const failed = failures.get(id)
-    if (failed && now() < failed.until) throw new Error(failed.message)
+    if (failed && now() < failed.until && !current) throw new Error(failed.message)
+    const startedAt = Date.now()
     try {
-      const found = await findStream(id)
-      streams.set(id, { url: found.url, line: found.line, expiresAt: Math.max(expiryOf(found.url, now()), now() + MIN_TTL_MS) })
+      const seeds = await liveSeeds(id, current)
+      const seeded = bestOf(seeds)
+      const found = seeded?.height >= TARGET_HEIGHT ? { ...seeded, candidates: seeds }
+        : await findStream(id, seeds).catch(error => {
+          if (!seeded) throw error
+          return { ...seeded, candidates: seeds }
+        })
+      streams.set(id, {
+        url: found.url, line: found.line, height: found.height,
+        expiresAt: found.expiresAt ?? expiresAtOf(found.url), pickedAt: now(), usedAt: now(),
+      })
       failures.delete(id)
-      printBlue(`WebSports ${id}：${found.line.split('?')[0]} → ${new URL(found.url).host}`)
+      const summary = found.candidates.map(stream => `${stream.line.split('?')[0]} ${heightLabel(stream.height)}`).join('、')
+      printBlue(`WebSports ${id}：选 ${found.line.split('?')[0]} ${heightLabel(found.height)} → ${new URL(found.url).host}，用时 ${((Date.now() - startedAt) / 1000).toFixed(1)} 秒（可用：${summary}）`)
       return found
     } catch (error) {
+      streams.delete(id)
       failures.set(id, { message: error.message, until: now() + FAILURE_TTL_MS })
       printYellow(`WebSports ${id}：${error.message}`)
       throw error
@@ -218,14 +315,19 @@ export function createProvider({ fetchImpl = fetch, now = Date.now, decode = dec
 
   async function resolve(id) {
     const hit = streams.get(id)
-    if (hit && now() < hit.expiresAt) {
+    const valid = hit && now() < hit.expiresAt
+    const returning = valid && hit.height < TARGET_HEIGHT && now() - hit.usedAt > REENTRY_GAP_MS && now() - hit.pickedAt > REPICK_MS
+    if (valid && !returning) {
       // 播放器几秒刷新一次清单、每次都到这里：清单由这里取，断了当场换线路，不用等播放器报错
       const manifest = await liveManifest(hit.url)
-      if (manifest) return { ...hit, ...manifest }
+      if (manifest) {
+        hit.usedAt = now()
+        return { ...hit, ...manifest }
+      }
       avoided.set(hit.url, now() + AVOID_MS)
     }
-    streams.delete(id)
-    if (!pending.has(id)) pending.set(id, freshStream(id).finally(() => pending.delete(id)))
+    if (!returning) streams.delete(id)
+    if (!pending.has(id)) pending.set(id, freshStream(id, returning ? hit : null).finally(() => pending.delete(id)))
     return pending.get(id)
   }
 

@@ -16,13 +16,13 @@ export default {
   defaultEnabled: false,
   capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   outputGroupName: GROUP_NAME, configSchema: [],
-  // 三条线路的 CDN 都不看 Referer 和 UA（10-31 实测不带请求头、错误 Referer 都能取清单和分片）：
+  // 实测的线路 CDN 都不看 Referer 和 UA（10-31 不带请求头或带错误 Referer 都能取清单和分片）：
   // 本机只中继清单，视频由播放器直连，不占服务器带宽。
   relayProxyCompatible: true,
   // 第一次解析要代观众打四五个第三方页面，不能让播放器的批量探测把整张列表扫一遍
   resolveBurstGuard: true,
   defaultRefreshMinutes: 10, refreshConfigurable: false,
-  refreshDescription: '自动同步赛事列表；播放时才解析线路，一条不通换下一条。',
+  refreshDescription: '自动同步赛事列表；播放时同时查各条线路，选分辨率最高的，断了自动换。',
   async fetch(_config, ctx = {}) {
     const matches = await providerFor(ctx).discover()
     return { groups: [{ name: GROUP_NAME, dataList: matches.map(match => ({

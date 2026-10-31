@@ -13,6 +13,7 @@ after(() => rmSync(dataDir, { recursive: true, force: true }))
 const { createProvider, expiryOf, isLiveManifest, isPublicUrl, linePaths, normalizeSiteConfig, parseMatches, parseSite, wrappedPlayerUrl } = await import('../extractors/websports/api.js')
 const { default: builtInSourceManager } = await import('../utils/builtInSources.js')
 const { default: extractor } = await import('../extractors/websports/index.js')
+const { declaredHeight, firstUri, heightOfSegment, spsHeight } = await import('../extractors/websports/resolution.js')
 const { getModule, resolverFor } = await import('../extractors/registry.js')
 
 // 按 2026-10-31 首页、index.js、入口页、线路页裁剪；域名、签名均为离线测试值
@@ -217,14 +218,14 @@ test('入口被拒换下一个域名，线路不通换下一条，同一场不�
   assert.equal(first.url, stream)
   assert.equal(first.line, '/play/wen/?id=abc&id2=')
   assert.ok(state.calls.includes('http://blocked.example.com/play/steam825411.html'))
-  assert.deepEqual(decodeMock.seen.map(x => x.url), ['https://player.example.com/paps.html?id=dead', 'https://player.example.com/paps.html?id=live+/='])
-  assert.equal(decodeMock.seen[1].referer, 'http://open.example.com/play/wen/?id=abc&id2=')
+  assert.deepEqual(decodeMock.seen.map(x => x.url).sort(), ['https://player.example.com/paps.html?id=dead', 'https://player.example.com/paps.html?id=live+/='])
+  assert.equal(decodeMock.seen.find(x => x.url.endsWith('=')).referer, 'http://open.example.com/play/wen/?id=abc&id2=')
 
   assert.equal(first.text, liveManifest)
   assert.equal(first.manifestUrl, stream)
 
   const before = state.calls.length
-  clock += 61 * 1000
+  clock += 5 * 1000
   const again = await provider.resolve('825411')
   assert.equal(again.text, liveManifest)
   assert.deepEqual(state.calls.slice(before), [stream], '之后每次刷新只取清单，不重走链路')
@@ -247,6 +248,121 @@ test('清单断了当场换线路，断过的地址先避开', async () => {
   assert.equal((await provider.resolve('825411')).url, backup)
   state.flaky = false
   assert.equal((await provider.resolve('825411')).url, backup, '换过去之后不跳回刚断的线路')
+})
+
+// 10-31 真实流的 SPS：High 720p（带 VUI）、Main 1080p（1088 裁到 1080）
+const sps720 = Buffer.from('00000167640020acd9405005bb01100000030010000005a0f18319600000000168efbcb0', 'hex')
+const sps1080 = Buffer.from('000001674d4033e980f0044fcb80a101010140000003004000000cb920000b42d0001685a928a0', 'hex')
+function tsSegment(nal) {
+  const packet = Buffer.alloc(188, 0xff)
+  packet.set([0x47, 0x41, 0x00, 0x10])
+  packet.set(Buffer.concat([Buffer.alloc(14), nal]), 4)
+  return Buffer.concat([packet, packet])
+}
+
+test('从分片开头读出真实分辨率，读不出按未知处理', () => {
+  assert.equal(heightOfSegment(tsSegment(sps720)), 720)
+  assert.equal(heightOfSegment(tsSegment(sps1080)), 1080)
+  assert.equal(heightOfSegment(Buffer.from('<html>not a segment</html>')), 0)
+  assert.equal(heightOfSegment(tsSegment(Buffer.alloc(60))), 0)
+  assert.throws(() => spsHeight(Buffer.from([0x64])))
+  assert.equal(declaredHeight('#EXT-X-STREAM-INF:BANDWIDTH=1,RESOLUTION=1280x720\na\n#EXT-X-STREAM-INF:BANDWIDTH=2,RESOLUTION=1920x1080\nb'), 1080)
+  assert.equal(declaredHeight('#EXT-X-STREAM-INF:BANDWIDTH=1200000\na'), 0)
+  assert.equal(firstUri('#EXTM3U\n#EXTINF:5,\n\nseg.ts?a=1\nnext.ts\n'), 'seg.ts?a=1')
+})
+
+/** 五条线路的站点：key 是线路路径，value 是这条线路的分辨率（清单写在分片里）；slow 是这条线路多晚才回 */
+function lineSite(lines, { slow = {}, state = {} } = {}) {
+  const calls = state.calls = []
+  const entry = Object.keys(lines).map(name => `<a data-play="/play/${name}/?id=1&id2="></a>`).join('')
+  const fetchImpl = async raw => {
+    const url = new URL(raw)
+    calls.push(raw)
+    if (url.pathname.startsWith('/play/steam')) return new Response(entry)
+    const line = url.pathname.split('/')[2]
+    if (url.hostname === 'open.example.com') {
+      if (slow[line]) await new Promise(resolve => setTimeout(resolve, slow[line]))
+      return lines[line] === undefined ? new Response('', { status: 403 }) : new Response(linePage(line))
+    }
+    const height = state.heights?.[url.hostname] ?? lines[url.hostname.split('.')[0]]
+    if (url.pathname.endsWith('.m3u8')) return new Response(state.dead?.includes(url.hostname) ? 'nf' : `#EXTM3U\n#EXTINF:5,\n${url.hostname.split('.')[0]}.ts\n`, { status: state.dead?.includes(url.hostname) ? 404 : 200 })
+    return new Response(tsSegment(height >= 1080 ? sps1080 : sps720))
+  }
+  const decode = async playerUrl => ({ links: [`https://${playerUrl.split('id=')[1]}.cdn.example.com/x.m3u8`] })
+  return { fetchImpl, decode, siteConfig: async () => ({ homeUrls: ['https://dead.example.com/'], playHosts: ['http://open.example.com'] }) }
+}
+
+test('并行查线路，选分辨率最高的，不管它排第几', async () => {
+  const provider = createProvider(lineSite({ mgxl: 720, wlive: 720, hz: 1080, wen: 720 }))
+  const chosen = await provider.resolve('825422')
+  assert.equal(chosen.line, '/play/hz/?id=1&id2=')
+  assert.equal(chosen.height, 1080)
+})
+
+test('都是 720p 时按线路顺序选，失败的线路不影响', async () => {
+  const provider = createProvider(lineSite({ dead: undefined, mgxl: 720, wen: 720 }))
+  assert.equal((await provider.resolve('825420')).line, '/play/mgxl/?id=1&id2=')
+})
+
+test('限时内没等到 1080p 就先用 720p，慢的结果留到下次进频道', async () => {
+  const state = {}
+  let clock = 1_000_000
+  const site = lineSite({ mgxl: 720, slow: 1080 }, { slow: { slow: 60 }, state })
+  const provider = createProvider({ ...site, now: () => clock, pickBudgetMs: 10 })
+  assert.equal((await provider.resolve('825411')).height, 720)
+  await new Promise(resolve => setTimeout(resolve, 100))
+
+  const before = state.calls.length
+  clock += 5 * 1000
+  assert.equal((await provider.resolve('825411')).height, 720, '还在连续刷新：不切线路')
+  assert.equal(state.calls.length, before + 1, '只取清单')
+
+  clock += 2 * 60 * 1000
+  const back = await provider.resolve('825411')
+  assert.equal(back.height, 1080, '退出再进：用上之前没赶上的 1080p')
+  assert.ok(!state.calls.slice(before).some(raw => raw.includes('/play/steam')), '手上已有 1080p，不用再查站点')
+})
+
+test('退出再进重挑：晚上线的高画质线路能用上，已是 1080p 的不重挑', async () => {
+  const state = {}
+  let clock = 1_000_000
+  const lines = { mgxl: 720 }
+  const provider = createProvider({ ...lineSite(lines, { state }), now: () => clock })
+  assert.equal((await provider.resolve('825411')).height, 720)
+  lines.pao = 1080
+  const entry = lineSite(lines, { state })
+  const late = createProvider({ ...entry, now: () => clock })
+  assert.equal((await late.resolve('825411')).height, 1080, '新线路一起跑时选 1080p')
+
+  const before = state.calls.length
+  clock += 5 * 60 * 1000
+  await late.resolve('825411')
+  assert.ok(!state.calls.slice(before).some(raw => raw.includes('/play/steam')), '已是 1080p，退出再进也不重挑')
+})
+
+test('重挑时入口被拒，继续用手上的线路', async () => {
+  const state = {}
+  let clock = 1_000_000
+  const site = lineSite({ mgxl: 720 }, { state })
+  const provider = createProvider({ ...site, now: () => clock })
+  await provider.resolve('825411')
+  clock += 5 * 60 * 1000
+  const blocked = async (raw, options) => (raw.includes('/play/steam') ? new Response('', { status: 403 }) : site.fetchImpl(raw, options))
+  const seeded = createProvider({ ...site, fetchImpl: blocked, now: () => clock })
+  await assert.rejects(seeded.resolve('825411'), /大陆或香港/, '手上没有结果时照常报错')
+  assert.equal((await provider.resolve('825411')).line, '/play/mgxl/?id=1&id2=')
+})
+
+test('入口域名谁先回用谁，挂住的域名不拖慢起播', async () => {
+  const site = lineSite({ mgxl: 720 })
+  const fetchImpl = async (raw, options) => {
+    if (raw.startsWith('http://hung.example.com')) return new Promise(() => {})
+    return site.fetchImpl(raw, options)
+  }
+  const siteConfig = async () => ({ homeUrls: ['https://dead.example.com/'], playHosts: ['http://hung.example.com', 'http://open.example.com'] })
+  const provider = createProvider({ ...site, fetchImpl, siteConfig })
+  const chosen = await Promise.race([provider.resolve('825411'), new Promise(resolve => setTimeout(resolve, 500, null))])
+  assert.equal(chosen?.line, '/play/mgxl/?id=1&id2=')
 })
 
 test('流结束后重新解析，解不出时报清楚并短暂记住失败', async () => {

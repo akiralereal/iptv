@@ -101,11 +101,28 @@ function castAccepted(castResp, cast) {
  * 这次取流带不带账号请求头。标清（rateType 2）一律按游客要——回应里的 auth.logined=false
  * 就不能拿来判 Token 失效（resolve.js 的 noteAuth 据此跳过）。
  */
+// 账号走请求头发给咪咕。换行、中文这类字符进不了请求头，fetch 当场抛错、请求根本发不出去，
+// 全部频道都会秒失败（2026-11-01 作者 NAS）。发不出去的账号等于没填，按未登录走，提醒见 account.js
+const isHeaderValue = value => /^[\x21-\x7e]+$/.test(value)
+
+function accountHasBadChars(userId, token) {
+  return [userId, token].some(value => {
+    const text = String(value ?? '').trim()
+    return text !== '' && !isHeaderValue(text)
+  })
+}
+
+function cleanAccount(userId, token) {
+  if (accountHasBadChars(userId, token)) return { userId: '', token: '' }
+  return { userId: String(userId ?? '').trim(), token: String(token ?? '').trim() }
+}
+
 function sendsAccount(userId, token, rateType) {
   return rateType != 2 && userId != "" && token != ""
 }
 
 async function getAndroidURL(userId, token, pid, rateType, opts = {}) {
+  ({ userId, token } = cleanAccount(userId, token))
   const useHDR = opts.enableHDR ?? enableHDR
   const useH265 = opts.enableH265 ?? enableH265
   // 可注入的请求函数，只给回归测试用（scripts/test-migu-4k-fallback.mjs）
@@ -375,4 +392,4 @@ function printStreamInfo(resObj, { cached = false } = {}) {
   }
 }
 
-export { getAndroidURL, getAndroidURL720p, get302URL, printStreamInfo, sendsAccount }
+export { accountHasBadChars, cleanAccount, getAndroidURL, getAndroidURL720p, get302URL, printStreamInfo, sendsAccount }

@@ -16,7 +16,7 @@
  * 缓存放在模块里而不是外壳里：它缓存的 content 是咪咕的响应体（登录态信息由此
  * 而来），3 小时也是签名有效期这个平台属性，不是通用的 HTTP 缓存策略。
  */
-import { get302URL, getAndroidURL, getAndroidURL720p, printStreamInfo, sendsAccount } from "./androidURL.js"
+import { cleanAccount, get302URL, getAndroidURL, getAndroidURL720p, printStreamInfo, sendsAccount } from "./androidURL.js"
 import { noteAuth } from "./account.js"
 import { printDebug } from "../../utils/colorOut.js"
 
@@ -65,8 +65,7 @@ function readCache(pid) {
  */
 export async function resolve(ref, ctx = {}) {
   const pid = ref
-  const userId = ctx.account?.userId ?? ""
-  const token = ctx.account?.token ?? ""
+  const { userId, token } = cleanAccount(ctx.account?.userId, ctx.account?.token)
   // 画质参数来自模块自己的 configSchema（经 extractorManager.effectiveConfig →
   // appUtils 的路由外壳传进来），不再直接 import 全局 config.js。
   const config = ctx.config || {}

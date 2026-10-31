@@ -15,8 +15,9 @@ import { join } from 'node:path'
 
 // account.js → androidURL.js 间接 import config.js，后者会读数据目录；指到临时目录避免碰真实数据
 process.env.mdataDir = mkdtempSync(join(tmpdir(), 'iptv-migu-account-test-'))
-const { checkAccount, credentialRejected, noteAuth, resetAccountState, TOKEN_REJECTED_NOTICE } = await import('../extractors/migu/account.js')
-const { getAndroidURL, sendsAccount } = await import('../extractors/migu/androidURL.js')
+const { checkAccount, credentialRejected, noteAuth, resetAccountState, TOKEN_BAD_CHARS_NOTICE, TOKEN_REJECTED_NOTICE } = await import('../extractors/migu/account.js')
+const { cleanAccount, getAndroidURL, sendsAccount } = await import('../extractors/migu/androidURL.js')
+const { validateConfig } = await import('../utils/extractorManager.js')
 const { resolve, clearCache } = await import('../extractors/migu/resolve.js')
 // 模块经注册表取：直接 import migu/index.js 会撞上注册表的循环依赖
 const { getModule } = await import('../extractors/registry.js')
@@ -113,6 +114,64 @@ await test('模块把播放时的结论交给后台（credentialRejected 钩子�
   assert.equal(typeof migu.credentialRejected, 'function')
   noteAuth(config.userId, config.token, config, reply(false))
   assert.equal(migu.credentialRejected(config), TOKEN_REJECTED_NOTICE)
+})
+
+const BAD_TOKENS = ['abc\ndef', 'abc汉字def', 'abc def', 'tok\u0000en']
+
+await test('非法字符的 Token 不发给咪咕，按未登录要流并提醒，不会全部频道秒失败', async () => {
+  for (const token of BAD_TOKENS) {
+    const bad = { userId: config.userId, token }
+    assert.deepEqual(cleanAccount(bad.userId, bad.token), { userId: '', token: '' }, JSON.stringify(token))
+    const { calls, fetchUrl } = playurl(reply(false))
+    const result = await getAndroidURL(bad.userId, bad.token, PID, 3, { fetchUrl })
+    assert.ok(result.url, '照样拿到地址')
+    assert.equal(calls[0].UserToken, undefined)
+    assert.equal(calls[0].UserId, undefined)
+    assert.equal(credentialRejected(bad), TOKEN_BAD_CHARS_NOTICE)
+    assert.equal(migu.credentialRejected(bad), TOKEN_BAD_CHARS_NOTICE)
+    resetAccountState()
+  }
+})
+
+await test('账号 ID 含非法字符同样提醒；没配账号不提醒', async () => {
+  assert.equal(credentialRejected({ userId: '账号', token: 'ok-token' }), TOKEN_BAD_CHARS_NOTICE)
+  assert.equal(credentialRejected({ userId: '', token: '' }), '')
+  assert.equal(credentialRejected({}), '')
+})
+
+await test('刷新检查遇到非法字符直接下结论，不打咪咕，也不当成没查完', async () => {
+  const { calls, fetchUrl } = playurl(reply(true))
+  assert.deepEqual(await checkAccount({ userId: config.userId, token: 'abc\ndef' }, PID, { fetchUrl }), { rejected: TOKEN_BAD_CHARS_NOTICE })
+  assert.equal(calls.length, 0)
+})
+
+await test('首尾空白不算非法：环境变量带换行时去掉照常登录，失效提醒也对得上', async () => {
+  assert.deepEqual(cleanAccount(' 1234567890\n', 'abc123\n'), { userId: '1234567890', token: 'abc123' })
+  const padded = { userId: config.userId, token: `${config.token}\n` }
+  assert.equal(credentialRejected(padded), '')
+  const { calls, fetchUrl } = playurl(reply(false))
+  assert.deepEqual(await checkAccount(padded, PID, { fetchUrl }), { rejected: TOKEN_REJECTED_NOTICE })
+  assert.equal(calls[0].UserToken, config.token)
+  assert.equal(credentialRejected(padded), TOKEN_REJECTED_NOTICE)
+  resetAccountState()
+  noteAuth(config.userId, config.token, padded, reply(false))
+  assert.equal(credentialRejected(padded), TOKEN_REJECTED_NOTICE)
+})
+
+await test('后台保存：去掉首尾空白，非法字符拦下并保留原值', async () => {
+  const saved = validateConfig(migu, { userId: ' 1234567890 ', token: 'abc123\n' }, {})
+  assert.equal(saved.ok, true)
+  assert.equal(saved.config.userId, '1234567890')
+  assert.equal(saved.config.token, 'abc123')
+  for (const token of BAD_TOKENS) {
+    const bad = validateConfig(migu, { token }, { token: 'old-token' })
+    assert.equal(bad.ok, false, JSON.stringify(token))
+    assert.match(bad.errors[0].message, /咪咕 Token：含空格、换行或中文等非法字符/)
+    assert.equal(bad.config.token, 'old-token')
+  }
+  assert.equal(validateConfig(migu, { userId: '账号' }, {}).ok, false)
+  assert.equal(validateConfig(migu, { token: null }, { token: 'old-token' }).config.token, undefined, '显式清空照常')
+  assert.equal(validateConfig(migu, { token: '' }, { token: 'old-token' }).config.token, 'old-token', '留空保留原值')
 })
 
 console.log(`\n全部通过：${passed} ✓`)

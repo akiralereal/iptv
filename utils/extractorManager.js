@@ -233,6 +233,12 @@ export function validateConfig(module, input, stored = {}) {
 
     // type: 'text'
     const text = typeof raw === 'string' ? raw : (raw != null ? String(raw) : '')
+    // headerValue：这个值会放进请求头，换行、中文之类的字符在发请求时才炸，保存时就拦下
+    if (field.headerValue && text.trim() && !/^[\x21-\x7e]+$/.test(text.trim())) {
+      errors.push({ key, message: `${field.label}：含空格、换行或中文等非法字符，请重新复制` })
+      if (kept !== undefined) config[key] = kept
+      continue
+    }
     if (field.secret) {
       // 顺序要紧：null 必须先判。它会被上面的 text 计算折成空串，
       // 放在空串分支后面就永远走不到，「显式清空」这条路等于不存在。
@@ -245,7 +251,7 @@ export function validateConfig(module, input, stored = {}) {
       // 文本清空 = 回到没配过（与 config.js 里字符串项用 `||` 回落 env 的语义一致）
       continue
     }
-    config[key] = text
+    config[key] = field.headerValue ? text.trim() : text
   }
 
   return { ok: errors.length === 0, config, errors }

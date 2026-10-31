@@ -9,9 +9,11 @@
  * （checkAccount）。结论交给后台提醒中心（见 registry.js 的 credentialRejected）。
  */
 import { createHash } from 'node:crypto'
-import { getAndroidURL } from './androidURL.js'
+import { accountHasBadChars, cleanAccount, getAndroidURL } from './androidURL.js'
 
 export const TOKEN_REJECTED_NOTICE = '咪咕不认当前账号 Token（已过期或已在别处退出登录），已自动按游客播放（最高 540p）；请重新获取咪咕账号'
+
+export const TOKEN_BAD_CHARS_NOTICE = '咪咕账号 ID 或 Token 含空格、换行或中文等非法字符，发不出去，已按未登录播放，请到「源管理 → 咪咕视频」重新填写。'
 
 const accountKey = (userId, token) => createHash('sha256').update(`${userId}\n${token}`).digest('base64url').slice(0, 12)
 
@@ -23,7 +25,8 @@ let rejectedKey = ''
  * 不该让站长的后台报警。
  */
 export function noteAuth(userId, token, config, content) {
-  if (!userId || !token || userId !== (config?.userId || '') || token !== (config?.token || '')) return
+  const configured = cleanAccount(config?.userId, config?.token)
+  if (!userId || !token || userId !== configured.userId || token !== configured.token) return
   const logined = content?.body?.auth?.logined
   if (logined === false) rejectedKey = accountKey(userId, token)
   else if (logined === true && rejectedKey === accountKey(userId, token)) rejectedKey = ''
@@ -31,8 +34,8 @@ export function noteAuth(userId, token, config, content) {
 
 /** 后台状态接口用：当前配置的账号是否已被咪咕拒绝。 */
 export function credentialRejected(config) {
-  const userId = config?.userId || ''
-  const token = config?.token || ''
+  if (accountHasBadChars(config?.userId, config?.token)) return TOKEN_BAD_CHARS_NOTICE
+  const { userId, token } = cleanAccount(config?.userId, config?.token)
   return userId && token && accountKey(userId, token) === rejectedKey ? TOKEN_REJECTED_NOTICE : ''
 }
 
@@ -41,8 +44,8 @@ export function credentialRejected(config) {
  * 返回 { rejected } / { warning } / {}；没配账号或检查通过时返回空对象。
  */
 export async function checkAccount(config, pid, opts = {}) {
-  const userId = config?.userId || ''
-  const token = config?.token || ''
+  if (accountHasBadChars(config?.userId, config?.token)) return { rejected: TOKEN_BAD_CHARS_NOTICE }
+  const { userId, token } = cleanAccount(config?.userId, config?.token)
   if (!userId || !token || !pid) return {}
   let resObj
   try {

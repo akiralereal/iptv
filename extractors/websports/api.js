@@ -3,9 +3,9 @@ import { decodeM3u8FromPage, SANDBOX_UA } from '../../utils/playerPageSandbox.js
 import { printBlue, printYellow } from '../../utils/colorOut.js'
 
 export const GROUP_NAME = '赛事直播'
-// 站点常换域名：域名池放在 built-in-sources.json 的这一段，改完 push 到 main 即生效，不用发版
-const SITE_CONFIG_KEY = 'jrkanEvents'
-// 拉不到远程、本地配置也没有那一段时的默认值。jrkan.com 在国内 DNS 被污染，其余是同系备用域名；
+// 来源站常换域名：域名池放在 built-in-sources.json 的这一段，改完 push 到 main 即生效，不用发版
+const SITE_CONFIG_KEY = 'websports'
+// 拉不到远程、本地配置也没有那一段时的默认值（当前来源站）。jrkan.com 在国内 DNS 被污染，其余是同系备用域名；
 // jrs13、jrs14 的首页只是引导壳，没有 PLAY_HOSTS，不放进来
 const DEFAULT_SITE = {
   homeUrls: ['https://www.jrkan.com/', 'https://www.jrs03.com/', 'https://www.jrkan77.com/', 'https://www.jrs33.com/', 'https://www.jrkan66.com/', 'https://www.jrs15.com/'],
@@ -207,11 +207,11 @@ export function createProvider({ fetchImpl = fetch, now = Date.now, decode = dec
       const found = await findStream(id)
       streams.set(id, { url: found.url, line: found.line, expiresAt: Math.max(expiryOf(found.url, now()), now() + MIN_TTL_MS) })
       failures.delete(id)
-      printBlue(`JRKAN 赛事 ${id}：${found.line.split('?')[0]} → ${new URL(found.url).host}`)
+      printBlue(`WebSports ${id}：${found.line.split('?')[0]} → ${new URL(found.url).host}`)
       return found
     } catch (error) {
       failures.set(id, { message: error.message, until: now() + FAILURE_TTL_MS })
-      printYellow(`JRKAN 赛事 ${id}：${error.message}`)
+      printYellow(`WebSports ${id}：${error.message}`)
       throw error
     }
   }

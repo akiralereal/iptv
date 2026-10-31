@@ -3,7 +3,7 @@
  * 起一个只开指定抓取模块的本地实例：其他模块、咪咕、内置源、订阅源全关，用来单独看一个模块的抓取结果。
  * 数据放系统临时目录、每次启动清空，不碰正式配置。Ctrl-C 退出。
  *
- *   node scripts/run-only-module.mjs                    # 默认 jrkan-events，端口 19071
+ *   node scripts/run-only-module.mjs                    # 默认 websports，端口 19071
  *   node scripts/run-only-module.mjs --only hangzhou --port 19072
  *
  * 模块的请求从这台机器发出：要换网络就先换好再启动。
@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const opt = (name, fallback) => { const i = process.argv.indexOf(name); return i >= 0 ? process.argv[i + 1] : fallback }
-const only = opt('--only', 'jrkan-events')
+const only = opt('--only', 'websports')
 const port = opt('--port', '19071')
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 

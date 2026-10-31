@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * jrkan / jrs 系赛事列表探测：看首页上「每场比赛 × 直播①②③」能不能用项目现有的网页抓取链路
+ * 赛事网站列表探测（WebSports 模块的来源站，当前默认 jrkan / jrs 系）：看首页上「每场比赛 × 直播①②③」能不能用项目现有的网页抓取链路
  * （utils/playerPageSandbox.js 沙箱解密 → utils/webSourceExtractor.js 校验 / 浏览器兜底）解出可播的 m3u8。
  * 用来判断值不值得做成「赛事直播」模块，以及模块该怎么解析列表；只读，不改配置、不碰数据目录。
  *
- *   node scripts/probe-jrkan-events.mjs                               # 默认 https://www.jrkan.com/，解前 6 个直播入口
- *   node scripts/probe-jrkan-events.mjs --url https://www.jrs03.com/   # 国内镜像（jrkan.com 在国内 DNS 被污染）
- *   node scripts/probe-jrkan-events.mjs --match CBA --limit 9         # 只看行文字含 CBA 的比赛
- *   node scripts/probe-jrkan-events.mjs --entry <某个直播①的地址>       # 跳过首页，直接探一个直播入口
- *   node scripts/probe-jrkan-events.mjs --browser                     # 首页静态 HTML 没列表 / 沙箱解不出时用 Chromium 兜底
- *   node scripts/probe-jrkan-events.mjs --external                    # 站外链接（如绿色「🔗直播①」）也一起探
- *   node scripts/probe-jrkan-events.mjs --dump ./jrkan-dump           # 首页、各入口页、iframe 的 HTML 和汇总 JSON 存盘
+ *   node scripts/probe-websports.mjs                               # 默认 https://www.jrkan.com/，解前 6 个直播入口
+ *   node scripts/probe-websports.mjs --url https://www.jrs03.com/   # 国内镜像（jrkan.com 在国内 DNS 被污染）
+ *   node scripts/probe-websports.mjs --match CBA --limit 9         # 只看行文字含 CBA 的比赛
+ *   node scripts/probe-websports.mjs --entry <某个直播①的地址>       # 跳过首页，直接探一个直播入口
+ *   node scripts/probe-websports.mjs --browser                     # 首页静态 HTML 没列表 / 沙箱解不出时用 Chromium 兜底
+ *   node scripts/probe-websports.mjs --external                    # 站外链接（如绿色「🔗直播①」）也一起探
+ *   node scripts/probe-websports.mjs --dump ./websports-dump           # 首页、各入口页、iframe 的 HTML 和汇总 JSON 存盘
  *
  * 步骤：
  *   A. 首页：GET → 还原 index.js 里 document.write 的列表 → 找文字形如「直播①」「信号2」「线路3」的链接，按「两条链接之间有没有别的文字」切成比赛行

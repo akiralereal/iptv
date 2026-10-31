@@ -202,7 +202,7 @@ class BuiltInSourceManager {
   }
 
   /**
-   * 抓取模块放在这份文件里的站点配置（如 JRKAN 的域名池），改完 push 即生效。没有这一段时返回 null。
+   * 抓取模块放在这份文件里的站点配置（如 WebSports 的域名池），改完 push 即生效。没有这一段时返回 null。
    * 内置源关闭时 runFetchSources 不拉远程，而模块开关和它无关，所以由模块按 maxAgeMs 自己触发。
    */
   async moduleSiteConfig(key, maxAgeMs) {

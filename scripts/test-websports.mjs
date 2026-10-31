@@ -5,14 +5,14 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-const dataDir = mkdtempSync(join(tmpdir(), 'iptv-jrkan-test-'))
+const dataDir = mkdtempSync(join(tmpdir(), 'iptv-websports-test-'))
 process.env.mdataDir = dataDir
 process.env.mbuiltInSourcesUrl = ''
 process.env.mblank = 'true'
 after(() => rmSync(dataDir, { recursive: true, force: true }))
-const { createProvider, expiryOf, isLiveManifest, isPublicUrl, linePaths, normalizeSiteConfig, parseMatches, parseSite, wrappedPlayerUrl } = await import('../extractors/jrkan-events/api.js')
+const { createProvider, expiryOf, isLiveManifest, isPublicUrl, linePaths, normalizeSiteConfig, parseMatches, parseSite, wrappedPlayerUrl } = await import('../extractors/websports/api.js')
 const { default: builtInSourceManager } = await import('../utils/builtInSources.js')
-const { default: extractor } = await import('../extractors/jrkan-events/index.js')
+const { default: extractor } = await import('../extractors/websports/index.js')
 const { getModule, resolverFor } = await import('../extractors/registry.js')
 
 // 按 2026-10-31 首页、index.js、入口页、线路页裁剪；域名、签名均为离线测试值
@@ -125,11 +125,11 @@ test('域名池逐项校验：拼错和内网地址只丢那一条，整个字�
 })
 
 test('仓库里的域名池每一条都能通过校验（push 前拦住手误）', () => {
-  const { jrkanEvents } = JSON.parse(readFileSync('built-in-sources.json', 'utf-8'))
-  const pool = normalizeSiteConfig(jrkanEvents)
-  assert.deepEqual(pool.homeUrls, jrkanEvents.homeUrls)
-  assert.deepEqual(pool.playHosts, jrkanEvents.playHosts)
-  assert.equal(pool.listUrl, jrkanEvents.listUrl)
+  const { websports } = JSON.parse(readFileSync('built-in-sources.json', 'utf-8'))
+  const pool = normalizeSiteConfig(websports)
+  assert.deepEqual(pool.homeUrls, websports.homeUrls)
+  assert.deepEqual(pool.playHosts, websports.playHosts)
+  assert.equal(pool.listUrl, websports.listUrl)
 })
 
 test('按域名池找首页：死域名跳过，打开过的下轮排最前，改了配置下一轮生效', async () => {
@@ -181,14 +181,14 @@ test('模块自己触发远程拉取，内置源关闭也读得到，间隔内�
   let pulls = 0
   builtInSourceManager.refreshRemoteConfig = async function () {
     pulls++
-    this.sources = { enabled: true, sources: [], jrkanEvents: { homeUrls: ['https://pushed.example.com/'] } }
+    this.sources = { enabled: true, sources: [], websports: { homeUrls: ['https://pushed.example.com/'] } }
   }
   builtInSourceManager.remoteCheckedAt = 0
   try {
-    assert.deepEqual((await builtInSourceManager.moduleSiteConfig('jrkanEvents', 60000)).homeUrls, ['https://pushed.example.com/'])
-    await builtInSourceManager.moduleSiteConfig('jrkanEvents', 60000)
+    assert.deepEqual((await builtInSourceManager.moduleSiteConfig('websports', 60000)).homeUrls, ['https://pushed.example.com/'])
+    await builtInSourceManager.moduleSiteConfig('websports', 60000)
     assert.equal(pulls, 1)
-    await builtInSourceManager.moduleSiteConfig('jrkanEvents', 0)
+    await builtInSourceManager.moduleSiteConfig('websports', 0)
     assert.equal(pulls, 2)
     assert.equal(await builtInSourceManager.moduleSiteConfig('noSuchSection', 60000), null)
   } finally {
@@ -273,20 +273,20 @@ test('入口全部 403 时说明要换网络，首页打不开时用兜底结构
 })
 
 test('模块登记：默认关闭、频道走清单中继，resolve 出错不抛异常', async () => {
-  assert.equal(getModule('jrkan-events'), extractor)
+  assert.equal(getModule('websports'), extractor)
   assert.equal(extractor.defaultEnabled, false)
-  assert.equal(resolverFor('jrkan-event-825411')?.id, 'jrkan-events')
-  assert.equal(resolverFor('jrkan-event-abc'), null)
+  assert.equal(resolverFor('websports-825411')?.id, 'websports')
+  assert.equal(resolverFor('websports-abc'), null)
   const { groups } = await extractor.fetch({}, { fetchImpl: mockSite(), decode: decodeMock })
   assert.equal(groups[0].name, '赛事直播')
   assert.deepEqual(groups[0].dataList[0], {
-    name: '10-31 22:00 意甲 博洛尼亚 vs 蒙扎', deferredRef: 'jrkan-event-825411', relayHls: true,
+    name: '10-31 22:00 意甲 博洛尼亚 vs 蒙扎', deferredRef: 'websports-825411', relayHls: true,
     catchup: 'none', logo: '', opts: ['network-caching=3000'],
   })
   assert.deepEqual(await extractor.resolve('nope'), { url: '', desc: '未知的赛事引用' })
-  const played = await extractor.resolve('jrkan-event-825411', { fetchImpl: mockSite(), decode: decodeMock })
+  const played = await extractor.resolve('websports-825411', { fetchImpl: mockSite(), decode: decodeMock })
   assert.deepEqual([played.url, played.manifestText, played.manifestUrl], [stream, liveManifest, stream])
-  const failed = await extractor.resolve('jrkan-event-825411', { fetchImpl: mockSite({ allBlocked: true }), decode: decodeMock })
+  const failed = await extractor.resolve('websports-825411', { fetchImpl: mockSite({ allBlocked: true }), decode: decodeMock })
   assert.equal(failed.url, '')
   assert.match(failed.desc, /大陆或香港/)
 })

@@ -753,7 +753,7 @@ gh release create vX.Y.Z --verify-tag --latest --title "vX.Y.Z · 一句话主�
 - **镜像构建是手动的**：`push_docker` 工作流为 `workflow_dispatch`，推代码 / tag 都**不会**自动触发；需到 GitHub Actions 页面手动 Run workflow（默认从 `main` 构建，镜像标签写死在 yaml 里、已随 `bump-version.js` 更新）。`git tag` 仅作发布标记。也可以不进网页、用命令行一键触发，见本节末尾「命令行触发镜像构建」。
 - **重启生效项**：监听端口、节目单更新间隔等改动需用户重启容器后才生效；本次若涉及，请在更新日志里提醒用户。
 - **随仓库分发的文件要先 push**：若发版包含被「自家 raw GitHub 链接」引用的随仓库文件（如内置源 `IPTV.m3u`），必须先 `git push` 到 `main`，否则链接 404、源拉不到内容；本地自测同理（未 push 时该源显示 0 频道）。
-- **内置抓取源换站点不用发版**：`built-in-sources.json` 由运行中的实例从仓库 raw 拉取，改完 `git push` 到 `main` 即生效（部署端下一轮刷新自动跟上）。抓取型源的入口地址有两个字段：`webUrl` 是主地址、`webUrls` 是含主地址在内的候选清单，抓不到时按顺序换下一个、每轮最多试 `maxAttemptsPerRun` 个（默认 3）。**`webUrl` 必须始终保留并指向当前最好用的站点**——线上跑着的旧版本只认它；换站点就改 `webUrl`，加备胎往 `webUrls` 追加。缓存里那条链接来自哪个地址会被记下，只追加备胎不会白白重抓，主地址被换掉才强制重抓。 JRKAN 赛事模块的域名池也在这个文件的 `jrkanEvents` 段，同样 push 即生效，内置源关闭时模块也会自己拉取。
+- **内置抓取源换站点不用发版**：`built-in-sources.json` 由运行中的实例从仓库 raw 拉取，改完 `git push` 到 `main` 即生效（部署端下一轮刷新自动跟上）。抓取型源的入口地址有两个字段：`webUrl` 是主地址、`webUrls` 是含主地址在内的候选清单，抓不到时按顺序换下一个、每轮最多试 `maxAttemptsPerRun` 个（默认 3）。**`webUrl` 必须始终保留并指向当前最好用的站点**——线上跑着的旧版本只认它；换站点就改 `webUrl`，加备胎往 `webUrls` 追加。缓存里那条链接来自哪个地址会被记下，只追加备胎不会白白重抓，主地址被换掉才强制重抓。 WebSports 模块的域名池也在这个文件的 `websports` 段，同样 push 即生效，内置源关闭时模块也会自己拉取。
 - **移除内置源 / 改数据结构要带迁移**：删除或更换内置源、变更 `external-sources.json` 等用户数据结构时，加一段一次性迁移清理老用户残留（如 v3.0.0 用 `retiredBuiltInsV1` 清掉退役订阅），否则老用户会留下「连开关都关不掉的僵尸源」。建议用临时 `mdataDir` 指向一份含老数据的配置，跑一遍 `node app.js` 验证迁移「清旧、补新、且不误删用户自建源」。
 
 ### 命令行触发镜像构建（替代 step 5 手动点 Actions）

@@ -1,7 +1,7 @@
 import { createProvider, GROUP_NAME } from './api.js'
 
-const PREFIX = 'jrkan-event-'
-const claimsRef = ref => /^jrkan-event-\d{1,12}$/.test(String(ref || ''))
+const PREFIX = 'websports-'
+const claimsRef = ref => /^websports-\d{1,12}$/.test(String(ref || ''))
 let defaultProvider = createProvider(), providers = new WeakMap()
 function providerFor(ctx) {
   if (typeof ctx.fetchImpl !== 'function') return defaultProvider
@@ -10,9 +10,9 @@ function providerFor(ctx) {
 }
 
 export default {
-  id: 'jrkan-events', name: 'JRKAN 赛事', category: 'live',
-  description: '第三方赛事聚合站的足球、篮球等比赛，每场一个频道，未开赛或已结束的场次播不了。入口页只放行大陆和香港网络，部署在其他地区的实例取不到地址。本机只中继清单，视频由播放器直连。',
-  // 第三方聚合、不是官方来源，不进默认内容，由用户自己打开
+  id: 'websports', name: 'WebSports', category: 'live',
+  description: '来自第三方赛事网站的足球、篮球等比赛，每场一个频道，未开赛或已结束的场次播不了。入口页只放行大陆和香港网络，部署在其他地区的实例取不到地址。本机只中继清单，视频由播放器直连。',
+  // 第三方网站、不是官方来源，不进默认内容，由用户自己打开
   defaultEnabled: false,
   capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   outputGroupName: GROUP_NAME, configSchema: [],

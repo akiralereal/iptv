@@ -13,7 +13,7 @@
  *   node scripts/probe-jrkan-events.mjs --dump ./jrkan-dump           # 首页、各入口页、iframe 的 HTML 和汇总 JSON 存盘
  *
  * 步骤：
- *   A. 首页：GET → 找文字形如「直播①」「信号2」「线路3」的链接，按「两条链接之间有没有别的文字」切成比赛行
+ *   A. 首页：GET → 还原 index.js 里 document.write 的列表 → 找文字形如「直播①」「信号2」「线路3」的链接，按「两条链接之间有没有别的文字」切成比赛行
  *      （同一场的 直播①②③ 之间只有图标和空白；行文字即 联赛 / 时间 / 状态 / 主队 / 比分 / 客队）
  *   B. 每个直播入口：沙箱跑入口页（不起浏览器）→ 没地址就跟进它嵌的 iframe → 仍没有且带 --browser 时起 Chromium 嗅探
  *   C. 解出的 m3u8 带 Referer 校验（与内置抓取源相同），不过再试不带 Referer；顺带报签名参数里的过期时间
@@ -88,6 +88,39 @@ function sameSite(a, b) {
   return tail(a) === tail(b)
 }
 
+// 首页 PLAY_HOSTS 里的播放域名：和首页不同站，但它们才是真正的直播入口
+const playHosts = new Set()
+
+/**
+ * 列表在外链脚本里：首页的 PLAY_HOSTS / getPlayUrl 给出播放域名，index.js 用 document.write 一行行写比赛。
+ * 不起浏览器，把这些 document.write 还原成 HTML 拼回去；首页不是这种结构时原样返回。
+ */
+async function expandListScripts(html, baseUrl) {
+  const hosts = {}
+  for (const m of html.matchAll(/(\w+)\s*:\s*atob\(\s*["']([A-Za-z0-9+/=]+)["']\s*\)/g)) {
+    hosts[m[1]] = Buffer.from(m[2], 'base64').toString().replace(/\/+$/, '')
+  }
+  const playPath = html.match(/host\s*\+\s*["']([^"']*)["']\s*\+\s*id\s*\+\s*["']([^"']*)["']/)
+  if (!Object.keys(hosts).length || !playPath) return html
+  Object.values(hosts).forEach(h => playHosts.add(hostOf(h)))
+  info(`播放域名: ${Object.entries(hosts).map(([k, v]) => `${k}=${v}`).join('  ')}`)
+
+  const out = []
+  for (const m of html.matchAll(/<script\b[^>]*\bsrc=["']([^"']*\/index\.js[^"']*)["']/gi)) {
+    const src = new URL(decodeEntities(m[1]), baseUrl).href
+    const r = await getPage(src, baseUrl)
+    printPage(src, r, src)
+    dump('list.js', r.text)
+    if (!r.ok) continue
+    const written = [...r.text.matchAll(/document\.write\('((?:[^'\\]|\\.)*(?:'\s*\+\s*getPlayUrl\("\w+",\s*"\w+"\)\s*\+\s*'(?:[^'\\]|\\.)*)*)'\);/g)]
+      .map(w => w[1]
+        .replace(/'\s*\+\s*getPlayUrl\("(\w+)",\s*"(\w+)"\)\s*\+\s*'/g, (_, line, id) => `${hosts[line] || ''}${playPath[1]}${id}${playPath[2]}`)
+        .replace(/\\(.)/g, '$1'))
+    out.push(...written)
+  }
+  return out.length ? out.join('\n') : html
+}
+
 /**
  * 首页 → 比赛行。不认具体标签 / class（不知道、也不该绑死站点的模板）：按文档顺序找编号直播链接，
  * 和上一条直播链接之间夹着别的文字（队名、时间）就是新的一场，否则是同一场的下一路。
@@ -115,9 +148,21 @@ function parseLiveRows(rawHtml, baseUrl) {
     try { if (raw && !/^(javascript:|#)/i.test(raw)) href = new URL(raw, baseUrl).href } catch {}
     const onclick = attrVal(m[1], 'onclick')
     const dataAttrs = [...m[1].matchAll(/\b(data-[\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)].map(d => `${d[1]}=${d[2] ?? d[3]}`)
-    cur.links.push({ text, href, raw, external: href ? !sameSite(hostOf(href), base) : false, onclick, dataAttrs })
+    cur.links.push({ text, href, raw, external: href ? !sameSite(hostOf(href), base) && !playHosts.has(hostOf(href)) : false, onclick, dataAttrs })
   }
   return rows
+}
+
+/** 入口页的线路切换：data-play 里是同站的播放器路径（「=&id2=」这种空线路跳过） */
+function dataPlayPaths(html) {
+  return [...html.replace(/<!--[\s\S]*?-->/g, ' ').matchAll(/\bdata-play="(\/[^"]+)"/g)].map(m => decodeEntities(m[1]))
+}
+
+/** 播放器页把真正的地址拆开放：playerUrlBase64 是前缀，encodedStr 是加密参数，pjs.js 拼成 iframe */
+function wrappedPlayerUrl(html) {
+  const base = html.match(/playerUrlBase64\s*:\s*"([A-Za-z0-9+/=]+)"/)?.[1]
+  const param = html.match(/encodedStr\s*=\s*"([^"]+)"/)?.[1]
+  return base && param ? `${Buffer.from(base, 'base64').toString().trim()}${param}` : ''
 }
 
 /** 签名参数里的过期时间（expire / expires / wsTime / txTime / e / t 之类的 10 位 Unix 秒） */
@@ -176,8 +221,13 @@ async function renderHome(url) {
       const t = r.request().resourceType()
       if (t === 'xhr' || t === 'fetch') xhr.push(`${r.status()} ${r.url()}`)
     })
+    page.on('dialog', d => d.dismiss().catch(() => {}))
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 }).catch(e => warn(`首页渲染: ${e.message}（继续用已渲染的内容）`))
-    return { html: await page.content(), xhr }
+    // 页面脚本卡住时 page.content() 不会自己返回，给个上限
+    let timer
+    const html = await Promise.race([page.content(), new Promise(r => { timer = setTimeout(r, HTTP_TIMEOUT_MS, '') })]).finally(() => clearTimeout(timer))
+    if (!html) warn('首页渲染: 读取页面内容超时')
+    return { html, xhr }
   } finally {
     await closeBrowser(browser, { label: '赛事探测浏览器', timeoutMs: 10000 })
   }
@@ -197,17 +247,27 @@ async function probeEntry(entryUrl, referer, tag) {
   result.links = r0.links
   if (result.links.length) result.via = '入口页沙箱'
 
-  const iframes = extractIframeSrcs(page.text).map(s => { try { return new URL(s, page.url).href } catch { return '' } }).filter(u => /^https?:/i.test(u))
+  const iframes = [...new Set([...extractIframeSrcs(page.text), ...dataPlayPaths(page.text)])].map(s => { try { return new URL(s, page.url).href } catch { return '' } }).filter(u => /^https?:/i.test(u))
   if (iframes.length) info(`嵌了 ${iframes.length} 个 iframe: ${iframes.slice(0, 4).map(u => shortUrl(u, 90)).join('  ')}`)
   for (const [i, src] of iframes.slice(0, MAX_IFRAMES).entries()) {
     const u = new URL(src)
     result.iframes.push(`${u.host}${u.pathname}`)
     if (result.links.length) continue
-    const fr = await getPage(src, page.url)
+    let fr = await getPage(src, page.url)
     printPage(`  iframe ${shortUrl(src, 90)}`, fr, src)
     dump(`${tag}-iframe${i + 1}.html`, fr.text)
     if (!fr.ok) continue
-    const r = await decodeM3u8FromPage(fr.url, { referer: page.url, html: fr.text })
+    let frReferer = page.url
+    const wrapped = wrappedPlayerUrl(fr.text)
+    if (wrapped) {
+      frReferer = fr.url
+      fr = await getPage(wrapped, frReferer)
+      printPage(`  播放器 ${shortUrl(wrapped, 90)}`, fr, wrapped)
+      dump(`${tag}-iframe${i + 1}-player.html`, fr.text)
+      if (!fr.ok) continue
+      result.iframes.push(hostOf(wrapped))
+    }
+    const r = await decodeM3u8FromPage(fr.url, { referer: frReferer, html: fr.text })
     info(`  iframe 沙箱：跑了 ${r.ran} 段脚本（${r.errors} 段报错）、跳过 ${r.skipped} 个跨域脚本、${r.ms}ms，找到 ${r.links.length} 条${r.error ? `；中止: ${r.error}` : ''}`)
     if (r.failed.length) info(`    报错: ${r.failed.slice(0, 2).map(f => `${f.name.replace(/^https?:\/\/[^/]+/, '')}: ${f.error}`).join('；')}`)
     if (r.links.length) { result.links = r.links; result.via = `iframe 沙箱 (${u.host})` }
@@ -244,7 +304,7 @@ if (entryOnly) {
   const home = await getPage(homeUrl)
   printPage(homeUrl, home)
   dump('home.html', home.text)
-  let html = home.ok ? home.text : ''
+  let html = home.ok ? await expandListScripts(home.text, home.url) : ''
   let rows = html ? parseLiveRows(html, home.url) : []
   const mentions = (stripTags(html).match(new RegExp(LIVE_LINK_RE.source, 'g')) || []).length
   info(`静态 HTML：页面文字里出现 ${mentions} 次编号直播字样，解析出 ${rows.length} 场、${rows.reduce((n, r) => n + r.links.length, 0)} 个 <a> 入口`)

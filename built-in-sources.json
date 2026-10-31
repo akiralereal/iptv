@@ -1,6 +1,23 @@
 {
   "_comment": "内置单频道源清单。运行时优先从仓库 raw 拉取本文件（见 utils/builtInSources.js），所以改这里 push 即生效、无需发版重建镜像。抓取型源的入口地址：webUrl 是主地址（旧版本只认它，必须保留且指向当前最好用的站），webUrls 是备用地址清单，抓不到时按顺序重试；每轮最多试 maxAttemptsPerRun 个（默认 3）。",
   "enabled": true,
+  "jrkanEvents": {
+    "_comment": "JRKAN 赛事模块的域名池（extractors/jrkan-events）。站点换域名时改这里，push 到 main 后各实例下一轮刷新跟上，不用发版。homeUrls 是首页，按顺序试，只写域名；能打开一个就会自动读到最新的播放域名和列表地址，所以 playHosts、listUrl 只在首页全打不开时才用。拼错的条目会被忽略，整个字段不可用时退回代码里的默认值。",
+    "homeUrls": [
+      "https://www.jrkan.com/",
+      "https://www.jrs03.com/",
+      "https://www.jrkan77.com/",
+      "https://www.jrs33.com/",
+      "https://www.jrkan66.com/",
+      "https://www.jrs15.com/"
+    ],
+    "playHosts": [
+      "http://play.sportsteam368.com",
+      "http://play.jgdhds.com",
+      "http://play.sportsteam7777.com"
+    ],
+    "listUrl": "https://im-imgs-bucket.oss-accelerate.aliyuncs.com/index.js?t_5"
+  },
   "sources": [
     {
       "id": "vl-sports",

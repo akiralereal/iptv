@@ -95,7 +95,7 @@ jobs:
         env:
           TAGS: |
             akiralereal/iptv:latest
-            akiralereal/iptv:4.56.0
+            akiralereal/iptv:4.56.1
             akiralereal/iptv:4.56
             akiralereal/iptv:4
         run: |

@@ -37,9 +37,11 @@ const DEFAULT_PROFILE = { id: 'default', name: '默认' }
 // groupOrder，下方 applyConfig 仍以用户顺序为最终优先级。
 // 「央视频」排在咪咕的「央视」「卫视」之后：它匿名虽有 1080p，但官方线路起播慢、
 // 偶尔卡，播放器按名聚合成「源1 / 源2」时先走咪咕，央视频作备用（作者 09-27 调整）。
+const SPORTS_GROUPS = ['体育', '体育-昨天', '体育-今天', '体育-明天']
 export const DEFAULT_GROUP_ORDER = [
   '公告',
-  '体育', '体育-昨天', '体育-今天', '体育-明天',
+  ...SPORTS_GROUPS,
+  '赛事直播',
   '央视', '卫视', '央视频', '亚太', '国际', '影视', '少儿', '教育', '娱乐时尚', '文旅', 'iPanda',
   'B站', '抖音', '虎牙', '斗鱼',
 ]
@@ -606,6 +608,11 @@ export function applyConfig(groups, config) {
         if (direct === -1 && name === '抖音') {
           const bilibili = config.groupOrder.indexOf('B站')
           if (bilibili !== -1) return bilibili + 0.5
+        }
+        // 「赛事直播」是后来新增的；旧配置档没记录它时跟在体育几组后面
+        if (direct === -1 && name === '赛事直播') {
+          const sports = Math.max(...SPORTS_GROUPS.map(group => config.groupOrder.indexOf(group)))
+          if (sports !== -1) return sports + 0.5
         }
         // 「山东-济南」这类省内分组没记录过时跟在该省后面（同值靠稳定排序保持默认顺序）
         if (direct === -1 && provinceOfSubgroup(name)) {

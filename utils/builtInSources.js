@@ -102,6 +102,7 @@ class BuiltInSourceManager {
     // 抓不到的源在每个 5 分钟 tick 都起一次 Chromium 重抓（用户日志里纬来体育即如此）
     this.backoff = new FailureBackoff()
     this.fetching = false // 一轮抓取进行中（防重入，见 updateFetchSources）
+    this.remoteCheckedAt = 0 // 抓取模块上次触发远程拉取的时间（见 moduleSiteConfig）
     this.loadConfig()
     this.loadCache()
   }
@@ -198,6 +199,18 @@ class BuiltInSourceManager {
     }
     const fetchCount = parsed.sources.filter(s => s.mode === 'fetch').length
     printGreen(`内置源远程配置已更新: ${parsed.sources.length} 个源（${fetchCount} 个需抓取）`)
+  }
+
+  /**
+   * 抓取模块放在这份文件里的站点配置（如 WebSports 的域名池），改完 push 即生效。没有这一段时返回 null。
+   * 内置源关闭时 runFetchSources 不拉远程，而模块开关和它无关，所以由模块按 maxAgeMs 自己触发。
+   */
+  async moduleSiteConfig(key, maxAgeMs) {
+    if (Date.now() - this.remoteCheckedAt >= maxAgeMs) {
+      this.remoteCheckedAt = Date.now()
+      await this.refreshRemoteConfig()
+    }
+    return this.sources[key] ?? null
   }
 
   /**

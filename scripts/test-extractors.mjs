@@ -1006,6 +1006,7 @@ try {
         ...modules.filter(module => module.category === 'institution').map(module => module.id),
         'shandong-counties',
         'bestv-fj',
+        'websports',
         ...modules.filter(module => module.id.startsWith('guangdianyun-')).map(module => module.id),
       ].sort(),
     )
@@ -1077,8 +1078,8 @@ try {
     const inst = optIn.filter(id => id.startsWith('inst-'))
     assert.equal(inst.length, 25, '高校与场馆 25 个来源都默认关闭')
     assert.deepEqual(optIn.filter(id => !id.startsWith('guangdianyun-') && !id.startsWith('inst-')).sort(),
-      ['bestv-fj', 'overseas', 'shandong-counties', 'tdm'],
-      '百视通因出口可用性差异默认关闭；其余默认关闭模块保持不变')
+      ['bestv-fj', 'overseas', 'shandong-counties', 'tdm', 'websports'],
+      '百视通因出口可用性差异默认关闭；WebSports 来自第三方赛事网站；其余默认关闭模块保持不变')
     const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
     for (const id of optIn) assert.equal(manager.isModuleEnabled(getModule(id)), false, id)
     manager.setModuleEnabled('overseas', true)

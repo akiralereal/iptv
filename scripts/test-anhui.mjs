@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import anhui from '../extractors/anhui/index.js'
 import {
   ANHUI_CONFIG_API,
-  ANHUI_DETAIL_API,
+  ANHUI_TV_CATALOG_API,
   APP_TOKEN_LIFETIME_MS,
   AUTH_KEY_TTL_MS,
   CHANNELS,
@@ -16,7 +16,10 @@ import {
   officialHlsUrl,
   officialMediaUrl,
   parseConfig,
-  parseChannelConfig,
+  parseTvCatalog,
+  channelConfigFromCatalog,
+  tvCatalogUrl,
+  TV_CATALOG_TTL_MS,
   requestManifest,
   signedStreamUrl,
   upstreamHeadersFor,
@@ -45,22 +48,24 @@ const mediaManifest = sequence => [
 
 const response = (body, status = 200, headers = {}) => new Response(body, { status, headers })
 
-const detailPayload = (channel, movie = {}, meta = {}) => JSON.stringify({ state: true, data: { meta: {
+const channelRecord = (channel, movie = {}, meta = {}) => ({
   id: channel.articleId, title: channel.rawName, status: 30, PayType: 0,
   AppCustomParams: { movie: { txFlag: '1', liveId: channel.liveId, liveDomain: 'https://live.ahsx.ahtv.cn/live/', ...movie } },
   ...meta,
-} } })
+})
+const catalogPayload = records => JSON.stringify({ state: true, data: { components: [{ widget: 132, element: records }] } })
+const channelPayload = (channel, movie = {}, meta = {}) => catalogPayload([channelRecord(channel, movie, meta)])
+const readChannel = (text, channel) => channelConfigFromCatalog(parseTvCatalog(text), channel)
 
-/** 记录每次请求的地址与请求头，按路径回放配置接口与清单。 */
-function fakeUpstream({ manifestStatuses = [], configPayload = CONFIG_PAYLOAD, detailConfig = () => ({}), detailMeta = () => ({}) } = {}) {
+/** 记录每次请求的地址与请求头，按路径回放配置接口、电视栏目与清单。 */
+function fakeUpstream({ manifestStatuses = [], configPayload = CONFIG_PAYLOAD, channelConfig = () => ({}), channelMeta = () => ({}) } = {}) {
   const calls = []
   let sequence = 100
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url: String(url), headers: options.headers || {} })
     if (String(url).startsWith(ANHUI_CONFIG_API)) return response(configPayload, 200, { 'content-type': 'application/json' })
-    if (String(url).startsWith(ANHUI_DETAIL_API)) {
-      const channel = CHANNELS.find(c => new URL(url).pathname.endsWith('/' + c.articleId))
-      return response(detailPayload(channel, detailConfig(channel), detailMeta(channel)))
+    if (String(url).startsWith(ANHUI_TV_CATALOG_API)) {
+      return response(catalogPayload(CHANNELS.map(channel => channelRecord(channel, channelConfig(channel), channelMeta(channel)))))
     }
     if (/\/live\/\/[a-z\d]+\.m3u8\?txSecret=/.test(String(url))) {
       // 两个官方 CDN 的 UA 规则不同；清单回源不附加防盗链头。
@@ -77,7 +82,7 @@ function fakeUpstream({ manifestStatuses = [], configPayload = CONFIG_PAYLOAD, d
     }
     throw new Error(`unexpected fetch ${url}`)
   }
-  return { calls, fetchImpl, configCalls: () => calls.filter(call => call.url.startsWith(ANHUI_CONFIG_API)), detailCalls: () => calls.filter(call => call.url.startsWith(ANHUI_DETAIL_API)), manifestCalls: () => calls.filter(call => call.url.includes('.m3u8')) }
+  return { calls, fetchImpl, configCalls: () => calls.filter(call => call.url.startsWith(ANHUI_CONFIG_API)), catalogCalls: () => calls.filter(call => call.url.startsWith(ANHUI_TV_CATALOG_API)), manifestCalls: () => calls.filter(call => call.url.includes('.m3u8')) }
 }
 
 console.log('安徽广电模块测试')
@@ -142,43 +147,68 @@ check('逐频道生成与 App 运行时完全一致的腾讯云签名', () => {
   assert.throws(() => signedStreamUrl('jjshtv', '', SIGNING_NOW), /鉴权密钥/)
 })
 
-check('官方详情决定当前域名与流 ID，校验频道身份、发布状态与免费权限', () => {
+check('取址使用 App 看电视首屏栏目请求，仅提取电视组件中的已收录频道', () => {
+  const url = new URL(tvCatalogUrl())
+  assert.equal(url.origin + url.pathname, ANHUI_TV_CATALOG_API)
+  assert.equal(url.searchParams.get('no_content'), '1')
+  assert.equal(url.searchParams.get('page'), '1')
+  assert.equal(url.searchParams.get('perPage'), '50')
+  assert.equal(url.searchParams.get('client'), 'android')
   const channel = CHANNELS[0]
-  const movie = { liveDomain: 'https://seclive.ahsx.ahtv.cn/live/', liveId: 'ws20261019' }
-  assert.deepEqual(parseChannelConfig(detailPayload(channel, movie), channel), movie)
-  const changedPath = { ...movie, liveDomain: 'https://seclive.ahsx.ahtv.cn/new/edge' }
-  assert.deepEqual(parseChannelConfig(detailPayload(channel, changedPath), channel), changedPath)
-  assert.match(signedStreamUrl(changedPath.liveId, AUTH_KEY, SIGNING_NOW, changedPath.liveDomain), /\/new\/edge\/ws20261019\.m3u8\?/)
-  const stringPayload = JSON.parse(detailPayload(channel, movie))
-  stringPayload.data.meta.AppCustomParams = JSON.stringify(stringPayload.data.meta.AppCustomParams)
-  assert.deepEqual(parseChannelConfig(JSON.stringify(stringPayload), channel), movie)
-  for (const meta of [{ id: '7363' }, { title: '其他台' }, { status: 10 }, { PayType: 1 }]) {
-    assert.throws(() => parseChannelConfig(detailPayload(channel, movie, meta), channel), /不符|未发布|免费/)
-  }
-  for (const config of [{ liveDomain: 'https://evil.example/live/' }, { liveDomain: 'https://seclive.ahsx.ahtv.cn/forbid/' },
-    { liveDomain: 'https://seclive.ahsx.ahtv.cn/live/?redirect=evil' }, { liveId: '../other' }, { txFlag: '0' }]) {
-    assert.throws(() => parseChannelConfig(detailPayload(channel, config), channel))
+  const current = channelRecord(channel, { liveId: 'lailai', liveDomain: 'https://seclive.ahsx.ahtv.cn/live/' })
+  const payload = JSON.stringify({ state: true, data: { components: [
+    { widget: 127, element: [channelRecord(channel)] }, // 纪录片等组件中同名内容不能当作直播。
+    { widget: '132', element: [{ id: 9710, title: '广播' }, current] },
+  ] } })
+  const records = parseTvCatalog(payload)
+  assert.equal(records.length, 1)
+  assert.equal(channelConfigFromCatalog(records, channel).liveId, 'lailai')
+  assert.throws(() => channelConfigFromCatalog([...records, current], channel), /重复/)
+  assert.throws(() => channelConfigFromCatalog(records, CHANNELS[1]), /缺少/)
+  for (const invalid of ['<html>WAF</html>', JSON.stringify({ state: false, data: { components: [] } }),
+    JSON.stringify({ state: true, data: { components: [{ widget: 132, element: null }] } }),
+    JSON.stringify({ state: true, data: { components: [{ widget: 127, element: [current] }] } })]) {
+    assert.throws(() => parseTvCatalog(invalid), /栏目|电视组件/)
   }
 })
 
-await checkAsync('公开详情省略 status 时免费频道仍可解析，明确下架或权限不明仍拒绝', async () => {
+check('官方栏目决定当前域名与流 ID，校验频道身份、发布状态与免费权限', () => {
   const channel = CHANNELS[0]
-  const movie = { liveDomain: 'https://seclive.ahsx.ahtv.cn/live/', liveId: 'ws20261019' }
+  const movie = { liveDomain: 'https://seclive.ahsx.ahtv.cn/live/', liveId: 'lailai' }
+  assert.deepEqual(readChannel(channelPayload(channel, movie), channel), movie)
+  const changedPath = { ...movie, liveDomain: 'https://seclive.ahsx.ahtv.cn/new/edge' }
+  assert.deepEqual(readChannel(channelPayload(channel, changedPath), channel), changedPath)
+  assert.match(signedStreamUrl(changedPath.liveId, AUTH_KEY, SIGNING_NOW, changedPath.liveDomain), /\/new\/edge\/lailai\.m3u8\?/)
+  const stringPayload = JSON.parse(channelPayload(channel, movie))
+  stringPayload.data.components[0].element[0].AppCustomParams = JSON.stringify(stringPayload.data.components[0].element[0].AppCustomParams)
+  assert.deepEqual(readChannel(JSON.stringify(stringPayload), channel), movie)
+  for (const meta of [{ id: '7363' }, { title: '其他台' }, { status: 10 }, { PayType: 1 }]) {
+    assert.throws(() => readChannel(channelPayload(channel, movie, meta), channel), /不符|缺少|未发布|免费/)
+  }
+  for (const config of [{ liveDomain: 'https://evil.example/live/' }, { liveDomain: 'https://seclive.ahsx.ahtv.cn/forbid/' },
+    { liveDomain: 'https://seclive.ahsx.ahtv.cn/live/?redirect=evil' }, { liveId: '../other' }, { txFlag: '0' }]) {
+    assert.throws(() => readChannel(channelPayload(channel, config), channel))
+  }
+})
+
+await checkAsync('公开栏目省略 status 时免费频道仍可解析，明确下架或权限不明仍拒绝', async () => {
+  const channel = CHANNELS[0]
+  const movie = { liveDomain: 'https://seclive.ahsx.ahtv.cn/live/', liveId: 'lailai' }
   for (const PayType of [0, '0']) {
-    assert.deepEqual(parseChannelConfig(detailPayload(channel, movie, { status: undefined, PayType }), channel), movie)
+    assert.deepEqual(readChannel(channelPayload(channel, movie, { status: undefined, PayType }), channel), movie)
   }
   for (const meta of [
     { status: 10, PayType: 0 }, { status: null, PayType: 0 },
     { status: undefined, PayType: 1 }, { status: undefined, PayType: undefined },
     { status: undefined, PayType: null }, { status: undefined, PayType: false },
   ]) {
-    assert.throws(() => parseChannelConfig(detailPayload(channel, movie, meta), channel), /未发布|免费/)
+    assert.throws(() => readChannel(channelPayload(channel, movie, meta), channel), /未发布|免费/)
   }
-  const upstream = fakeUpstream({ detailConfig: () => movie, detailMeta: () => ({ status: undefined }) })
+  const upstream = fakeUpstream({ channelConfig: () => movie, channelMeta: () => ({ status: undefined }) })
   const result = await createResolver({ fetchImpl: upstream.fetchImpl }).resolve(channel.ref)
-  assert.match(result.url, /^https:\/\/seclive\.ahsx\.ahtv\.cn\/live\/\/ws20261019\.m3u8/)
+  assert.match(result.url, /^https:\/\/seclive\.ahsx\.ahtv\.cn\/live\/\/lailai\.m3u8/)
   assert.match(result.manifestText, /^#EXTM3U/)
-  assert.equal(upstream.manifestCalls().length, 1, '合法的公开详情必须能继续走到媒体清单')
+  assert.equal(upstream.manifestCalls().length, 1, '合法的公开栏目必须能继续走到媒体清单')
 })
 
 check('只放行官方媒体域名，拒绝下线占位与外域', () => {
@@ -227,7 +257,7 @@ await checkAsync('全链路：拉配置、签名、以浏览器标识取清单�
   assert.equal(first.upstreamUrlTransform, officialMediaUrl)
   assert.throws(() => first.upstreamUrlTransform('https://evil.example/segment.ts'))
   assert.equal(upstream.configCalls().length, 1)
-  assert.equal(upstream.detailCalls().length, 1)
+  assert.equal(upstream.catalogCalls().length, 1)
   assert.equal(upstream.configCalls()[0].headers.Accept, 'application/json')
   assert.equal(upstream.manifestCalls().length, 1)
   assert.deepEqual(upstream.manifestCalls()[0].headers, { 'User-Agent': MEDIA_USER_AGENT }, '清单请求只带兼容浏览器标识')
@@ -237,7 +267,7 @@ await checkAsync('全链路：拉配置、签名、以浏览器标识取清单�
   assert.notEqual(second.manifestText, first.manifestText, '滚动清单每次轮询都重新拉取')
   assert.equal(upstream.configCalls().length, 1, '密钥在有效期内不重复拉取')
   assert.equal(upstream.manifestCalls().length, 2)
-  assert.equal(upstream.detailCalls().length, 1, '签名复用期内不重复拉频道配置')
+  assert.equal(upstream.catalogCalls().length, 1, '签名复用期内不重复拉频道配置')
 
   const third = await resolver.resolve('anhui-jjshtv', { now: SIGNING_NOW + STREAM_URL_TTL_MS - 1 })
   assert.equal(third.url, SIGNED_STREAM, '签名仍在复用期内，密钥到期也不必重拉配置')
@@ -246,7 +276,7 @@ await checkAsync('全链路：拉配置、签名、以浏览器标识取清单�
   const fourth = await resolver.resolve('anhui-jjshtv', { now: SIGNING_NOW + STREAM_URL_TTL_MS })
   assert.notEqual(fourth.url, SIGNED_STREAM, '签名复用期过后按新时间重签')
   assert.equal(upstream.configCalls().length, 2, '重签时密钥已过期，重新拉配置')
-  assert.equal(upstream.detailCalls().length, 2, '重签时重新读取官方域名与流 ID')
+  assert.equal(upstream.catalogCalls().length, 2, '重签时重新读取官方域名与流 ID')
 
   const other = await resolver.resolve('anhui-ahwssx', { now: SIGNING_NOW })
   assert.match(other.url, /\/live\/\/ahwssx\.m3u8\?txSecret=/)
@@ -260,8 +290,8 @@ await checkAsync('全链路：拉配置、签名、以浏览器标识取清单�
 
 await checkAsync('源被拒后重新读取官方配置，卫视换域名与流 ID 不改变 ref', async () => {
   let migrated = false
-  const upstream = fakeUpstream({ detailConfig: () => migrated
-    ? { liveDomain: 'https://seclive.ahsx.ahtv.cn/live/', liveId: 'ws20261019' } : {} })
+  const upstream = fakeUpstream({ channelConfig: () => migrated
+    ? { liveDomain: 'https://seclive.ahsx.ahtv.cn/live/', liveId: 'lailai' } : {} })
   const fetchImpl = async (url, options) => {
     if (migrated && new URL(url).hostname === 'live.ahsx.ahtv.cn') return response('', 403)
     return upstream.fetchImpl(url, options)
@@ -270,13 +300,13 @@ await checkAsync('源被拒后重新读取官方配置，卫视换域名与流 I
   assert.match((await resolver.resolve('anhui-ahwssx')).url, /live\.ahsx.*ahwssx\.m3u8/)
   migrated = true
   const current = await resolver.resolve('anhui-ahwssx')
-  assert.match(current.url, /^https:\/\/seclive\.ahsx\.ahtv\.cn\/live\/\/ws20261019\.m3u8/)
+  assert.match(current.url, /^https:\/\/seclive\.ahsx\.ahtv\.cn\/live\/\/lailai\.m3u8/)
   assert.deepEqual(current.upstreamHeaders(current.url), { 'User-Agent': 'ijkplayer' })
-  assert.equal(upstream.detailCalls().length, 2)
+  assert.equal(upstream.catalogCalls().length, 2)
 })
 
 await checkAsync('seclive 证书主机名不匹配时仅回退到同域 HTTP，成功入口被缓存', async () => {
-  const upstream = fakeUpstream({ detailConfig: () => ({ liveDomain: 'https://seclive.ahsx.ahtv.cn/live/' }) })
+  const upstream = fakeUpstream({ channelConfig: () => ({ liveDomain: 'https://seclive.ahsx.ahtv.cn/live/' }) })
   let tlsCalls = 0
   const fetchImpl = async (url, options) => {
     if (String(url).startsWith('https://seclive.')) {
@@ -291,12 +321,12 @@ await checkAsync('seclive 证书主机名不匹配时仅回退到同域 HTTP，�
   const second = await resolver.resolve('anhui-jjshtv')
   assert.equal(second.url, first.url)
   assert.equal(tlsCalls, 1, '后续清单轮询复用成功入口')
-  assert.equal(upstream.detailCalls().length, 1)
+  assert.equal(upstream.catalogCalls().length, 1)
   assert.notEqual(first.manifestText, second.manifestText, '仍实时拉取清单')
 })
 
 await checkAsync('正常 HTTPS、HTTP 403 与其他 TLS 错误不会触发 HTTP 回退', async () => {
-  const secure = fakeUpstream({ detailConfig: () => ({ liveDomain: 'https://seclive.ahsx.ahtv.cn/live/' }) })
+  const secure = fakeUpstream({ channelConfig: () => ({ liveDomain: 'https://seclive.ahsx.ahtv.cn/live/' }) })
   const normal = await createResolver({ fetchImpl: secure.fetchImpl }).resolve('anhui-jjshtv')
   assert.ok(normal.url.startsWith('https://seclive.'))
   for (const [host, code] of [['seclive.ahsx.ahtv.cn', 'CERT_HAS_EXPIRED'], ['live.ahsx.ahtv.cn', 'ERR_TLS_CERT_ALTNAME_INVALID']]) {
@@ -315,23 +345,54 @@ await checkAsync('正常 HTTPS、HTTP 403 与其他 TLS 错误不会触发 HTTP 
   assert.equal(calls.length, 1)
 })
 
-await checkAsync('官方详情失败不回退到旧域名或固定流 ID', async () => {
+await checkAsync('官方栏目失败不回退到旧域名或固定流 ID', async () => {
   const upstream = fakeUpstream()
-  const fetchImpl = async (url, options) => String(url).startsWith(ANHUI_DETAIL_API)
+  const fetchImpl = async (url, options) => String(url).startsWith(ANHUI_TV_CATALOG_API)
     ? response('', 503) : upstream.fetchImpl(url, options)
   const result = await createResolver({ fetchImpl }).resolve('anhui-ahwssx')
   assert.equal(result.url, '')
-  assert.match(result.desc, /频道详情 HTTP 503/)
+  assert.match(result.desc, /电视栏目 HTTP 503/)
   assert.equal(upstream.manifestCalls().length, 0)
 })
 
-await checkAsync('并发解析共享同一次配置请求', async () => {
+await checkAsync('缺失的单个频道明确失败，其余频道继续从同一电视组件播放', async () => {
+  const upstream = fakeUpstream()
+  const fetchImpl = async (url, options) => String(url).startsWith(ANHUI_TV_CATALOG_API)
+    ? response(catalogPayload(CHANNELS.slice(1).map(c => channelRecord(c)))) : upstream.fetchImpl(url, options)
+  const resolver = createResolver({ fetchImpl })
+  const missing = await resolver.resolve('anhui-ahwssx')
+  assert.equal(missing.url, '')
+  assert.match(missing.desc, /缺少频道配置/)
+  const economy = await resolver.resolve('anhui-jjshtv')
+  assert.ok(economy.url)
+  assert.equal(upstream.manifestCalls().length, 1)
+})
+
+await checkAsync('栏目配置短期共享，过期后新频道读取当前配置，活跃清单不重复拉栏目', async () => {
+  const upstream = fakeUpstream()
+  const resolver = createResolver({ fetchImpl: upstream.fetchImpl })
+  await resolver.resolve('anhui-jjshtv', { now: SIGNING_NOW })
+  await resolver.resolve('anhui-ahwssx', { now: SIGNING_NOW + TV_CATALOG_TTL_MS - 1 })
+  assert.equal(upstream.catalogCalls().length, 1)
+  await resolver.resolve('anhui-ystv', { now: SIGNING_NOW + TV_CATALOG_TTL_MS })
+  assert.equal(upstream.catalogCalls().length, 2)
+  await resolver.resolve('anhui-jjshtv', { now: SIGNING_NOW + TV_CATALOG_TTL_MS * 2 })
+  assert.equal(upstream.catalogCalls().length, 2, '有效签名的滚动清单仍直接取媒体')
+  assert.equal(upstream.configCalls().length, 1)
+  resolver.clear()
+  await resolver.resolve('anhui-jjshtv', { now: SIGNING_NOW + TV_CATALOG_TTL_MS * 2 })
+  assert.equal(upstream.catalogCalls().length, 3, '清缓存也会重新读取栏目')
+})
+
+await checkAsync('七路并发解析共享一次密钥和一次栏目请求，不再访问详情接口', async () => {
   const upstream = fakeUpstream()
   const resolver = createResolver({ fetchImpl: upstream.fetchImpl })
   const results = await Promise.all(CHANNELS.map(channel => resolver.resolve(channel.ref, { now: SIGNING_NOW })))
   assert.ok(results.every(result => result.url))
   assert.equal(upstream.configCalls().length, 1)
+  assert.equal(upstream.catalogCalls().length, 1)
   assert.equal(upstream.manifestCalls().length, CHANNELS.length)
+  assert.ok(upstream.calls.every(call => !call.url.includes('/content/show/')))
 })
 
 await checkAsync('签名被拒时丢弃密钥重签一次，连续失败给出可读原因', async () => {

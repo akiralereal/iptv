@@ -3,7 +3,7 @@
  *
  * 取流链路（由独立实验台 asian-live-lab/anhui-live-lab 验证后移植）：
  *   1. 公开配置接口返回 AES 加密的密钥配置，用租户 id 与固定种子的 md5 片段解出 tx_auth_key；
- *   2. 从 App 频道详情读取当前 liveDomain / liveId，再按腾讯云规则生成两小时签名；
+ *   2. 从 App「看电视」栏目接口的 132 电视组件读取当前 liveDomain / liveId，再签名；
  *   3. 2026-10-25 官方迁至 seclive，卫视流 ID 也已变更；新域名要求 ijkplayer，旧域名用 Chrome。
  *      seclive 的 HTTPS 证书当前不匹配，仅该域名遇到此错误时改用同域 HTTP，不关闭 TLS 校验。
  *      清单与分片使用同一标识全代理，不附加 Referer / Origin。
@@ -16,7 +16,7 @@ import { createDecipheriv, createHash } from 'node:crypto'
 import { proxyAwareFetch } from '../../utils/systemProxy.js'
 
 export const ANHUI_CONFIG_API = 'https://console.ahsx.ahtv.cn/api/appapi/api/config-other-encrypt'
-export const ANHUI_DETAIL_API = 'https://console.ahsx.ahtv.cn/api/appapi/api/content/show/'
+export const ANHUI_TV_CATALOG_API = 'https://console.ahsx.ahtv.cn/api/appapi/api/content/list/15'
 export const MEDIA_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 export const MEDIA_HOSTS = Object.freeze(['live.ahsx.ahtv.cn', 'lives.ahsx.ahtv.cn', 'nrtapush.ahsx.ahtv.cn', 'seclive.ahsx.ahtv.cn'])
@@ -24,6 +24,7 @@ const SEC_LIVE_HOST = 'seclive.ahsx.ahtv.cn'
 export const APP_TOKEN_LIFETIME_MS = 2 * 60 * 60 * 1000
 export const AUTH_KEY_TTL_MS = 15 * 60 * 1000
 export const STREAM_URL_TTL_MS = 30 * 60 * 1000
+export const TV_CATALOG_TTL_MS = 60 * 1000
 
 const LIVE_ORIGIN = 'https://live.ahsx.ahtv.cn'
 const TENANT_ID = '771d57f88da621c541053ca5be56cd7a'
@@ -36,7 +37,7 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 const API_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
-// ref 保留最初的频道引用；articleId 用来查询官方详情，实际 liveId / 域名可随台方更新。
+// ref 保留最初的频道引用；articleId 用来匹配 App 电视组件，实际 liveId / 域名随台方更新。
 export const CHANNELS = Object.freeze([
   Object.freeze({
     ref: 'anhui-ahwssx', articleId: '121120', liveId: 'ahwssx', rawName: '安徽卫视', name: '安徽卫视',
@@ -161,21 +162,41 @@ export function configUrl() {
   return url.href
 }
 
-export function channelConfigUrl(channel) {
-  if (!CHANNELS.includes(channel)) throw new Error('安徽频道配置引用无效')
-  const url = new URL(configUrl())
-  url.pathname = new URL(ANHUI_DETAIL_API).pathname + channel.articleId
+export function tvCatalogUrl() {
+  const url = new URL(ANHUI_TV_CATALOG_API)
+  url.search = new URL(configUrl()).search
+  // LiveAlbumListFragment → DataInvokeUtil.getContentList，与 App 的首屏请求一致。
+  url.searchParams.set('no_content', '1')
+  url.searchParams.set('page', '1')
+  url.searchParams.set('perPage', '50')
   return url.href
 }
 
-export function parseChannelConfig(text, channel) {
+export function parseTvCatalog(text) {
   let payload
-  try { payload = JSON.parse(text) } catch { throw new Error('安徽频道详情返回了无效 JSON') }
-  const meta = payload?.state === true ? payload.data?.meta : null
-  if (!meta || String(meta.id) !== channel.articleId || meta.title !== channel.rawName) {
-    throw new Error('安徽频道详情与请求频道不符')
+  try { payload = JSON.parse(text) } catch { throw new Error('安徽电视栏目返回了无效 JSON') }
+  const components = payload?.state === true ? payload.data?.components : null
+  if (!Array.isArray(components)) throw new Error('安徽电视栏目没有返回组件列表')
+  const knownIds = new Set(CHANNELS.map(channel => channel.articleId))
+  const records = []
+  for (const component of components) {
+    // Component132Holder 直接从 element 读取电视配置；不处理广播、纪录片或其它栏目内容。
+    if (Number(component?.widget) !== 132) continue
+    if (!Array.isArray(component.element)) throw new Error('安徽电视组件没有返回频道列表')
+    records.push(...component.element.filter(record => knownIds.has(String(record?.id))))
   }
-  // 公开详情接口可能省略 status；缺少该字段不代表下架。仍拒绝明确的非发布状态，
+  if (!records.length) throw new Error('安徽电视栏目没有返回已收录的电视频道')
+  return records
+}
+
+export function channelConfigFromCatalog(records, channel) {
+  const matches = records.filter(record => String(record?.id) === channel.articleId)
+  if (matches.length !== 1) throw new Error('安徽电视栏目缺少频道配置或存在重复频道')
+  const meta = matches[0]
+  if (!meta || String(meta.id) !== channel.articleId || meta.title !== channel.rawName) {
+    throw new Error('安徽电视栏目配置与请求频道不符')
+  }
+  // 官方栏目配置可能省略 status；缺少该字段不代表下架。仍拒绝明确的非发布状态，
   // 并要求 PayType 明确为免费，不能把缺少权限信息当成开放直播。
   const explicitlyUnpublished = Object.hasOwn(meta, 'status') && Number(meta.status) !== 30
   if (explicitlyUnpublished || ![0, '0'].includes(meta.PayType)) {
@@ -193,23 +214,23 @@ export function parseChannelConfig(text, channel) {
   return { liveId: movie.liveId, liveDomain: domain.href }
 }
 
-export async function requestChannelConfig(channel, { timeoutMs = 15000, fetchImpl = proxyAwareFetch } = {}) {
+export async function requestTvCatalog({ timeoutMs = 15000, fetchImpl = proxyAwareFetch } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetchImpl(channelConfigUrl(channel), {
+    const response = await fetchImpl(tvCatalogUrl(), {
       redirect: 'manual', signal: controller.signal,
       headers: { 'User-Agent': API_UA, Accept: 'application/json' },
     })
     if (REDIRECT_STATUSES.has(response.status)) {
       await discardResponse(response)
-      throw new Error('安徽频道详情返回了不安全的重定向')
+      throw new Error('安徽电视栏目返回了不安全的重定向')
     }
     if (!response.ok) {
       await discardResponse(response)
-      throw new Error(`安徽频道详情 HTTP ${response.status}`)
+      throw new Error(`安徽电视栏目 HTTP ${response.status}`)
     }
-    return parseChannelConfig(await responseText(response, 512 * 1024), channel)
+    return parseTvCatalog(await responseText(response))
   } finally { clearTimeout(timer) }
 }
 
@@ -368,7 +389,7 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
   function stateFor(fetchImpl) {
     let state = states.get(fetchImpl)
     if (!state) {
-      state = { authKey: null, pendingAuth: null, streams: new Map() }
+      state = { authKey: null, pendingAuth: null, catalog: null, pendingCatalog: null, streams: new Map() }
       states.set(fetchImpl, state)
     }
     return state
@@ -391,13 +412,31 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
     return state.pendingAuth
   }
 
+  async function catalogFor(options) {
+    const state = stateFor(options.fetchImpl)
+    const now = Number(options.now ?? Date.now())
+    if (state.catalog && state.catalog.expiresAt > now) return state.catalog.records
+    if (!state.pendingCatalog) {
+      const requestGeneration = generation
+      const promise = requestTvCatalog(options).then(records => {
+        if (requestGeneration === generation) state.catalog = { records, expiresAt: now + TV_CATALOG_TTL_MS }
+        return records
+      }).finally(() => {
+        if (state.pendingCatalog === promise) state.pendingCatalog = null
+      })
+      state.pendingCatalog = promise
+    }
+    return state.pendingCatalog
+  }
+
   // 签名两小时有效；半小时内复用同一份，避免每次轮询都换 txTime 让日志和登记表无谓抖动
   async function streamUrlFor(channel, options) {
     const state = stateFor(options.fetchImpl)
     const now = Number(options.now ?? Date.now())
     const cached = state.streams.get(channel.ref)
     if (cached && cached.expiresAt > now) return cached.url
-    const [authKey, current] = await Promise.all([authKeyFor(options), requestChannelConfig(channel, options)])
+    const [authKey, records] = await Promise.all([authKeyFor(options), catalogFor(options)])
+    const current = channelConfigFromCatalog(records, channel)
     const url = signedStreamUrl(current.liveId, authKey, now, current.liveDomain)
     state.streams.set(channel.ref, { url, expiresAt: now + STREAM_URL_TTL_MS })
     return url
@@ -407,6 +446,7 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
     const state = stateFor(fetchImpl)
     state.streams.delete(channel.ref)
     state.authKey = null
+    state.catalog = null
   }
 
   async function resolve(ref, ctx = {}) {

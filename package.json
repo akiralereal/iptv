@@ -1,6 +1,6 @@
 {
   "name": "iptv",
-  "version": "4.56.1",
+  "version": "4.58.0",
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {

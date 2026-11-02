@@ -33,9 +33,11 @@ import { enableExtractors } from "../config.js"
 const CONFIG_FILE = 'extractors.json'
 const CACHE_FILE = 'extractor-cache.json'
 // 北斗官方入口持续 WAF 405，2026-10-22 移除；江门直播 CDN 持续 502，2026-10-27 暂时移除。
-// 佳士得部署后多条回放不可用，2026-10-27 按用户要求移除。
+// 「高校与场馆」整类（inst-*，含 10-27 先撤的佳士得）2026-11-02 下线，代码在分支
+// backup/institution-2026-11-02，按前缀清。
 // 加载或导入旧备份时同步清掉这些模块的配置、频道缓存与告警状态。
-const RETIRED_MODULE_IDS = ['beidou', 'jiangmen', 'inst-christies']
+const RETIRED_MODULE_IDS = ['beidou', 'jiangmen']
+const isRetiredModule = id => RETIRED_MODULE_IDS.includes(id) || id.startsWith('inst-')
 
 // 单个模块一轮的墙钟上限。模块内部也该自己设超时，这层是兜底——外部源那边
 // 整轮没有任何时间上限，一个慢源能把后面全拖住。
@@ -374,15 +376,13 @@ class ExtractorManager {
     // +1，作废还在飞的抓取轮——它们跑的是换盘前的配置（见 #runOne）。
     let cacheChanged = false
     let configChanged = false
-    for (const id of RETIRED_MODULE_IDS) {
-      if (Object.hasOwn(this.config.modules, id)) {
-        delete this.config.modules[id]
-        configChanged = true
-      }
-      if (Object.hasOwn(this.cache.modules, id)) {
-        delete this.cache.modules[id]
-        cacheChanged = true
-      }
+    for (const id of Object.keys(this.config.modules).filter(isRetiredModule)) {
+      delete this.config.modules[id]
+      configChanged = true
+    }
+    for (const id of Object.keys(this.cache.modules).filter(isRetiredModule)) {
+      delete this.cache.modules[id]
+      cacheChanged = true
     }
     for (const module of listModules()) {
       this.configGen.set(module.id, (this.configGen.get(module.id) || 0) + 1)

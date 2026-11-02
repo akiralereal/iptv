@@ -998,12 +998,11 @@ try {
       assert.equal(modules.find(module => module.id === id)?.category, 'live', `${id} 应归入网络直播平台`)
     }
     // 默认关、由用户自己打开的：「海外」小节那几个，加上频道量大、只有本地少数人看的山东市县（#196 作者拍板）
-    // 和市县台的各省模块（guangdianyun-*，同样作者拍板）；高校与场馆全部默认关（v4.51.1 作者拍板）。
+    // 和市县台的各省模块（guangdianyun-*，同样作者拍板）。
     assert.deepEqual(
       listModules().filter(module => module.defaultEnabled === false).map(module => module.id).sort(),
       [
         ...modules.filter(module => module.category === 'overseas').map(module => module.id),
-        ...modules.filter(module => module.category === 'institution').map(module => module.id),
         'shandong-counties',
         'bestv-fj',
         'websports',
@@ -1011,17 +1010,6 @@ try {
       ].sort(),
     )
     assert.deepEqual(modules.filter(module => module.category === 'overseas').map(module => module.id).sort(), ['overseas', 'tdm'])
-    const institutionIds = [
-      'inst-xjtu', 'inst-jlu', 'inst-chnmuseum', 'inst-shqyg', 'inst-zjwhg', 'inst-culturecloud',
-      'inst-fudan', 'inst-bnu', 'inst-hust', 'inst-gdwhg', 'inst-hnwhg', 'inst-gzdjy', 'inst-ccom',
-      'inst-shlib', 'inst-cdstm', 'inst-stvf', 'inst-siff', 'inst-zgc', 'inst-shforum',
-      'inst-phillips', 'inst-elb', 'inst-smartedu', 'inst-movie1905', 'inst-weibo', 'inst-mgtv-events',
-    ]
-    assert.deepEqual(modules.filter(module => module.category === 'institution').map(module => module.id).sort(), institutionIds.sort(),
-      '25 个来源各自注册为独立模块，统一归入高校与场馆')
-    for (const id of institutionIds) assert.equal(modules.find(module => module.id === id)?.category, 'institution', id)
-    assert.equal(new Set(modules.filter(module => module.category === 'institution').map(module => module.name)).size, 25,
-      '机构显示名应独立，不合并成跨机构模块')
   })
 
   check('模块地区透传给后台：省台、地市台、景观归到同一地区，全国性的不归', () => {
@@ -1070,14 +1058,12 @@ try {
       '用户明确保存的关闭态不能被默认值覆盖')
   })
 
-  check('★ 百视通、海外频道、高校与场馆、澳门、山东市县、市县台默认关闭，用户打开后保持打开；没点过的开关不落盘', () => {
+  check('★ 百视通、海外频道、澳门、山东市县、市县台默认关闭，用户打开后保持打开；没点过的开关不落盘', () => {
     const optIn = listModules().filter(module => module.defaultEnabled === false).map(module => module.id)
     const gdy = optIn.filter(id => id.startsWith('guangdianyun-'))
     assert.ok(gdy.length >= 20, '市县台各省模块都默认关闭')
     assert.equal(listModules().filter(module => module.id.startsWith('guangdianyun-')).length, gdy.length)
-    const inst = optIn.filter(id => id.startsWith('inst-'))
-    assert.equal(inst.length, 25, '高校与场馆 25 个来源都默认关闭')
-    assert.deepEqual(optIn.filter(id => !id.startsWith('guangdianyun-') && !id.startsWith('inst-')).sort(),
+    assert.deepEqual(optIn.filter(id => !id.startsWith('guangdianyun-')).sort(),
       ['bestv-fj', 'overseas', 'shandong-counties', 'tdm', 'websports'],
       '百视通因出口可用性差异默认关闭；WebSports 来自第三方赛事网站；其余默认关闭模块保持不变')
     const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })

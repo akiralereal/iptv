@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** 移除北斗、江门及佳士得：升级、备份导入不复活旧频道，其他来源仍保留。 */
+/** 移除北斗、江门及「高校与场馆」（inst-*）：升级、备份导入不复活旧频道，其他来源仍保留。 */
 import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,7 +16,7 @@ const read = path => JSON.parse(readFileSync(path, 'utf8'))
 let passed = 0
 const check = async (name, fn) => { await fn(); passed++; console.log(`  ✅ ${name}`) }
 
-const retiredIds = ['beidou', 'jiangmen', 'inst-christies']
+const retiredIds = ['beidou', 'jiangmen', 'inst-christies', 'inst-phillips']
 const beidouRefs = [
   'beidou-liaoning-c077b260424404846285cba1e1759280',
   'beidou-shenyang-d447fcc472f14c7f14872d4e26b12d8f',
@@ -24,13 +24,13 @@ const beidouRefs = [
   'beidou-shenyang-acb1a5713531ac7feb7836b1b4db442c',
 ]
 const christiesRefs = ['a', 'b', 'c'].map(char => `inst-christies-${char.repeat(24)}.mp4`)
-const oldRefs = [...beidouRefs, 'jiangmen-1', ...christiesRefs]
+const phillipsRefs = [`inst-phillips-${'d'.repeat(24)}.m3u8`]
+const oldRefs = [...beidouRefs, 'jiangmen-1', ...christiesRefs, ...phillipsRefs]
 const dalianRows = ['大连新闻综合', '大连生活', '大连文体'].map((name, i) => ({
   name, deferredRef: `dalian-${i + 7}`, proxyHls: true,
 }))
 const gdtvRows = [{ name: '广东卫视', deferredRef: 'gdtv-43', relayHls: true }]
-const phillipsRows = [{ name: '[回放] Between Canvas and Form', deferredRef: `inst-phillips-${'d'.repeat(24)}.m3u8`, institutionItemId: 'phillips-between-canvas-and-form', institutionKind: 'vod' }]
-const retainedRows = [...dalianRows, ...gdtvRows, ...phillipsRows]
+const retainedRows = [...dalianRows, ...gdtvRows]
 const oldConfig = () => ({ enabled: true, customFlag: 'preserve', modules: {
   ...Object.fromEntries(listModules().map(module => [module.id, { enabled: ['dalian', 'gdtv'].includes(module.id) }])),
   beidou: { enabled: true, config: {} },
@@ -48,8 +48,9 @@ const oldCache = () => ({ modules: {
     health: { status: 'failed', channelCount: 1, lastError: '江门官方响应 HTTP 502', warnings: ['HTTP 502'] } },
   'inst-christies': { groups: [{ name: '佳士得', dataList: christiesRefs.map(deferredRef => ({ name: '[回放] 旧佳士得视频', deferredRef })) }],
     health: { status: 'failed', channelCount: 3, lastError: 'fetch failed', warnings: ['fetch failed'] } },
-  'inst-phillips': { catalogVersion: getModule('inst-phillips').catalogVersion,
-    groups: [{ name: '富艺斯', dataList: phillipsRows }], health: { status: 'ok', channelCount: 1 } },
+  'inst-phillips': { catalogVersion: 1,
+    groups: [{ name: '富艺斯', dataList: phillipsRefs.map(deferredRef => ({ name: '[回放] 旧富艺斯视频', deferredRef })) }],
+    health: { status: 'ok', channelCount: 1 } },
   dalian: { groups: [{ name: '辽宁', dataList: dalianRows }], health: { status: 'ok', channelCount: 3 } },
   gdtv: { catalogVersion: getModule('gdtv').catalogVersion,
     groups: [{ name: '广东', dataList: gdtvRows }], health: { status: 'ok', channelCount: 1 } },
@@ -70,9 +71,9 @@ const assertRetiredStateRemoved = manager => {
   }
 }
 
-console.log('移除北斗、江门、佳士得模块迁移测试')
+console.log('移除北斗、江门、高校与场馆模块迁移测试')
 try {
-  await check('注册表和旧播放路由移除退役来源，独立大连、广东台和富艺斯保留', () => {
+  await check('注册表和旧播放路由移除退役来源，独立大连、广东台保留', () => {
     for (const id of retiredIds) {
       assert.ok(!listModules().some(module => module.id === id))
       assert.equal(getModule(id), undefined)
@@ -88,7 +89,6 @@ try {
     assert.equal(gdtv.capabilities.epg, true)
     assert.ok(gdtv.epg)
     for (const row of gdtvRows) assert.equal(resolverFor(row.deferredRef), gdtv)
-    for (const row of phillipsRows) assert.equal(resolverFor(row.deferredRef), getModule('inst-phillips'))
   })
 
   const manager = new ExtractorManager()
@@ -104,11 +104,9 @@ try {
     assert.equal(storedConfig.customFlag, 'preserve')
     assert.deepEqual(storedConfig.modules.dalian, config.modules.dalian)
     assert.deepEqual(storedConfig.modules.gdtv, config.modules.gdtv)
-    assert.deepEqual(storedConfig.modules['inst-phillips'], config.modules['inst-phillips'])
     assert.deepEqual(storedConfig.modules['future-module'], config.modules['future-module'])
     assert.deepEqual(storedCache.modules.anhui, cache.modules.anhui)
     assert.deepEqual(storedCache.modules.gdtv, cache.modules.gdtv)
-    assert.deepEqual(storedCache.modules['inst-phillips'], cache.modules['inst-phillips'])
     assert.deepEqual(manager.getValidChannels().flatMap(group => group.dataList).map(row => [row.name, row.deferredRef]),
       retainedRows.map(row => [row.name, row.deferredRef]))
     assert.deepEqual(manager.getValidChannels().find(group => group.name === '广东').dataList.map(row => row.deferredRef), ['gdtv-43'])
@@ -126,7 +124,6 @@ try {
     assertRetiredStateRemoved(manager)
     assert.deepEqual(read(manager.configPath).modules.gdtv, config.modules.gdtv)
     assert.deepEqual(read(manager.cachePath).modules.gdtv, cache.modules.gdtv)
-    assert.deepEqual(read(manager.cachePath).modules['inst-phillips'], cache.modules['inst-phillips'])
     assert.deepEqual(read(manager.configPath).modules.dalian, config.modules.dalian)
     assert.deepEqual(read(manager.configPath).modules['future-module'], config.modules['future-module'])
     assert.deepEqual(manager.getValidChannels().flatMap(group => group.dataList).map(row => row.deferredRef),
@@ -143,7 +140,6 @@ try {
     assert.equal(readFileSync(`${manager.configPath}.corrupt`, 'utf8'), broken)
     for (const id of retiredIds) assert.ok(!Object.hasOwn(read(manager.cachePath).modules, id))
     assert.deepEqual(read(manager.cachePath).modules.gdtv, cache.modules.gdtv)
-    assert.deepEqual(read(manager.cachePath).modules['inst-phillips'], cache.modules['inst-phillips'])
   })
   console.log(`\n${passed} 项测试全部通过`)
 } finally {

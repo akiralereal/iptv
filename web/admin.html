@@ -3199,7 +3199,7 @@
         .source-badge, .status-badge, .external-mode-badge, .mode-badge,
         .instant-badge, .login-state-badge, .channel-tag { padding: 2px 7px; border-radius: 5px; font-weight: 500; }
         .source-badge.builtin, .source-badge.account, .source-badge.live,
-        .source-badge.standard, .source-badge.overseas, .source-badge.institution,
+        .source-badge.standard, .source-badge.overseas,
         .external-mode-badge.fetch, .external-mode-badge.direct, .external-mode-badge.subscription,
         .mode-badge, .mode-badge.mode-direct, .mode-badge.mode-subscription {
             color: var(--ui-text-secondary);
@@ -6103,12 +6103,6 @@
                     badge: '海外',
                     description: ['面向大陆以外的频道，默认关闭，需要时手动打开。', { mark: '能不能看取决于网络：海外频道由播放器直连，看播放设备；澳门等后续其他独立模块还要部署的机器能连到大陆以外。' }],
                 },
-                {
-                    id: 'institution',
-                    title: '高校与场馆',
-                    badge: '高校场馆',
-                    description: ['高校、文化场馆、会议论坛、典礼及拍卖机构的官方公开活动直播与录像回放，默认关闭，需要时手动打开。', { mark: '画面经部署的机器转发，会占用服务器带宽；佳士得、富艺斯、易北爱乐还要部署的机器能访问境外网站。' }],
-                },
             ];
             return categories;
         }
@@ -6183,8 +6177,7 @@
 
             // 分类按钮：数量跟着上面的开关筛选走；某类里有模块抓取失败或凭证失效，按钮上挂红点
             const categoryOf = m => m.category || 'standard';
-            // 高校与场馆先统一分类；尚未接入模块时也保留入口，明确展示接入状态。
-            const present = categories.filter(category => category.id === 'institution' || modules.some(m => categoryOf(m) === category.id));
+            const present = categories.filter(category => modules.some(m => categoryOf(m) === category.id));
             const active = present.find(category => category.id === extractorCategory) || present[0];
             const needsAttention = m => {
                 const h = m.health || {};
@@ -6241,9 +6234,7 @@
                     </div>
                     ${activeModules.length
                         ? modulesHtml(activeModules)
-                        : `<div class="extractor-filter-empty">${active.id === 'institution' && !modules.some(m => categoryOf(m) === active.id)
-                            ? '暂未接入高校与场馆模块。'
-                            : extractorFilter === 'on'
+                        : `<div class="extractor-filter-empty">${extractorFilter === 'on'
                                 ? '这一类的模块都关着。切到「已关闭」或「全部」，勾选「启用」即可打开。'
                                 : '这一类没有关闭的模块。'}</div>`}
                 </section>`;

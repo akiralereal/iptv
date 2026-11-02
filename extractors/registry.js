@@ -18,14 +18,13 @@
  *   description           string  后台一句话说明
  *   category              string  可选；后台源管理分组。'account' 表示带账号/
  *                                 授权能力，'live' 表示网络直播平台，'overseas' 表示
- *                                 面向大陆以外、默认关闭的海外模块；'institution' 表示
- *                                 高校、文化场馆与活动来源，后台排在海外之后；不声明即
+ *                                 面向大陆以外、默认关闭的海外模块；不声明即
  *                                 'standard'（免账号的普通官方抓取模块）
  *   defaultEnabled        boolean 可选；用户没在卡片上点过开关时开不开，不声明即开。
  *                                 只有面向海外、在大陆连不上或常卡顿的模块写 false
  *                                 （海外频道、澳门），由用户自己打开；频道量大、只有本地少数人
  *                                 看的市县模块也可以（山东市县，两百来台按地市分组；市县台各省模块）；
- *                                 高校与场馆（institution）以点播录像为主、媒体全经本机转发，也一律默认关；福建百视通以重复频道备用为主，按用户要求默认关；WebSports 来自第三方赛事网站，不进默认内容；各模块在海外的
+ *                                 福建百视通以重复频道备用为主，按用户要求默认关；WebSports 来自第三方赛事网站，不进默认内容；各模块在海外的
  *                                 实测见仓库根目录 OVERSEAS.md。v4.29.0 及以前已有的模块
  *                                 在存量配置里多已落成 enabled:true，改它们的默认值要另写迁移
  *   capabilities          object  { cache: 'disk'|'memory'|'none',
@@ -235,12 +234,11 @@ import tdm from './tdm/index.js'
 import guangdianyunModules from './guangdianyun/index.js'
 import shandongCounties from './shandong-counties/index.js'
 import overseas from './overseas/index.js'
-import { institutionModules } from './institution/index.js'
 
 // 模块 id 会进 sourceId 并写进 EXTINF 属性值，不消毒就是注入面。
 // 与 utils/configBackupAPI.js 的文件名白名单同款约束。
 export const MODULE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/
-export const MODULE_CATEGORIES = new Set(['account', 'live', 'standard', 'overseas', 'institution'])
+export const MODULE_CATEGORIES = new Set(['account', 'live', 'standard', 'overseas'])
 
 const MODULES = [
   // 顺序即后台展示顺序，也是 channelMerger 的合并顺序（先到的分组优先保留）
@@ -319,8 +317,6 @@ const MODULES = [
   shandongCounties,
   // 市县台（广电云，按省拆成 20 个模块）跟在各省级、地市模块之后：并进同省分组时排在省台、市台后面
   ...guangdianyunModules,
-  // 独立机构分组；后台分类顺序由 extractorCategories 决定，显示在海外之后。
-  ...institutionModules,
   // 海外频道排最后：并进体育、文旅等现有分组时，跟在各台官方频道后面
   overseas,
 ]

@@ -524,6 +524,33 @@ async function updateTV(hours, options = {}) {
 }
 
 /**
+ * 一场比赛的直播条目。basic-data 里常常没有 multiPlayList：还没排好转播的场次、
+ * 咪咕没挂播放清单的场次都是这样——那是「这场暂时没东西可放」，不是抓取失败。
+ * 原本裸取 `.multiPlayList.liveList`，这种场次直接抛，被记成
+ * 「体育赛事有 N 场抓取失败：Cannot read properties of undefined (reading 'liveList')」（issue #222 日志）。
+ *
+ * @param {object} detailBody basic-data 接口的 body
+ * @returns {Array} 直播条目，没有就是空数组
+ */
+export function matchLiveList(detailBody) {
+  const list = detailBody?.multiPlayList?.liveList
+  return Array.isArray(list) ? list : []
+}
+
+/**
+ * 已结束比赛的回放条目：优先回放接口，回落到 basic-data 的 multiPlayList.replayList。
+ * 两处都没有（或回放接口抖动、basic-data 没有 multiPlayList）时返回 null，调用方按「无回放」处理。
+ *
+ * @param {object} replayBody  all-view-list 回放接口的 body（接口失败时为 undefined）
+ * @param {object} detailBody  basic-data 接口的 body
+ * @returns {Array|null}
+ */
+export function matchReplayList(replayBody, detailBody) {
+  const list = replayBody?.replayList ?? detailBody?.multiPlayList?.replayList
+  return Array.isArray(list) ? list : null
+}
+
+/**
  * @param {Number} hours -更新小时数 
  */
 /**
@@ -628,6 +655,8 @@ async function updatePE(hours) {
         // updatePE，导致本轮体育频道整批丢失且 pe-cache 不更新。行为与之前逐字节相同，
         // 只是不再依赖那个巧合。
         const peResult = await fetchUrl(`https://vms-sc.miguvideo.com/vms-match/v6/staticcache/basic/basic-data/${data.mgdbId}/miguvideo`)
+        // fetchUrl 失败时返回 undefined 而不抛；明确报出来，别让日志里只剩一句「reading 'body'」
+        if (!peResult?.body) throw new Error('赛事详情接口无响应')
         // 比赛已结束
         if (peResult.body.endTime < Date.now()) {
           const replayResult = await fetchUrl(`http://app-sc.miguvideo.com/vms-match/v5/staticcache/basic/all-view-list/${data.mgdbId}/2/miguvideo`)
@@ -635,11 +664,8 @@ async function updatePE(hours) {
           // replayResult 就是 undefined，原写法在这里直接抛，导致下面那段
           // 「回落到 peResult.body.multiPlayList.replayList」的兜底永远走不到，
           // 一场本来有回放数据的比赛被白白丢掉。
-          let replayList = replayResult?.body?.replayList
-          if (replayList == null || replayList == undefined) {
-            replayList = peResult.body.multiPlayList.replayList
-          }
-          if (replayList == null || replayList == undefined) {
+          const replayList = matchReplayList(replayResult?.body, peResult.body)
+          if (replayList == null) {
             printYellow(`${data.mgdbId} ${pkInfoTitle} 无回放`)
             continue
           }
@@ -674,8 +700,7 @@ async function updatePE(hours) {
           continue
         }
         // 比赛未结束
-        const liveList = peResult.body.multiPlayList.liveList
-        for (const live of liveList) {
+        for (const live of matchLiveList(peResult.body)) {
           if (live.name.match(/.*集锦.*/) != null || live.startTimeStr == undefined) {
             continue
           }

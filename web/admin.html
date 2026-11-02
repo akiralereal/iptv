@@ -8058,7 +8058,11 @@
             return externalConfig;
         }
 
+        // 各源最近一次拉取失败的记账（服务端内存态，随 GET /api/external-sources 的 fetchStatus 带下来，
+        // 按源 id 存 { failCount, lastError, nextRetryAt }）。单独存放、不进 externalConfig，整份保存时不会被 POST 回去
+        let externalFetchStatus = {};
         function normalizeExternalConfig(payload) {
+            if (payload && payload.fetchStatus && typeof payload.fetchStatus === 'object') externalFetchStatus = payload.fetchStatus;
             const data = payload && payload.data !== undefined ? payload.data : payload || {};
             if (Array.isArray(data)) {
                 return {
@@ -8636,6 +8640,9 @@
                 // 订阅模式：填写m3u播放列表URL，自动解析多频道
                 const channelCount = (source.parsedChannels && source.parsedChannels.length) || 0;
                 const channelInfo = channelCount > 0 ? `<div class="form-hint" style="color: #52c41a;">\u2714 已解析 ${channelCount} 个频道（上次更新: ${source.lastUpdated ? new Date(source.lastUpdated).toLocaleString() : '从未'}\uff09</div>` : '';
+                // 上次拉取失败了就说明原因和下次重试时间：「上次更新」只记成功，光看它不知道这个源已经拉不到了
+                const fetchFail = source.id ? externalFetchStatus[source.id] : null;
+                const fetchFailInfo = fetchFail ? `<div class="form-hint" style="color: #fa8c16;">\u26a0 上次拉取失败（第 ${fetchFail.failCount} 次）：${escapeHtml(String(fetchFail.lastError || '').slice(0, 200))}。${new Date(fetchFail.nextRetryAt).toLocaleTimeString()} 后自动重试</div>` : '';
                 detail.innerHTML = `
                     <div class="external-detail-header">
                         <div class="external-detail-title">${source.name || '未命名订阅'}</div>
@@ -8666,7 +8673,7 @@
                             <textarea oninput="updateExternalField(${index}, 'subscriptionContent', this.value)" placeholder="选择本地 .m3u/.m3u8/.txt 文件，或直接把播放列表内容粘贴到这里（支持 m3u/m3u8 与 txt「频道名,地址」格式，自动识别 GBK/UTF-8 编码）" style="width: 100%; min-height: 120px; font-family: monospace; font-size: 12px; box-sizing: border-box;">${(source.subscriptionContent || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</textarea>
                             <div class="form-hint">选择文件或粘贴内容后，点下方「导入并保存」即可解析入库；本地导入不发起网络请求</div>
                             `}
-                            ${channelInfo}
+                            ${channelInfo}${fetchFailInfo}
                         </div>
                         <div class="external-field">
                             <label>User-Agent（可选）</label>
@@ -8690,7 +8697,7 @@
                                     <input type="number" min="${SUBSCRIPTION_FETCH_RANGES.fetchRetries[0]}" max="${SUBSCRIPTION_FETCH_RANGES.fetchRetries[1]}" step="1" value="${escapeHtml(String(source.fetchRetries ?? ''))}" onchange="setSubscriptionFetchField(${index}, 'fetchRetries', this)" placeholder="0">
                                 </div>
                             </div>
-                            <div class="form-hint">总是「请求超时」时再调。超时从发起请求算到列表下载完，留空为 15 秒，可填 5–120；只在超时、连接中断、服务器 5xx 时重试，留空不重试，最多 3 次（GitHub raw 地址本来就会换镜像线路，重试对它不生效）。设得越大，拉不到时其它源的自动刷新等得越久；后台前面有 nginx 等反向代理时，「导入并保存」的总耗时别超过它的超时（常见 60 秒）。</div>
+                            <div class="form-hint">总是「请求超时」时再调。超时从发起请求算到列表下载完，留空 15 秒，可填 5–120；重试留空为不重试，最多 3 次，只对超时、连接中断、服务器忙（5xx / 429）重试，404 这类直接算失败。GitHub raw 地址会依次试 5 条线路、每条各算一次超时，重试对它不生效。设得越大，这个源拉不到时其它源的自动刷新等得越久。</div>
                         </div>` : ''}
                         <div class="external-field">
                             <label>默认分组</label>
@@ -9486,10 +9493,11 @@
                         renderChannels();
                     }
                 } else {
-                    showStatus(`${sourceName} 导入失败: ${result.message || '未知错误'}`, 'error');
+                    // 失败信息里带着「已尝试哪些线路」和「可以调大拉取超时」这类要照着做的话，3 秒读不完
+                    showStatus(`${sourceName} 导入失败: ${result.message || '未知错误'}`, 'error', 10000);
                 }
             } catch (error) {
-                showStatus(`${sourceName} 导入失败: ${error.message}`, 'error');
+                showStatus(`${sourceName} 导入失败: ${error.message}`, 'error', 10000);
             } finally {
                 updatingSourceIndex = null;
                 renderExternalSources();

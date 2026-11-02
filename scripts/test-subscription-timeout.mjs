@@ -15,7 +15,9 @@
  *  - 不设重试时行为与改动前一致：失败一次就失败；
  *  - 只有可能下次就好的失败（超时、断连、5xx/429）才重试；404、解析不出频道不重试；
  *  - 重试次数、超时有上下限，乱填按默认，不会让一个源无限期拖住刷新；
- *  - 有缓存的订阅失败后按 30、60…分钟递增退避，最长到刷新间隔的一半；成功后清零。
+ *  - 订阅失败后按 10、20、40…分钟递增退避（与网页抓取源同一张内存表），最长到刷新间隔，成功后清零；
+ *    不改写 lastUpdated（后台卡片把它当「上次更新」显示），失败原因 / 下次重试时间走 fetchStatus 给卡片；
+ *  - 超时提示按地址分：GitHub raw 只建议调超时，内置订阅不提示。
  *
  * 运行： node scripts/test-subscription-timeout.mjs   （或 npm test）
  */
@@ -28,8 +30,8 @@ import { join } from 'node:path'
 const TMP = mkdtempSync(join(tmpdir(), 'iptv-sub-timeout-test-'))
 process.env.mdataDir = TMP
 
-const { fetchAndParseM3u, subscriptionFetchOptions, SUBSCRIPTION_FETCH_LIMITS, ExternalSourceManager } =
-  await import('../utils/externalSources.js')
+const { fetchAndParseM3u, subscriptionFetchOptions, subscriptionFailureHint, SUBSCRIPTION_FETCH_LIMITS,
+  ExternalSourceManager, BUILT_IN_SUBSCRIPTIONS } = await import('../utils/externalSources.js')
 
 const HEAD = '#EXTM3U\n#EXTINF:-1 group-title="测试",甲台\nhttp://127.0.0.1/a.m3u8\n'
 const TAIL = '#EXTINF:-1 group-title="测试",乙台\nhttp://127.0.0.1/b.m3u8\n'
@@ -175,9 +177,7 @@ try {
   const mgr = new ExternalSourceManager()
   const indexOf = (id) => mgr.sources.sources.findIndex(s => s && s.id === id)
   const byId = (id) => mgr.sources.sources[indexOf(id)]
-  /** 距下次自动重拉还有多少分钟（needsRefresh 按 lastUpdated + refreshInterval 判定） */
-  const minutesUntilRetry = (s) =>
-    Math.round((new Date(s.lastUpdated).getTime() + s.refreshInterval * 60000 - Date.now()) / 60000)
+  const backoffOf = (id) => mgr.fetchBackoff.get(mgr.backoffKey(byId(id)))
 
   await check('管理器：用源里填的重试次数拉订阅', async () => {
     const r = await within(mgr.updateSubscriptionSource(indexOf('retry001')), 10000)
@@ -186,28 +186,49 @@ try {
     assert.equal(hitsOf('/flaky/m/1'), 2)
   })
 
-  await check('有缓存时失败：保留旧频道，30、60 分钟递增退避，而不是固定等 12 小时', async () => {
+  await check('有缓存时失败：保留旧频道、不动「上次更新」，按 10、20 分钟递增退避，卡片能看到失败原因', async () => {
+    const before = byId('cache001').lastUpdated
     const r1 = await mgr.updateSubscriptionSource(indexOf('cache001'))
     assert.equal(r1.success, false)
     assert.deepEqual(byId('cache001').parsedChannels, CACHED)
-    assert.equal(byId('cache001')._failCount, 1)
-    assert.equal(minutesUntilRetry(byId('cache001')), 30)
-    assert.equal(mgr.needsRefresh(byId('cache001')), false)
+    assert.equal(byId('cache001').lastUpdated, before, '失败不能改写上次更新时间：后台卡片直接显示它')
+    assert.equal(byId('cache001')._failCount, undefined, '退避记在内存，不再落盘')
+    assert.equal(backoffOf('cache001').count, 1)
+    assert.equal(backoffOf('cache001').waitMinutes, 10)
+    assert.equal(mgr.needsRefresh(byId('cache001')), false, '退避窗口内不重拉')
 
     await mgr.updateSubscriptionSource(indexOf('cache001'))
-    assert.equal(byId('cache001')._failCount, 2)
-    assert.equal(minutesUntilRetry(byId('cache001')), 60)
+    assert.equal(backoffOf('cache001').count, 2)
+    assert.equal(backoffOf('cache001').waitMinutes, 20)
+    const status = mgr.fetchStatus()
+    assert.equal(status.cache001.failCount, 2)
+    assert.match(status.cache001.lastError, /HTTP 404/)
+    assert.ok(new Date(status.cache001.nextRetryAt).getTime() > Date.now())
   })
 
-  await check('退避最长到刷新间隔的一半；拉成功后失败计数清零', async () => {
-    await mgr.updateSubscriptionSource(indexOf('cache002'))
-    await mgr.updateSubscriptionSource(indexOf('cache002'))
-    assert.equal(minutesUntilRetry(byId('cache002')), 30) // 60 分钟间隔的一半，不是 60
+  await check('退避最长到刷新间隔；拉成功后清零，卡片不再显示失败', async () => {
+    for (let i = 0; i < 4; i++) await mgr.updateSubscriptionSource(indexOf('cache002'))
+    assert.equal(backoffOf('cache002').waitMinutes, 60, '60 分钟间隔：10、20、40 之后封顶 60')
 
     byId('cache002').subscriptionUrl = `${BASE}/ok.m3u`
     const r = await mgr.updateSubscriptionSource(indexOf('cache002'))
     assert.equal(r.success, true, r.message)
-    assert.equal(byId('cache002')._failCount, 0)
+    assert.equal(backoffOf('cache002'), null)
+    assert.equal(mgr.fetchStatus().cache002, undefined)
+    assert.equal(byId('cache002')._failCount, undefined)
+  })
+
+  await check('提示按地址分：GitHub raw 只建议调超时、内置订阅不提示、超时到顶不提示', async () => {
+    const opts = { timeoutMs: 15000, retries: 0 }
+    const timeout = Object.assign(new Error('x'), { timedOut: true })
+    assert.match(subscriptionFailureHint(timeout, opts, { subscriptionUrl: 'https://example.com/a.m3u' }), /「拉取超时」或「失败重试」/)
+    const mirrored = Object.assign(new Error('x'), { timedOut: true, mirrored: true })
+    const hint = subscriptionFailureHint(mirrored, opts, { subscriptionUrl: 'https://raw.githubusercontent.com/a/b/c.m3u' })
+    assert.match(hint, /5 条线路/)
+    assert.doesNotMatch(hint, /或「失败重试」/)
+    assert.equal(subscriptionFailureHint(timeout, opts, { subscriptionUrl: BUILT_IN_SUBSCRIPTIONS[0].subscriptionUrl }), '', '精选频道后台没有卡片，不提示')
+    assert.equal(subscriptionFailureHint(timeout, { timeoutMs: 120000, retries: 0 }, { subscriptionUrl: 'https://example.com/a.m3u' }), '')
+    assert.equal(subscriptionFailureHint(Object.assign(new Error('x'), { timedOut: false }), opts, {}), '')
   })
 
   await check('超时失败：提示可以调大「拉取超时」', async () => {

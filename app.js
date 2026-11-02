@@ -7,7 +7,7 @@ import { createRequire } from "node:module"
 import fetch from 'node-fetch'
 import { adminPath, host, pass, port, programInfoUpdateInterval, token, userId, enableMigu, enableBuiltInSubscriptions, enableUserTokens } from "./config.js";
 import { getDateTimeStr } from "./utils/time.js";
-import update from "./utils/updateData.js";
+import update, { localLogosFingerprint } from "./utils/updateData.js";
 import { printBlue, printGreen, printGrey, printMagenta, printRed, printYellow } from "./utils/colorOut.js";
 import { channel, interfaceStr, fetchManifestDirect, rewriteManifest, inlineResolvedManifest } from "./utils/appUtils.js";
 import { toProxyManifest, lookup as lookupProxyTarget, pipeUpstream, probeUpstream, fetchNested, manifestCooling, markManifestResult } from "./utils/hlsProxy.js";
@@ -35,7 +35,7 @@ import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI
 import { exportConfigAPI, importConfigAPI } from "./utils/configBackupAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, collectGroupConflicts, applyConfig,
          listProfiles, createProfile, renameProfile, deleteProfile } from "./utils/playlistConfig.js";
-import { updateBuiltInSources, updateExternalSources, updateExtractors, hasChangedResult, externalSourceManager, builtInSourceManager } from "./utils/channelMerger.js";
+import { updateBuiltInSources, updateExternalSources, updateExtractors, hasChangedResult, changedSourceNames, externalSourceManager, builtInSourceManager } from "./utils/channelMerger.js";
 import { GITHUB_RAW_MIRRORS, isBuiltInSubscriptionSource } from "./utils/externalSources.js";
 import { startProbe, getProbeStatus, cancelProbe } from "./utils/sourceProbe.js";
 import { cleanUserAgent, userAgentOf } from "./utils/channelOpts.js";
@@ -1626,6 +1626,10 @@ server.listen(port, async () => {
   // 源刷新拿到了新内容、但重新生成播放列表抛了异常：记下来，下一轮 tick 再生成一次。
   // tick 只在内容有变化时才重新生成（issue #222），不记的话这次变化要等到下一次完整更新。
   let playlistStale = false
+  // 手工放进数据目录 logos/ 的台标只在重新生成播放列表时写进 m3u。tick 改成只在源内容变化时
+  // 重生成后，手放的图会等到 8 小时全量更新才出现，所以每轮顺带比一下这个目录
+  // （文件名 + 修改时间，一次 readdir，几十个文件不到 1 毫秒）
+  let logosFingerprint = localLogosFingerprint()
 
   // 定时任务1: 完整更新（咪咕 + 外部源 + 节目单）
   setInterval(async () => {
@@ -1662,15 +1666,29 @@ server.listen(port, async () => {
       // 有源刷新出了**不一样的**内容才重新生成播放列表（regenerateOnly 模式不重抓咪咕/节目单，速度快）。
       // 只看「刷新成功」的话，广西每 30 分钟、一批 4 小时周期的模块到点就各重写一遍
       // 一字未变的播放列表，日志被刷屏（issue #222）
-      if ([builtInResult, externalResult, extractorResult].some(hasChangedResult)) playlistStale = true
+      const roundResults = [builtInResult, externalResult, extractorResult]
+      // 日志点名是哪些源变了：内容每轮都变的源（地址带一次性签名的订阅、房间名单变动的直播模块）
+      // 会一直触发重生成，不点名用户没法知道该关哪个、调长哪个的间隔
+      const changedNames = roundResults.flatMap(changedSourceNames)
+      const logosNow = localLogosFingerprint()
+      if (logosNow !== logosFingerprint) {
+        logosFingerprint = logosNow
+        changedNames.push('数据目录 logos/ 台标')
+      }
+      if (changedNames.length || roundResults.some(hasChangedResult)) playlistStale = true
       if (playlistStale) {
-        printBlue("检测到源内容有变化，重新生成播放列表...")
+        printBlue(changedNames.length
+          ? `检测到源内容有变化（${changedNames.join('、')}），重新生成播放列表...`
+          : "上一轮播放列表重新生成失败，补做一次...")
         try {
           await update(hours, { regenerateOnly: true })
           playlistStale = false
           printGreen("播放列表已更新为最新源 URL")
         } catch (regenError) {
           console.log(regenError)
+          // 这次 regenerateOnly 排在完整更新后面执行时，完整更新结束已把标记清成 false；
+          // 失败就得重新标回去，否则「下一轮再试」是句空话
+          playlistStale = true
           printRed("播放列表重新生成失败，下一轮再试")
         }
       }
@@ -1695,8 +1713,16 @@ server.listen(port, async () => {
       const result = await updateBuiltInSources({ startupMode: true })
       if (hasChangedResult(result)) {
         printBlue("内置源启动抓取拿到新地址，重新生成播放列表...")
-        await update(hours, { regenerateOnly: true })
-        printGreen("播放列表已补入内置源最新地址")
+        try {
+          await update(hours, { regenerateOnly: true })
+          printGreen("播放列表已补入内置源最新地址")
+        } catch (regenError) {
+          console.log(regenError)
+          // 交给 5 分钟 tick 补做：之后纬来体育每小时重抓回的是同一地址（changed:false），
+          // 不标脏的话新地址要等到全量更新才进列表
+          playlistStale = true
+          printRed("播放列表重新生成失败，下一轮源刷新再试")
+        }
       }
     } catch (error) {
       printRed(`内置源启动抓取失败: ${error?.message || error}`)

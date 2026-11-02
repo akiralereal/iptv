@@ -283,9 +283,6 @@ const SUBSCRIPTION_FETCH_LIMITS = Object.freeze({
   retries: { min: 0, max: 3, default: 0 },
 })
 
-// 订阅拉取失败、但手里有上次的频道时，第 n 次连续失败后等 n × 30 分钟再拉（最长到刷新间隔的一半）
-const FAILED_SUBSCRIPTION_RETRY_STEP_MINUTES = 30
-
 /** 取整并夹到 [min, max]；留空、非数字用默认值 */
 function clampInt(value, { min, max, default: fallback }) {
   if (value === null || value === undefined || value === '') return fallback
@@ -304,6 +301,23 @@ function subscriptionFetchOptions(source) {
     timeoutMs: clampInt(source?.fetchTimeout, SUBSCRIPTION_FETCH_LIMITS.timeoutSeconds) * 1000,
     retries: clampInt(source?.fetchRetries, SUBSCRIPTION_FETCH_LIMITS.retries),
   }
+}
+
+/**
+ * 订阅拉取失败后给用户的可操作提示（issue #223）。只对超时类失败提示，且分情况：
+ * 内置订阅（精选频道）后台没有卡片、本来就走 5 条镜像 + 本地快照兜底，不提示；
+ * GitHub raw 地址「失败重试」不生效、5 条线路各算一次超时，只建议调超时；其它地址两项都建议。
+ * 超时已调到上限时也不提示——再提就是让用户白忙。
+ * @returns {string} 直接拼在错误信息后面的一句话；不该提示时为空串
+ */
+function subscriptionFailureHint(error, fetchOptions, source) {
+  if (!error?.timedOut) return ''
+  if (isBuiltInSubscriptionSource(source)) return ''
+  if (fetchOptions.timeoutMs >= SUBSCRIPTION_FETCH_LIMITS.timeoutSeconds.max * 1000) return ''
+  if (error.mirrored) {
+    return '。订阅较大或服务器较慢的话，可在这个订阅的设置里调大「拉取超时」（GitHub 地址会依次试 5 条线路，每条各算一次超时；「失败重试」对它不生效）'
+  }
+  return '。订阅较大或服务器较慢的话，可在这个订阅的设置里调大「拉取超时」或「失败重试」'
 }
 
 /** 这些 HTTP 状态可能下次就好（服务器忙、限流、网关超时），值得重试 */
@@ -429,8 +443,10 @@ async function fetchAndParseM3u(subscriptionUrl, { userAgent, timeoutMs = 15000,
   // 所有线路都失败：给出可操作的提示，而不是单条被截断的 node-fetch 报错
   // 订阅拉取不走代理，别在提示里让用户去配代理；服务端拉不到时给能当场用的出路
   const error = new Error(`所有线路均无法获取订阅，请检查服务器能否访问这个地址；访问不了的话，可更换能访问的订阅地址，或在电脑上下载后改用「本地文件 / 粘贴」导入。已尝试: ${failures.join('，')}`)
-  // 有线路是超时失败的：调用方据此提示「可以调大超时」（订阅源设置里有这一项，issue #223）
+  // 有线路是超时失败的：调用方据此提示「可以调大超时」（订阅源设置里有这一项，issue #223）；
+  // mirrored 标明走的是 GitHub 镜像组，提示里要说明「失败重试」对它不生效
   error.timedOut = timedOut
+  error.mirrored = isGithubRaw
   throw error
 }
 
@@ -886,7 +902,8 @@ class ExternalSourceManager {
       const channels = parsePlaylistContent(source.subscriptionContent)
       this.sources.sources[index].parsedChannels = channels
       this.sources.sources[index].lastUpdated = new Date().toISOString()
-      this.sources.sources[index]._failCount = 0
+      delete this.sources.sources[index]._failCount   // 旧版落盘的失败计数，退避已改为内存态
+      this.fetchBackoff.clear(this.backoffKey(this.sources.sources[index]))
       this.saveSources()
       printGreen(`${source.name} 本地导入解析成功，共 ${channels.length} 个频道`)
       return { success: true, channelCount: channels.length }
@@ -908,40 +925,28 @@ class ExternalSourceManager {
       if (!cur) return { success: false, message: '源已被删除，放弃写入订阅结果' }
       cur.parsedChannels = channels
       cur.lastUpdated = new Date().toISOString()
-      cur._failCount = 0
+      delete cur._failCount   // 旧版落盘的失败计数，退避已改为内存态
+      this.fetchBackoff.clear(this.backoffKey(cur))
       this.saveSources()
 
       printGreen(`${source.name} 订阅更新成功，共 ${channels.length} 个频道`)
       return { success: true, channelCount: channels.length }
     } catch (error) {
-      // 超时失败、且超时还没调到顶：告诉用户这个源可以调大超时（issue #223）
-      const canRaiseTimeout = error.timedOut && fetchOptions.timeoutMs < SUBSCRIPTION_FETCH_LIMITS.timeoutSeconds.max * 1000
-      const message = canRaiseTimeout
-        ? `${error.message}。订阅较大或服务器较慢的话，可在这个订阅的设置里调大「拉取超时」或「失败重试」`
-        : error.message
+      const message = `${error.message}${subscriptionFailureHint(error, fetchOptions, source)}`
       printRed(`${source.name} 订阅更新失败: ${message}`)
 
-      // 回写前按 id 重新定位（await 期间快照 index 可能已失效）；源已被删则不写
+      // 按 id 重新定位（await 期间快照 index 可能已失效）；源已被删则不记
       const cur = this.relocateSource(source)
       if (!cur) return { success: false, message }
-      const failCount = (cur._failCount || 0) + 1
-      cur._failCount = failCount
-      const intervalMinutes = cur.refreshInterval || 1440
-      const hasCache = Array.isArray(cur.parsedChannels) && cur.parsedChannels.length > 0
-      if (hasCache) {
-        // 有缓存：保留旧频道，按连续失败次数递增退避（30、60、90…分钟），最长到刷新间隔的一半。
-        // 以前一失败就固定等半个间隔（默认 12 小时），一次网络抖动要过半天才重拉（issue #223）
-        const waitMinutes = Math.round(Math.min(FAILED_SUBSCRIPTION_RETRY_STEP_MINUTES * failCount, intervalMinutes / 2))
-        cur.lastUpdated = new Date(Date.now() - (intervalMinutes - waitMinutes) * 60 * 1000).toISOString()
-        this.saveSources()
-        printYellow(`${source.name} 保留上次缓存的 ${cur.parsedChannels.length} 个频道，${waitMinutes} 分钟后重试`)
-      } else if (failCount > 3) {
-        // 没有缓存：前 3 次照常每轮重试，之后退避，避免一直对拉不到的地址发请求
-        const backoffMinutes = Math.min(failCount * 30, 360) // 最长6小时退避
-        cur.lastUpdated = new Date(Date.now() - (intervalMinutes - backoffMinutes) * 60 * 1000).toISOString()
-        this.saveSources()
-        printYellow(`${source.name} 已连续失败 ${failCount} 次，${backoffMinutes} 分钟后重试`)
-      }
+      // 失败退避和网页抓取源用同一张内存表（10、20、40…分钟递增，上限为该源的刷新间隔，成功清零，
+      // 重启后重新开始）。旧做法是把 lastUpdated 往回拨「间隔 − 等待」来编码退避：后台「上次更新」
+      // 会显示成 23 小时前的假时间，页面整份保存一次又把它覆盖回去（issue #223 审查）。
+      // 有缓存的订阅照旧保留旧频道，频道不会悄悄消失
+      const entry = this.fetchBackoff.record(this.backoffKey(cur), cur.refreshInterval || 240, { error: message })
+      const kept = Array.isArray(cur.parsedChannels) && cur.parsedChannels.length > 0
+        ? `保留上次缓存的 ${cur.parsedChannels.length} 个频道，`
+        : ''
+      printYellow(`${source.name} ${kept}已连续失败 ${entry.count} 次，${entry.waitMinutes} 分钟后再试`)
 
       return { success: false, message }
     }
@@ -956,8 +961,8 @@ class ExternalSourceManager {
       return false
     }
 
-    // 网页抓取连续失败：在退避窗口内不重抓（订阅源有自己的失败退避）
-    if (source.mode !== 'subscription' && this.fetchBackoff.isCooling(this.backoffKey(source))) {
+    // 连续失败（网页抓取 / 订阅拉取）：在退避窗口内不重试
+    if (this.fetchBackoff.isCooling(this.backoffKey(source))) {
       return false
     }
     
@@ -1165,6 +1170,26 @@ class ExternalSourceManager {
   /**
    * 获取配置信息
    */
+  /**
+   * 各源最近一次拉取 / 抓取失败的记账（内存态，成功即清除），供后台卡片显示
+   * 「上次拉取失败：原因，几点后再试」。不进 external-sources.json，页面整份保存也带不回来。
+   * @returns {Object<string, {failCount:number, lastError:string, nextRetryAt:string}>} 按源 id
+   */
+  fetchStatus() {
+    const status = {}
+    for (const source of this.sources.sources || []) {
+      if (!source?.id) continue
+      const entry = this.fetchBackoff.get(this.backoffKey(source))
+      if (!entry) continue
+      status[source.id] = {
+        failCount: entry.count,
+        lastError: entry.lastError,
+        nextRetryAt: new Date(entry.nextRetryAt).toISOString(),
+      }
+    }
+    return status
+  }
+
   getConfig() {
     return {
       enabled: this.sources.enabled,
@@ -1181,4 +1206,4 @@ class ExternalSourceManager {
 const externalSourceManager = new ExternalSourceManager()
 
 export default externalSourceManager
-export { ExternalSourceManager, reseedBuiltInSubscriptions, fetchAndParseM3u, subscriptionFetchOptions, SUBSCRIPTION_FETCH_LIMITS, parsePlaylistContent, decodeAndParseLocalContent, splitCredentials, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS, ensureSourceIds, inheritExistingSourceIds }
+export { ExternalSourceManager, reseedBuiltInSubscriptions, fetchAndParseM3u, subscriptionFetchOptions, subscriptionFailureHint, SUBSCRIPTION_FETCH_LIMITS, parsePlaylistContent, decodeAndParseLocalContent, splitCredentials, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS, ensureSourceIds, inheritExistingSourceIds }

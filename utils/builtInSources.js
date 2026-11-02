@@ -171,28 +171,29 @@ class BuiltInSourceManager {
    * 成功且合法：更新内存配置 + 写入数据卷缓存（含 webUrl 变更则清抓取缓存重抓）。
    * 失败/非法：保持当前配置（本地内置或上次远程缓存兜底），绝不让 app 出错。
    * 这样 webUrl 等「push 即更新」、无需重建镜像；国内拉不到时退回本地配置，和纯本地一样稳。
+   * @returns {Promise<boolean>} 生效的配置是否变了（调用方据此决定要不要重新生成播放列表）
    */
   async refreshRemoteConfig() {
-    if (!BUILT_IN_SOURCES_URL) return
+    if (!BUILT_IN_SOURCES_URL) return false
     const text = await this.fetchRemoteText(BUILT_IN_SOURCES_URL)
     if (!text) {
       printYellow("内置源远程配置拉取失败，沿用当前配置（本地/缓存兜底）")
-      return
+      return false
     }
     let parsed
     try {
       parsed = JSON.parse(text)
     } catch {
       printYellow("内置源远程配置非法 JSON，忽略本次")
-      return
+      return false
     }
     if (!parsed || !Array.isArray(parsed.sources)) {
       printYellow("内置源远程配置结构异常（缺少 sources 数组），忽略本次")
-      return
+      return false
     }
     // 和当前生效的配置一样就什么都不做：5 分钟拉一次，绝大多数时候没变，
     // 此前每次都写一遍缓存文件、再打一行「已更新」，日志里全是它（issue #222）
-    if (JSON.stringify(parsed) === JSON.stringify(this.sources)) return
+    if (JSON.stringify(parsed) === JSON.stringify(this.sources)) return false
     this.invalidateChangedFetchCaches(parsed) // webUrl 变了就清旧抓取缓存、强制重抓
     this.sources = parsed
     try {
@@ -202,6 +203,7 @@ class BuiltInSourceManager {
     }
     const fetchCount = parsed.sources.filter(s => s.mode === 'fetch').length
     printGreen(`内置源远程配置已更新: ${parsed.sources.length} 个源（${fetchCount} 个需抓取）`)
+    return true
   }
 
   /**
@@ -419,11 +421,13 @@ class BuiltInSourceManager {
       return { success: true, message: "内置源已禁用" }
     }
 
-    // 先刷新远程内置源配置（webUrl / 源列表等可能已 push 更新），再据此抓取
-    await this.refreshRemoteConfig()
+    // 先刷新远程内置源配置（webUrl / 源列表等可能已 push 更新），再据此抓取。
+    // 配置变了（停用 / 删掉某源、改分组名……）播放列表也要跟着重生成，哪怕本轮一个源都没抓：
+    // 返回值带 configChanged，app.js 的 tick 据此置脏（issue #222 审查）
+    const configChanged = (await this.refreshRemoteConfig()) === true
 
     if (!this.sources.enabled) {
-      return { success: true, message: "内置源已禁用" }
+      return { success: true, message: "内置源已禁用", configChanged }
     }
 
     const fetchSources = this.sources.sources.filter(source => {
@@ -434,7 +438,7 @@ class BuiltInSourceManager {
     })
 
     if (fetchSources.length === 0) {
-      return { success: true, message: "无需更新" }
+      return { success: true, message: "无需更新", configChanged }
     }
 
     const results = []
@@ -487,23 +491,25 @@ class BuiltInSourceManager {
         } else {
           const reason = extractError || '未找到m3u8链接'
           printRed(`✗ ${source.name} 更新失败: ${reason}`)
-          await this.dropCacheUnlessStillValid(source)
+          const changed = await this.dropCacheAfterFailure(source)
           this.noteFailure(source, reason)
           results.push({ 
             id: source.id, 
             name: source.name, 
             success: false,
+            changed,
             error: reason
           })
         }
       } catch (error) {
         printRed(`✗ ${source.name} 更新失败: ${error.message}`)
-        await this.dropCacheUnlessStillValid(source)
+        const changed = await this.dropCacheAfterFailure(source)
         this.noteFailure(source, error.message)
         results.push({ 
           id: source.id, 
           name: source.name, 
           success: false,
+          changed,
           error: error.message
         })
       }
@@ -520,7 +526,18 @@ class BuiltInSourceManager {
       printRed(`内置源更新完成: 全部失败 (0/${results.length})${skipped > 0 ? `, ${skipped} 个跳过` : ''}`)
     }
 
-    return { success: true, results }
+    return { success: true, results, configChanged }
+  }
+
+  /**
+   * 抓取失败后处理旧缓存，返回播放列表是否因此变了：之前有地址、本轮校验不过被清掉，
+   * 该台会从列表里消失——这也是一次要重新生成的变化，不能因为 success:false 就不算，
+   * 否则死链要挂到下次全量更新（issue #222 审查）。
+   */
+  async dropCacheAfterFailure(source) {
+    const hadCache = Boolean(this.cache[source.id]?.m3u8Url)
+    const kept = await this.dropCacheUnlessStillValid(source)
+    return hadCache && !kept
   }
 
   /**

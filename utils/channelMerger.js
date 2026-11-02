@@ -541,7 +541,22 @@ async function updateExtractors(options = {}) {
  * 宁可多生成一次，也不能漏掉新地址。
  */
 function hasChangedResult(result) {
-  return Array.isArray(result?.results) && result.results.some(r => r?.success && r.changed !== false)
+  if (result?.configChanged === true) return true
+  return Array.isArray(result?.results) && result.results.some(resultChanged)
+}
+
+/** 单个源的刷新结果算不算「内容变了」：失败但明确标了 changed（缓存被清、死链要从列表拿掉）也算 */
+function resultChanged(r) {
+  return r?.changed === true || (r?.success && r.changed !== false)
+}
+
+/** 本轮内容有变化的源名，让 tick 的日志说清是谁触发了重新生成（远程配置变了算一项） */
+function changedSourceNames(result) {
+  const names = Array.isArray(result?.results)
+    ? result.results.filter(resultChanged).map(r => r.name).filter(Boolean)
+    : []
+  if (result?.configChanged === true) names.unshift('内置源远程配置')
+  return names
 }
 
 /**
@@ -557,6 +572,7 @@ export {
   updateBuiltInSources,
   updateExtractors,
   hasChangedResult,
+  changedSourceNames,
   getExternalSourceStats,
   externalSourceManager,
   builtInSourceManager,

@@ -18,7 +18,7 @@ import { getDateString } from "./time.js"
 import { fetchUrl } from "./net.js"
 import { dataPath } from "./paths.js"
 import { readMiguTokenState, markMiguTokenRefreshed, MIGU_TOKEN_REFRESH_INTERVAL_MS } from "./miguTokenState.js"
-import { readFileSync, existsSync, statSync } from "node:fs"
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs"
 import { announcementM3uEntry, announcementTxtEntry } from "./announcement.js"
 import miguDanmaku from "../extractors/migu/danmaku.js"
 
@@ -46,6 +46,27 @@ export function findLocalLogo(name) {
 function localLogoVersion(file) {
   try {
     return `?v=${Math.floor(statSync(file).mtimeMs)}`
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 数据目录 logos/ 的指纹（文件名 + 修改时间）。app.js 的 5 分钟 tick 拿它判断手工放进去的台标
+ * 有没有增删改：台标只在重新生成播放列表时写进 m3u，而 tick 只在源内容变化时才重生成（issue #222），
+ * 不比这一下，手放的图要等全量更新才出现。目录不存在或读不到按空串算，绝不抛。
+ */
+export function localLogosFingerprint() {
+  try {
+    const dir = dataPath('logos')
+    if (!existsSync(dir)) return ''
+    return readdirSync(dir).sort().map(file => {
+      try {
+        return `${file}:${Math.floor(statSync(dataPath(`logos/${file}`)).mtimeMs)}`
+      } catch {
+        return file
+      }
+    }).join('|')
   } catch {
     return ''
   }
@@ -655,8 +676,14 @@ async function updatePE(hours) {
         // updatePE，导致本轮体育频道整批丢失且 pe-cache 不更新。行为与之前逐字节相同，
         // 只是不再依赖那个巧合。
         const peResult = await fetchUrl(`https://vms-sc.miguvideo.com/vms-match/v6/staticcache/basic/basic-data/${data.mgdbId}/miguvideo`)
-        // fetchUrl 失败时返回 undefined 而不抛；明确报出来，别让日志里只剩一句「reading 'body'」
-        if (!peResult?.body) throw new Error('赛事详情接口无响应')
+        // fetchUrl 失败时返回 undefined 而不抛；明确报出来，别让日志里只剩一句「reading 'body'」。
+        // 「接口回了 JSON 但没有 body」（下架 / 改 ID 的场次回 410）是数据侧的拒绝，不是无响应，
+        // 分开说，别让人去查网络
+        if (!peResult) throw new Error('赛事详情接口无响应')
+        if (!peResult.body) {
+          const code = peResult.code ? `（${peResult.code}${peResult.message ? ' ' + peResult.message : ''}）` : ''
+          throw new Error(`赛事详情接口无数据${code}`)
+        }
         // 比赛已结束
         if (peResult.body.endTime < Date.now()) {
           const replayResult = await fetchUrl(`http://app-sc.miguvideo.com/vms-match/v5/staticcache/basic/all-view-list/${data.mgdbId}/2/miguvideo`)

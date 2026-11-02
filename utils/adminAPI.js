@@ -88,7 +88,9 @@ export function getExternalSourcesAPI() {
   try {
     return {
       success: true,
-      data: externalSourceManager.sources
+      data: externalSourceManager.sources,
+      // 各源最近一次拉取失败的记账（内存态，不在 data 里，整份保存时不会被带回来）
+      fetchStatus: externalSourceManager.fetchStatus()
     }
   } catch (error) {
     return {

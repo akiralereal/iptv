@@ -190,6 +190,9 @@ class BuiltInSourceManager {
       printYellow("内置源远程配置结构异常（缺少 sources 数组），忽略本次")
       return
     }
+    // 和当前生效的配置一样就什么都不做：5 分钟拉一次，绝大多数时候没变，
+    // 此前每次都写一遍缓存文件、再打一行「已更新」，日志里全是它（issue #222）
+    if (JSON.stringify(parsed) === JSON.stringify(this.sources)) return
     this.invalidateChangedFetchCaches(parsed) // webUrl 变了就清旧抓取缓存、强制重抓
     this.sources = parsed
     try {
@@ -460,6 +463,8 @@ class BuiltInSourceManager {
         const { m3u8Url, webUrl, error: extractError } = await this.extractWithFallback(source)
 
         if (m3u8Url) {
+          // 地址没变就不必重新生成播放列表：纬来体育这类源的 m3u8 多日不变（见 dropCacheUnlessStillValid）
+          const changed = this.cache[source.id]?.m3u8Url !== m3u8Url
           this.cache[source.id] = {
             m3u8Url,
             webUrl,                       // 本次成功的抓取网址：下轮优先重试它，也方便排查是哪个站在供源
@@ -471,10 +476,11 @@ class BuiltInSourceManager {
           
           printGreen(`✓ ${source.name} 更新成功`)
           
-          results.push({ 
-            id: source.id, 
-            name: source.name, 
+          results.push({
+            id: source.id,
+            name: source.name,
             success: true,
+            changed,
             m3u8Url,
             webUrl
           })

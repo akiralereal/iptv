@@ -35,7 +35,7 @@ import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI
 import { exportConfigAPI, importConfigAPI } from "./utils/configBackupAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, collectGroupConflicts, applyConfig,
          listProfiles, createProfile, renameProfile, deleteProfile } from "./utils/playlistConfig.js";
-import { updateBuiltInSources, updateExternalSources, updateExtractors, externalSourceManager, builtInSourceManager } from "./utils/channelMerger.js";
+import { updateBuiltInSources, updateExternalSources, updateExtractors, hasChangedResult, externalSourceManager, builtInSourceManager } from "./utils/channelMerger.js";
 import { GITHUB_RAW_MIRRORS, isBuiltInSubscriptionSource } from "./utils/externalSources.js";
 import { startProbe, getProbeStatus, cancelProbe } from "./utils/sourceProbe.js";
 import { cleanUserAgent, userAgentOf } from "./utils/channelOpts.js";
@@ -1623,12 +1623,17 @@ server.listen(port, async () => {
   cleanCoreDumps()
   setInterval(() => cleanCoreDumps(), 60 * 60 * 1000)
 
+  // 源刷新拿到了新内容、但重新生成播放列表抛了异常：记下来，下一轮 tick 再生成一次。
+  // tick 只在内容有变化时才重新生成（issue #222），不记的话这次变化要等到下一次完整更新。
+  let playlistStale = false
+
   // 定时任务1: 完整更新（咪咕 + 外部源 + 节目单）
   setInterval(async () => {
     printBlue(`准备更新文件 ${getDateTimeStr(new Date())}`)
     hours += updateInterval
     try {
       await update(hours)
+      playlistStale = false
     } catch (error) {
       console.log(error)
       printRed("更新失败")
@@ -1654,18 +1659,19 @@ server.listen(port, async () => {
       const builtInResult = await updateBuiltInSources({ autoOnly: true })
       const externalResult = await updateExternalSources({ autoOnly: true })
       const extractorResult = await updateExtractors({ autoOnly: true })
-      // 若有任何源成功刷新了新 URL，立即重新生成播放列表（regenerateOnly 模式不重抓咪咕/节目单，速度快）
-      const builtInUpdated = Array.isArray(builtInResult?.results) && builtInResult.results.some(r => r.success)
-      const externalUpdated = Array.isArray(externalResult?.results) && externalResult.results.some(r => r.success)
-      const extractorUpdated = Array.isArray(extractorResult?.results) && extractorResult.results.some(r => r.success)
-      if (builtInUpdated || externalUpdated || extractorUpdated) {
-        printBlue("检测到源 URL 已更新，重新生成播放列表...")
+      // 有源刷新出了**不一样的**内容才重新生成播放列表（regenerateOnly 模式不重抓咪咕/节目单，速度快）。
+      // 只看「刷新成功」的话，广西每 30 分钟、一批 4 小时周期的模块到点就各重写一遍
+      // 一字未变的播放列表，日志被刷屏（issue #222）
+      if ([builtInResult, externalResult, extractorResult].some(hasChangedResult)) playlistStale = true
+      if (playlistStale) {
+        printBlue("检测到源内容有变化，重新生成播放列表...")
         try {
           await update(hours, { regenerateOnly: true })
+          playlistStale = false
           printGreen("播放列表已更新为最新源 URL")
         } catch (regenError) {
           console.log(regenError)
-          printRed("播放列表重新生成失败")
+          printRed("播放列表重新生成失败，下一轮再试")
         }
       }
     } catch (error) {
@@ -1687,7 +1693,7 @@ server.listen(port, async () => {
     try {
       printBlue("启动模式：后台抓取需要网页抓取的内置源...")
       const result = await updateBuiltInSources({ startupMode: true })
-      if (Array.isArray(result?.results) && result.results.some(r => r.success)) {
+      if (hasChangedResult(result)) {
         printBlue("内置源启动抓取拿到新地址，重新生成播放列表...")
         await update(hours, { regenerateOnly: true })
         printGreen("播放列表已补入内置源最新地址")

@@ -535,6 +535,15 @@ function retireBuiltInSubscriptions(config) {
 }
 
 /**
+ * 一次刷新会改到的、进播放列表的那部分：直连/抓取源的 m3u8Url，订阅源的 parsedChannels。
+ * 刷新前后一比就知道要不要重新生成播放列表。源已被删除时为 null（也算变了）。
+ */
+function playlistFingerprint(source) {
+  if (!source) return null
+  return JSON.stringify([source.m3u8Url ?? null, source.parsedChannels ?? null])
+}
+
+/**
  * 外部频道源管理类
  */
 class ExternalSourceManager {
@@ -942,11 +951,14 @@ class ExternalSourceManager {
         skipped++
         continue
       }
+      const before = playlistFingerprint(this.sources.sources[curIndex])
       const result = await this.updateSource(curIndex)
       results.push({
         index: curIndex,
         name: source.name,
-        ...result
+        ...result,
+        // 抓回来的地址 / 订阅内容和上一轮一样时，不必重新生成播放列表（issue #222）
+        changed: playlistFingerprint(this.relocateSource(source)) !== before,
       })
 
       // 避免请求过快，添加延迟

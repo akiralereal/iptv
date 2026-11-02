@@ -368,6 +368,8 @@ async function updateTV(hours, options = {}) {
   // 节目单抓取失败的频道数。逐个打日志会刷屏（一轮 175 个频道），收尾统一报一次。
   let playbackFailed = 0
   let lastPlaybackError = ''
+  // 本轮写进 m3u 的频道数，快速重生成收尾时汇总成一行
+  let writtenChannels = 0
   for (let i = 0; i < datas.length; i++) {
 
     const data = datas[i].dataList
@@ -468,6 +470,7 @@ async function updateTV(hours, options = {}) {
       // 行内覆盖订阅头的咪咕模板。没有声明时为空串，输出与之前逐字节一致。
       const catchupAttr = renderCatchupAttrs(channelItem)
       appendFileSync(interfacePath, `#EXTINF:-1 tvg-id="${channelItem.name}" tvg-name="${channelItem.name}" tvg-logo="${logoUrl}"${sourceAttr}${catchupAttr} group-title="${datas[i].name}",${channelItem.name}\n${optLines}${playUrl}\n`)
+      writtenChannels++
       // txt：diyp/TVBox 格式只有「频道名,地址」两列，放不下请求头，依赖请求头的
       // 频道写进去必定 403——缺一个台好过一个死台，整条跳过。
       // 判据用 needsOpts 而不是「optLines 是否为空」：只带 network-caching 的频道
@@ -479,8 +482,11 @@ async function updateTV(hours, options = {}) {
       }
       // printGreen(`    节目链接更新成功`)
     }
-    printGreen(`分组:${datas[i].name} 更新完成！`)
+    // 完整更新每组要抓节目单、耗时几秒，逐组一行当进度看；快速重生成整轮不到一秒，
+    // 逐组打就是一次五十多行（issue #222），收尾汇总成一行
+    if (!regenerateOnly) printGreen(`分组:${datas[i].name} 更新完成！`)
   }
+  if (regenerateOnly) printGreen(`已重新生成 ${datas.length} 个分组、${writtenChannels} 个频道`)
 
   if (enableLogoCache) finishLogoCache()
 

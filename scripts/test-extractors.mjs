@@ -1783,6 +1783,36 @@ try {
     assert.equal(health.lastSuccessAt, null, '旧轮的记账不能冻结「配置已变更、立刻重抓」')
   })
 
+  await checkAsync('★ 频道表和上一轮一样 → changed:false，变了 → changed:true（issue #222）', async () => {
+    // 回归：5 分钟 tick 此前只看「刷新成功」就重写播放列表。延迟解析的模块（广西每 30 分钟）
+    // 每轮抓回的都是同一份 deferredRef，等于反复重写一字未变的列表、刷五十多行日志。
+    const manager = newManager()
+    manager.setModuleEnabled('bilibili-live', true)
+    const module = getModule('bilibili-live')
+    const origFetch = module.fetch
+    let groups = oneGroup
+    // 每轮都给新对象：真实模块每次都是现拼的，判定必须比内容、不能比引用
+    module.fetch = async () => ({ groups: JSON.parse(JSON.stringify(groups)) })
+    const run = async (m = manager) => (await m.updateAll({ forceAll: true, onlyId: 'bilibili-live' })).results[0]
+    try {
+      assert.equal((await run()).changed, true, '冷缓存第一次抓到频道就是变化')
+      const same = await run()
+      assert.equal(same.success, true)
+      assert.equal(same.changed, false, '内容没变不该触发重新生成')
+
+      // 重启后磁盘缓存 JSON 往返一次，再抓到同样内容也还是没变
+      const restarted = new ExtractorManager()
+      restarted.configPath = manager.configPath
+      restarted.cachePath = manager.cachePath
+      restarted.legacyConfigPath = manager.legacyConfigPath
+      restarted.load()
+      assert.equal((await run(restarted)).changed, false, '读回磁盘缓存后比对不该失真')
+
+      groups = [{ ...oneGroup[0], dataList: [{ ...oneGroup[0].dataList[0], url: 'https://cdn/b.m3u8' }] }]
+      assert.equal((await run()).changed, true, '地址变了必须重新生成')
+    } finally { module.fetch = origFetch }
+  })
+
   check('listSourceIds 不按模块开关过滤——「配置档 ↔ 源」的绑定行要留在矩阵里', () => {
     // 回归：按 isModuleEnabled 过滤的话，关掉模块后它的绑定行从矩阵消失，开回来
     // 得重设一遍（app.js /api/source-profiles 的注释明确要求「绑定关系要留着」）。

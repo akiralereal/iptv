@@ -8678,6 +8678,20 @@
                             </label>
                             <div class="form-hint">勾选后，本源频道在 m3u 里都带上 <code>#EXTVLCOPT:http-user-agent</code>，需要播放器认这一行（VLC、Kodi 等）；订阅里已自带 UA 的频道保持不变。带请求头的频道 TXT 格式放不下，会从 TXT 订阅里跳过。</div>
                         </div>
+                        ${!source.localImport ? `
+                        <div class="external-field">
+                            <div class="external-field-row">
+                                <div>
+                                    <label>拉取超时（秒，可选）</label>
+                                    <input type="number" min="${SUBSCRIPTION_FETCH_RANGES.fetchTimeout[0]}" max="${SUBSCRIPTION_FETCH_RANGES.fetchTimeout[1]}" step="1" value="${escapeHtml(String(source.fetchTimeout ?? ''))}" onchange="setSubscriptionFetchField(${index}, 'fetchTimeout', this)" placeholder="15">
+                                </div>
+                                <div>
+                                    <label>失败重试（次，可选）</label>
+                                    <input type="number" min="${SUBSCRIPTION_FETCH_RANGES.fetchRetries[0]}" max="${SUBSCRIPTION_FETCH_RANGES.fetchRetries[1]}" step="1" value="${escapeHtml(String(source.fetchRetries ?? ''))}" onchange="setSubscriptionFetchField(${index}, 'fetchRetries', this)" placeholder="0">
+                                </div>
+                            </div>
+                            <div class="form-hint">总是「请求超时」时再调。超时从发起请求算到列表下载完，留空为 15 秒，可填 5–120；只在超时、连接中断、服务器 5xx 时重试，留空不重试，最多 3 次（GitHub raw 地址本来就会换镜像线路，重试对它不生效）。设得越大，拉不到时其它源的自动刷新等得越久；后台前面有 nginx 等反向代理时，「导入并保存」的总耗时别超过它的超时（常见 60 秒）。</div>
+                        </div>` : ''}
                         <div class="external-field">
                             <label>默认分组</label>
                             ${renderGroupSelect(index, source.group || '未分组')}
@@ -9144,6 +9158,25 @@
                 adoptExternalConfig(normalizeExternalConfig(externalPayload));
                 renderExternalSources();
             }
+        }
+
+        // 订阅源「拉取超时 / 失败重试」（issue #223）。范围与服务端 externalSources.js 的
+        // SUBSCRIPTION_FETCH_LIMITS 一致：服务端也会再夹一次，这里夹是为了让输入框显示的就是实际生效的值
+        const SUBSCRIPTION_FETCH_RANGES = { fetchTimeout: [5, 120], fetchRetries: [0, 3] };
+        function setSubscriptionFetchField(index, field, input) {
+            const [min, max] = SUBSCRIPTION_FETCH_RANGES[field];
+            const raw = String(input.value || '').trim();
+            const n = Number(raw);
+            if (raw === '' || !Number.isFinite(n)) {
+                // 留空 = 用默认值：删掉字段，而不是存一个 0 / 空串
+                input.value = '';
+                delete externalConfig.sources[index][field];
+                setSaveDirty('ext');
+                return;
+            }
+            const value = Math.min(max, Math.max(min, Math.round(n)));
+            input.value = String(value);
+            updateExternalField(index, field, value);
         }
 
         function updateExternalField(index, field, value) {

@@ -490,6 +490,53 @@ function cloneBuiltInSubscription(entry) {
   return JSON.parse(JSON.stringify(entry))
 }
 
+// 默认自定义订阅：新装和升级各播种一次，作为普通「自定义源」卡片出现，和用户自己加的一样
+// 能改名、停用、删除，删了不复活（账本 seededDefaultSubscriptions）。与上面的内置订阅不同：
+// 不在后台隐藏、不受「内置订阅」开关的抓取 / 输出控制，只在开关关着时不播种。
+// match 认的是同一份列表的各种写法（refs/heads/main、镜像前缀），用户手动加过就不再重复加。
+const DEFAULT_CUSTOM_SUBSCRIPTIONS = [
+  {
+    match: /\/from-the-web\/from-the-web\.m3u(\?|#|$)/,
+    source: {
+      name: '来源于网络',
+      group: '未分组',
+      enabled: true,
+      mode: 'subscription',
+      m3u8Url: '',
+      webUrl: '',
+      subscriptionUrl: 'https://raw.githubusercontent.com/akiralereal/iptv/main/from-the-web/from-the-web.m3u',
+      parsedChannels: null,
+      autoRefresh: true,
+      refreshInterval: 1440,
+      updateOnStartup: true,
+      lastUpdated: null,
+    },
+  },
+]
+
+/**
+ * 播种默认自定义订阅（只播一次，尊重删除）。已有同一份列表（任何写法）就只记账不加。
+ * @returns {boolean} 配置是否被改动（需要落盘）
+ */
+function ensureDefaultCustomSubscriptions(config) {
+  if (!config || !Array.isArray(config.sources)) return false
+  if (!enableBuiltInSubscriptions) return false  // 「只去掉自带的额外源 / 订阅」的人不要它
+  if (!Array.isArray(config.seededDefaultSubscriptions)) config.seededDefaultSubscriptions = []
+  let mutated = false
+  for (const def of DEFAULT_CUSTOM_SUBSCRIPTIONS) {
+    const url = def.source.subscriptionUrl
+    if (config.seededDefaultSubscriptions.includes(url)) continue
+    const exists = config.sources.some(s => s && s.mode === 'subscription' && def.match.test(String(s.subscriptionUrl || '').trim()))
+    if (!exists) {
+      config.sources.push(cloneBuiltInSubscription(def.source))
+      printBlue(`添加默认自定义订阅: ${def.source.name}`)
+    }
+    config.seededDefaultSubscriptions.push(url)
+    mutated = true
+  }
+  return mutated
+}
+
 // 内置订阅源 URL 集合与判断：禁用内置订阅时，抓取层(updateAllSources/updateSubscriptionSource)
 // 与服务层(getValidChannels)都据此跳过，避免无谓联网下载，并保证输出一致。
 const BUILT_IN_SUBSCRIPTION_URLS = new Set(BUILT_IN_SUBSCRIPTIONS.map(b => b.subscriptionUrl))
@@ -581,7 +628,8 @@ function inheritExistingSourceIds(incoming, current) {
 // 于是这两个账本每次保存都被静默抹掉。
 //
 // 实测：删掉「精选频道」→ 后台随便保存一次 → 重启，它就回来了。
-const SERVER_OWNED_KEYS = ['seededBuiltInUrls', 'retiredBuiltInsV1']
+// seededDefaultSubscriptions 同理：「哪些默认自定义订阅已经播种过」，丢了删掉的「来源于网络」会复活
+const SERVER_OWNED_KEYS = ['seededBuiltInUrls', 'retiredBuiltInsV1', 'seededDefaultSubscriptions']
 
 /**
  * 把内置订阅源**重新**播种回来（用户在「内置源」那一段主动打开开关时调用）。
@@ -665,6 +713,8 @@ class ExternalSourceManager {
         updateInterval: 60,
         lastGlobalUpdate: null
       }
+      ensureDefaultCustomSubscriptions(defaultConfig)
+      ensureSourceIds(defaultConfig)
 
       this.saveSources(defaultConfig)
       return defaultConfig
@@ -685,8 +735,9 @@ class ExternalSourceManager {
         }
         const retired = retireBuiltInSubscriptions(config)
         const mutated = ensureBuiltInSubscriptions(config)
+        const defaultsAdded = ensureDefaultCustomSubscriptions(config)
         const idsAdded = ensureSourceIds(config)   // 存量源补稳定 id（issue #29/#68）
-        if (retired || mutated || idsAdded) this.saveSources(config)
+        if (retired || mutated || defaultsAdded || idsAdded) this.saveSources(config)
         return config
       }
       if (typeof parsed === 'object' && parsed !== null) {
@@ -707,8 +758,9 @@ class ExternalSourceManager {
         // 播种内置订阅源（只播种从未播种过的；尊重用户删除）
         const retired = retireBuiltInSubscriptions(parsed)
         const mutated = ensureBuiltInSubscriptions(parsed)
+        const defaultsAdded = ensureDefaultCustomSubscriptions(parsed)   // 「来源于网络」等，只播一次
         const idsAdded = ensureSourceIds(parsed)   // 存量源补稳定 id（issue #29/#68）
-        if (retired || mutated || idsAdded) this.saveSources(parsed)
+        if (retired || mutated || defaultsAdded || idsAdded) this.saveSources(parsed)
         return parsed
       }
       return { enabled: false, includeInPlaylists: true, updateOnStartup: true, sources: [] }
@@ -1206,4 +1258,4 @@ class ExternalSourceManager {
 const externalSourceManager = new ExternalSourceManager()
 
 export default externalSourceManager
-export { ExternalSourceManager, reseedBuiltInSubscriptions, fetchAndParseM3u, subscriptionFetchOptions, subscriptionFailureHint, SUBSCRIPTION_FETCH_LIMITS, parsePlaylistContent, decodeAndParseLocalContent, splitCredentials, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS, ensureSourceIds, inheritExistingSourceIds }
+export { ExternalSourceManager, reseedBuiltInSubscriptions, fetchAndParseM3u, subscriptionFetchOptions, subscriptionFailureHint, SUBSCRIPTION_FETCH_LIMITS, parsePlaylistContent, decodeAndParseLocalContent, splitCredentials, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS, DEFAULT_CUSTOM_SUBSCRIPTIONS, ensureSourceIds, inheritExistingSourceIds }

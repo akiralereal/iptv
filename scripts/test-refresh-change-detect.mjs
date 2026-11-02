@@ -24,7 +24,7 @@ process.env.mdataDir = TMP
 delete process.env.mbuiltInSourcesUrl
 
 const { hasChangedResult, changedSourceNames } = await import('../utils/channelMerger.js')
-const { ExternalSourceManager, BUILT_IN_SUBSCRIPTIONS } = await import('../utils/externalSources.js')
+const { ExternalSourceManager, BUILT_IN_SUBSCRIPTIONS, DEFAULT_CUSTOM_SUBSCRIPTIONS } = await import('../utils/externalSources.js')
 const { default: builtInSourceManager } = await import('../utils/builtInSources.js')
 const { localLogosFingerprint } = await import('../utils/updateData.js')
 
@@ -100,6 +100,7 @@ try {
       sources: [{ id: 'aaaa1111', name: '测试台', group: '测试', mode: 'fetch', enabled: true,
         webUrl: 'https://example.com/live.html', m3u8Url: 'https://cdn/a.m3u8' }],
       seededBuiltInUrls: BUILT_IN_SUBSCRIPTIONS.map(s => s.subscriptionUrl),
+      seededDefaultSubscriptions: DEFAULT_CUSTOM_SUBSCRIPTIONS.map(d => d.source.subscriptionUrl),
       retiredBuiltInsV1: true,
     }))
     const mgr = new ExternalSourceManager()
@@ -125,6 +126,7 @@ try {
         subscriptionUrl: 'https://example.com/a.m3u',
         parsedChannels: [{ name: 'A', url: 'https://cdn/a.m3u8', group: '订阅' }] }],
       seededBuiltInUrls: BUILT_IN_SUBSCRIPTIONS.map(s => s.subscriptionUrl),
+      seededDefaultSubscriptions: DEFAULT_CUSTOM_SUBSCRIPTIONS.map(d => d.source.subscriptionUrl),
       retiredBuiltInsV1: true,
     }))
     const mgr = new ExternalSourceManager()

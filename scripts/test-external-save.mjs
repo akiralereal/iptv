@@ -24,10 +24,12 @@ import { join } from 'node:path'
 const TMP = mkdtempSync(join(tmpdir(), 'iptv-extsave-test-'))
 process.env.mdataDir = TMP
 
-const { ExternalSourceManager, BUILT_IN_SUBSCRIPTIONS } = await import('../utils/externalSources.js')
+const { ExternalSourceManager, BUILT_IN_SUBSCRIPTIONS, DEFAULT_CUSTOM_SUBSCRIPTIONS } = await import('../utils/externalSources.js')
 
 const P = join(TMP, 'external-sources.json')
 const BUILT_IN_URL = BUILT_IN_SUBSCRIPTIONS[0].subscriptionUrl
+// 默认自定义订阅「来源于网络」：夹具里标成已播种，免得它在这些与它无关的场景里冒出来
+const DEFAULT_URL = DEFAULT_CUSTOM_SUBSCRIPTIONS[0].source.subscriptionUrl
 const RETIRED_URL = 'https://raw.githubusercontent.com/YueChan/Live/refs/heads/main/GNTV.m3u'
 
 let passed = 0
@@ -52,6 +54,7 @@ check('删掉内置订阅 →（后台保存一次）→ 重启，不复活', ()
     enabled: true, includeInPlaylists: true, updateOnStartup: true,
     sources: [{ name: '我自己的源', mode: 'direct', enabled: true, m3u8Url: 'http://x/y.m3u8', id: 'aaaa1111' }],
     seededBuiltInUrls: [BUILT_IN_URL],     // 已播种过 → 用户是"删掉"而不是"没装过"
+    seededDefaultSubscriptions: [DEFAULT_URL],
     retiredBuiltInsV1: true,
   })
 
@@ -74,6 +77,7 @@ check('保存不抹掉 retiredBuiltInsV1 → 用户手动加回的已退役订�
     // 用户明知它已退役，仍手动加了回来
     sources: [{ name: '我要的旧港澳源', mode: 'subscription', enabled: true, subscriptionUrl: RETIRED_URL, id: 'bbbb2222' }],
     seededBuiltInUrls: [BUILT_IN_URL],
+    seededDefaultSubscriptions: [DEFAULT_URL],
     retiredBuiltInsV1: true,
   })
 
@@ -97,6 +101,7 @@ check('★ 调用方省略了用户可见键时，不得用旧值补回去（否
     enabled: true, includeInPlaylists: true, updateOnStartup: true,
     sources: [{ name: 'A', mode: 'direct', enabled: true, m3u8Url: 'http://a/', id: 'aaaa0001' }],
     seededBuiltInUrls: [BUILT_IN_URL],
+    seededDefaultSubscriptions: [DEFAULT_URL],
     retiredBuiltInsV1: true,
   })
   const mgr = new ExternalSourceManager()
@@ -121,6 +126,7 @@ check('只补服务端账本键，sources 等字段仍以调用方为准', () =>
       { name: 'B', mode: 'direct', enabled: true, m3u8Url: 'http://b/', id: 'bbbb0002' },
     ],
     seededBuiltInUrls: [BUILT_IN_URL],
+    seededDefaultSubscriptions: [DEFAULT_URL],
     retiredBuiltInsV1: true,
   })
   const mgr = new ExternalSourceManager()
@@ -139,7 +145,7 @@ check('只补服务端账本键，sources 等字段仍以调用方为准', () =>
 check('调用方显式带了账本键时以调用方为准（导入配置等路径）', () => {
   write({
     enabled: true, includeInPlaylists: true, updateOnStartup: true,
-    sources: [], seededBuiltInUrls: [BUILT_IN_URL], retiredBuiltInsV1: true,
+    sources: [], seededBuiltInUrls: [BUILT_IN_URL], seededDefaultSubscriptions: [DEFAULT_URL], retiredBuiltInsV1: true,
   })
   const mgr = new ExternalSourceManager()
   mgr.saveSources({
@@ -147,6 +153,54 @@ check('调用方显式带了账本键时以调用方为准（导入配置等路�
     sources: [], seededBuiltInUrls: [], retiredBuiltInsV1: true,
   })
   assert.deepEqual(read().seededBuiltInUrls, [], '显式传空数组应当被尊重，不能被旧值盖回去')
+})
+
+// ---- 默认自定义订阅「来源于网络」：新装 / 升级各播一次，作为普通自定义源出现，删了不复活 ----
+const isFromTheWeb = (s) => /\/from-the-web\/from-the-web\.m3u$/.test(s.subscriptionUrl || '')
+
+check('新装：「来源于网络」和精选频道一起出现，是普通订阅源（不是内置订阅）', () => {
+  rmSync(P, { force: true })
+  const mgr = new ExternalSourceManager()
+  const web = mgr.sources.sources.filter(isFromTheWeb)
+  assert.equal(web.length, 1)
+  assert.equal(web[0].name, '来源于网络')
+  assert.equal(web[0].mode, 'subscription')
+  assert.ok(web[0].id, '要有稳定 id，配置档才能按源筛')
+  assert.deepEqual(read().seededDefaultSubscriptions, [DEFAULT_URL])
+})
+
+check('升级：老配置里没有 → 补一次，排在最后', () => {
+  write({
+    enabled: true, includeInPlaylists: true, updateOnStartup: true,
+    sources: [{ name: '我自己的源', mode: 'direct', enabled: true, m3u8Url: 'http://x/y.m3u8', id: 'aaaa1111' }],
+    seededBuiltInUrls: [BUILT_IN_URL], retiredBuiltInsV1: true,
+  })
+  const names = new ExternalSourceManager().sources.sources.map(s => s.name)
+  assert.deepEqual(names, ['我自己的源', '来源于网络'])
+})
+
+check('升级：自己加过（任何写法）→ 只记账，不重复加', () => {
+  write({
+    enabled: true, includeInPlaylists: true, updateOnStartup: true,
+    sources: [{ name: '海外', mode: 'subscription', enabled: true, id: 'cccc3333',
+      subscriptionUrl: 'https://raw.githubusercontent.com/akiralereal/iptv/refs/heads/main/from-the-web/from-the-web.m3u' }],
+    seededBuiltInUrls: [BUILT_IN_URL], retiredBuiltInsV1: true,
+  })
+  new ExternalSourceManager()
+  const after = read()
+  assert.deepEqual(after.sources.map(s => s.name), ['海外'], '用户改过名的那条要保留，不能再多一条')
+  assert.deepEqual(after.seededDefaultSubscriptions, [DEFAULT_URL])
+})
+
+check('删掉「来源于网络」→ 后台保存一次 → 重启，不复活', () => {
+  rmSync(P, { force: true })
+  const mgr = new ExternalSourceManager()
+  const copy = asFrontendCopy(read())
+  copy.sources = copy.sources.filter(s => !isFromTheWeb(s))
+  mgr.saveSources(copy)
+  assert.deepEqual(read().seededDefaultSubscriptions, [DEFAULT_URL], '保存把账本抹掉了')
+  const names = new ExternalSourceManager().sources.sources.map(s => s.name)
+  assert.ok(!names.includes('来源于网络'), `删掉的复活了：${names.join(', ')}`)
 })
 
 rmSync(TMP, { recursive: true, force: true })

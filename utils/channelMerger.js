@@ -536,6 +536,15 @@ async function updateExtractors(options = {}) {
 }
 
 /**
+ * 一轮源刷新（上面三个 update* 的返回值）里，有没有源刷出了和上一轮不同的内容。
+ * 定时 tick 只在这时重新生成播放列表（issue #222）。没标 changed 的结果按「变了」算，
+ * 宁可多生成一次，也不能漏掉新地址。
+ */
+function hasChangedResult(result) {
+  return Array.isArray(result?.results) && result.results.some(r => r?.success && r.changed !== false)
+}
+
+/**
  * 获取外部源统计信息
  */
 function getExternalSourceStats() {
@@ -547,6 +556,7 @@ export {
   updateExternalSources,
   updateBuiltInSources,
   updateExtractors,
+  hasChangedResult,
   getExternalSourceStats,
   externalSourceManager,
   builtInSourceManager,

@@ -74,7 +74,7 @@ export default {
       key: 'categories', section: '频道从哪来', label: '选择分类（可多选）', type: 'multiselect',
       options: [...CATEGORY_IDS.keys()].map(value => ({ value, label: value === FILM_CATEGORY ? '影视（一起看）' : value })),
       default: DEFAULT_CATEGORIES.join('\n'),
-      hint: '只想看轮播时，取消「聊天」「生活」，勾选想看的影视、音乐轮播、综艺轮播或动画轮播。数量随当场节目变化，休播或当场不符合的房间会跳过。',
+      hint: '只想看轮播时，取消「聊天」「生活」，勾选想看的轮播类型。「音乐轮播」会在「粤语经典怀旧唱片」播出粤语金曲时收录该房间。各类只导出符合条件的在播房间，可能为 0 路。',
     },
     {
       key: 'count', section: '频道从哪来', label: '自动加入房间数', type: 'int',

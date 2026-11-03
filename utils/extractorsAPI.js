@@ -10,6 +10,7 @@
  */
 import { getExtractorManager } from "./extractorManager.js"
 import { getModule, listModules } from "../extractors/registry.js"
+import { inspect as inspectYouTube, records as youtubeRecords, refOf as youtubeRef } from "../extractors/youtube-live/api.js"
 import { setSystemFlagAPI } from "./systemConfigAPI.js"
 import { enableBuiltInSources, enableBuiltInSubscriptions } from "../config.js"
 import { updateExtractors } from "./channelMerger.js"
@@ -310,6 +311,30 @@ export const importBrowserLoginAPI = (id, payload) => {
   if (typeof payload !== 'string' || !payload.trim()) return fail(new Error('请先粘贴登录态内容'))
   if (payload.length > 64 * 1024) return fail(new Error('登录态内容过长'))
   return runBrowserLoginAction(id, 'import', payload)
+}
+
+/** 查询只返回公开频道/场次标识。增删复用模块配置、刷新和订阅生成流程。 */
+export async function youtubeSubscriptionAPI({ action, url, ref }) {
+  try {
+    const manager = getExtractorManager()
+    const module = getModule('youtube-live')
+    if (action === 'youtubeInspect') return { success: true, ...await inspectYouTube(url) }
+    const item = action === 'youtubeAdd' ? (await inspectYouTube(url)).item : null
+    // 网络查询完成后再读最新配置，并发添加不会覆盖其他刚保存的订阅。
+    const rows = youtubeRecords(manager.effectiveConfig(module))
+    let next
+    if (item) {
+      if (rows.some(row => youtubeRef(row) === youtubeRef(item))) return ok(manager)
+      if (rows.length >= 100) throw new Error('最多可保存 100 个 YouTube 订阅')
+      next = [...rows, item]
+    } else {
+      next = rows.filter(row => (row.videoId || row.channelId) !== ref)
+      if (next.length === rows.length) throw new Error('没有此 YouTube 订阅')
+    }
+    manager.updateModuleConfig(module.id, { subscriptions: JSON.stringify(next) })
+    if (manager.isModuleEnabled(module)) regeneratePlaylist()
+    return ok(manager)
+  } catch (error) { return fail(error) }
 }
 
 /** 单模块开关。 */

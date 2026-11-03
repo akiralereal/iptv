@@ -105,6 +105,9 @@
  *       异常等于请求永远不 res.end()、客户端挂死到超时。
  *       解析结果的缓存由模块自己管（TTL 往往是签名有效期这种平台属性）。
  *
+ *   groupsFromConfig(config) 可选。纯本地目录在保存配置时同步重建，停用期间的修改也进入频道缓存。
+ *   playbackRequiresEnabled 为真时，停用模块也关闭已收藏的频道地址和已发出的媒体地址。
+ *   fetchProxyMedia(ref, config, url, options) 可选。签名在连续播放中到期时，重取同一场次、轨道和分片。
  *   claimsRef(ref) → boolean
  *       capabilities.resolve 为真时必需。判断某个 ref 是不是自己的，
  *       播放请求靠它路由到模块。
@@ -163,6 +166,7 @@
  */
 import bilibiliLive from './bilibili-live/index.js'
 import douyinLive from './douyin-live/index.js'
+import youtubeLive from './youtube-live/index.js'
 import asianLive from './asian-live/index.js'
 import anhui from './anhui/index.js'
 import beijing from './beijing/index.js'
@@ -251,6 +255,7 @@ const MODULES = [
   asianLive,
   bilibiliLive,
   douyinLive,
+  youtubeLive,
   huyaLive,
   douyuLive,
   websports,

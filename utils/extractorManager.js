@@ -909,6 +909,7 @@ class ExtractorManager {
         throw new Error(`刷新间隔要在 ${min}~${max} 分钟之间`)
       }
     }
+    const localGroups = module.groupsFromConfig?.(config)
     const prevConfig = entry.config
     const prevRefresh = entry.refreshMinutes
     entry.config = config
@@ -937,6 +938,7 @@ class ExtractorManager {
     cacheEntry.health.consecutiveFailures = 0
     // 凭证可能刚换过：旧结论作废，紧接着那轮重抓会重新检查
     cacheEntry.health.credentialRejected = ''
+    if (localGroups) this.#recordSuccess(id, normalizeGroups(localGroups), {})
     this.#saveCache()
     return this.getState()
   }

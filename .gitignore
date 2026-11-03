@@ -49,3 +49,6 @@ probe-report.md
 
 # Private iQiyi VOD account/progress/job state when DATA_DIR is the repository root
 /iqiyi-vod/
+
+# 本地 YouTube 解析环境
+/.runtime/youtube/

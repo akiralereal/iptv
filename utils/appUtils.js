@@ -11,6 +11,7 @@ import { omitPlayerOnlyOpts } from "./channelOpts.js";
 import { fetchUpstreamResponse } from "./hlsProxy.js";
 import { checkModuleBurst } from "./clientScanGuard.js";
 import miguDanmaku from "../extractors/migu/danmaku.js";
+import { markFengshowsLiveUrls } from "../extractors/fengshows/channels.js";
 
 /**
  * 清空各模块的解析缓存。
@@ -188,6 +189,9 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix, 
   }
   try {
     result.content = readFileSync(fileName)
+    if (url !== "/txt" && url !== "/playback.xml") {
+      result.content = markFengshowsLiveUrls(String(result.content))
+    }
   } catch (error) {
     printRed("文件获取失败")
     console.log(error)
@@ -225,7 +229,7 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix, 
         getKeywordGroupRules().length > 0 ||
         hasSourceFallbackGroups())) {
         printGrey("应用播放列表自定义配置")
-        const groups = parseInterfaceTxt()
+        const groups = parseInterfaceTxt({ forTxt: url === "/txt" })
         const configuredGroups = applyConfig(groups, config)
         result.content = url === "/txt" ? generateTxt(configuredGroups) : generateM3u8(configuredGroups)
       }

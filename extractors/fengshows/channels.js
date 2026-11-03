@@ -8,3 +8,8 @@ export const CHANNELS = Object.freeze([
 
 /** Channel ref as emitted by buildGroups(); the programme guide keys on the same string. */
 export const channelRef = channel => `fengshows-${channel.key}.flv`
+
+// TiviMate 5.3.3 把以 .flv 结尾的地址归为电影。只标记 M3U 里本模块的本机播放地址。
+export function markFengshowsLiveUrls(m3u) {
+  return m3u.replace(/^\$\{replace\}\/fengshows-(?:info|chinese|hongkong)\.flv$/gm, '$&?live=1')
+}

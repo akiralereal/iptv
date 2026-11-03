@@ -10,13 +10,15 @@ import { setTimeout as delay } from 'node:timers/promises'
 const dir = mkdtempSync(join(tmpdir(), 'iptv-fengshows-test-'))
 process.env.mdataDir = dir
 process.env.mFengshowsToken = ''
+process.env.menableTvgNormalize = 'false'
+process.env.menableDisplayNameUnify = 'false'
 process.on('exit', () => rmSync(dir, { recursive:true, force:true }))
 const { default: module } = await import('../extractors/fengshows/index.js')
 const { CHANNELS, parseToken, officialMediaUrl, resolveChannel, checkToken, credentialRejected, resetTokenState, TOKEN_REJECTED_NOTICE } = await import('../extractors/fengshows/api.js')
 const { getModule, resolverFor } = await import('../extractors/registry.js')
 const { redactConfig, validateConfig, resolveConfig, ExtractorManager } = await import('../utils/extractorManager.js')
 const { parseInterfaceTxt, generateM3u8, applyConfig } = await import('../utils/playlistConfig.js')
-const { channel } = await import('../utils/appUtils.js')
+const { channel, interfaceStr } = await import('../utils/appUtils.js')
 const { pipeFlv } = await import('../utils/flvProxy.js')
 const ref = 'fengshows-info.flv'
 const signed = 'http://dispatch.fengshows.cn:8484/live/0701pin72.flv?txSecret=a%2Fb&txTime=abc'
@@ -250,7 +252,7 @@ test('模块路由保留签名，明确忽略回看查询；FLV 类型传至主�
   const original = module.resolve
   module.resolve = async () => ({url:signed,validateMediaUrl:officialMediaUrl})
   try {
-    const result = await channel('/fengshows-info.flv?playbackbegin=1&playbackend=2','migu-user','migu-token')
+    const result = await channel('/fengshows-info.flv?live=1&playbackbegin=1&playbackend=2','migu-user','migu-token')
     assert.equal(result.playURL, signed)
     assert.equal(result.streamType, 'flv')
     assert.equal(result.validateMediaUrl, officialMediaUrl)
@@ -267,6 +269,36 @@ test('catchup=none 经过解析、分组和个性化 M3U 重生成仍保留', as
   const generated = generateM3u8(applyConfig(parsed,{}))
   assert.equal((generated.match(/catchup="none"/g)||[]).length, 3)
   assert.equal((generated.match(/fengshows-[a-z]+\.flv/g)||[]).length, 3)
+})
+
+test('TiviMate：旧缓存和个性化 M3U 都为凤凰三台加直播标记', async () => {
+  const { groups } = await module.fetch({})
+  const channels = groups[0].dataList.map(c => ({ ...c, url: `\${replace}/${c.deferredRef}` }))
+  const external = 'https://example.test/fengshows-info.flv'
+  const rows = [...channels, { name: '凤凰资讯（备用）', url: external }]
+  const cached = generateM3u8([{ name: '香港', channels: rows.map(c => ({ ...c, tvgId: c.name, tvgName: c.name })) }])
+  writeFileSync(join(dir, 'interface.txt'), cached)
+  writeFileSync(join(dir, 'interfaceTXT.txt'), '香港,#genre#\n' + rows.map(c => `${c.name},${c.url}\n`).join(''))
+  writeFileSync(join(dir, 'my-playlist-config.json'), '{}')
+  writeFileSync(join(dir, 'my-playlist-config.family.json'), JSON.stringify({ groupRenameMap: { 香港: '家人' } }))
+
+  const host = 'localhost:1905'
+  const base = `http://${host}/u/test`
+  const expected = channels.map(c => `${base}/${c.deferredRef}?live=1`)
+  const adminChannels = parseInterfaceTxt()[0].channels.filter(c => c.url.startsWith('${replace}/'))
+  assert.deepEqual(adminChannels.map(c => [c.id, c.url]), channels.map(c => [c.deferredRef, c.url + '?live=1']))
+  for (const profile of ['default', 'family']) {
+    for (const relay of ['', '1', '2']) {
+      const output = interfaceStr('/interface.m3u', { host }, '', '', profile, '/u/test', relay).content
+      assert.deepEqual(output.split('\n').filter(line => line.startsWith(base + '/fengshows-')), expected)
+      assert.ok(output.split('\n').includes(external))
+      if (profile === 'family') assert.match(output, /group-title="家人"/)
+    }
+    const txt = String(interfaceStr('/txt', { host }, '', '', profile, '/u/test').content)
+    assert.ok(txt.includes(`凤凰资讯,${base}/fengshows-info.flv\n`))
+    assert.ok(!txt.includes('?live=1'))
+  }
+  assert.equal(readFileSync(join(dir, 'interface.txt'), 'utf8'), cached)
 })
 
 test('每次媒体调度都限制为官方 FLV 地址', () => {

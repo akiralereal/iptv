@@ -110,6 +110,52 @@ assert.ok(channels.every(channel => channel.relayHls && channel.deferredRef.star
 assert.deepEqual(new Set(channels.slice(1, 9).map(channel => channel.deferredRef)),
   new Set(categories.map((_, index) => `douyin-${index + 1}01`)))
 
+{
+  const filmId = '232551178364'
+  const ref = `douyinfilm-${filmId}`
+  const accountId = 'MS4wLjABAAAA3JKbNd0WA9IE8RX0PDtj-tTh8q3yvgplHkUmfvoXuNNY1XZW8L1YHrZoUTanL0Hd'
+  const showing = { ...room(filmId).room, title: '直播丨𝐂𝐂𝐓𝐕𝟔电影频道🎬', owner: { sec_uid: accountId, nickname: '电影频道云影院' }, has_commerce_goods: false }
+  const setFilmRoom = (fields = {}) => pages.set('/' + filmId, flight({ state: { roomStore: { roomInfo: {
+    web_rid: filmId, room: { ...showing, ...fields },
+  } } } }))
+  const config = { ...defaults, categories: '一起看', format: 'hls' }
+  assert.ok(douyin.configSchema.find(field => field.key === 'categories').options.some(o => o.value === '一起看'))
+  assert.equal(resolverFor(ref), douyin)
+  assert.equal(claimsRef('douyinfilm-999'), false)
+  setFilmRoom()
+  requested.length = 0
+  const selected = await douyin.fetch(config, ctx)
+  assert.deepEqual(requested, ['/' + filmId])
+  assert.deepEqual(selected.groups[0].dataList.map(c => [c.deferredRef, c.relayHls]), [[ref, true]])
+  assert.deepEqual((await douyin.fetch({ ...config, minViewers: 101 }, ctx)).groups, [])
+  const overlap = flight({ roomsData: { data: [{ web_rid: filmId, room: { ...showing, room_view_stats: { display_value: 500 } } }] } })
+  const mixedCtx = { ...ctx, fetchImpl: url => new URL(url).pathname === '/categorynew/4_106'
+    ? Promise.resolve(new Response(overlap)) : fetchImpl(url) }
+  for (const categories of ['文化\n一起看', '一起看\n文化']) {
+    const mixed = await douyin.fetch({ ...config, categories }, mixedCtx)
+    assert.deepEqual(mixed.groups[0].dataList.map(c => c.deferredRef), [ref])
+  }
+  setFilmRoom({ title: '直播｜CCTV6电影频道' })
+  assert.equal((await douyin.fetch(config, ctx)).groups[0].dataList[0].deferredRef, ref)
+  assert.equal((await resolveRoom(ref, { ...ctx, config, now: 1 })).streamType, 'hls')
+  for (const fields of [
+    { title: '央影特邀源头服饰厂家 | 双十一甄选', has_commerce_goods: true },
+    { has_commerce_goods: true }, { has_commerce_goods: undefined },
+    { owner: { nickname: '电影频道云影院', sec_uid: 'other' } },
+    { title: '直播丨CCTV6电影频道预告' }, { title: '《天龙八部》全角色配音' },
+    { status: 4, stream_url: null },
+  ]) {
+    setFilmRoom(fields)
+    assert.deepEqual((await douyin.fetch(config, ctx)).groups, [])
+  }
+  setFilmRoom({ title: '服装甄选', has_commerce_goods: true })
+  assert.ok((await resolveRoom('douyin-' + filmId, { ...ctx, config, now: 60000 })).url)
+  assert.equal((await resolveRoom(ref, { ...ctx, config, now: 60000 })).url, '', '普通房间的缓存不能放行旧影视订阅')
+  pages.set('/' + filmId, '<html></html>')
+  await assert.rejects(douyin.fetch(config, ctx), /缺少播放数据/)
+  clearResolveCache()
+}
+
 const manual = await fetchRoom('999', ctx)
 assert.equal(manual.id, '999')
 const flv = await resolveRoom('douyin-999', { ...ctx, config: { format: 'flv', quality: 'HD1' } })

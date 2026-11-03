@@ -1,10 +1,11 @@
 /** 抖音直播：所选分类轮选或公开网页顺序，手动房间优先。 */
 import {
-  CATEGORIES, DOUYIN_GROUP, QUALITIES, QUALITY_LABELS, RoomOfflineError, claimsRef, clearResolveCache,
+  CATEGORIES, DOUYIN_GROUP, FILM_CATEGORY, QUALITIES, QUALITY_LABELS, RoomOfflineError, claimsRef, clearResolveCache,
   diversifiedOrder, fetchCategory, fetchRoom, parseRoomList, pickStream, resolveRoom,
 } from './api.js'
 
 const CATEGORY_IDS = new Map(Object.entries(CATEGORIES).map(([id, name]) => [name, id]))
+CATEGORY_IDS.set(FILM_CATEGORY, FILM_CATEGORY)
 export const DEFAULT_CATEGORIES = ['聊天', '生活']
 
 export function parseCategoryNames(text) {
@@ -34,7 +35,7 @@ function toChannel(row, format, quality) {
   pickStream(row.streams, quality, format)
   return {
     name: cleanText(row.title ? `${row.name} · ${row.title}` : row.name) || `抖音 ${row.id}`,
-    deferredRef: `douyin-${row.id}`,
+    deferredRef: row.category === FILM_CATEGORY ? `douyinfilm-${row.id}` : `douyin-${row.id}`,
     relayHls: format === 'hls',
     logo: row.logo || '',
     groupTitle: DOUYIN_GROUP,
@@ -64,9 +65,9 @@ export default {
     },
     {
       key: 'categories', section: '频道从哪来', label: '选择分类（可多选）', type: 'multiselect',
-      options: Object.values(CATEGORIES).map(value => ({ value, label: value })),
+      options: [...CATEGORY_IDS.keys()].map(value => ({ value, label: value })),
       default: DEFAULT_CATEGORIES.join('\n'),
-      hint: '仅用于分类轮选，默认「聊天」「生活」。抖音网页版只有这 8 个直播分类。',
+      hint: '仅用于分类轮选，默认「聊天」「生活」。「一起看」收录电影频道云影院播出 CCTV6 的场次，刷新时核对官方账号、当场标题和商品标记。',
     },
     {
       key: 'count', section: '频道从哪来', label: '自动加入房间数', type: 'int',
@@ -126,11 +127,14 @@ export default {
       const categories = parseCategoryNames(config.categories).map(name => CATEGORY_IDS.get(name))
       const batches = await mapLimit(categories, 4, async category => {
         try { return await fetchCategory(category, ctx) }
-        catch (error) { hardErrors++; warnings.push(`抖音分类“${CATEGORIES[category]}”：${error.message}`); return [] }
+        catch (error) { hardErrors++; warnings.push(`抖音分类“${CATEGORIES[category] || category}”：${error.message}`); return [] }
       })
       const byId = new Map()
       for (const row of batches.flat()) {
-        if (!byId.has(row.roomKey) || byId.get(row.roomKey).viewers < row.viewers) byId.set(row.roomKey, row)
+        const existing = byId.get(row.roomKey)
+        if (!existing || row.category === FILM_CATEGORY || (existing.category !== FILM_CATEGORY && row.viewers > existing.viewers)) {
+          byId.set(row.roomKey, row)
+        }
       }
       automatic = diversifiedOrder([...byId.values()], Number(config.minViewers) || 0)
     }

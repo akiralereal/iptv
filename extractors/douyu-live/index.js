@@ -74,7 +74,7 @@ export default {
       type: 'multiselect',
       options: Object.keys(AREA_APIS).map(value => ({ value, label: value })),
       default: '网游竞技',
-      hint: '默认只选「网游竞技」，首次启用最多加入 8 路。想只用手动房间，把下面数量设为 0。',
+      hint: '默认只选「网游竞技」。「一起看」从官网专区挑选已核验的影视正片房间，数量少时可调低「最低人气」。只用手动房间时，每类数量填 0。',
     },
     {
       key: 'topPerArea',

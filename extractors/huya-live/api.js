@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import fetch from 'node-fetch'
 import { printYellow } from '../../utils/colorOut.js'
 import { qualityFrom } from '../../utils/qualityOverride.js'
+import { isWatchTogetherFilm } from '../watchTogether.js'
 
 export const HUYA_GROUP = '虎牙'
 export const REFERER = 'https://www.huya.com/'
@@ -26,6 +27,7 @@ export const AREA_PAGES = Object.freeze({
   手游: 'https://www.huya.com/g/100004',
   单机: 'https://www.huya.com/g/100002',
   娱乐: 'https://www.huya.com/g/100022',
+  一起看: 'https://www.huya.com/g/2135',
 })
 
 const RESOLVE_TTL_MS = 60 * 1000          // 房间页与签名地址复用时长
@@ -257,7 +259,8 @@ export async function topRoomsOfArea(areaName, limit, options = {}) {
   if (!url) throw new HuyaError(`未知分类「${areaName}」`)
   const html = await fetchText(url, options)
   const rooms = areaName === '赛事' ? parseEventRooms(html) : parseCategoryRooms(html)
-  return selectTopRooms(rooms, limit, options.minHeat)
+  const candidates = areaName === '一起看' ? rooms.filter(room => isWatchTogetherFilm('huya', room, room.game)) : rooms
+  return selectTopRooms(candidates, limit, options.minHeat)
 }
 
 /** 只截取 hyPlayerConfig.stream；外层是 JS 对象，不是严格 JSON。 */

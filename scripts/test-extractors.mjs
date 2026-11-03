@@ -2093,7 +2093,7 @@ check('虎牙：官网 H5 签名算法固定样本一致', () => {
 check('虎牙：默认配置控制数量与人气，所有频道固定放入虎牙组', () => {
   const areas = huya.configSchema.find(field => field.key === 'topAreas')
   assert.equal(areas.type, 'multiselect')
-  assert.deepEqual(areas.options.map(option => option.value), ['赛事', '网游', '手游', '单机', '娱乐'])
+  assert.deepEqual(areas.options.map(option => option.value), ['赛事', '网游', '手游', '单机', '娱乐', '一起看'])
   assert.deepEqual(parseHuyaAreaNames(areas.default), ['赛事'])
   assert.equal(huya.configSchema.find(field => field.key === 'topPerArea').default, 8)
   assert.equal(huya.configSchema.find(field => field.key === 'minHeat').default, DEFAULT_MIN_HEAT)
@@ -2340,7 +2340,7 @@ check('斗鱼：只接受官方 CDN 的 HLS 地址', () => {
 check('斗鱼：默认配置控制分类、数量、人气与画质，所有频道固定放入斗鱼组', () => {
   const areas = douyu.configSchema.find(field => field.key === 'topAreas')
   assert.equal(areas.type, 'multiselect')
-  assert.deepEqual(areas.options.map(option => option.value), ['全部', '网游竞技', '单机热游', '手游休闲', '娱乐'])
+  assert.deepEqual(areas.options.map(option => option.value), ['全部', '网游竞技', '单机热游', '手游休闲', '娱乐', '一起看'])
   assert.deepEqual(parseDouyuAreaNames(areas.default), ['网游竞技'])
   assert.equal(douyu.configSchema.find(field => field.key === 'topPerArea').default, 8)
   assert.equal(douyu.configSchema.find(field => field.key === 'minHeat').default, DEFAULT_DOUYU_MIN_HEAT)
@@ -2350,6 +2350,39 @@ check('斗鱼：默认配置控制分类、数量、人气与画质，所有频�
     [{ roomId: '1', name: '重复' }, { roomId: '2', name: '自动' }],
   ).map(room => room.name), ['手填', '自动'])
   assert.equal(DOUYU_GROUP, '斗鱼')
+})
+
+await checkAsync('虎牙一起看：先核对房号、分区和当前节目，再取人气前几名', async () => {
+  const rows = [
+    { lProfileRoom: 11342412, sIntroduction: '周星驰电影解说', sGameFullName: '一起看', lTotalCount: 9000 },
+    { lProfileRoom: 23740156, sIntroduction: '庆余年2', sGameFullName: '原创', lTotalCount: 8000 },
+    { lProfileRoom: 11342384, sIntroduction: '今晚闲聊', sGameFullName: '一起看', lTotalCount: 7000 },
+    { lProfileRoom: 999, sIntroduction: '纪晓岚', sGameFullName: '一起看', lTotalCount: 6000 },
+    { lProfileRoom: 11342396, sIntroduction: '铁齿铜ya纪晓岚 经典铁三角组合', sGameFullName: '一起看', lTotalCount: 5000 },
+  ]
+  const config = resolveConfig(huya, { topAreas: '一起看', topPerArea: 1 })
+  const result = await huya.fetch(config, { fetchImpl: async url => {
+    assert.equal(String(url), 'https://www.huya.com/g/2135')
+    return new Response('var ALL_LIST_DATA = ' + JSON.stringify(rows) + ';')
+  } })
+  assert.deepEqual(result.groups[0].dataList.map(room => room.deferredRef), ['huya-11342396'])
+})
+
+await checkAsync('斗鱼一起看：去掉跨区推荐、改播和低人气房，全部不符时返回空组', async () => {
+  const rows = [
+    { rid: 4549169, rn: '橙記 港剧间', c2name: '原创IP', ol: 90000 },
+    { rid: 431460, rn: '【贝贝】亮剑花絮', c2name: '一起看', ol: 80000 },
+    { rid: 501, rn: '亮剑', c2name: '一起看', ol: 70000 },
+    { rid: 12655359, rn: '神探狄仁杰', c2name: '一起看', ol: 60000 },
+  ]
+  const ctx = { fetchImpl: async url => {
+    assert.equal(String(url), 'https://www.douyu.com/gapi/rknc/directory/mixListV1/2_208/1')
+    return Response.json({ code: 0, data: { rl: rows } })
+  } }
+  const config = resolveConfig(douyu, { topAreas: '一起看', minHeat: 55000 })
+  const result = await douyu.fetch(config, ctx)
+  assert.deepEqual(result.groups[0].dataList.map(room => room.deferredRef), ['douyu-12655359'])
+  assert.deepEqual((await douyu.fetch({ ...config, minHeat: 65000 }, ctx)).groups, [])
 })
 
 await checkAsync('斗鱼：模块抓取分类热门房间，播放时匿名刷新短效 HLS 并要求清单中继', async () => {

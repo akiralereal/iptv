@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import vm from 'node:vm'
 import fetch from 'node-fetch'
 import { qualityFrom } from '../../utils/qualityOverride.js'
+import { isWatchTogetherFilm } from '../watchTogether.js'
 
 export const DOUYU_GROUP = '斗鱼'
 export const REFERER = 'https://m.douyu.com/'
@@ -25,6 +26,7 @@ export const AREA_APIS = Object.freeze({
   单机热游: 'https://www.douyu.com/gapi/rkc/directory/mixListV1/1_15/1',
   手游休闲: 'https://www.douyu.com/gapi/rkc/directory/mixListV1/1_9/1',
   娱乐: 'https://www.douyu.com/gapi/rkc/directory/mixListV1/1_2/1',
+  一起看: 'https://www.douyu.com/gapi/rknc/directory/mixListV1/2_208/1',
 })
 
 // 斗鱼网页播放器没有登录时使用的固定设备号。它不是账号凭据，只是匿名设备标识；
@@ -153,6 +155,7 @@ export async function topRoomsOfArea(areaName, limit, options = {}) {
   const response = await fetchResponse(url, options)
   const rooms = normalizeCategoryPayload(await response.json())
   return rooms
+    .filter(room => areaName !== '一起看' || isWatchTogetherFilm('douyu', room, room.category))
     .filter(room => room.heat >= Number(options.minHeat || 0))
     .sort((a, b) => b.heat - a.heat)
     .slice(0, Math.max(0, Number(limit) || 0))

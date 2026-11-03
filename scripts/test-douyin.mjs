@@ -8,6 +8,7 @@ import {
   parseCategoryPage, parseRoomList, pickStream, resolveRoom, selectStream,
 } from '../extractors/douyin-live/api.js'
 import { pipeFlv } from '../utils/flvProxy.js'
+import { CAROUSELS } from '../extractors/douyin-live/carousel.js'
 import { getModule, listModules, resolverFor } from '../extractors/registry.js'
 import { DEFAULT_GROUP_ORDER } from '../utils/playlistConfig.js'
 
@@ -153,6 +154,64 @@ assert.deepEqual(new Set(channels.slice(1, 9).map(channel => channel.deferredRef
   assert.equal((await resolveRoom(ref, { ...ctx, config, now: 60000 })).url, '', '普通房间的缓存不能放行旧影视订阅')
   pages.set('/' + filmId, '<html></html>')
   await assert.rejects(douyin.fetch(config, ctx), /缺少播放数据/)
+  clearResolveCache()
+}
+
+{
+  const config = { ...defaults, categories: '音乐轮播\n综艺轮播\n动画轮播', format: 'hls' }
+  const mock = new Map()
+  function setRoom(id, fields) {
+    const entry = room(id)
+    Object.assign(entry.room, fields)
+    mock.set('/' + id, flight({ state: { roomStore: { roomInfo: entry } } }))
+    return entry
+  }
+  for (const kind of Object.values(CAROUSELS)) {
+    mock.set('/categorynew/4_' + kind.directory, flight({ roomsData: { data: [] } }))
+    for (const id of Object.keys(kind.rooms)) setRoom(id, { status: 4 })
+  }
+  const music = { owner: { sec_uid: CAROUSELS.音乐轮播.rooms['24225754530'] }, has_commerce_goods: true, title: '重温粵语天王歌后经典金曲汇' }
+  setRoom('24225754530', music)
+  setRoom('32923419266', { owner: { sec_uid: CAROUSELS.综艺轮播.rooms['32923419266'] }, has_commerce_goods: false, title: '《缘来不晚》往期回放合集' })
+  setRoom('692362400522', { owner: { sec_uid: CAROUSELS.动画轮播.rooms['692362400522'] }, has_commerce_goods: false, title: '喜羊羊生日直播！' })
+  const cartoon = { owner: { sec_uid: 'studio' }, has_commerce_goods: false, title: '原创动画片连播' }
+  const found = setRoom('202', cartoon)
+  mock.set('/categorynew/4_104', flight({ roomsData: { data: [found, room('500', '真人配音')] } }))
+  let cert = { sec_uid: 'studio', enterprise_verify_reason: '动漫制作公司官方账号' }
+  const calls = []
+  const carouselCtx = { fetchImpl: async url => {
+    const u = new URL(url)
+    calls.push(u.pathname)
+    if (u.hostname === 'www.iesdouyin.com') {
+      assert.equal(u.searchParams.get('sec_uid'), 'studio')
+      return Response.json({ status_code: 0, user_info: cert })
+    }
+    return new Response(mock.get(u.pathname), { status: mock.has(u.pathname) ? 200 : 404 })
+  } }
+  const rooms = await douyin.fetch(config, carouselCtx)
+  const refs = rooms.groups[0].dataList.map(r => r.deferredRef)
+  assert.deepEqual(new Set(refs), new Set(['douyincarousel-music-24225754530', 'douyincarousel-variety-32923419266', 'douyincarousel-animation-202']))
+  assert.ok(rooms.groups[0].dataList.every(r => r.relayHls))
+  assert.ok(!calls.includes('/500'))
+  calls.length = 0
+  const mixed = await douyin.fetch({ ...config, categories: '二次元\n动画轮播' }, carouselCtx)
+  assert.equal(calls.filter(p => p === '/categorynew/4_104').length, 1)
+  assert.ok(!mixed.groups[0].dataList.some(r => r.deferredRef === 'douyin-202'))
+  const ref = 'douyincarousel-animation-202'
+  assert.equal(resolverFor(ref), douyin)
+  assert.equal((await resolveRoom(ref, { ...carouselCtx, config, now: 1 })).streamType, 'hls')
+  setRoom('202', { ...cartoon, title: '原创动画游戏轮播' })
+  assert.equal((await resolveRoom(ref, { ...carouselCtx, config, now: 60000 })).url, '')
+  setRoom('202', cartoon)
+  cert = { sec_uid: 'other', enterprise_verify_reason: '动漫公司' }
+  assert.equal((await resolveRoom(ref, { ...carouselCtx, config, now: 80000 })).url, '')
+  setRoom('24225754530', { ...music, title: '音乐轮播 · 手表带货' })
+  assert.deepEqual((await douyin.fetch({ ...config, categories: '音乐轮播' }, carouselCtx)).groups, [])
+  calls.length = 0
+  mock.set('/categorynew/4_102', '<html><title>验证码中间页</title></html>')
+  await assert.rejects(douyin.fetch({ ...config, categories: '音乐轮播' }, carouselCtx), /验证码/)
+  assert.deepEqual(calls, ['/categorynew/4_102'])
+  assert.equal(claimsRef('douyincarousel-wrong-202'), false)
   clearResolveCache()
 }
 

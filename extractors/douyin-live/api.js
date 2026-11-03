@@ -1,5 +1,6 @@
 /** 抖音公开直播网页的首屏房间与播放地址。 */
 import fetch from 'node-fetch'
+import { CAROUSELS, matchesCarousel, parseCarouselRef } from './carousel.js'
 
 export const DOUYIN_GROUP = '抖音'
 export const CATEGORIES = Object.freeze({
@@ -32,6 +33,7 @@ const resolveCache = new Map()
 const resolvePending = new Map()
 
 export class RoomOfflineError extends Error {}
+export class DouyinVerificationError extends Error {}
 
 export function normalizeRoom(value) {
   let text = String(value || '').trim()
@@ -72,7 +74,9 @@ async function getPage(path, { timeoutMs = 15000, fetchImpl = fetch } = {}) {
       },
     })
     if (!response.ok) throw new Error(`抖音网页 HTTP ${response.status}`)
-    return await response.text()
+    const html = await response.text()
+    if (/<title[^>]*>\s*验证码中间页\s*<\/title>/i.test(html)) throw new DouyinVerificationError('抖音网页要求验证码，请稍后刷新')
+    return html
   } finally {
     clearTimeout(timer)
   }
@@ -150,8 +154,21 @@ export async function fetchRoom(roomId, options = {}) {
   return parseRoomPage(await getPage(`/${encodeURIComponent(normalizeRoom(roomId))}`, options), roomId)
 }
 
+export async function verifyCarouselRoom(kind, row, { fetchImpl = fetch, timeoutMs = 10000 } = {}) {
+  return matchesCarousel(kind, row, async ownerId => {
+    const url = new URL('https://www.iesdouyin.com/web/api/v2/user/info/')
+    url.searchParams.set('sec_uid', ownerId)
+    const res = await fetchImpl(url.href, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(timeoutMs), size: 512_000 })
+    if (!res.ok) throw new Error(`抖音认证主页 HTTP ${res.status}`)
+    const payload = await res.json()
+    if (payload.status_code !== 0 || !payload.user_info) throw new Error('抖音认证主页数据不完整')
+    const account = payload.user_info
+    return account.sec_uid === ownerId ? [account.enterprise_verify_reason, account.custom_verify].filter(Boolean).join(' ') : ''
+  })
+}
+
 export function diversifiedOrder(rows, minViewers = 0) {
-  const buckets = new Map([...Object.values(CATEGORIES), FILM_CATEGORY].map(category => [category, []]))
+  const buckets = new Map([...Object.values(CATEGORIES), FILM_CATEGORY, ...Object.keys(CAROUSELS)].map(category => [category, []]))
   for (const row of rows) {
     if (row.viewers >= minViewers) buckets.get(row.category)?.push(row)
   }
@@ -205,12 +222,13 @@ export function pickStream(streams, quality = 'HD1', format = 'flv') {
   }
 }
 
-export function claimsRef(ref) { return ref === FILM_REF || REF_RE.test(String(ref || '')) }
+export function claimsRef(ref) { return ref === FILM_REF || REF_RE.test(String(ref || '')) || !!parseCarouselRef(ref) }
 
 export async function resolveRoom(ref, ctx = {}) {
   try {
     const filmOnly = ref === FILM_REF
-    const roomId = filmOnly ? FILM_ROOM : REF_RE.exec(String(ref || ''))?.[1]
+    const carousel = parseCarouselRef(ref)
+    const roomId = filmOnly ? FILM_ROOM : carousel?.id || REF_RE.exec(String(ref || ''))?.[1]
     if (!roomId) return { url: '', desc: '抖音直播间引用格式错误' }
     const { format = 'flv', quality = 'HD1' } = ctx.config || {}
     const now = Number(ctx.now ?? Date.now())
@@ -220,8 +238,9 @@ export async function resolveRoom(ref, ctx = {}) {
     let pending = resolvePending.get(key)
     if (!pending) {
       pending = fetchRoom(roomId, ctx)
-        .then(row => {
+        .then(async row => {
           if (filmOnly && !isFilmShowing(row)) throw new Error('当前场次未确认播出影视正片')
+          if (carousel && (row.id !== roomId || !await verifyCarouselRoom(carousel.kind, row, ctx))) throw new Error('当前场次不符合轮播分类')
           const stream = pickStream(row.streams, quality, format)
           const fallback = stream.format !== format ? '，没有 FLV 改用 HLS' : ''
           const value = {

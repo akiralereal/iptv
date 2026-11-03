@@ -1,11 +1,13 @@
 /** 抖音直播：所选分类轮选或公开网页顺序，手动房间优先。 */
 import {
-  CATEGORIES, DOUYIN_GROUP, FILM_CATEGORY, QUALITIES, QUALITY_LABELS, RoomOfflineError, claimsRef, clearResolveCache,
-  diversifiedOrder, fetchCategory, fetchRoom, parseRoomList, pickStream, resolveRoom,
+  CATEGORIES, DOUYIN_GROUP, FILM_CATEGORY, QUALITIES, QUALITY_LABELS, DouyinVerificationError, RoomOfflineError, claimsRef, clearResolveCache,
+  diversifiedOrder, fetchCategory, fetchRoom, parseRoomList, pickStream, resolveRoom, verifyCarouselRoom,
 } from './api.js'
+import { CAROUSELS, hasCarouselTitle } from './carousel.js'
 
 const CATEGORY_IDS = new Map(Object.entries(CATEGORIES).map(([id, name]) => [name, id]))
 CATEGORY_IDS.set(FILM_CATEGORY, FILM_CATEGORY)
+for (const name of Object.keys(CAROUSELS)) CATEGORY_IDS.set(name, name)
 export const DEFAULT_CATEGORIES = ['聊天', '生活']
 
 export function parseCategoryNames(text) {
@@ -33,9 +35,14 @@ function toChannel(row, format, quality) {
   // 只确认房间有能播的地址。抖音会间歇地漏发个别房间的 FLV 地址、下次请求又有，所以地址形态
   // 只看配置：FLV 模式一律写无后缀地址，播放时拿不到 FLV 再由 resolve 在同一地址上直出 HLS 清单
   pickStream(row.streams, quality, format)
+  const kind = CAROUSELS[row.category]
+  const roomName = cleanText(row.title ? `${row.name} · ${row.title}` : row.name) || `抖音 ${row.id}`
+  let deferredRef = `douyin-${row.id}`
+  if (kind) deferredRef = `douyincarousel-${kind.slug}-${row.id}`
+  if (row.category === FILM_CATEGORY) deferredRef = `douyinfilm-${row.id}`
   return {
-    name: cleanText(row.title ? `${row.name} · ${row.title}` : row.name) || `抖音 ${row.id}`,
-    deferredRef: row.category === FILM_CATEGORY ? `douyinfilm-${row.id}` : `douyin-${row.id}`,
+    name: kind ? `${row.category} · ${roomName}` : roomName,
+    deferredRef,
     relayHls: format === 'hls',
     logo: row.logo || '',
     groupTitle: DOUYIN_GROUP,
@@ -65,9 +72,9 @@ export default {
     },
     {
       key: 'categories', section: '频道从哪来', label: '选择分类（可多选）', type: 'multiselect',
-      options: [...CATEGORY_IDS.keys()].map(value => ({ value, label: value })),
+      options: [...CATEGORY_IDS.keys()].map(value => ({ value, label: value === FILM_CATEGORY ? '影视（一起看）' : value })),
       default: DEFAULT_CATEGORIES.join('\n'),
-      hint: '仅用于分类轮选，默认「聊天」「生活」。「一起看」收录电影频道云影院播出 CCTV6 的场次，刷新时核对官方账号、当场标题和商品标记。',
+      hint: '只想看轮播时，取消「聊天」「生活」，勾选想看的影视、音乐轮播、综艺轮播或动画轮播。数量随当场节目变化，休播或当场不符合的房间会跳过。',
     },
     {
       key: 'count', section: '频道从哪来', label: '自动加入房间数', type: 'int',
@@ -125,17 +132,51 @@ export default {
       catch (error) { hardErrors++; warnings.push(`抖音“全部”页：${error.message}`) }
     } else if (count > 0) {
       const categories = parseCategoryNames(config.categories).map(name => CATEGORY_IDS.get(name))
-      const batches = await mapLimit(categories, 4, async category => {
+      const directories = [...new Set(categories.map(category => CAROUSELS[category]?.directory || category))]
+      let challenged = false
+      const batches = await mapLimit(directories, 4, async category => {
+        if (challenged) return []
         try { return await fetchCategory(category, ctx) }
-        catch (error) { hardErrors++; warnings.push(`抖音分类“${CATEGORIES[category] || category}”：${error.message}`); return [] }
+        catch (error) {
+          if (error instanceof DouyinVerificationError) challenged = true
+          hardErrors++; warnings.push(`抖音分类“${CATEGORIES[category] || category}”：${error.message}`)
+          return []
+        }
+      })
+      const lists = new Map(directories.map((category, i) => [category, batches[i]]))
+      const rows = categories.filter(category => !CAROUSELS[category]).flatMap(category => lists.get(category))
+      const candidates = []
+      for (const category of categories) {
+        const kind = CAROUSELS[category]
+        if (!kind) continue
+        const ids = new Set(Object.keys(kind.rooms))
+        for (const room of lists.get(kind.directory)) {
+          if (hasCarouselTitle(kind, room.title)) ids.add(room.id)
+        }
+        for (const id of ids) candidates.push({ id, category, kind })
+      }
+      const checked = await mapLimit(candidates, 3, async ({ id, category, kind }) => {
+        if (challenged) return null
+        try {
+          const room = await fetchRoom(id, ctx)
+          if (room.id === id && await verifyCarouselRoom(kind, room, ctx)) return { ...room, category }
+        } catch (error) {
+          if (error instanceof DouyinVerificationError) challenged = true
+          if (!(error instanceof RoomOfflineError)) {
+            hardErrors++
+            warnings.push(`${category} ${id}：${error.message}`)
+          }
+        }
+        return null
       })
       const byId = new Map()
-      for (const row of batches.flat()) {
+      for (const row of rows) {
         const existing = byId.get(row.roomKey)
         if (!existing || row.category === FILM_CATEGORY || (existing.category !== FILM_CATEGORY && row.viewers > existing.viewers)) {
           byId.set(row.roomKey, row)
         }
       }
+      for (const row of checked) if (row) byId.set(row.roomKey, row)
       automatic = diversifiedOrder([...byId.values()], Number(config.minViewers) || 0)
     }
 

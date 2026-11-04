@@ -332,8 +332,7 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix, 
  * resolveBurstGuard 的模块生效，按「模块｜客户端」计数，没声明的模块连账都不记。规则与依据见
  * utils/clientScanGuard.js；同一模块的本地媒体入口（handleLocalRequest）与这里共用一本账。
  *
- * 失败一律 code=200 + 中文正文（app.js:881-888 直接用 result.code 写响应头），
- * 不改 4xx/5xx——那是存量播放器依赖的行为。
+ * 旧模块失败时保留 200 + 中文正文。新模块可显式返回上游失败或未开播状态。
  *
  * client 可选：{ key, tag }，来自 app.js 的 clientOf(req)。不传就不计不拦（测试、旧调用方）。
  */
@@ -366,6 +365,10 @@ async function channel(url, urlUserId, urlToken, client, request = {}) {
   if (!module) {
     result.desc = "地址格式错误"
     return result
+  }
+
+  if (module.playbackRequiresEnabled && !getExtractorManager().isModuleEnabled(module)) {
+    return { ...result, code: 404, desc: '此来源已停用' }
   }
 
   // 播放器「刷新预览图 / 检测可用性 / 失败自动换台」式的批量探测：本地拒绝，一枪不打上游。
@@ -406,6 +409,7 @@ async function channel(url, urlUserId, urlToken, client, request = {}) {
 
   if (!resolved || resolved.url == "") {
     result.desc = resolved?.desc || "服务异常"
+    if ([404, 502, 503].includes(resolved?.status)) result.code = resolved.status
     // 模块自己按实例归并打过黄字的拒绝（央视频取票预算）同样不逐条刷红
     if (resolved?.silent === true) result.silent = true
     return result

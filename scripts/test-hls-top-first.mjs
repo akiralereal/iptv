@@ -89,6 +89,36 @@ check('不用动的原样返回：已是最高档在前、单档、媒体清单�
   assert.equal(topVariantFirst(undefined), undefined)
 })
 
+check('固定最高档时只暴露一条视频路径，保留它关联的各语言音轨、字幕和内嵌字幕组', () => {
+  const input = [
+    '#EXTM3U',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="low",NAME="mono",URI="mono.m3u8"',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="stereo",NAME="en",URI="en.m3u8"',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="stereo",NAME="es",URI="es.m3u8"',
+    '#EXT-X-STREAM-INF:RESOLUTION=640x360,BANDWIDTH=1200000,AUDIO="low"',
+    '360.m3u8',
+    '#EXT-X-STREAM-INF:RESOLUTION=1920x1080,BANDWIDTH=4800000,AUDIO="stereo",SUBTITLES="vtt",CLOSED-CAPTIONS="cc"',
+    '1080.m3u8',
+    '#EXT-X-STREAM-INF:RESOLUTION=1920x1080,BANDWIDTH=3500000,AUDIO="low"',
+    '1080-low.m3u8',
+    '#EXT-X-STREAM-INF:CODECS="mp4a.40.2",BANDWIDTH=6000000',
+    'audio-only.m3u8',
+    '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="vtt",NAME="en",URI="subs.m3u8"',
+    '#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS,GROUP-ID="cc",NAME="en",INSTREAM-ID="CC1"',
+    '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=64000,URI="iframe-low.m3u8"',
+    '',
+  ].join('\r\n')
+  const locked = topVariantFirst(input, { highestOnly: true })
+  assert.deepEqual(uris(locked), ['1080.m3u8'])
+  assert.match(locked, /URI="en.m3u8"/)
+  assert.match(locked, /URI="es.m3u8"/)
+  assert.match(locked, /URI="subs.m3u8"/)
+  assert.match(locked, /INSTREAM-ID="CC1"/)
+  assert.doesNotMatch(locked, /mono.m3u8|iframe-low.m3u8/)
+  assert.equal(topVariantFirst(locked, { highestOnly: true }), locked)
+  assert.throws(() => topVariantFirst('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2\n', { highestOnly: true }))
+})
+
 check('拼主清单：按给的顺序列出各档', () => {
   assert.equal(buildMasterPlaylist([
     { url: 'https://cdn/5000.m3u8', bandwidth: 5600000, resolution: '1920x1080' },

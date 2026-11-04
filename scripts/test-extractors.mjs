@@ -994,7 +994,7 @@ try {
     for (const id of ['migu', 'beijing', 'fengshows', 'sichuan', 'yangshipin']) {
       assert.equal(modules.find(module => module.id === id)?.category, 'account', `${id} 应归入账号与授权`)
     }
-    for (const id of ['bilibili-live', 'huya-live', 'douyu-live']) {
+    for (const id of ['bilibili-live', 'huya-live', 'douyu-live', 'youtube-live']) {
       assert.equal(modules.find(module => module.id === id)?.category, 'live', `${id} 应归入网络直播平台`)
     }
     // 默认关、由用户自己打开的：「海外」小节那几个，加上频道量大、只有本地少数人看的山东市县（#196 作者拍板）
@@ -1006,6 +1006,7 @@ try {
         'shandong-counties',
         'bestv-fj',
         'websports',
+        'youtube-live',
         ...modules.filter(module => module.id.startsWith('guangdianyun-')).map(module => module.id),
       ].sort(),
     )
@@ -1022,7 +1023,7 @@ try {
     assert.equal(regionOf['asian-live'], '国际')
     assert.equal(regionOf.livechina, '直播中国')
     assert.equal(regionOf.ipanda, 'iPanda')
-    for (const id of ['yangshipin', 'overseas']) assert.equal(regionOf[id], '', id)
+    for (const id of ['yangshipin', 'overseas', 'youtube-live']) assert.equal(regionOf[id], '', id)
     const state = newManager().getState().modules
     assert.equal(state.find(module => module.id === 'iqilu').regionIsArea, true)
     assert.equal(state.find(module => module.id === 'livechina').regionIsArea, false)
@@ -1064,7 +1065,7 @@ try {
     assert.ok(gdy.length >= 20, '市县台各省模块都默认关闭')
     assert.equal(listModules().filter(module => module.id.startsWith('guangdianyun-')).length, gdy.length)
     assert.deepEqual(optIn.filter(id => !id.startsWith('guangdianyun-')).sort(),
-      ['bestv-fj', 'overseas', 'shandong-counties', 'tdm', 'websports'],
+      ['bestv-fj', 'overseas', 'shandong-counties', 'tdm', 'websports', 'youtube-live'],
       '百视通因出口可用性差异默认关闭；WebSports 来自第三方赛事网站；其余默认关闭模块保持不变')
     const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
     for (const id of optIn) assert.equal(manager.isModuleEnabled(getModule(id)), false, id)

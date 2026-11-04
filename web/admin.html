@@ -5210,6 +5210,47 @@
                 ${hint}${envNote}</div>`;
         }
 
+        function initYouTubeSubscriptions() {
+            const input = document.getElementById('youtubeInput');
+            if (!input) return;
+            const events = document.getElementById('youtubeEvents');
+            let busy = false;
+            async function submit(action, fields) {
+                if (busy) return;
+                busy = true;
+                const controls = input.closest('.bookmarklet-section').querySelectorAll('button,input');
+                controls.forEach(el => { el.disabled = true; });
+                events.textContent = action === 'youtubeInspect' ? '正在查询 YouTube 场次…' : '正在更新订阅…';
+                try {
+                    const result = await extractorPost({ action, ...fields });
+                    if (!input.isConnected) return;
+                    if (!result.success) { events.textContent = result.message || 'YouTube 请求失败'; return; }
+                    if (action !== 'youtubeInspect') {
+                        applyExtractorResult(result, action === 'youtubeRemove' ? '已移除订阅' : '已保存订阅，启用模块后可在 M3U 的 YouTube 直播分组观看');
+                        return;
+                    }
+                    events.replaceChildren();
+                    const heading = document.createElement('p');
+                    heading.textContent = result.item.name + (result.item.videoId ? ' · 固定场次' : result.events.length ? ' · 当前场次' : ' · 暂无公开直播或预约');
+                    events.append(heading);
+                    for (const event of result.events) {
+                        const p = document.createElement('p');
+                        const add = document.createElement('button');
+                        add.className = 'btn btn-sm'; add.textContent = '订阅此场';
+                        add.onclick = () => submit('youtubeAdd', { url: event.url });
+                        p.append((event.status === 'is_live' ? '直播中 · ' : '已预约 · ') + event.name + ' ', add);
+                        events.append(p);
+                    }
+                } catch { events.textContent = '无法连接源管理接口'; }
+                finally { busy = false; controls.forEach(el => { el.disabled = false; }); }
+            }
+            document.getElementById('youtubeInspect').onclick = () => submit('youtubeInspect', { url: input.value });
+            document.getElementById('youtubeAdd').onclick = () => submit('youtubeAdd', { url: input.value });
+            for (const button of document.querySelectorAll('[data-youtube-remove]')) {
+                button.onclick = () => submit('youtubeRemove', { ref: button.dataset.youtubeRemove });
+            }
+        }
+
         /**
          * 「清除凭据」：把 secret 输入框标记为待清空，保存时对该字段发显式 null。
          * 之后用户又输入了新值的话，oninput 会摘掉标记（输入优先于清空）。
@@ -5303,6 +5344,20 @@
         // 模块可以声明 helper，在自己的卡片里多渲染一块辅助 UI。
         // markup 留在这里而不是模块文件：配套的 CSS、引导弹窗、bookmarklet 代码都在本页。
         function extractorHelperHtml(key, secretsSet, config, health) {
+            if (key === 'youtube-subscriptions') {
+                let rows = [];
+                try { const saved = JSON.parse(config.subscriptions || '[]'); if (Array.isArray(saved)) rows = saved; } catch {}
+                return `<div class="bookmarklet-section">
+                    <label for="youtubeInput"><strong>频道或直播场次</strong></label>
+                    <div class="bookmarklet-actions"><input type="text" id="youtubeInput" maxlength="2048" placeholder="用户名（@ 可省略）、频道或直播链接">
+                    <button class="btn btn-sm" id="youtubeInspect">查看场次</button>
+                    <button class="btn btn-sm btn-primary" id="youtubeAdd">添加订阅</button></div>
+                    <p>频道未开播时保留；多场同播时按官方列表选择第一场，也可单独添加某场直播或预约。</p>
+                    <div id="youtubeEvents" aria-live="polite"></div>
+                    <div id="youtubeSaved">${rows.length ? '' : '<p>还没有订阅。添加第一个频道后，它会出现在 M3U 的「YouTube 直播」分组。</p>'}${rows.map(row => `<p>${escapeHtml(row.name)} · ${row.videoId ? '固定场次' : '关注频道'}
+                      <button class="btn btn-sm" data-youtube-remove="${escapeHtml(row.videoId || row.channelId)}">移除</button></p>`).join('')}</div>
+                </div>`;
+            }
             if (key === 'fengshows-bookmarklet') {
                 const configured = !!secretsSet.token;
                 // 刷新检查或播放时官网回「账号已过期」，服务端会改走游客 480p 并在这里亮出来
@@ -6354,6 +6409,7 @@
                 </div>`;
 
             // 助手随展开区一起重建，每次渲染后重新挂一次
+            initYouTubeSubscriptions();
             initMiguBookmarklet();
             initFengshowsBookmarklet();
             initSichuanBookmarklet();

@@ -63,11 +63,9 @@ const KNOWN_EXT = new Set(['ts', 'm3u8', 'aac', 'mp3', 'mp4', 'm4s', 'm4a', 'vtt
 
 function extOf(url, fallback) {
   try {
-    const u = new URL(url)
-    const name = u.pathname.split('/').pop() || ''
+    const name = new URL(url).pathname.split('/').pop() || ''
     const dot = name.lastIndexOf('.')
     const ext = dot === -1 ? '' : name.slice(dot + 1).toLowerCase()
-    if (ext === 'webvtt') return 'vtt'
     return KNOWN_EXT.has(ext) ? ext : fallback
   } catch {
     return fallback
@@ -89,13 +87,13 @@ function sweep() {
 }
 
 /**
- * 登记一条上游地址，返回稳定的短 key（同一频道、地址和网络族重复登记得到同一 key。共享 CDN 地址的频道各自保留请求上下文）。
+ * 登记一条上游地址，返回稳定的短 key（同一地址永远同一 key，清单每 6 秒刷新一次也不会撑爆表）。
  * key 前缀固定为 s：让分片路径 /proxy/s<hex>.ts 与频道清单路径 /proxy/<纯数字频道号>.m3u8
  * 在词法上永不相交，两条路由怎么排都不会互相误吃。
  */
 function register(url, pid = '', transform, upstreamHeaders, upstreamUrlTransform, upstreamFamily) {
   const family = upstreamFamily === 4 || upstreamFamily === 6 ? upstreamFamily : undefined
-  const key = 's' + createHash('md5').update(JSON.stringify([pid, family, url])).digest('hex').slice(0, 16)
+  const key = 's' + createHash('md5').update(family ? `${family}:${url}` : url).digest('hex').slice(0, 16)
   const targetUrl = upstreamUrlTransform ? upstreamUrlTransform(url) : url
   // 先删再插：Map 的 set 覆盖不改变迭代位置，重复登记（清单每 6 秒刷新）会让最活跃
   // 频道的 key 恒在队首，超上限淘汰时反而最先被丢。删后重插把迭代序变成「最近登记在尾」
@@ -308,7 +306,7 @@ function logPipeFail(msg) {
  * 不缓冲整片：分片几百 KB 到几 MB，直播长跑时缓冲会顶着内存跑；直接 pipe 过去。
  * 客户端切台 / 关闭连接时中止上游请求，否则一次切台会留下一串还在下载的孤儿请求。
  */
-async function pipeUpstream(url, req, res, transform, upstreamHeaders = {}, upstreamFamily, fetchMedia = fetchUpstreamResponse) {
+async function pipeUpstream(url, req, res, transform, upstreamHeaders = {}, upstreamFamily) {
   const ctrl = new AbortController()
   const onClose = () => ctrl.abort()
   res.on('close', onClose)
@@ -319,7 +317,7 @@ async function pipeUpstream(url, req, res, transform, upstreamHeaders = {}, upst
   try {
     // 要做整片变换时不能把 Range 片段单独交给解码器；回完整 200 对播放器仍合法。
     const headers = !transform && req.headers.range ? { range: req.headers.range } : {}
-    const upstream = await fetchMedia(url, { signal: ctrl.signal, upstreamHeaders, upstreamFamily, headers })
+    const upstream = await fetchUpstreamResponse(url, { signal: ctrl.signal, upstreamHeaders, upstreamFamily, headers })
     upstreamStatus = upstream.status
     clearTimeout(timer)
     if (!upstream.ok) logPipeFail(`分片上游回 ${upstream.status}: ${new URL(url).host}`)
@@ -385,7 +383,7 @@ async function pipeUpstream(url, req, res, transform, upstreamHeaders = {}, upst
  * 直接访问咪咕 CDN 时拿到的响应一致。需要 segmentTransform 的平台不能照搬上游长度，
  * 因此保留旧的合成 200。上游不支持 HEAD 或临时失败时同样回退合成响应，不破坏原有 GET。
  */
-async function probeUpstream(url, req, res, transform, upstreamHeaders = {}, upstreamFamily, fetchMedia = fetchUpstreamResponse) {
+async function probeUpstream(url, req, res, transform, upstreamHeaders = {}, upstreamFamily) {
   const synthetic = (reason) => {
     res.writeHead(200, {
       'Content-Type': fallbackType(req.url || url),
@@ -407,7 +405,7 @@ async function probeUpstream(url, req, res, transform, upstreamHeaders = {}, ups
   const timer = setTimeout(() => ctrl.abort(), 10000)
   try {
     const headers = req.headers.range ? { range: req.headers.range } : {}
-    const upstream = await fetchMedia(url, {
+    const upstream = await fetchUpstreamResponse(url, {
       method: 'HEAD',
       signal: ctrl.signal,
       upstreamHeaders,
@@ -447,11 +445,11 @@ async function probeUpstream(url, req, res, transform, upstreamHeaders = {}, ups
 }
 
 /** 取回一份嵌套子清单（全代理模式下清单里再出现 .m3u8 时用），返回 { text, finalUrl } 或 null */
-async function fetchNested(url, upstreamHeaders = {}, upstreamFamily, fetchMedia = fetchUpstreamResponse) {
+async function fetchNested(url, upstreamHeaders = {}, upstreamFamily) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 10000)
   try {
-    const resp = await fetchMedia(url, {
+    const resp = await fetchUpstreamResponse(url, {
       signal: ctrl.signal,
       upstreamHeaders,
       upstreamFamily,

@@ -34,13 +34,6 @@ RUN apk add --no-cache \
     ttf-freefont \
     || echo "Chromium not available on this architecture, web scraping will be disabled"
 
-# YouTube 只用公开 HLS。两个纯 Python 包配合镜像中的 Node 处理播放器 JS。
-COPY extractors/youtube-live/requirements.txt /tmp/youtube-requirements.txt
-RUN apk add --no-cache python3 py3-pip \
-  && python3 -m venv /opt/youtube \
-  && /opt/youtube/bin/pip install --no-cache-dir -r /tmp/youtube-requirements.txt \
-  && ln -s /opt/youtube/bin/yt-dlp /usr/local/bin/yt-dlp
-
 # 设置时区
 ENV TZ=Asia/Shanghai
 RUN apk add --no-cache tzdata \

@@ -16,7 +16,7 @@ import { dataPath } from "./utils/paths.js";
 import { cachedLogoFile } from "./utils/logoCache.js";
 import { packLogoFile } from "./utils/logoPack.js";
 import { getExtractorManager, getModuleConfig } from "./utils/extractorManager.js";
-import { getExtractorsAPI, youtubeSubscriptionAPI, startModuleLoginAPI, pollModuleLoginAPI, setExtractorEnabledAPI,
+import { getExtractorsAPI, startModuleLoginAPI, pollModuleLoginAPI, setExtractorEnabledAPI,
   updateExtractorConfigAPI, runExtractorNowAPI, setContentFlagAPI, setExtractorsEnabledAPI, startBrowserLoginAPI,
   getBrowserLoginStatusAPI, checkBrowserLoginAPI, cancelBrowserLoginAPI,
   closeBrowserLoginAPI, importBrowserLoginAPI } from "./utils/extractorsAPI.js";
@@ -746,12 +746,6 @@ async function handleRequest(req, res) {
           case 'browserLoginImport':
             result = await importBrowserLoginAPI(data.id, data.payload)
             break
-          case 'youtubeInspect':
-          case 'youtubeAddFeatured':
-          case 'youtubeAdd':
-          case 'youtubeRemove':
-            result = await youtubeSubscriptionAPI(data)
-            break
           case 'toggleModule':
             result = setExtractorEnabledAPI(data.id, data.enabled !== false)
             break
@@ -1235,28 +1229,19 @@ async function handleRequest(req, res) {
       res.end('分片地址已过期')
       return
     }
-    const owner = resolverFor(target.pid)
-    if (owner?.playbackRequiresEnabled && !getExtractorManager().isModuleEnabled(owner)) {
-      res.writeHead(404)
-      res.end()
-      return
-    }
-    const fetchMedia = owner?.fetchProxyMedia
-      ? (url, options) => owner.fetchProxyMedia(target.pid, getModuleConfig(owner.id), url, options)
-      : undefined
     if (method === "HEAD") {
       // 极影视等严格播放器会先 HEAD 第一个分片；向上游取真实 Content-Length / Accept-Ranges。
       // 上游不支持 HEAD 或分片需要转换时 probeUpstream 会回退旧的合成 200，GET 行为不变。
       noteProxySegment(target.pid, req)
       const started = Date.now()
-      const result = await probeUpstream(target.url, req, res, target.transform, target.upstreamHeaders, target.upstreamFamily, fetchMedia)
+      const result = await probeUpstream(target.url, req, res, target.transform, target.upstreamHeaders, target.upstreamFamily)
       logProxyProbe(target.pid, req, result, Date.now() - started)
       return
     }
     // 上游若给的是嵌套子清单（拍平失败时才会出现），同样改写成同源相对地址再下发，
     // 直接透传会让播放器拿着 CDN 的相对路径去请求本机、必然 404
     if (/\.m3u8(?:\?|$)/i.test(routeUrl)) {
-      const nested = await fetchNested(target.url, target.upstreamHeaders, target.upstreamFamily, fetchMedia)
+      const nested = await fetchNested(target.url, target.upstreamHeaders, target.upstreamFamily)
       if (nested) {
         const body = Buffer.from(toProxyManifest(
           rewriteManifest(nested.text, nested.finalUrl),
@@ -1277,14 +1262,14 @@ async function handleRequest(req, res) {
       }
       // 子清单取回失败时不能落到下方分片透传：那会把未改写的清单（内含 CDN 相对路径）
       // 原样 pipe 给播放器——正是上面注释声明必须避免的形态。回 502 让播放器重试。
-      printYellow(`嵌套子清单取回失败，回 502: ${new URL(target.url).host}`)
+      printYellow(`嵌套子清单取回失败，回 502: ${target.url.split('?')[0]}`)
       res.writeHead(502, { 'Content-Type': 'text/plain;charset=UTF-8' })
       res.end('上游子清单获取失败')
       return
     }
     noteProxySegment(target.pid, req)
     const started = Date.now()
-    const result = await pipeUpstream(target.url, req, res, target.transform, target.upstreamHeaders, target.upstreamFamily, fetchMedia)
+    const result = await pipeUpstream(target.url, req, res, target.transform, target.upstreamHeaders, target.upstreamFamily)
     logProxySegmentResult(target.pid, req, result, Date.now() - started)
     return
   }

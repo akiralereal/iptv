@@ -280,6 +280,7 @@ iPanda 直播模块 ─────────────────┤
 | DIYP / 百川影音 | TXT 订阅：`/txt` |
 | TiviMate / APTV / Kodi / OK 影视 | 标准 M3U：`/interface.m3u` |
 | 飞牛影视 | 标准 M3U：`/interface.m3u`，必须保留 `.m3u` 后缀 |
+| Emby / Jellyfin | 「电视直播」添加 M3U 调谐器：`/interface.m3u`；节目单添加 XMLTV：`/playback.xml` |
 | 极空间极影视、部分老电视盒 | 兼容版：`/interface.m3u?relay=1` |
 | 使用兼容版仍无法播放的设备 | 全代理版：`/interface.m3u?relay=2`，兼容的频道会由服务器转发视频分片 |
 

@@ -33,10 +33,13 @@ function cleanText(value) {
 
 function toChannel(row, format, quality) {
   // 只确认房间有能播的地址。抖音会间歇地漏发个别房间的 FLV 地址、下次请求又有，所以地址形态
-  // 只看配置：FLV 模式一律写无后缀地址，播放时拿不到 FLV 再由 resolve 在同一地址上直出 HLS 清单
-  pickStream(row.streams, quality, format)
+  // 只看配置：FLV 模式一律写无后缀地址，播放时拿不到 FLV 再由 resolve 在同一地址上直出 HLS 清单。
+  // 未开播的手动房间没有地址可查，照样列出，播放时现查
+  if (!row.offline) pickStream(row.streams, quality, format)
   const kind = CAROUSELS[row.category]
-  const roomName = cleanText(row.title ? `${row.name} · ${row.title}` : row.name) || `抖音 ${row.id}`
+  const anchor = cleanText(row.name) || `抖音 ${row.id}`
+  const roomName = row.offline ? `${anchor} · 未开播`
+    : cleanText(row.title ? `${row.name} · ${row.title}` : row.name) || `抖音 ${row.id}`
   let deferredRef = `douyin-${row.id}`
   if (kind) deferredRef = `douyincarousel-${kind.slug}-${row.id}`
   if (row.category === FILM_CATEGORY) deferredRef = `douyinfilm-${row.id}`
@@ -91,7 +94,7 @@ export default {
       type: 'text', multiline: true,
       placeholder: '541862161030\nhttps://live.douyin.com/325163481565\n# 井号开头是注释',
       default: '',
-      hint: '手填房间排在自动频道之前，未开播时跳过；填直播间地址 live.douyin.com/ 后面的房间号，或整条地址。',
+      hint: '手填房间排在自动频道之前；没开播的也会列出，名字带「未开播」，主播开播后直接能播，名字等下次刷新更新。填直播间地址 live.douyin.com/ 后面的房间号，或整条地址。',
     },
     {
       key: 'format', section: '播放偏好', label: '播放格式', type: 'select',
@@ -120,6 +123,8 @@ export default {
     const manual = (await mapLimit(manualIds, 3, async id => {
       try { return await fetchRoom(id, ctx) }
       catch (error) {
+        // 未开播的手动房间也列出：频道播放时现查，主播开播后不用等下次刷新就能播
+        if (error instanceof RoomOfflineError && error.room) return error.room
         if (!(error instanceof RoomOfflineError)) hardErrors++
         warnings.push(`手动房间 ${id}：${error.message}`)
         return null

@@ -38,6 +38,11 @@ for (const [index, category] of categories.entries()) {
 }
 pages.set('/999', flight({ state: { roomStore: { roomInfo: { web_rid: '999', room: room('999').room } } } }, 'd:'))
 pages.set('/888', flight({ state: { roomStore: { roomInfo: { web_rid: '888', room: room('888', '', 100, { flv: false }).room } } } }, 'd:'))
+// 未开播的房间页：room 里没有 owner 和 stream_url，主播信息在 anchor
+pages.set('/777', flight({ state: { roomStore: { roomInfo: {
+  web_rid: '777', anchor: { nickname: '主播777', avatar_thumb: { url_list: ['https://example.com/777.jpg'] } },
+  room: { id_str: 'internal-777', status: 4, title: '上一场的标题' },
+} } } }, 'd:'))
 const requested = []
 const fetchImpl = async url => {
   requested.push(new URL(url).pathname)
@@ -102,6 +107,22 @@ assert.ok(native.groups[0].dataList.every(channel => !channel.url && !channel.re
 const hlsOnly = await douyin.fetch({ order: 'native', count: 0, rooms: '888', format: 'flv', quality: 'HD1' }, ctx)
 assert.deepEqual(hlsOnly.groups[0].dataList.map(channel => [channel.deferredRef, channel.relayHls]), [['douyin-888', false]])
 assert.deepEqual(hlsOnly.meta.warnings, [])
+
+// 未开播的手动房间照样列出、按手填顺序，名字标「未开播」；播放时现查，开播了不用等刷新
+{
+  const mixed = await douyin.fetch({ order: 'native', count: 0, rooms: '777\n999', format: 'flv', quality: 'HD1' }, ctx)
+  assert.deepEqual(mixed.groups[0].dataList.map(c => [c.deferredRef, c.name, c.logo]), [
+    ['douyin-777', '主播777 · 未开播', 'https://example.com/777.jpg'],
+    ['douyin-999', '主播999 · 直播', ''],
+  ])
+  assert.deepEqual(mixed.meta.warnings, [])
+  const offline = await douyin.fetch({ order: 'native', count: 0, rooms: '777', format: 'hls', quality: 'HD1' }, ctx)
+  assert.deepEqual(offline.groups[0].dataList.map(c => [c.deferredRef, c.relayHls]), [['douyin-777', true]])
+  const played = await resolveRoom('douyin-777', { ...ctx, config: { format: 'flv', quality: 'HD1' }, now: 1 })
+  assert.equal(played.url, '')
+  assert.match(played.desc, /未开播/)
+  clearResolveCache()
+}
 
 const balanced = await douyin.fetch({ order: 'balanced', count: 9, rooms: '999', format: 'hls', quality: 'HD1', minViewers: 0, categories: Object.values(CATEGORIES).join('\n') }, ctx)
 const channels = balanced.groups[0].dataList

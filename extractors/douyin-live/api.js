@@ -32,7 +32,13 @@ const FAIL_TTL_MS = 10_000
 const resolveCache = new Map()
 const resolvePending = new Map()
 
-export class RoomOfflineError extends Error {}
+export class RoomOfflineError extends Error {
+  /** room：未开播房间的主播名和头像，手动房间靠它照样列出频道。 */
+  constructor(message, room = null) {
+    super(message)
+    this.room = room
+  }
+}
 export class DouyinVerificationError extends Error {}
 
 export function normalizeRoom(value) {
@@ -124,12 +130,31 @@ export function parseCategoryPage(page, category) {
   throw new Error('分类页缺少房间列表')
 }
 
+/** 未开播的房间页没有 room.owner，主播昵称和头像在 roomInfo.anchor 里。 */
+function offlineRow(info, requestedId) {
+  const webRid = String(info.web_rid || '')
+  const id = /^[a-zA-Z0-9_-]{1,64}$/.test(webRid) ? webRid : String(requestedId)
+  const anchor = info.anchor || info.room?.owner || {}
+  return {
+    id,
+    roomKey: String(info.room?.id_str || id),
+    name: String(anchor.nickname || ''),
+    title: '',
+    logo: String(anchor.avatar_thumb?.url_list?.[0] || ''),
+    category: '手动',
+    viewers: 0,
+    offline: true,
+  }
+}
+
 export function parseRoomPage(page, requestedId) {
   for (const data of flightData(page)) {
     const info = data?.[3]?.state?.roomStore?.roomInfo
     const room = info?.room
     if (!room) continue
-    if (room.status != null && Number(room.status) !== 2) throw new RoomOfflineError(`房间 ${requestedId} 未开播`)
+    if (room.status != null && Number(room.status) !== 2) {
+      throw new RoomOfflineError(`房间 ${requestedId} 未开播`, offlineRow(info, requestedId))
+    }
     if (!room.stream_url || Number(room.status) !== 2) continue
     const row = roomRow({ room, web_rid: info.web_rid || requestedId }, '手动')
     if (row) return row

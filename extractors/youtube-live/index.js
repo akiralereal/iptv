@@ -15,7 +15,7 @@ export default {
   category: 'overseas',
   defaultEnabled: false,
   catalogVersion: 1,
-  description: '添加官方频道或固定直播场次。部署机器需能访问 YouTube 和 Google Video；播放器可接收原始音轨和字幕。',
+  description: '添加官方频道或固定直播场次。部署机器需能访问 YouTube 和 Google Video；输出当前最高画质，保留配套音轨和字幕。',
   capabilities: { cache:'disk', resolve:true, epg:false, catchup:false },
   channelHlsMode: 'proxy',
   resolveBurstGuard: true,

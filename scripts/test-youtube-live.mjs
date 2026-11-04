@@ -34,6 +34,11 @@ const expiry = Math.floor(Date.now()/1000) + 3600
 const master = origin + '/api/manifest/hls_variant/expire/' + expiry + '/index.m3u8'
 const format = {protocol:'m3u8_native',vcodec:'avc1',manifest_url:master,http_headers:{Cookie:'private','User-Agent':'player'}}
 const data = {id,channel_id:channelId, live_status:'is_live', formats:[format]}
+const highMaster = master.replace('index.m3u8','hd/index.m3u8')
+assert.equal(parseLive({ ...data, formats: [
+  { ...format, width:640, height:360 }, { ...format, width:1920, height:1080, manifest_url:highMaster },
+  { ...format, width:3840, height:2160, manifest_url:master.replace(String(expiry), '1') },
+] }, channel, id).url, highMaster)
 const live = parseLive(data,channel,id)
 assert.deepEqual(live.upstreamHeaders(master), {'User-Agent':'player'})
 for (const bad of ['https://localhost/','http://manifest.googlevideo.com/test','https://manifest.googlevideo.com.evil.test/x']) {

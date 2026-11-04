@@ -169,17 +169,24 @@ export function mediaUrl(raw) {
 export function parseLive(data, item, expectedVideoId) {
   if (data.live_status !== 'is_live') throw new Offline('这场直播尚未开始或已经结束')
   if (data.channel_id !== item.channelId || data.id !== expectedVideoId || data.has_drm) throw new Error('直播归属、场次或保护状态不符')
-  const format = data.formats?.find(f => f.protocol?.startsWith('m3u8') && f.vcodec !== 'none' && !f.has_drm && f.manifest_url)
-  if (!format) throw new Error('当前直播没有公开 HLS')
-  const url = new URL(mediaUrl(format.manifest_url))
-  const expires = Number(url.pathname.match(/\/expire\/(\d+)\//)?.[1]) * 1000
-  if (url.hostname !== 'manifest.googlevideo.com' || !url.pathname.startsWith('/api/manifest/hls_variant/') ||
-      !Number.isFinite(expires) || expires <= Date.now() + 90000) throw new Error('YouTube 主清单签名无效')
-  const headers = {}
-  for (const [k,v] of Object.entries(format.http_headers || data.http_headers || {})) {
-    if (/^(User-Agent|Accept|Accept-Language)$/i.test(k) && typeof v === 'string' && !/[\r\n]/.test(v)) headers[k] = v
+  // 不同客户端可能返回不同的 HLS 主清单，从包含最高视频档的那一份取流。
+  const formats = (data.formats || []).filter(f => f.protocol?.startsWith('m3u8') && f.vcodec !== 'none' && !f.has_drm && f.manifest_url)
+  if (!formats.length) throw new Error('当前直播没有公开 HLS')
+  formats.sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0)
+    || (b.tbr || 0) - (a.tbr || 0))
+  for (const format of formats) {
+    let url
+    try { url = new URL(mediaUrl(format.manifest_url)) } catch { continue }
+    const expires = Number(url.pathname.match(/\/expire\/(\d+)\//)?.[1]) * 1000
+    if (url.hostname !== 'manifest.googlevideo.com' || !url.pathname.startsWith('/api/manifest/hls_variant/') ||
+        !Number.isFinite(expires) || expires <= Date.now() + 90000) continue
+    const headers = {}
+    for (const [k,v] of Object.entries(format.http_headers || data.http_headers || {})) {
+      if (/^(User-Agent|Accept|Accept-Language)$/i.test(k) && typeof v === 'string' && !/[\r\n]/.test(v)) headers[k] = v
+    }
+    return { url: url.href, videoId: data.id, expires, upstreamHeaders: raw => { mediaUrl(raw); return headers } }
   }
-  return { url: url.href, videoId: data.id, expires, upstreamHeaders: raw => { mediaUrl(raw); return headers } }
+  throw new Error('YouTube 主清单签名无效')
 }
 
 const sessions = new Map()
@@ -279,7 +286,7 @@ export async function resolve(ref, {config}) {
       live = await session(item, undefined, true)
       master = await playlist(live.url, live)
     }
-    return { url:live.url, manifestUrl:live.url, manifestText:topVariantFirst(master), proxyHls:true,
+    return { url:live.url, manifestUrl:live.url, manifestText:topVariantFirst(master, { highestOnly: true }), proxyHls:true,
       upstreamHeaders:live.upstreamHeaders, upstreamUrlTransform:mediaUrl }
   } catch (err) {
     const status = err instanceof RemovedSubscription ? 404 : err instanceof Offline ? 503 : 502

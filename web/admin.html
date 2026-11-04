@@ -5226,7 +5226,7 @@
                     if (!input.isConnected) return;
                     if (!result.success) { events.textContent = result.message || 'YouTube 请求失败'; return; }
                     if (action !== 'youtubeInspect') {
-                        applyExtractorResult(result, action === 'youtubeAdd' ? '已保存订阅；启用模块后在 M3U 的 YouTube 直播分组观看' : '已移除订阅');
+                        applyExtractorResult(result, action === 'youtubeRemove' ? '已移除订阅' : '已保存订阅，启用模块后可在 M3U 的 YouTube 直播分组观看');
                         return;
                     }
                     events.replaceChildren();
@@ -5244,6 +5244,7 @@
                 } catch { events.textContent = '无法连接源管理接口'; }
                 finally { busy = false; controls.forEach(el => { el.disabled = false; }); }
             }
+            document.getElementById('youtubeAddFeatured').onclick = () => submit('youtubeAddFeatured', {});
             document.getElementById('youtubeInspect').onclick = () => submit('youtubeInspect', { url: input.value });
             document.getElementById('youtubeAdd').onclick = () => submit('youtubeAdd', { url: input.value });
             for (const button of document.querySelectorAll('[data-youtube-remove]')) {
@@ -5354,6 +5355,7 @@
                     <button class="btn btn-sm btn-primary" id="youtubeAdd">添加订阅</button></div>
                     <p>频道未开播时保留；多场同播时按官方列表选择第一场，也可单独添加某场直播或预约。</p>
                     <div id="youtubeEvents" aria-live="polite"></div>
+                    <p>精选包括 Red Bull Bike、世界冲浪联盟、国家地理考古、NASA 空间站及蒙特雷湾海月水母。 <button type="button" class="btn btn-sm" id="youtubeAddFeatured">补齐精选</button></p>
                     <div id="youtubeSaved">${rows.map(row => `<p>${escapeHtml(row.name)} · ${row.videoId ? '固定场次' : '关注频道'}
                       <button class="btn btn-sm" data-youtube-remove="${escapeHtml(row.videoId || row.channelId)}">移除</button></p>`).join('')}</div>
                 </div>`;

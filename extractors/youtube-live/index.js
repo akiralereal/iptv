@@ -1,4 +1,5 @@
 import { clearResolveCache, fetchProxyMedia, records, refOf, resolve } from './api.js'
+import { featuredSubscriptions } from './featured.js'
 
 // 用户订阅在配置里已有完整目录，修改后（包括模块停用期间）即可重建。
 function groupsFromConfig(config) {
@@ -13,6 +14,7 @@ export default {
   name: 'YouTube 直播',
   category: 'overseas',
   defaultEnabled: false,
+  catalogVersion: 1,
   description: '添加官方频道或固定直播场次。部署机器需能访问 YouTube 和 Google Video；播放器可接收原始音轨和字幕。',
   capabilities: { cache:'disk', resolve:true, epg:false, catchup:false },
   channelHlsMode: 'proxy',
@@ -22,7 +24,7 @@ export default {
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,
   refreshDescription: '添加或移除订阅后更新列表。未开播的频道保留，播放时重新查找直播。',
-  configSchema: [{ key:'subscriptions', type:'text', label:'YouTube 订阅', default:'[]', hidden:true }],
+  configSchema: [{ key:'subscriptions', type:'text', label:'YouTube 订阅', default:JSON.stringify(featuredSubscriptions), hidden:true }],
   groupsFromConfig,
   async fetch(config) {
     return { groups: groupsFromConfig(config) }

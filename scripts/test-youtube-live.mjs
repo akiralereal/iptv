@@ -3,6 +3,7 @@ import { readFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import youtube from '../extractors/youtube-live/index.js'
+import { featuredSubscriptions } from '../extractors/youtube-live/featured.js'
 import { normalizeYouTubeInput, record, refOf, parseVideo, parseBroadcasts, mediaUrl, parseLive, publicManifest, liveWindow, renewedLink } from '../extractors/youtube-live/api.js'
 import { lookup, toProxyManifest } from '../utils/hlsProxy.js'
 import { ExtractorManager } from '../utils/extractorManager.js'
@@ -77,6 +78,12 @@ function manager() {
 try {
   const m = manager()
   assert.equal(m.isModuleEnabled(youtube),false)
+  assert.ok(!m.getValidChannels().some(g => g.name === youtube.name))
+  m.setModuleEnabled(youtube.id, true)
+  const featuredRefs = featuredSubscriptions.map(refOf)
+  assert.equal(new Set(featuredRefs).size, 5)
+  assert.deepEqual(m.getValidChannels().find(g => g.name === youtube.name).dataList.map(r => r.deferredRef), featuredRefs)
+  m.setModuleEnabled(youtube.id, false)
   m.updateModuleConfig(youtube.id,{subscriptions:JSON.stringify([channel,pinned])})
   assert.throws(() => m.updateModuleConfig(youtube.id,{subscriptions:'broken'}))
   m.setModuleEnabled(youtube.id,true)

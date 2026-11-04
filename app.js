@@ -747,6 +747,7 @@ async function handleRequest(req, res) {
             result = await importBrowserLoginAPI(data.id, data.payload)
             break
           case 'youtubeInspect':
+          case 'youtubeAddFeatured':
           case 'youtubeAdd':
           case 'youtubeRemove':
             result = await youtubeSubscriptionAPI(data)

@@ -10,6 +10,7 @@
  */
 import { getExtractorManager } from "./extractorManager.js"
 import { getModule, listModules } from "../extractors/registry.js"
+import { featuredSubscriptions } from "../extractors/youtube-live/featured.js"
 import { inspect as inspectYouTube, records as youtubeRecords, refOf as youtubeRef } from "../extractors/youtube-live/api.js"
 import { setSystemFlagAPI } from "./systemConfigAPI.js"
 import { enableBuiltInSources, enableBuiltInSubscriptions } from "../config.js"
@@ -323,13 +324,18 @@ export async function youtubeSubscriptionAPI({ action, url, ref }) {
     // 网络查询完成后再读最新配置，并发添加不会覆盖其他刚保存的订阅。
     const rows = youtubeRecords(manager.effectiveConfig(module))
     let next
-    if (item) {
-      if (rows.some(row => youtubeRef(row) === youtubeRef(item))) return ok(manager)
-      if (rows.length >= 100) throw new Error('最多可保存 100 个 YouTube 订阅')
-      next = [...rows, item]
-    } else {
+    if (action === 'youtubeRemove') {
       next = rows.filter(row => (row.videoId || row.channelId) !== ref)
       if (next.length === rows.length) throw new Error('没有此 YouTube 订阅')
+    } else if (item || action === 'youtubeAddFeatured') {
+      const candidates = item ? [item] : featuredSubscriptions
+      const existing = new Set(rows.map(youtubeRef))
+      const additions = candidates.filter(row => !existing.has(youtubeRef(row)))
+      if (!additions.length) return ok(manager)
+      if (rows.length + additions.length > 100) throw new Error('最多可保存 100 个 YouTube 订阅')
+      next = [...rows, ...additions]
+    } else {
+      throw new Error('未知的 YouTube 订阅操作')
     }
     manager.updateModuleConfig(module.id, { subscriptions: JSON.stringify(next) })
     if (manager.isModuleEnabled(module)) regeneratePlaylist()

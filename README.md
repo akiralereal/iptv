@@ -143,7 +143,7 @@ iPTV 的重点不只是一份静态频道表，而是一套可独立开关、可
 
 辽宁省台（卫视、都市、影视剧、体育休闲等）和沈阳新闻综合、经济、公共已重新接入，在「🌐 源管理 → 免账号模块 → 辽宁」里，**默认关闭**。官方接口只放行部分网络：10 月曾只放行辽宁本地，2026-11-04 实测大陆各地都能播，香港和海外不行。能不能播取决于部署服务的机器所在的网络，打开前后台会弹出提示，请自行辨别。官方当前只给回看的频道这一轮先不列，转回直播后自动出现。旧版「北斗融媒」模块的配置和缓存在升级或导入旧备份时照旧清掉，不会把新模块自动打开。大连新闻综合、生活、文体仍由独立「大连」模块提供，都归入「辽宁」分组。调查历史见 [辽宁直播调查](beidou-research.md)。
 
-**未发布 · YouTube 直播订阅**　Docker 构建已包含解析依赖。源码运行时先用 Python 3.10+ 执行 `npm run setup:youtube`（可用 `YOUTUBE_PYTHON` 指定解释器），或以 `YTDLP_BIN` 指向已安装的 yt-dlp。启用模块并添加频道后，在播放器刷新原有 M3U 的「YouTube 直播」分组即可。模块使用匿名公开直播，无需提交 YouTube 账号。
+**未发布 · YouTube 直播订阅**　Docker 构建已包含解析依赖。源码运行时先用 Python 3.10+ 执行 `npm run setup:youtube`（可用 `YOUTUBE_PYTHON` 指定解释器），或以 `YTDLP_BIN` 指向已安装的 yt-dlp。首次启用后，刷新 M3U 的「YouTube 直播」分组可看到 Red Bull Bike、World Surf League、国家地理古文明考古、NASA 国际空间站地球视角和蒙特雷湾海月水母。前两路随频道开播，后三路订阅具体直播间。已有自选列表可点「补齐精选」添加缺项，或逐项移除。Red Bull TV 和 WildEarth 在精选列表，FashionTV Paris L’Original 和 Global Fashion Channel 在「海外频道」模块。模块使用匿名公开直播，无需提交 YouTube 账号。
 
 <details>
 <summary><b>当前版本更新内容</b></summary>

@@ -7,6 +7,7 @@ import { systemProxyUrl, proxyAwareFetch } from '../../utils/systemProxy.js'
 import { fetchUpstreamResponse } from '../../utils/hlsProxy.js'
 import { topVariantFirst } from '../../utils/hlsTopFirst.js'
 import { hasReplaceToken } from '../../utils/replaceToken.js'
+import { featuredSubscriptions } from './featured.js'
 
 const run = promisify(execFile)
 const localBinary = fileURLToPath(new URL('../../.runtime/youtube/bin/yt-dlp', import.meta.url))
@@ -110,7 +111,7 @@ export function refOf(item) {
   return 'yt-' + createHash('sha256').update(item.videoId || item.channelId).digest('hex').slice(0, 24)
 }
 export function records(config = {}) {
-  const rows = JSON.parse(config.subscriptions || '[]')
+  const rows = config.subscriptions ? JSON.parse(config.subscriptions) : featuredSubscriptions
   if (!Array.isArray(rows) || rows.length > 100) throw new Error('最多可保存 100 个 YouTube 订阅')
   return rows.map(r => record(r.channelId, r.videoId, r.name))
 }

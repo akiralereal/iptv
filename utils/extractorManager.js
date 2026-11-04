@@ -33,8 +33,8 @@ import { enableExtractors } from "../config.js"
 const CONFIG_FILE = 'extractors.json'
 const CACHE_FILE = 'extractor-cache.json'
 // 北斗官方入口持续 WAF 405，2026-10-22 移除；江门直播 CDN 持续 502，2026-10-27 暂时移除。
-// 辽宁省台与沈阳台 2026-11-04 换成新 id `liaoning` 加回、默认关闭；`beidou` 留在这里继续清：
-// 旧配置 / 旧备份里它的 enabled:true 多是当年默认开落下的，不能拿来把新模块悄悄打开。
+// 辽宁省台与沈阳台 2026-11-04 换成新 id `liaoning` 加回；`beidou` 留在这里继续清，
+// 旧配置 / 旧备份里它的开关、缓存和告警状态不带到新模块。
 // 「高校与场馆」整类（inst-*，含 10-27 先撤的佳士得）2026-11-02 下线，代码在分支
 // backup/institution-2026-11-02，按前缀清。
 // 加载或导入旧备份时同步清掉这些模块的配置、频道缓存与告警状态。

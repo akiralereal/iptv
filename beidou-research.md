@@ -1,17 +1,17 @@
 # 辽宁直播调查：云盛京入口与北斗融媒鉴权
 
-## 2026-11-04：以新模块 `liaoning` 加回，默认关闭
+## 2026-11-04：以新模块 `liaoning` 加回，默认开启
 
-作者要求把省台和沈阳三路加回来、默认关闭，打开时提示网络限制。鉴权用 [vitter 的 PR #199](https://github.com/akiralereal/iptv/pull/199)（北斗融媒 Android 4.0.71，`getOauth` 的 `version=6`，RSA 2048 位 PKCS#1 私钥解 `refer` / `pullKey`）。PR 自带的夹具还是旧版 1024 位密钥的响应，单测本身不过，夹具已按 11-04 实网响应重做：`refer` 保留官方原始密文，`pullKey` 换成用同一公钥加密的假值，不把真实拉流密钥写进仓库。
+作者要求把省台和沈阳三路加回来，起初定默认关闭、打开时提示网络限制；看了下面的实测（大陆都能播）当天改成默认开启，提示留给关掉后再打开的人。鉴权用 [vitter 的 PR #199](https://github.com/akiralereal/iptv/pull/199)（北斗融媒 Android 4.0.71，`getOauth` 的 `version=6`，RSA 2048 位 PKCS#1 私钥解 `refer` / `pullKey`）。PR 自带的夹具还是旧版 1024 位密钥的响应，单测本身不过，夹具已按 11-04 实网响应重做：`refer` 保留官方原始密文，`pullKey` 换成用同一公钥加密的假值，不把真实拉流密钥写进仓库。
 
 11-04 实测：
 
 - 作者上海家宽直连：两家租户的「看电视」目录、`getPlayableUrl`、`getOauth` 都是 200；省台 Referer `ckjd.bdy.lnyun.com.cn`、沈阳 `ygnm.bdy.lnyun.com.cn`，`referTimeOut` 约 9.8 小时；签名清单 200，首个分片 206、TS 同步字节正常。当时 6 台在播（辽宁影视剧、体育休闲、家庭理财，沈阳三路），辽宁卫视、都市、教育青少、生活、北方只给回看（`playableType=replay`），按原设计跳过。
 - Globalping `getPlayableUrl`（沈阳租户）：大陆 9 个探针全部 200（大连电信家宽，北京、上海、广州、深圳、南京、成都、杭州、宁波机房）；香港 2 个、美国 2 个、日本 1 个全部阿里云 WAF 405。
 
-所以门槛前后变过：10-21 上海联通直连 405、10-25 PR 报告只放行辽宁本地、11-04 放行全大陆。不按某一次实测定默认值，模块 `defaultEnabled: false`，后台打开前用 `enableNotice` 弹确认（批量开关在摘要里列出），HTTP 405 的报错写明是网络被拒。
+所以门槛前后变过：10-21 上海联通直连 405、10-25 PR 报告只放行辽宁本地、11-04 放行全大陆。模块跟其他「仅大陆」模块一样默认开启（见 OVERSEAS.md），后台打开前用 `enableNotice` 弹确认（批量开关在摘要里列出），HTTP 405 的报错写明是网络被拒。官方再收紧时先用 Globalping 测 `getPlayableUrl`，再决定改不改默认值。
 
-换成新 id `liaoning`、频道引用 `liaoning-<频道编号>`：旧配置和旧备份里 `beidou` 的 `enabled: true` 多是当年默认开落下的，不能拿来把这个默认关闭的模块悄悄打开，`beidou` 继续按退役模块清理（`scripts/test-retired-beidou.mjs` 有覆盖）。内置台标库的频道对应改到新引用。
+换成新 id `liaoning`、频道引用 `liaoning-<频道编号>`，开关、缓存和告警状态都不跟旧 `beidou` 混，`beidou` 继续按退役模块清理（`scripts/test-retired-beidou.mjs` 有覆盖）。内置台标库的频道对应改到新引用。
 
 ## 2026-10-22：移除沈阳三路，保留独立大连模块
 

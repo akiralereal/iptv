@@ -28,8 +28,8 @@ const pullKey = 'TestPullKey00001'
 
 console.log('辽宁模块测试')
 
-check('默认关闭，开启前给出网络提示；固定抓省台与沈阳台，不暴露配置', () => {
-  assert.equal(liaoning.defaultEnabled, false)
+check('默认开启（大陆都能播），关掉再开前给出网络提示；固定抓省台与沈阳台，不暴露配置', () => {
+  assert.notEqual(liaoning.defaultEnabled, false)
   assert.match(liaoning.enableNotice, /辽宁本地网络/)
   assert.match(liaoning.enableNotice, /请自行辨别/)
   assert.deepEqual(liaoning.configSchema, [])

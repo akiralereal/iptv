@@ -1006,7 +1006,6 @@ try {
         'shandong-counties',
         'bestv-fj',
         'websports',
-        'liaoning',
         ...modules.filter(module => module.id.startsWith('guangdianyun-')).map(module => module.id),
       ].sort(),
     )
@@ -1065,8 +1064,8 @@ try {
     assert.ok(gdy.length >= 20, '市县台各省模块都默认关闭')
     assert.equal(listModules().filter(module => module.id.startsWith('guangdianyun-')).length, gdy.length)
     assert.deepEqual(optIn.filter(id => !id.startsWith('guangdianyun-')).sort(),
-      ['bestv-fj', 'liaoning', 'overseas', 'shandong-counties', 'tdm', 'websports'],
-      '百视通因出口可用性差异默认关闭；WebSports 来自第三方赛事网站；辽宁官方按网络放行（作者 11-04 拍板）；其余默认关闭模块保持不变')
+      ['bestv-fj', 'overseas', 'shandong-counties', 'tdm', 'websports'],
+      '百视通因出口可用性差异默认关闭；WebSports 来自第三方赛事网站；其余默认关闭模块保持不变')
     const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
     for (const id of optIn) assert.equal(manager.isModuleEnabled(getModule(id)), false, id)
     manager.setModuleEnabled('overseas', true)

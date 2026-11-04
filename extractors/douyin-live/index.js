@@ -187,12 +187,14 @@ export default {
 
     const channels = []
     const seen = new Set()
+    let liveCount = 0
     function add(row) {
       if (seen.has(row.roomKey)) return false
       try {
         const channel = toChannel(row, format, quality)
         channels.push(channel)
         seen.add(row.roomKey)
+        if (!row.offline) liveCount++
         return true
       } catch (error) {
         warnings.push(`房间 ${row.id}：${error.message}`)
@@ -205,7 +207,8 @@ export default {
       if (added >= count) break
       if (add(row)) added++
     }
-    if (!channels.length && hardErrors > 0) throw new Error(warnings[0] || '抖音直播抓取失败')
+    // 「未开播」占位不算抓到：只剩它们又有真出错时整轮判失败、保上一轮缓存，和改之前一样
+    if (!liveCount && hardErrors > 0) throw new Error(warnings[0] || '抖音直播抓取失败')
     return {
       groups: channels.length ? [{ name: DOUYIN_GROUP, dataList: channels }] : [],
       meta: { skipped: warnings, warnings },

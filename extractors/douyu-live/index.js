@@ -46,7 +46,8 @@ export function mergeRooms(manual, automatic) {
 
 function toChannel(room) {
   return {
-    name: room.name || `斗鱼 ${room.roomId}`,
+    // 未开播的手动房间照样列出，播放时现查
+    name: room.offline ? `${room.nick || `斗鱼 ${room.roomId}`} · 未开播` : room.name || `斗鱼 ${room.roomId}`,
     deferredRef: `douyu-${room.roomId}`,
     relayHls: true,
     logo: room.logo || '',
@@ -106,7 +107,7 @@ export default {
       type: 'text',
       multiline: true,
       placeholder: '9999\nhttps://www.douyu.com/9999\n# 井号开头是注释',
-      hint: '支持房间号、PC / 手机完整地址和分享地址。未开播房间自动跳过，手填房间排在自动分类之前。',
+      hint: '支持房间号、PC / 手机完整地址和分享地址。手填房间排在自动分类之前；没开播的也会列出，名字带「未开播」，主播开播后直接能播，名字等下次刷新更新。',
       default: '',
     },
     {
@@ -130,6 +131,8 @@ export default {
       try {
         return await fetchRoom(room, { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl })
       } catch (error) {
+        // 未开播的手动房间也列出：频道播放时现查，主播开播后不用等下次刷新就能播
+        if (error instanceof DouyuOfflineError && error.room) return error.room
         if (!(error instanceof DouyuOfflineError)) hardErrors++
         warnings.push(error.message)
         return null
@@ -153,7 +156,8 @@ export default {
     }
 
     const rooms = mergeRooms(manual, automatic)
-    if (!rooms.length && hardErrors > 0) throw new Error(warnings[0] || '斗鱼直播抓取失败')
+    // 「未开播」占位不算抓到：只剩它们又有真出错时整轮判失败、保上一轮缓存，和改之前一样
+    if (!rooms.some(room => !room.offline) && hardErrors > 0) throw new Error(warnings[0] || '斗鱼直播抓取失败')
     return {
       groups: rooms.length ? [{ name: DOUYU_GROUP, dataList: rooms.map(toChannel) }] : [],
       meta: { skipped: warnings, warnings },

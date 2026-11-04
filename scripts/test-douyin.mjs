@@ -122,6 +122,10 @@ assert.deepEqual(hlsOnly.meta.warnings, [])
   assert.equal(played.url, '')
   assert.match(played.desc, /未开播/)
   clearResolveCache()
+  // 分类抓失败、手填的又都没开播：整轮判失败保上一轮缓存，不能拿「未开播」占位冲掉
+  const brokenCtx = { ...ctx, fetchImpl: async url => new URL(url).pathname.startsWith('/categorynew/')
+    ? { ok: false, status: 503, text: async () => '' } : fetchImpl(url) }
+  await assert.rejects(douyin.fetch({ order: 'balanced', count: 5, rooms: '777', categories: '聊天', format: 'flv', quality: 'HD1' }, brokenCtx), /HTTP 503/)
 }
 
 const balanced = await douyin.fetch({ order: 'balanced', count: 9, rooms: '999', format: 'hls', quality: 'HD1', minViewers: 0, categories: Object.values(CATEGORIES).join('\n') }, ctx)

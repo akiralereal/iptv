@@ -615,9 +615,9 @@ await checkAsync('mapLimit：保持顺序，且并发不超过上限', async () 
 check('全网失败判失败、全体没开播判成功——决定要不要清空用户的频道', () => {
   // 两者都产出 0 个频道。断网时若被记成「成功抓到 0 个」，上一轮缓存会被空结果
   // 覆盖，用户的频道消失且不退避重试。
-  assert.equal(shouldFailRound(0, 3), true, '一条没成功且有真错误 → 判失败，保留上一轮缓存')
-  assert.equal(shouldFailRound(0, 0), false, '全部没开播 → 正常的 0 条，如实写出')
-  assert.equal(shouldFailRound(2, 5), false, '有成功的就不算整轮失败，失败的那几间进 skipped')
+  assert.equal(shouldFailRound(0, 3), true, '一间在播的都没有且有真错误 → 判失败，保留上一轮缓存')
+  assert.equal(shouldFailRound(0, 0), false, '全部没开播 → 正常结果，如实写出')
+  assert.equal(shouldFailRound(2, 5), false, '有在播的就不算整轮失败，失败的那几间进 skipped')
 })
 
 check('播放路由：裸数字归咪咕，认不出的 ref 无人认领', () => {
@@ -1943,6 +1943,31 @@ await checkAsync('★ B 站：热门榜获取失败且无手填 → 整轮判失
   await assert.rejects(() => bili.fetch(config, { timeoutMs: 1 }), /失败/)
 })
 
+await checkAsync('B 站：手填房间没开播也列出「主播 · 未开播」；只剩占位又有真出错时整轮判失败', async () => {
+  const rooms = {
+    5440: { room_id: 5440, uid: 9, title: '上一场的标题', live_status: 0 },
+    21144080: { room_id: 21144080, uid: 7, title: 'KPL 总决赛', live_status: 1 },
+  }
+  const anchors = { 9: { uname: '离线主播', face: 'https://i0.hdslb.com/off.jpg' }, 7: { uname: '哔哩哔哩赛事', face: 'https://i0.hdslb.com/face.jpg' } }
+  const { fetchImpl: liveFixture } = biliApiFixture()
+  const fetchImpl = async (raw, init) => {
+    const url = new URL(String(raw))
+    if (url.pathname === '/room/v1/Room/get_info') return { ok: true, status: 200, json: async () => ({ code: 0, data: rooms[url.searchParams.get('room_id')] }) }
+    if (url.pathname === '/live_user/v1/Master/info') return { ok: true, status: 200, json: async () => ({ code: 0, data: { info: anchors[url.searchParams.get('uid')] } }) }
+    return liveFixture(raw, init)
+  }
+  const fetched = await bili.fetch(resolveConfig(bili, { rooms: '5440\n21144080', topAreas: '' }), { fetchImpl })
+  assert.deepEqual(fetched.groups[0].dataList.map(c => [c.deferredRef, c.name, c.logo, c.relayHls]), [
+    ['bili-5440', '离线主播 · 未开播', 'https://i0.hdslb.com/off.jpg', true],
+    ['bili-21144080', '[超清] 哔哩哔哩赛事 · KPL 总决赛', 'https://i0.hdslb.com/face.jpg', true],
+  ])
+  // 热门榜挂了、手填的又都没开播：整轮判失败保上一轮缓存（热门榜频道不能被冲掉）
+  const roomApis = ['/room/v1/Room/get_info', '/live_user/v1/Master/info']
+  const failing = async (raw, init) => roomApis.includes(new URL(String(raw)).pathname)
+    ? fetchImpl(raw, init) : Promise.reject(new Error('connect refused'))
+  await assert.rejects(bili.fetch(resolveConfig(bili, { rooms: '5440' }), { fetchImpl: failing }), /本轮无一成功/)
+})
+
 await checkAsync('B 站：刷新时检查登录态，失效进提醒中心但频道照抓；网络失败不冤枉登录态', async () => {
   // 乱填、过期的 SESSDATA 实测回 code -101「账号未登录」（2026-10-06）
   const navReply = body => async (url, options) => {
@@ -2175,6 +2200,32 @@ await checkAsync('虎牙：模块抓取赛事卡片，播放时才刷新签名�
   assert.equal(upstream.hits.segment.AL, 1, '已选中的线路不再逐次探分片')
 })
 
+await checkAsync('虎牙：手填房间没开播也列出「主播 · 未开播」，不存在的房间号照旧跳过；只剩占位又有真出错时整轮判失败', async () => {
+  // 实测（2026-11-04）：未开播页的播放器配置里没有流，主播资料在 TT_PROFILE_INFO；不存在的房间号这份资料是空的
+  const offlinePage = profile => `<script>var TT_PROFILE_INFO = ${JSON.stringify(profile)};</script>
+<script>var hyPlayerConfig = { stream: ${JSON.stringify({ data: [], vMultiStreamInfo: [] })} };</script>`
+  const offline = offlinePage({ nick: '离线主播', avatar: 'http://img.example/a.jpg', profileRoom: 520520 })
+  const missing = offlinePage({ nick: '', avatar: '', profileRoom: 0 })
+  assert.throws(() => parseHuyaRoomPage(offline, 'saonan'), error => error.name === 'HuyaOfflineError'
+    && error.room.roomId === '520520' && error.room.nick === '离线主播' && error.room.logo === 'https://img.example/a.jpg')
+  assert.throws(() => parseHuyaRoomPage(missing, '17091'), error => error.name === 'HuyaError' && /17091 不存在/.test(error.message))
+
+  const pages = { '/saonan': offline, '/17091': missing, '/660101': huyaPlayerHtml }
+  const fetchImpl = async raw => {
+    const url = new URL(String(raw))
+    const html = pages[url.pathname]
+    return { ok: !!html, status: html ? 200 : 503, url: url.href, text: async () => html || '' }
+  }
+  const fetched = await huya.fetch(resolveConfig(huya, { rooms: 'saonan\n17091\n660101', topPerArea: 0 }), { fetchImpl })
+  assert.deepEqual(fetched.groups[0].dataList.map(c => [c.deferredRef, c.name, c.logo]), [
+    ['huya-520520', '离线主播 · 未开播', 'https://img.example/a.jpg'],
+    ['huya-660101', '虎牙测试直播', 'https://img.example/room.jpg'],
+  ])
+  assert.deepEqual(fetched.meta.warnings, ['虎牙房间 17091 不存在或已注销'])
+  await assert.rejects(huya.fetch(resolveConfig(huya, { rooms: 'saonan', topAreas: '赛事', topPerArea: 8 }), { fetchImpl }),
+    /虎牙分类「赛事」抓取失败/, '分类抓失败时不能拿「未开播」占位冲掉上一轮缓存')
+})
+
 await checkAsync('虎牙：首选线路清单被拒即换下一条线路，分片被拒的线路同样跳过，被拒线路 5 分钟内不再碰', async () => {
   clearHuyaResolveCache()
   const config = resolveConfig(huya, {})
@@ -2351,6 +2402,30 @@ check('斗鱼：默认配置控制分类、数量、人气与画质，所有频�
     [{ roomId: '1', name: '重复' }, { roomId: '2', name: '自动' }],
   ).map(room => room.name), ['手填', '自动'])
   assert.equal(DOUYU_GROUP, '斗鱼')
+})
+
+await checkAsync('斗鱼：手填房间没开播也列出「主播 · 未开播」；只剩占位又有真出错时整轮判失败', async () => {
+  const offlineHtml = `<html><body><script id="vike_pageContext" type="application/json">${JSON.stringify({
+    pageProps: { room: { roomInfo: { roomInfo: {
+      rid: 606118, roomName: '今天休息不播', nickname: '离线主播', avatar: '//img.example/avatar.jpg', isLive: 0,
+    } } } },
+  })}</script></body></html>`
+  assert.throws(() => parseDouyuMobileRoomPage(offlineHtml, '606118'), error => error.name === 'DouyuOfflineError'
+    && error.room.roomId === '606118' && error.room.nick === '离线主播' && error.room.logo === 'https://img.example/avatar.jpg')
+  const pages = { '/606118': offlineHtml, '/9999': douyuMobileHtml }
+  const fetchImpl = async raw => {
+    const url = new URL(String(raw))
+    const html = pages[url.pathname]
+    return { ok: !!html, status: html ? 200 : 503, text: async () => html || '' }
+  }
+  const fetched = await douyu.fetch(resolveConfig(douyu, { rooms: '606118\n9999', topPerArea: 0 }), { fetchImpl })
+  assert.deepEqual(fetched.groups[0].dataList.map(c => [c.deferredRef, c.name, c.logo]), [
+    ['douyu-606118', '离线主播 · 未开播', 'https://img.example/avatar.jpg'],
+    ['douyu-9999', '陪伴每一天', 'https://img.example/cover.jpg'],
+  ])
+  assert.deepEqual(fetched.meta.warnings, [])
+  await assert.rejects(douyu.fetch(resolveConfig(douyu, { rooms: '606118', topPerArea: 8 }), { fetchImpl }),
+    /斗鱼分类「网游竞技」抓取失败/, '分类抓失败时不能拿「未开播」占位冲掉上一轮缓存')
 })
 
 await checkAsync('虎牙一起看：先核对房号、分区和当前节目，再取人气前几名', async () => {

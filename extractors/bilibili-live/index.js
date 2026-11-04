@@ -18,14 +18,15 @@ const CONCURRENCY = 3
 /**
  * 这一轮算不算失败。
  *
- * 一条都没解析出来、且至少有一间房是真出错（不是没开播）→ 判失败，交给
+ * 一间在播的都没抓到、且至少有一间房是真出错（不是没开播）→ 判失败，交给
  * extractorManager 保留上一轮缓存并退避重试，而不是把用户的频道清空。
- * 反之，全部房间都没开播时如实返回 0 条：那是「今天没人播」这个正常状态。
+ * 手填房间的「未开播」频道不算抓到。反之，全部房间都没开播时如实返回：
+ * 那是「今天没人播」这个正常状态。
  *
  * 抽成纯函数是为了能单测——否则要真断网才走得到这条路径。
  */
-export function shouldFailRound(groupCount, hardErrors) {
-  return groupCount === 0 && hardErrors > 0
+export function shouldFailRound(liveCount, hardErrors) {
+  return liveCount === 0 && hardErrors > 0
 }
 
 /**
@@ -236,7 +237,7 @@ export default {
       type: 'text',
       multiline: true,
       placeholder: '一行一个：房间号 / 直播间地址 / b23.tv 短链\n13\nhttps://live.bilibili.com/1022\n# 井号开头是注释',
-      hint: '想固定看某个主播时才填，不填也能用。房间号是地址路径里的数字，不是 live_from= 那种参数，直接粘完整地址最稳。未开播的房间会自动跳过。这里填的排在热门榜之前。',
+      hint: '想固定看某个主播时才填，不填也能用。房间号是地址路径里的数字，不是 live_from= 那种参数，直接粘完整地址最稳。这里填的排在热门榜之前；没开播的也会列出，名字带「未开播」，主播开播后直接能播，名字等下次刷新更新。',
       default: '',
     },
     {
@@ -335,10 +336,14 @@ export default {
     // 该判整轮失败保缓存，而不是「成功 0 频道」。
     let hardErrors = autoResult.fetchFailures
 
+    const manualKeys = new Set(manualRefs.map(String))
     const results = await mapLimit(refs, CONCURRENCY, async (ref) => {
       try {
         return await fetchRoom(ref, options)
       } catch (error) {
+        // 手填的房间没开播也列出：频道播放时现换地址，主播开播后不用等下次刷新就能播。
+        // 热门榜里刚下播的照旧跳过
+        if (error instanceof RoomOfflineError && error.result && manualKeys.has(String(ref))) return error.result
         // 风控是全局性的：记下来，等这一轮跑完统一往上抛，让 health() 报
         // 「被风控」而不是一串「未开播」——后者会让用户以为主播都下播了。
         if (error instanceof RiskControlError) {
@@ -362,7 +367,9 @@ export default {
     // 再去一次重。refs 手填在前、mapLimit 按下标写结果，保留首个即保留手填优先序。
     const groups = groupBilibiliResults(results, warnings)
 
-    if (shouldFailRound(groups.length, hardErrors)) {
+    // 「未开播」占位不算抓到：只剩它们又有真出错时整轮判失败、保上一轮缓存，和改之前一样
+    const liveCount = results.filter(result => result && !result.offline).length
+    if (shouldFailRound(liveCount, hardErrors)) {
       // 归因要分账：热门榜接口失败与直播间获取失败是两码事，混着算分子会把
       // 「热门榜挂了 + 手填的都没开播」报成「N/M 个直播间获取失败：未开播」。
       const roomErrors = hardErrors - autoResult.fetchFailures

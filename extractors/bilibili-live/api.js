@@ -54,9 +54,11 @@ export class RoomError extends Error {
  * 如实写出空结果，后者必须保留上一轮缓存——不区分就会在断网时把用户的频道清空。
  */
 export class RoomOfflineError extends RoomError {
-  constructor(message) {
+  /** result：与 fetchRoom 同形的「未开播」频道，手填房间靠它照样列出；热门榜房间不用。 */
+  constructor(message, result = null) {
     super(message)
     this.name = 'RoomOfflineError'
+    this.result = result
   }
 }
 
@@ -579,7 +581,23 @@ export async function fetchRoom(roomRef, options = {}) {
 
   const roomId = await normalizeRoom(roomRef, netOptions)
   const info = await roomInfo(roomId, netOptions)
-  if (!info.live) throw new RoomOfflineError('未开播')
+  if (!info.live) {
+    // 没开播也查主播名：手填的房间照样列成「主播 · 未开播」，播放时现换地址，开播即能播
+    const anchor = info.uid ? await anchorInfo(info.uid, netOptions) : { name: '', avatar: '' }
+    throw new RoomOfflineError('未开播', {
+      channel: {
+        name: sanitizeText(`${anchor.name || `房间 ${info.roomId}`} · 未开播`),
+        logo: anchor.avatar || '',
+        deferredRef: refOf(info.roomId),
+        relayHls: true,
+        groupTitle: BILIBILI_GROUP,
+      },
+      group: BILIBILI_GROUP,
+      warning: anchor.warning,
+      roomId: String(info.roomId),
+      offline: true,
+    })
+  }
 
   const { qn } = await pickStream(info.roomId, { preferHls: true, preferAvc, quality, ...netOptions })
   const anchor = info.uid

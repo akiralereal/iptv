@@ -45,9 +45,11 @@ export class DouyuError extends Error {
 }
 
 export class DouyuOfflineError extends DouyuError {
-  constructor(message) {
+  /** room：未开播房间的主播名和头像，手动房间靠它照样列出频道。 */
+  constructor(message, room = null) {
     super(message)
     this.name = 'DouyuOfflineError'
+    this.room = room
   }
 }
 
@@ -174,7 +176,14 @@ export function parseMobileRoomPage(html, requestedRoom = '') {
   const info = context?.pageProps?.room?.roomInfo?.roomInfo
   if (!info || !info.rid) throw new DouyuError(`斗鱼房间 ${requestedRoom || ''} 数据不完整`.trim())
   const roomId = normalizeRoom(info.rid)
-  if (Number(info.isLive) !== 1) throw new DouyuOfflineError(`斗鱼房间 ${roomId} 当前未开播`)
+  if (Number(info.isLive) !== 1) {
+    throw new DouyuOfflineError(`斗鱼房间 ${roomId} 当前未开播`, {
+      roomId,
+      nick: String(info.nickname || '').trim(),
+      logo: String(info.avatar || info.roomSrc || '').replace(/^\/\//, 'https://'),
+      offline: true,
+    })
+  }
   const signerCode = String(context?.crptext || '')
   if (!signerCode.includes('function ub98484234')) {
     throw new DouyuError('斗鱼房间页缺少匿名播放签名函数')

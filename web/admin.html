@@ -4697,7 +4697,7 @@
                         <div class="system-config-item">
                             <label>节目单更新间隔（小时） <span class="sys-badge is-restart" title="保存后要重启服务才生效，可直接点下方「保存并重启」">需重启</span></label>
                             <input type="number" id="sysProgramInterval" oninput="setSaveDirty('sysconfig')" placeholder="8">
-                            <div class="system-config-hint" style="color:#d4380d;">⚠️ 咪咕频道 / EPG / 体育的全量更新间隔。<strong>如果填写了咪咕 Token（登录账号），建议设置 8 小时以上</strong>——过于频繁请求可能触发风控、影响账号。</div>
+                            <div class="system-config-hint" style="color:#d4380d;">⚠️ 咪咕频道 / EPG / 体育的全量更新间隔。<strong>如果填写了咪咕 Token（登录账号），建议设置 8 小时以上</strong>——过于频繁请求可能触发风控、影响账号。另外每天北京时间 00:10 会自动多更新一次，补上新一天的节目单（不少省台只发当天的）。</div>
                         </div>
                         <div class="system-config-item">
                             <label class="sys-check-label">

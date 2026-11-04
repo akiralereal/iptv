@@ -7,7 +7,8 @@ import { createRequire } from "node:module"
 import fetch from 'node-fetch'
 import { adminPath, host, pass, port, programInfoUpdateInterval, token, userId, enableMigu, enableBuiltInSubscriptions, enableUserTokens } from "./config.js";
 import { getDateTimeStr } from "./utils/time.js";
-import update, { localLogosFingerprint } from "./utils/updateData.js";
+import update, { getLastPlaybackBuiltAt, localLogosFingerprint } from "./utils/updateData.js";
+import { epgBuiltToday, scheduleDailyEpgRefresh } from "./utils/dailyEpgRefresh.js";
 import { printBlue, printGreen, printGrey, printMagenta, printRed, printYellow } from "./utils/colorOut.js";
 import { channel, interfaceStr, fetchManifestDirect, rewriteManifest, inlineResolvedManifest } from "./utils/appUtils.js";
 import { toProxyManifest, lookup as lookupProxyTarget, pipeUpstream, probeUpstream, fetchNested, manifestCooling, markManifestResult } from "./utils/hlsProxy.js";
@@ -1645,10 +1646,7 @@ server.listen(port, async () => {
   // （文件名 + 修改时间，一次 readdir，几十个文件不到 1 毫秒）
   let logosFingerprint = localLogosFingerprint()
 
-  // 定时任务1: 完整更新（咪咕 + 外部源 + 节目单）
-  setInterval(async () => {
-    printBlue(`准备更新文件 ${getDateTimeStr(new Date())}`)
-    hours += updateInterval
+  async function runFullUpdate() {
     try {
       await update(hours)
       playlistStale = false
@@ -1656,9 +1654,26 @@ server.listen(port, async () => {
       console.log(error)
       printRed("更新失败")
     }
+  }
 
+  // 定时任务1: 完整更新（咪咕 + 外部源 + 节目单）
+  setInterval(async () => {
+    printBlue(`准备更新文件 ${getDateTimeStr(new Date())}`)
+    hours += updateInterval
+    await runFullUpdate()
     printBlue(`当前已运行${hours}小时`)
   }, updateInterval * 60 * 60 * 1000);
+
+  // 定时任务1b: 每天北京时间 00:10 补一次完整更新。不少省台只发当天节目单，
+  // 上面那轮从启动时起算、不对齐零点，零点后最多空 8 小时（见 utils/dailyEpgRefresh.js）
+  scheduleDailyEpgRefresh(async () => {
+    if (epgBuiltToday(getLastPlaybackBuiltAt())) {
+      printGrey("零点后节目单已重新生成过，跳过零点补刷")
+      return
+    }
+    printBlue(`零点后补刷节目单（多数省台只发当天）${getDateTimeStr(new Date())}`)
+    await runFullUpdate()
+  })
 
   // 定时任务2: 每 5 分钟检查外部源、内置源、抓取模块是否到刷新间隔（needsRefresh 按各自间隔判定，不到点不抓）
   // 这一轮本身可能超过 5 分钟（外部源串行且每源之间硬睡 2 秒），必须自己防重入，

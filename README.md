@@ -529,7 +529,7 @@ YouTube 自选频道和固定直播场次没有统一节目单，正在直播及
 | menableHDR | true | boolean | 是否开启 HDR（vivid/4kvivid）<br>设 `false` 关闭 |
 | menableH265 | true | boolean | 是否开启 H.265 原画<br>有兼容性问题（如只有声音没画面）时设 `false` 关闭 |
 | menableClientDispatch | false | boolean | 客户端就近取流：**服务器与观看设备不同运营商**导致抓取频道跨网卡顿 / 播不了时设 `true`<br>同网部署无需开启 |
-| mupdateInterval | 8 | number | 节目单 / 源更新间隔（小时），不建议过短 |
+| mupdateInterval | 8 | number | 节目单 / 源更新间隔（小时），不建议过短；另外每天北京时间 00:10 自动多更新一次，补上新一天的节目单 |
 | mexternalLogoBase | 空（不配） | string | 频道**没有可用的自带台标**时，按频道名到公共台标库兜底取图的基址。默认不配：台标库是别人维护的，不替你引入<br>用 taksssss 台标库就填 `https://gcore.jsdelivr.net/gh/taksssss/tv@main/icon/`（索引会自动带上）；换成其它库需保证 `<基址><频道名>.png` 可访问。本地 `logos/` 里的图始终优先 |
 | mexternalLogoIndex | 跟随 `mexternalLogoBase` | string | 台标库的「频道名 → 图片」索引地址。有索引才知道库里到底有没有这张图：没有就不给这个台标，而不是写一个必定 404 的地址（裂图）<br>索引每 7 天下载一次并落盘缓存，拉不到时自动退回按名兜底。`mexternalLogoBase` 填的是上面那个 taksssss 地址时自动带上它的索引，其它库默认关闭（别人的清单对不上你的库）；留空同样关闭 |
 | menableLogoCache | true | boolean | 台标本机托管：每轮更新把要用的台标下载到数据目录 `logo-cache/`，逐张确认是图片后由本机提供，播放器不再直连各台图床与台标库；源自带的台标坏了（404、不是图片）自动换下一个来源。设 `false` 退回直接写原台标地址 |

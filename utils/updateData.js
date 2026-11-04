@@ -24,6 +24,12 @@ import miguDanmaku from "../extractors/migu/danmaku.js"
 
 const PE_CACHE_PATH = dataPath('pe-cache.json')
 
+// 本进程最近一次重新生成 playback.xml 的时间；零点后补刷据此判断今天是否已经刷过（utils/dailyEpgRefresh.js）
+let lastPlaybackBuiltAt = 0
+export function getLastPlaybackBuiltAt() {
+  return lastPlaybackBuiltAt
+}
+
 // 本地台标支持的扩展名（按优先级查找）
 export const LOGO_EXTS = ['png', 'jpg', 'jpeg', 'webp']
 
@@ -535,6 +541,7 @@ async function updateTV(hours, options = {}) {
     }
     appendFileSync(playbackFile, `</tv>\n`)
     renameFileSync(playbackFile, playbackFile.replace(".bak", ""))
+    lastPlaybackBuiltAt = Date.now()
   }
   renameFileSync(interfacePath, interfacePath.replace(".bak", ""))
   // txt

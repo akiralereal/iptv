@@ -1668,7 +1668,7 @@ server.listen(port, async () => {
   // 上面那轮从启动时起算、不对齐零点，零点后最多空 8 小时（见 utils/dailyEpgRefresh.js）
   scheduleDailyEpgRefresh(async () => {
     if (epgBuiltToday(getLastPlaybackBuiltAt())) {
-      printGrey("零点后节目单已重新生成过，跳过零点补刷")
+      printGrey("00:10 后节目单已重新生成过，跳过零点补刷")
       return
     }
     printBlue(`零点后补刷节目单（多数省台只发当天）${getDateTimeStr(new Date())}`)

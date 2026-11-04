@@ -5,6 +5,7 @@ import {
   DEFAULT_QUALITY,
   HUYA_GROUP,
   HuyaOfflineError,
+  HuyaRoomMissingError,
   QUALITY_OPTIONS,
   clearResolveCache,
   fetchRoom,
@@ -135,7 +136,8 @@ export default {
       } catch (error) {
         // 未开播的手动房间也列出：频道播放时现查，主播开播后不用等下次刷新就能播
         if (error instanceof HuyaOfflineError && error.room) return error.room
-        if (!(error instanceof HuyaOfflineError)) hardErrors++
+        // 填错的房间号同未开播：提示并跳过，不算真出错
+        if (!(error instanceof HuyaOfflineError) && !(error instanceof HuyaRoomMissingError)) hardErrors++
         warnings.push(error.message)
         return null
       }

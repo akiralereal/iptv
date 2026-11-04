@@ -43,12 +43,14 @@ check('下一次落在上海 00:10：零点前、零点后、正好那一刻', (
   assert.equal(msUntilNextShanghaiMinute(10, at('2026-11-04T00:10:00+08:00')), 24 * HOUR)
 })
 
-check('今天零点后生成过才算刷过', () => {
+check('今天 00:10 后生成过才算刷过', () => {
   const now = at('2026-11-04T00:10:00+08:00')
   assert.equal(epgBuiltToday(0, now), false)
   assert.equal(epgBuiltToday(at('2026-11-03T23:59:59+08:00'), now), false)
-  assert.equal(epgBuiltToday(at('2026-11-04T00:00:00+08:00'), now), true)
-  assert.equal(epgBuiltToday(at('2026-11-04T00:06:00+08:00'), now), true)
+  // 00:00～00:10 之间生成完的一轮多半是零点前后取的，有的官方接口还回前一天，照样补刷
+  assert.equal(epgBuiltToday(at('2026-11-04T00:00:00+08:00'), now), false)
+  assert.equal(epgBuiltToday(at('2026-11-04T00:06:00+08:00'), now), false)
+  assert.equal(epgBuiltToday(at('2026-11-04T00:10:00+08:00'), now), true)
   // 机器睡过了零点、白天才醒：凌晨那轮 8 小时更新已经刷过
   assert.equal(epgBuiltToday(at('2026-11-04T03:00:00+08:00'), at('2026-11-04T06:00:00+08:00')), true)
 })

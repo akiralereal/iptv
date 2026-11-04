@@ -26,9 +26,13 @@ export function msUntilNextShanghaiMinute(minutes, now = Date.now()) {
   return target > now ? target - now : target + DAY_MS - now
 }
 
-/** 今天零点后已经重新生成过节目单（启动、8 小时那一轮、后台手动刷新都算）就不必再跑。 */
-export function epgBuiltToday(lastBuiltAt, now = Date.now()) {
-  return Number(lastBuiltAt) >= shanghaiDayStart(now)
+/**
+ * 今天 00:10 之后已经重新生成过节目单（启动、8 小时那一轮、后台手动刷新都算）就不必再跑。
+ * 门槛是 00:10 不是 00:00：00:00～00:10 之间生成完的那一轮，节目单多半是零点前或刚过零点取的，
+ * 正是上面说的「有的还回前一天」。
+ */
+export function epgBuiltToday(lastBuiltAt, now = Date.now(), minutes = DAILY_EPG_REFRESH_MINUTES) {
+  return Number(lastBuiltAt) >= shanghaiDayStart(now) + minutes * 60 * 1000
 }
 
 /**

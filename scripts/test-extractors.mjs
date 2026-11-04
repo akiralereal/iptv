@@ -2208,7 +2208,7 @@ await checkAsync('虎牙：手填房间没开播也列出「主播 · 未开播�
   const missing = offlinePage({ nick: '', avatar: '', profileRoom: 0 })
   assert.throws(() => parseHuyaRoomPage(offline, 'saonan'), error => error.name === 'HuyaOfflineError'
     && error.room.roomId === '520520' && error.room.nick === '离线主播' && error.room.logo === 'https://img.example/a.jpg')
-  assert.throws(() => parseHuyaRoomPage(missing, '17091'), error => error.name === 'HuyaError' && /17091 不存在/.test(error.message))
+  assert.throws(() => parseHuyaRoomPage(missing, '17091'), error => error.name === 'HuyaRoomMissingError' && /17091 不存在/.test(error.message))
 
   const pages = { '/saonan': offline, '/17091': missing, '/660101': huyaPlayerHtml }
   const fetchImpl = async raw => {
@@ -2222,6 +2222,10 @@ await checkAsync('虎牙：手填房间没开播也列出「主播 · 未开播�
     ['huya-660101', '虎牙测试直播', 'https://img.example/room.jpg'],
   ])
   assert.deepEqual(fetched.meta.warnings, ['虎牙房间 17091 不存在或已注销'])
+  // 填错一个、其余都没开播：照样列出「未开播」，不判整轮失败
+  const typoOnly = await huya.fetch(resolveConfig(huya, { rooms: 'saonan\n17091', topPerArea: 0 }), { fetchImpl })
+  assert.deepEqual(typoOnly.groups[0].dataList.map(c => c.name), ['离线主播 · 未开播'])
+  assert.deepEqual(typoOnly.meta.warnings, ['虎牙房间 17091 不存在或已注销'])
   await assert.rejects(huya.fetch(resolveConfig(huya, { rooms: 'saonan', topAreas: '赛事', topPerArea: 8 }), { fetchImpl }),
     /虎牙分类「赛事」抓取失败/, '分类抓失败时不能拿「未开播」占位冲掉上一轮缓存')
 })

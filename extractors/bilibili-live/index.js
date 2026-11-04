@@ -103,7 +103,7 @@ async function collectTopRooms(config, ctx) {
   const names = parseAreaNames(config.topAreas)
   if (!(perArea > 0) || !names.length) return { rooms: [], warnings: [], fetchFailures: 0, failureMessages: [] }
 
-  const options = { timeoutMs: ctx.timeoutMs || 10000 }
+  const options = { timeoutMs: ctx.timeoutMs || 10000, fetchImpl: ctx.fetchImpl }
   const warnings = []
   // 网络层失败的原话单独记一份：整轮判失败时错误消息要引用**这里**的原因，
   // 不能拿 warnings[0]——那可能是「分区名不存在」这类配置提示，归因会张冠李戴。

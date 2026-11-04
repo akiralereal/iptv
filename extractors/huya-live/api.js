@@ -52,6 +52,17 @@ export class HuyaError extends Error {
   }
 }
 
+/**
+ * 房间号不存在或已注销（多半是填错了）。和「未开播」一样只记提示、跳过不列，
+ * 不算这一轮真出错：否则填错一个、其余主播又都没开播时整轮判失败，正确房间的「未开播」也出不来。
+ */
+export class HuyaRoomMissingError extends HuyaError {
+  constructor(message) {
+    super(message)
+    this.name = 'HuyaRoomMissingError'
+  }
+}
+
 export class HuyaOfflineError extends HuyaError {
   /** room：未开播房间的主播名和头像，手动房间靠它照样列出频道。 */
   constructor(message, room = null) {
@@ -278,7 +289,7 @@ function offlineRoom(html, requestedRoom) {
   const nick = decodeHtml(profile?.nick).trim()
   const profileRoom = String(profile?.profileRoom || '')
   if (!nick || !/^[1-9]\d*$/.test(profileRoom)) {
-    return new HuyaError(`虎牙房间 ${requestedRoom || ''} 不存在或已注销`.trim())
+    return new HuyaRoomMissingError(`虎牙房间 ${requestedRoom || ''} 不存在或已注销`.trim())
   }
   return new HuyaOfflineError(`虎牙房间 ${requestedRoom || ''} 当前未开播`.trim(), {
     roomId: normalizeRoom(profileRoom),

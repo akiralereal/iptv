@@ -423,4 +423,62 @@ await check('名字和 id 一律转义，id 只进 data-*，不拼进 onclick �
   assert.equal(h.summary(), '将关闭 1 个')
 })
 
+const NOTICE = '官方接口曾经只放行辽宁本地网络，请自行辨别。'
+const withNoticeModule = enabled => {
+  const state = stateOf()
+  state.modules.push({ id: 'liaoning', name: '辽宁', category: 'standard', enabled, enableNotice: NOTICE })
+  return state
+}
+
+await check('批量勾上声明了 enableNotice 的模块，摘要下面列出那句话；关它或不动它都不提示', () => {
+  const h = bulkHarness(withNoticeModule(false))
+  h.context.openExtractorBulk()
+  assert.equal(h.elements.extractorBulkWarning.hidden, true)
+  h.click('liaoning', true)
+  assert.equal(h.elements.extractorBulkWarning.hidden, false)
+  assert.equal(h.elements.extractorBulkWarning.textContent, `「辽宁」：${NOTICE}`)
+  h.context.setExtractorBulkAll(false)
+  assert.doesNotMatch(h.elements.extractorBulkWarning.textContent, /辽宁/, '勾掉后提示跟着消失')
+  assert.match(h.elements.extractorBulkWarning.textContent, /约 150 个精选频道/)
+
+  const on = bulkHarness(withNoticeModule(true))
+  on.context.openExtractorBulk()
+  on.click('liaoning', false)
+  assert.equal(on.elements.extractorBulkWarning.hidden, true, '关掉不需要确认网络')
+})
+
+await check('卡片开关：声明了 enableNotice 的模块先确认，取消不发请求并把开关拨回去', async () => {
+  const toggle = { checked: true, focused: 0, focus() { this.focused++ } }
+  const confirms = [], posts = [], applied = []
+  let answer = false
+  const context = vm.createContext({
+    extractorsState: withNoticeModule(false),
+    extractorFilter: 'all', extractorFilterHold: new Set(),
+    CSS: { escape: value => value },
+    document: { querySelector: selector => (selector.includes('data-extractor-id="liaoning"') || selector.includes('data-extractor-id="gdtv"') ? toggle : null) },
+    showConfirm: async (message, title) => { confirms.push([message, title]); return answer },
+    extractorPost: async request => { posts.push(plain(request)); return { success: true } },
+    applyExtractorResult: (r, message) => applied.push(message),
+  })
+  vm.runInContext(functionSource('toggleExtractorModule'), context)
+
+  await context.toggleExtractorModule('liaoning', true)
+  assert.deepEqual(confirms, [[NOTICE, '打开「辽宁」前请确认']])
+  assert.deepEqual(posts, [], '取消就不打开')
+  assert.equal(toggle.checked, false)
+  assert.equal(toggle.focused, 1)
+
+  answer = true
+  toggle.checked = true
+  await context.toggleExtractorModule('liaoning', true)
+  assert.deepEqual(posts, [{ action: 'toggleModule', id: 'liaoning', enabled: true }])
+  assert.deepEqual(applied, ['模块已启用'])
+
+  confirms.length = 0
+  await context.toggleExtractorModule('liaoning', false)
+  await context.toggleExtractorModule('gdtv', true)
+  assert.deepEqual(confirms, [], '关闭、以及没声明提示的模块都不弹')
+  assert.equal(posts.length, 3)
+})
+
 console.log(`\n全部通过：${passed} 项`)

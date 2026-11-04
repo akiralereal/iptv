@@ -5753,11 +5753,20 @@
             return parts.length ? prefix + parts.join('、') : '没有改动';
         }
 
-        /** 摘要下面的额外提醒：关「内置订阅源」一下少约 150 个频道，在数字里只算 1 个，得单独说。 */
+        /**
+         * 摘要下面的额外提醒：关「内置订阅源」一下少约 150 个频道，在数字里只算 1 个，得单独说；
+         * 要打开的模块里有声明 enableNotice 的（辽宁：只放行部分网络），把那句话也列出来——
+         * 卡片开关会先弹确认，批量勾选不弹，至少在点「应用」之前看得到。
+         */
         function extractorBulkWarning(changes) {
-            return changes.contentFlags.enableBuiltInSubscriptions === false
-                ? '含「内置订阅源」：约 150 个精选频道将不再出现在播放列表里，随时可以开回来。'
-                : '';
+            const notes = [];
+            if (changes.contentFlags.enableBuiltInSubscriptions === false) {
+                notes.push('含「内置订阅源」：约 150 个精选频道将不再出现在播放列表里，随时可以开回来。');
+            }
+            for (const module of (extractorsState && extractorsState.modules) || []) {
+                if (changes.modules[module.id] === true && module.enableNotice) notes.push(`「${module.name}」：${module.enableNotice}`);
+            }
+            return notes.join(' ');
         }
 
         /** bulkToggle 请求体：modules 总是带（只改内置源时是空对象），contentFlags 没改动就整个不带。 */
@@ -6449,6 +6458,17 @@
         }
 
         async function toggleExtractorModule(id, on) {
+            // 声明了 enableNotice 的模块（辽宁：官方只放行部分网络）先确认；取消就把开关拨回去，不发请求
+            const module = ((extractorsState && extractorsState.modules) || []).find(m => m.id === id);
+            if (on && module && module.enableNotice
+                && !(await showConfirm(module.enableNotice, `打开「${module.name}」前请确认`))) {
+                const toggle = document.querySelector(`[data-extractor-id="${CSS.escape(id)}"] .source-card-toggle input`);
+                if (toggle) {
+                    toggle.checked = false;
+                    toggle.focus({ preventScroll: true });
+                }
+                return;
+            }
             const r = await extractorPost({ action: 'toggleModule', id, enabled: on });
             if (r && r.success && extractorFilter !== 'all') extractorFilterHold.add(id);
             applyExtractorResult(r, on ? '模块已启用' : '模块已关闭');

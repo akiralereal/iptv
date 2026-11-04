@@ -24,9 +24,13 @@
  *                                 只有面向海外、在大陆连不上或常卡顿的模块写 false
  *                                 （海外频道、澳门），由用户自己打开；频道量大、只有本地少数人
  *                                 看的市县模块也可以（山东市县，两百来台按地市分组；市县台各省模块）；
- *                                 福建百视通以重复频道备用为主，按用户要求默认关；WebSports 来自第三方赛事网站，不进默认内容；各模块在海外的
+ *                                 福建百视通以重复频道备用为主，按用户要求默认关；WebSports 来自第三方赛事网站，不进默认内容；
+ *                                 辽宁（北斗融媒）官方按网络放行、门槛变过几次，作者要求默认关；各模块在海外的
  *                                 实测见仓库根目录 OVERSEAS.md。v4.29.0 及以前已有的模块
  *                                 在存量配置里多已落成 enabled:true，改它们的默认值要另写迁移
+ *   enableNotice          string  可选；用户在后台打开这个模块前要看的一句话。卡片开关先弹确认，
+ *                                 点「取消」不打开；「批量开关」里勾上它，摘要下面列出这句话。
+ *                                 给默认关闭、能不能播看部署网络的模块用（辽宁）
  *   capabilities          object  { cache: 'disk'|'memory'|'none',
  *                                   resolve: boolean, epg: boolean }
  *   catalogVersion        number  可选；代码内置频道表变更时递增。缓存版本不一致会在
@@ -176,6 +180,7 @@ import chengdu from './chengdu/index.js'
 import sichuanCities from './sichuan-cities/index.js'
 import cztv from './cztv/index.js'
 import dalian from './dalian/index.js'
+import liaoning from './liaoning/index.js'
 import douyuLive from './douyu-live/index.js'
 import fjtv from './fjtv/index.js'
 import bestvFj from './bestv-fj/index.js'
@@ -266,6 +271,7 @@ const MODULES = [
   chengdu,
   sichuanCities,
   dalian,
+  liaoning,
   gansu,
   gdtv,
   gdsportEvents,
@@ -339,6 +345,9 @@ export function validateModule(module) {
   }
   if (module.defaultEnabled != null && typeof module.defaultEnabled !== 'boolean') {
     throw new Error(`抓取模块 ${module.id} 的 defaultEnabled 必须是布尔值`)
+  }
+  if (module.enableNotice != null && (typeof module.enableNotice !== 'string' || !module.enableNotice.trim())) {
+    throw new Error(`抓取模块 ${module.id} 的 enableNotice 必须是非空字符串`)
   }
   if (module.category != null && !MODULE_CATEGORIES.has(module.category)) {
     throw new Error(`抓取模块 ${module.id} 的 category 非法: ${JSON.stringify(module.category)}`)

@@ -773,7 +773,7 @@ check('深圳广电模块已注册，固定周期刷新且逐路径签名流必�
 check('省市广电模块卡片只显示地区名，不带平台品牌', () => {
   const expectedNames = {
     'gdsport-events': '广东体育赛事', 'sichuan-cities': '四川市州',
-    anhui: '安徽', chongqing: '重庆', sichuan: '四川', chengdu: '成都', cztv: '浙江', dalian: '大连', fjtv: '福建', gansu: '甘肃', gdtv: '广东', gxtv: '广西',
+    anhui: '安徽', liaoning: '辽宁', chongqing: '重庆', sichuan: '四川', chengdu: '成都', cztv: '浙江', dalian: '大连', fjtv: '福建', gansu: '甘肃', gdtv: '广东', gxtv: '广西',
     gztv: '广州', hbtv: '湖北', hebtv: '河北', heilongjiang: '黑龙江', hnntv: '海南', hntv: '河南',
     iqilu: '山东', hangzhou: '杭州', ningbo: '宁波', jiaxing: '嘉兴', taizhou: '台州', shaoxing: '绍兴', 'zhejiang-local': '浙江地方台', jlntv: '吉林', jstv: '江苏', jxntv: '江西', kankanews: '上海', 'meizhou-hakka': '梅州', mgtv: '湖南', njtv: '南京', nmtv: '内蒙古',
     'quanzhou-minnan': '泉州', 'quanzhou-county': '晋江、石狮', putian: '莆田', ningde: '宁德', wuxi: '无锡', yangzhou: '扬州', nantong: '南通', yancheng: '盐城',
@@ -1006,6 +1006,7 @@ try {
         'shandong-counties',
         'bestv-fj',
         'websports',
+        'liaoning',
         ...modules.filter(module => module.id.startsWith('guangdianyun-')).map(module => module.id),
       ].sort(),
     )
@@ -1064,8 +1065,8 @@ try {
     assert.ok(gdy.length >= 20, '市县台各省模块都默认关闭')
     assert.equal(listModules().filter(module => module.id.startsWith('guangdianyun-')).length, gdy.length)
     assert.deepEqual(optIn.filter(id => !id.startsWith('guangdianyun-')).sort(),
-      ['bestv-fj', 'overseas', 'shandong-counties', 'tdm', 'websports', 'youtube-live'],
-      '百视通因出口可用性差异默认关闭；WebSports 来自第三方赛事网站；其余默认关闭模块保持不变')
+      ['bestv-fj', 'liaoning', 'overseas', 'shandong-counties', 'tdm', 'websports', 'youtube-live'],
+      '百视通因出口可用性差异默认关闭；WebSports 来自第三方赛事网站；辽宁官方按网络放行（作者 11-04 拍板）；其余默认关闭模块保持不变')
     const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
     for (const id of optIn) assert.equal(manager.isModuleEnabled(getModule(id)), false, id)
     manager.setModuleEnabled('overseas', true)

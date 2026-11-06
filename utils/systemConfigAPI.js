@@ -75,7 +75,7 @@ export function getSystemConfigAPI() {
         enableClientDispatch,
         // 网络代理：密码打码回显（没设访问密码时这个接口谁都能读）；保存时占位符换回原密码
         proxy: maskProxyUrl(settingProxyUrl()),
-        // 留空时 YouTube / Telegram 是否会沿用 HTTPS_PROXY（只回有没有，不回地址）
+        // 留空时 所支持模块 是否会沿用 HTTPS_PROXY（只回有没有，不回地址）
         proxyEnvFallback: Boolean(systemProxyUrl())
       },
       envOverrides
@@ -89,7 +89,7 @@ export function getSystemConfigAPI() {
 }
 
 /**
- * 后台「网络代理」的测试按钮：用输入框里的值（可能是打码回显、还没保存）连 YouTube 和 Telegram。
+ * 后台「网络代理」的测试按钮：用输入框里的值（可能是打码回显、还没保存）检查官方接口与直播清单。
  */
 export async function testProxyAPI(raw) {
   try {
@@ -185,7 +185,7 @@ export function saveSystemConfigAPI(config) {
     if (config.enableClientDispatch !== undefined) {
       validated.enableClientDispatch = config.enableClientDispatch === true
     }
-    // 网络代理（只给 YouTube / Telegram 用）：显式提交才写；格式不对整次保存失败，不写半截
+    // 网络代理（只给 所支持模块 用）：显式提交才写；格式不对整次保存失败，不写半截
     if (config.proxy !== undefined) {
       validated.proxy = normalizeProxyUrl(restoreMaskedProxy(config.proxy, existing.proxy))
     }

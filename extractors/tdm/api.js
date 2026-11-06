@@ -5,12 +5,12 @@
  * - GET www.tdm.com.mo/api/v1/common/get-domain 按访问者网络返回路由：sourceLiveDomain（官网写的
  *   live3）先换成 liveDomain（locallive），再按 domains 表换一次——澳门本地映射到自己（live3 / locallive），
  *   香港、台湾、日本、美国映射到海外 CDN（live5 / globallive）。
- * - 大陆连官网和海外 CDN 都是 TCP 超时，live3 只有澳门本地能连。所以模块默认关闭（defaultEnabled: false），部署在大陆以外的用户自己打开。
- * - 海外 CDN 不看 Referer、UA，地址不带签名：给播放器 302 直连，视频不经过本机。
+ * - 大陆连官网和海外 CDN 都是 TCP 超时，live3 只有澳门本地能连。所以模块默认关闭（defaultEnabled: false），用户确认网络或配置代理后自行打开。
+ * - 海外 CDN 不看 Referer、UA，地址不带签名：未配置代理时给播放器 302 直连；有生效代理时清单和媒体都经本机转发。
  *
  * 路由缓存 5 分钟；接口一时取不到时沿用上一次的路由（域名几个月不变），从没取到过才报错。
  */
-import { proxyAwareFetch } from '../../utils/systemProxy.js'
+import { outboundFetch, outboundProxyKey, outboundProxyUrl } from '../../utils/outboundProxy.js'
 import { CHANNELS, CHANNEL_BY_REF } from './channels.js'
 
 export { CHANNELS }
@@ -74,10 +74,8 @@ export function claimsRef(ref) {
   return CHANNEL_BY_REF.has(String(ref || ''))
 }
 
-export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {}) {
-  let route = null
-  let expiresAt = 0
-  let pending = null
+export function createResolver({ fetchImpl: defaultFetch = outboundFetch, proxyKey = outboundProxyKey, proxyEnabled = () => Boolean(outboundProxyUrl()) } = {}) {
+  let state = { key: '', route: null, expiresAt: 0, pending: null }
 
   async function requestRoute({ fetchImpl, timeoutMs }) {
     const response = await fetchImpl(ROUTE_API, {
@@ -92,23 +90,26 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
   }
 
   async function currentRoute(options) {
+    const key = proxyKey()
+    if (state.key !== key) state = { key, route: null, expiresAt: 0, pending: null }
+    // 换出口或清缓存后，旧请求只能写回自己的状态，不能污染新出口的路由。
+    const current = state
     const now = Number(options.now ?? Date.now())
-    if (route && expiresAt > now) return route
-    if (!pending) {
-      pending = requestRoute(options).then(value => {
-        route = value
-        expiresAt = Number(options.now ?? Date.now()) + ROUTE_TTL_MS
+    if (current.route && current.expiresAt > now) return current.route
+    if (!current.pending) {
+      current.pending = requestRoute(options).then(value => {
+        current.route = value
+        current.expiresAt = Number(options.now ?? Date.now()) + ROUTE_TTL_MS
         return value
       }, error => {
-        // 一时取不到：有上一次的就接着用，过一分钟再试
-        if (route) {
-          expiresAt = Number(options.now ?? Date.now()) + 60 * 1000
-          return route
+        if (current.route) {
+          current.expiresAt = Number(options.now ?? Date.now()) + 60 * 1000
+          return current.route
         }
         throw error
-      }).finally(() => { pending = null })
+      }).finally(() => { current.pending = null })
     }
-    return pending
+    return current.pending
   }
 
   async function resolve(ref, ctx = {}) {
@@ -120,7 +121,7 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
         timeoutMs: ctx.timeoutMs || 10000,
         now: ctx.now,
       })
-      return { url: officialStreamUrl(applyDomainRoute(channel.streamUrl, value)), desc: `${channel.name} 官方直播地址` }
+      return { url: officialStreamUrl(applyDomainRoute(channel.streamUrl, value)), ...(proxyEnabled() ? { proxyHls: true } : {}), desc: `${channel.name} 官方直播地址` }
     } catch (error) {
       const reason = ['AbortError', 'TimeoutError'].includes(error?.name)
         ? '请求超时' : (error?.cause?.code || error?.message || '上游请求失败')
@@ -129,9 +130,7 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
   }
 
   function clear() {
-    route = null
-    expiresAt = 0
-    pending = null
+    state = { key: '', route: null, expiresAt: 0, pending: null }
   }
 
   return { resolve, clear }

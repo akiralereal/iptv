@@ -218,4 +218,29 @@ check('注册表拒绝不完整的节目单提供者', () => {
   assert.doesNotThrow(() => validateModule({ ...base, epg: yangshipinEpg }))
 })
 
+await checkAsync('澳门节目单选模块代理；测试显式注入优先，其他模块继续系统默认', async () => {
+  const { outboundFetch } = await import('../utils/outboundProxy.js')
+  const { proxyAwareFetch } = await import('../utils/systemProxy.js')
+  assert.equal(getModule('tdm').epgFetch, outboundFetch)
+  const dir = mkdtempSync(join(tmpdir(), 'iptv-epg-routing-'))
+  const bak = join(dir, 'playback.xml.bak')
+  writeFileSync(bak, '')
+  try {
+    let received
+    const provider = { name: 'mock', epgFetch: outboundFetch, epg: {
+      days: 1, channels: () => [{ ref: 'mock', name: '代理节目单', key: '1' }],
+      async programmes(_key, _day, { fetchImpl }) { received = fetchImpl; return [] },
+    } }
+    const run = options => appendModuleEpg(bak, [{ ref: 'mock', name: '代理节目单' }], new Set(), { resolveModule: () => provider, ...options })
+    await run()
+    assert.equal(received, outboundFetch)
+    const fake = async () => new Response('test')
+    await run({ fetchImpl: fake })
+    assert.equal(received, fake)
+    delete provider.epgFetch
+    await run()
+    assert.equal(received, proxyAwareFetch)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
 console.log(`\n全部通过：${passed} ✅`)

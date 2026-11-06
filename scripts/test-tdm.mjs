@@ -121,4 +121,27 @@ await checkAsync('从没取到过路由（大陆网络）：频道照留，播�
   assert.match((await http.resolve('tdm-unknown', {})).desc, /引用格式错误/)
 })
 
+await checkAsync('更换代理立即重取路由，旧请求完成不污染新出口缓存，失败不能沿用前一出口', async () => {
+  let key = 'proxy-a'
+  const pending = []
+  const resolver = createResolver({ proxyKey: () => key, proxyEnabled: () => true,
+    fetchImpl: () => new Promise((resolve, reject) => pending.push({ resolve, reject })) })
+  const a = resolver.resolve('tdm-ctvp')
+  key = 'proxy-b'
+  const b = resolver.resolve('tdm-ctvp')
+  assert.equal(pending.length, 2)
+  pending[1].resolve(jsonResponse(MACAU))
+  assert.match((await b).url, /locallive/)
+  pending[0].resolve(jsonResponse(OVERSEAS))
+  await a
+  const cached = await resolver.resolve('tdm-ctvp')
+  assert.match(cached.url, /locallive/)
+  assert.equal(cached.proxyHls, true)
+  assert.equal(pending.length, 2)
+  key = 'proxy-c'
+  const failed = resolver.resolve('tdm-ctvp')
+  pending[2].reject(new Error('unreachable'))
+  assert.equal((await failed).url, '')
+})
+
 console.log(`\n全部通过：${passed} ✅`)

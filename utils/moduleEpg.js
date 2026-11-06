@@ -29,7 +29,7 @@ const CONCURRENCY = 4
  */
 export async function appendModuleEpg(playbackBakPath, channels, coveredKeys, {
   now = Date.now(),
-  fetchImpl = proxyAwareFetch,
+  fetchImpl,
   timeoutMs = 10000,
   // 让给「优先于官方节目单」外部源的频道归一 key
   skipKeys = new Set(),
@@ -76,7 +76,7 @@ export async function appendModuleEpg(playbackBakPath, channels, coveredKeys, {
     let lastFailure = null
     for (const candidate of job.candidates) {
       try {
-        const programmes = await providerProgrammes(candidate.provider, candidate.key, { now, fetchImpl, timeoutMs })
+        const programmes = await providerProgrammes(candidate.provider, candidate.key, { now, fetchImpl: fetchImpl || candidate.module.epgFetch || proxyAwareFetch, timeoutMs })
         if (programmes.length) return { module: candidate.module, programmes }
       } catch (error) {
         lastFailure = error

@@ -234,7 +234,7 @@ async function fetchUpstreamResponse(raw, {
   upstreamHeaders,
   upstreamFamily,
   headers = {},
-  // 模块指定的出站 fetch（YouTube 走后台「网络代理」）；不给就按原来的系统代理 / 直连
+  // 模块指定的出站 fetch（YouTube、澳门、海外频道走后台「网络代理」）；不给就按原来的系统代理 / 直连
   fetchImpl: moduleFetch,
 } = {}) {
   let url = String(raw)

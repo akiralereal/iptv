@@ -11,7 +11,7 @@ import { proxyAwareFetch, systemProxyUrl } from './systemProxy.js'
 /**
  * 后台「系统配置 → 网络代理」。
  *
- * 只给必须出境的请求用：YouTube 直播（yt-dlp 解析、清单与分片转发）和 Telegram 消息推送。
+ * 用于 YouTube、澳门（澳广视）、海外频道及 Telegram；包含取址、节目单与媒体回源。
  * 其他模块一律不读它 —— 省台等国内源不会因为用户的代理开了全局模式、或分流规则判错而被带到境外。
  *
  * 没填时沿用原来的 HTTPS_PROXY 环境变量 / macOS 系统代理（systemProxy.js），老部署行为不变；
@@ -98,7 +98,7 @@ function isLoopback(raw) {
 }
 
 /**
- * YouTube / Telegram 专用的 fetch：后台填了代理就走它；没填按原来的环境变量 / 系统代理。
+ * 指定模块与 Telegram 的出站 fetch：后台填了代理就走它；没填按原来的环境变量 / 系统代理。
  * 本机回环地址（Telegram 填了本机反代时）不走代理。
  */
 export function outboundFetch(url, options = {}) {
@@ -111,6 +111,8 @@ export function outboundFetch(url, options = {}) {
 const TEST_TARGETS = [
   { name: 'YouTube', url: 'https://www.youtube.com/generate_204' },
   { name: 'Telegram', url: 'https://api.telegram.org/' },
+  { name: '澳门（澳广视）', url: 'https://www.tdm.com.mo/api/v1/common/get-domain' },
+  { name: '海外频道（DW）', url: 'https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8' },
 ]
 
 /**
@@ -163,9 +165,9 @@ function describeError(err, proxy, status) {
 }
 
 /**
- * 后台「测试」按钮：经输入框里的代理连一下 YouTube 和 Telegram（还没保存也能测）。
+ * 后台「测试」按钮：经输入框里的代理检查代表性官方接口和直播清单（还没保存也能测）。
  * 输入框为空时按保存后会用的路子测：环境变量 / 系统代理，都没有就直连。
- * 收到任何 HTTP 响应就算通 —— 这里只验证网络，不验证账号。
+ * 2xx/3xx 表示可达；HTTP 错误直接展示。仅验证这些目标，不代表全部频道可播。
  */
 export async function testOutboundProxy(raw, { targets = TEST_TARGETS, timeoutMs = 10000 } = {}) {
   const proxy = raw ? normalizeProxyUrl(raw) : ''
@@ -180,7 +182,8 @@ export async function testOutboundProxy(raw, { targets = TEST_TARGETS, timeoutMs
           ? await undiciFetch(target.url, { ...options, dispatcher })
           : await proxyAwareFetch(target.url, options)
         await res.body?.cancel().catch(() => {})
-        return { name: target.name, ok: true, status: res.status, ms: Date.now() - started }
+        const ok = res.status >= 200 && res.status < 400
+        return { name: target.name, ok, status: res.status, ms: Date.now() - started, ...(!ok ? { message: `目标返回 HTTP ${res.status}` } : {}) }
       } catch (err) {
         let status
         if (proxy && /^https?:/.test(proxy) && err?.name !== 'TimeoutError') {

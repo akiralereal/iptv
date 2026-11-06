@@ -346,7 +346,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
  *   GitHub raw 地址不叠加：它失败时本来就会依次换 5 条镜像线路，那就是它的重试
  * @param {number} [options.retryDelayMs] 第 n 次重试前等 n × retryDelayMs，默认 2 秒；测试用来压缩
  */
-async function fetchAndParseM3u(subscriptionUrl, { userAgent, timeoutMs = 15000, retries = 0, retryDelayMs = 2000 } = {}) {
+async function fetchAndParseM3u(subscriptionUrl, { userAgent, timeoutMs = 15000, retries = 0, retryDelayMs = 2000, fetchImpl = fetch } = {}) {
   const ua = cleanUserAgent(userAgent) || DEFAULT_SUBSCRIPTION_UA
   const attemptMs = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 15000
   const isGithubRaw = subscriptionUrl.includes('raw.githubusercontent.com')
@@ -375,7 +375,7 @@ async function fetchAndParseM3u(subscriptionUrl, { userAgent, timeoutMs = 15000,
       const timeoutId = setTimeout(() => controller.abort(), attemptMs)
 
       try {
-        const response = await fetch(targetUrl, {
+        const response = await fetchImpl(targetUrl, {
           signal: controller.signal,
           headers: {
             'User-Agent': ua,

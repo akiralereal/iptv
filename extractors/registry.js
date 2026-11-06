@@ -112,7 +112,8 @@
  *
  *   groupsFromConfig(config) 可选。纯本地目录在保存配置时同步重建，停用期间的修改也进入频道缓存。
  *   playbackRequiresEnabled 为真时，停用模块也关闭已收藏的频道地址和已发出的媒体地址。
- *   fetchProxyMedia(ref, config, url, options) 可选。签名在连续播放中到期时，重取同一场次、轨道和分片。
+ *   fetchProxyMedia(ref, config, url, options) 可选。主清单、子清单、分片与 HEAD 共用的回源函数；可选择出站代理或刷新过期签名。
+ *   epgFetch(url, options) 可选。模块节目单的默认出站 fetch；显式测试注入仍优先。
  *   claimsRef(ref) → boolean
  *       capabilities.resolve 为真时必需。判断某个 ref 是不是自己的，
  *       播放请求靠它路由到模块。

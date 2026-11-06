@@ -5,7 +5,7 @@
  *   - 不和精选列表 IPTV.m3u 重复收台；
  *   - 台标：除了暂无出处的 Tennis Channel International，要么写了 tvg-logo，要么内置台标库按台名有图；
  *   - 模块：默认关闭（defaultEnabled: false）、排在注册表最后；先从仓库拉，拉不到用镜像自带的那份；频道排到组尾；
- *   - 标了 x-top-first 的台：写成本机入口，播放时取一次主清单、最高档挪到最前，取不到就 302 回官方地址。
+ *   - 全量本机入口保留频道身份；代理模式覆盖所有媒体，无代理时保留最高档前置与 302 回退。
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -18,6 +18,7 @@ process.env.moverseasPlaylistUrl = ''
 const { getModule, listModules, resolverFor, validateModule } = await import('../extractors/registry.js')
 const { loadChannels, PLAYLIST_FILE, LADDERS, claimsRef, createResolver, refForName } = await import('../extractors/overseas/index.js')
 const { parsePlaylistContent } = await import('../utils/externalSources.js')
+const { buildChannelId } = await import('../utils/playlistConfig.js')
 const { moveTrailingChannelsLast } = await import('../utils/channelMerger.js')
 
 let passed = 0
@@ -112,7 +113,7 @@ await checkAsync('最高档前置：转发主清单时最高档在前；取不�
   let loads = 0
   const load = async () => { loads++; return { channels: CHANNELS } }
   let body = () => new Response(master)
-  const resolver = createResolver({ load, fetchImpl: async () => body() })
+  const resolver = createResolver({ load, proxyEnabled: () => false, fetchImpl: async () => body() })
   const ok = await resolver.resolve('overseas-thai-pbs')
   assert.equal(loads, 1, '重启后头一次播放现读一次频道表')
   assert.equal(ok.url, thai.url)
@@ -179,6 +180,32 @@ check('任何分组里海外频道都排到最后，跟在精选列表之后（�
     ['CNA', 'France 24 Français', 'France 24 English', 'NEWS1', 'France 24 Español'])
   assert.equal(output[1], input[1], '没有海外台的分组原样返回')
   assert.equal(JSON.stringify(input), before, '不改输入')
+})
+
+await checkAsync('全量本机入口保留原频道身份；代理模式覆盖普通清单、单档、拼装清单且失败不退直连', async () => {
+  const { groups } = await module.fetch()
+  for (const channel of groups.flatMap(group => group.dataList)) {
+    const original = CHANNELS.find(item => item.name === channel.name)
+    assert.equal(channel.deferredRef, refForName(channel.name))
+    const identity = { groupName: original.group, channelName: original.name }
+    const originalUrl = original.topFirst ? '${replace}/' + refForName(original.name) : original.url
+    assert.equal(buildChannelId({ ...identity, url: channel.identityUrl || '${replace}/' + channel.deferredRef }),
+      buildChannelId({ ...identity, url: originalUrl }))
+  }
+  let proxy = true
+  let response = () => new Response('#EXTM3U\n#EXTINF:6,\na.ts\n')
+  const resolver = createResolver({ load: async () => ({ channels: CHANNELS }), proxyEnabled: () => proxy, fetchImpl: async () => response() })
+  const plain = CHANNELS.find(channel => !channel.topFirst)
+  assert.equal((await resolver.resolve(refForName(plain.name))).proxyHls, true)
+  assert.equal((await resolver.resolve('overseas-thai-pbs')).proxyHls, true, '单档也应全代理')
+  assert.equal((await resolver.resolve('overseas-france-24-espanol')).proxyHls, true)
+  response = () => { throw new Error('proxy unavailable') }
+  const failed = await resolver.resolve('overseas-thai-pbs')
+  assert.equal(failed.url, '')
+  assert.equal(failed.status, 502)
+  proxy = false
+  assert.equal((await resolver.resolve(refForName(plain.name))).proxyHls, undefined)
+  assert.equal((await resolver.resolve(refForName(plain.name))).url, plain.url)
 })
 
 console.log(`\n全部通过：${passed} ✅`)

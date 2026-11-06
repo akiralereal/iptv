@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 后台「网络代理」（utils/outboundProxy.js）：只给 YouTube 与 Telegram 推送用。
+ * 后台「网络代理」：YouTube、澳门、海外频道与 Telegram；本地真实代理验证。
  * 本机起 HTTP CONNECT 代理和 SOCKS5 代理，目标用不存在的域名 —— 请求能到源站就说明确实走了代理，
  * SOCKS 还验证域名是交给代理解析的（大陆本地 DNS 对 YouTube / Telegram 是污染的）。
  */
@@ -79,6 +79,33 @@ assert.equal(settingProxyUrl(), '', '配置文件里的坏值不生效')
 
 // ---- 本机源站 / 代理 ----
 const origin = http.createServer((req, res) => {
+  if (req.url === '/catalog.m3u') {
+    res.end('#EXTM3U\n#EXTINF:-1 group-title="国际",Proxy fixture\nhttp://media.example/module/top.m3u8\n')
+    return
+  }
+  if (req.url === '/module/top.m3u8') {
+    res.end('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000000\nmedia.m3u8\n')
+    return
+  }
+  if (req.url === '/module/media.m3u8') {
+    res.end('#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXT-X-KEY:METHOD=AES-128,URI="key.bin"\n#EXTINF:6,\nsegment.ts\n')
+    return
+  }
+  if (req.url === '/module/redirect.ts') {
+    res.writeHead(302, { Location: 'http://redirect-cdn.example/module/segment.ts' }).end()
+    return
+  }
+  if (req.url === '/module/segment.ts' || req.url === '/module/key.bin') {
+    const body = Buffer.from('0123456789abcdef')
+    const partial = req.headers.range === 'bytes=0-3'
+    res.writeHead(partial ? 206 : 200, {
+      'Content-Length': partial ? 4 : body.length,
+      ...(partial ? { 'Content-Range': `bytes 0-3/${body.length}` } : {}),
+    })
+    res.end(req.method === 'HEAD' ? undefined : partial ? body.subarray(0, 4) : body)
+    return
+  }
+  if (req.url === '/denied') { res.writeHead(403).end(); return }
   res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify({ ok: true, host: req.headers.host, path: req.url }))
 })
@@ -218,6 +245,9 @@ result = await testOutboundProxy(`socks5://u:wrong-secret@127.0.0.1:${socksPort}
 assert.equal(result.results[0].ok, false)
 assert.doesNotMatch(result.results[0].message, /wrong-secret/)
 await assert.rejects(testOutboundProxy('socks4://1.2.3.4:1080', { targets }), /只支持/)
+result = await testOutboundProxy(httpProxyUrl, { targets: [{ name: 'Denied', url: 'http://youtube.example/denied' }] })
+assert.equal(result.results[0].ok, false)
+assert.match(result.results[0].message, /HTTP 403/)
 
 // ---- 推送：只有 Telegram 走这个代理 ----
 setProxy(`socks5://127.0.0.1:${socksPort}`)
@@ -229,6 +259,41 @@ assert.equal(socksLog.at(-1)?.host, 'api.telegram.example', 'Telegram 走后台�
 socksLog.length = 0
 await sendToChannel({ id: 'b', type: 'bark', name: 'bark', url: 'http://bark.example/key' }, message)
 assert.equal(socksLog.length, 0, 'Bark 等其他渠道不走这个设置')
+
+// 澳门、海外频道的主清单及后续请求都沿用模块代理，不能仅在取址时使用它。
+const { default: tdm } = await import('../extractors/tdm/index.js')
+const { default: overseas, loadChannels } = await import('../extractors/overseas/index.js')
+const { fetchManifestDirect } = await import('../utils/appUtils.js')
+const { fetchNested, toProxyManifest, lookup } = await import('../utils/hlsProxy.js')
+for (const proxyUrl of [httpProxyUrl, `socks5://127.0.0.1:${socksPort}`]) {
+  setProxy(proxyUrl)
+  const catalog = await loadChannels({ url: 'http://catalog.example/catalog.m3u' })
+  assert.equal(catalog.from, 'remote')
+  assert.equal(catalog.channels[0].name, 'Proxy fixture', '仓库目录也走配置代理')
+  for (const module of [tdm, overseas]) {
+    assert.equal(module.channelHlsModeForConfig(), 'proxy')
+    const ref = module.id === 'tdm' ? 'tdm-ctvp' : 'overseas-proxy-fixture'
+    const fetchMedia = (url, options) => module.fetchProxyMedia(ref, {}, url, options)
+    const manifest = await fetchManifestDirect('http://media.example/module/top.m3u8', {}, {}, undefined, fetchMedia)
+    assert.match(manifest, /http:\/\/media.example\/module\/segment.ts/)
+    const proxied = toProxyManifest(manifest, ref)
+    assert.doesNotMatch(proxied, /https?:\/\//, '客户端清单不暴露需要海外网络的上游地址')
+    const segmentKey = proxied.split('\n').find(line => line.endsWith('.ts')).slice(0, -3)
+    const segment = lookup(segmentKey)
+    assert.equal(segment.pid, ref)
+    assert.equal(await (await fetchMedia(segment.url, {})).text(), '0123456789abcdef')
+    const key = proxied.match(/URI="(s[0-9a-f]+)\.key"/)[1]
+    assert.equal(await (await fetchMedia(lookup(key).url, {})).text(), '0123456789abcdef')
+    const nested = await fetchNested('http://media.example/module/media.m3u8', {}, undefined, fetchMedia)
+    assert.match(nested.text, /segment.ts/)
+    const head = await fetchMedia(segment.url, { method: 'HEAD' })
+    assert.equal(head.headers.get('content-length'), '16')
+    const range = await fetchMedia(segment.url, { headers: { Range: 'bytes=0-3' } })
+    assert.equal(range.status, 206)
+    assert.equal(await range.text(), '0123')
+    assert.equal(await (await fetchMedia('http://media.example/module/redirect.ts', {})).text(), '0123456789abcdef')
+  }
+}
 
 // 环境代理与后台设置共用传输层；失败不能缓存成“已检测到，但实际直连”。
 process.env.HTTPS_PROXY = `socks5://127.0.0.1:${socksPort}`

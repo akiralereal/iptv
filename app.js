@@ -1491,7 +1491,12 @@ async function handleRequest(req, res) {
       // 熔断窗口内：直接走下方 302 回退，不再替播放器把重试打到上游
       manifestDiag.reason = '熔断窗口内未打上游'
     } else {
-      manifest = await fetchManifestDirect(result.playURL, result.upstreamHeaders, manifestDiag, result.upstreamFamily)
+      const ref = routeUrl.split('?')[0].split('/').filter(Boolean).at(-1).replace(/\.m3u8$/, '')
+      const owner = resolverFor(ref)
+      const fetchMedia = owner?.fetchProxyMedia
+        ? (url, options) => owner.fetchProxyMedia(ref, getModuleConfig(owner.id), url, options)
+        : undefined
+      manifest = await fetchManifestDirect(result.playURL, result.upstreamHeaders, manifestDiag, result.upstreamFamily, fetchMedia)
       markManifestResult(failKey, manifest != null)
     }
     // 全代理：再把清单里的绝对地址换成本机同源相对地址，分片改由 /proxy/s<key>.ts 转发

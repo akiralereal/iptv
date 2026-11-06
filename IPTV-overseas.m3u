@@ -1,7 +1,7 @@
 #EXTM3U
 # iPTV 海外频道：在大陆常卡顿或连不上、海外播放流畅的免费直播频道。
 # 用途：「海外频道」抓取模块（extractors/overseas）运行时从仓库拉这份文件，改了推送即生效、不用发版；
-#       默认关闭，用户在后台自己打开；播放器直连，能不能看取决于播放设备的网络。频道按 group-title 并进现有分组、排在组尾。
+#       默认关闭，用户在后台自己打开；有生效代理时由服务器转发，否则播放器直连。频道按 group-title 并进现有分组、排在组尾。
 # 分工：在大陆也播得顺的放精选列表 IPTV.m3u；只在海外顺的放这里。一台换了归属就把那几行剪过去。
 # 来源：亚洲直播实验台（asian-live-lab）验证过的分发源——Samsung TV Plus、Plex、Rakuten TV、LG Channels、Xumo 等
 #       免费流媒体（FAST）平台，以及 France 24、Arirang 官方；公共直播实验台（public-live-lab）验证过的广播机构

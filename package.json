@@ -16,5 +16,10 @@
     "qrcode": "^1.5.4",
     "socks": "^2.8.9",
     "undici": "^6.28.1"
+  },
+  "overrides": {
+    "get-uri": {
+      "basic-ftp": "6.2.1"
+    }
   }
 }

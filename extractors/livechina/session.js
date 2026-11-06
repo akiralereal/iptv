@@ -26,6 +26,11 @@ export function isOfficialStreamUrl(raw) {
     const url = new URL(String(raw || '').trim())
     if (url.protocol !== 'https:' || !/\.m3u8$/i.test(url.pathname)) return false
     if (url.hostname === 'gcalic.v.myalicdn.com') return /^\/gc\/[A-Za-z0-9_-]+\/index\.m3u8$/i.test(url.pathname)
+    // 2026-11 起 VDN 改发 hlslive1-txy-21.live.cntv.cn（备用 hlslive1-bd-21.a.bdydns.com）
+    // 的 /livechina/<频道>/index.m3u8；CDN 编号会变，按前缀 + 官方后缀放行
+    if (/^hlslive\d*-[a-z0-9]+-\d+\.(?:live\.cntv\.cn|a\.bdydns\.com)$/i.test(url.hostname)) {
+      return /^\/livechina\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]*\.m3u8$/i.test(url.pathname)
+    }
     return /^ldncctvwb(?:cd|nd)(?:ali\.v\.myalicdn\.com|bd\.a\.bdydns\.com|cnc\.v\.wscdns\.com|hwy\.cntv\.myhwcdn\.cn|ks\.v\.kcdnvip\.com|txy\.liveplay\.myqcloud\.com|byte\.volcfcdn\.com)$/i.test(url.hostname)
       && /^\/ldncctvwb(?:cd|nd)\/[A-Za-z0-9_./-]+\.m3u8$/i.test(url.pathname)
   } catch {

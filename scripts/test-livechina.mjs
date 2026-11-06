@@ -65,6 +65,17 @@ assert.equal(
   true,
 )
 assert.equal(isOfficialStreamUrl('https://evil.example/gc/ahhs01_1/index.m3u8'), false)
+// 2026-11 VDN 新地址：主腾讯、备百度
+assert.equal(isOfficialStreamUrl('https://hlslive1-txy-21.live.cntv.cn/livechina/ahhs01/index.m3u8'), true)
+assert.equal(isOfficialStreamUrl('https://hlslive1-bd-21.a.bdydns.com/livechina/ahhs01/index.m3u8'), true)
+assert.equal(isOfficialStreamUrl('https://hlslive1-txy-21.live.cntv.cn.evil.example/livechina/ahhs01/index.m3u8'), false)
+assert.equal(isOfficialStreamUrl('https://hlslive1-txy-21.live.cntv.cn/livechina/../admin/index.m3u8'), false)
+assert.equal(isOfficialStreamUrl('https://hlslive1-txy-21.live.cntv.cn/other/ahhs01/index.m3u8'), false)
+assert.equal(manifestUrlFromVdn({
+  ack: 'yes', status: '1', play: '1',
+  manifest: { hls_nd: 'https://hlslive1-txy-21.live.cntv.cn/livechina/zjwzblt/index.m3u8' },
+  backup: { hls_nd: 'https://hlslive1-bd-21.a.bdydns.com/livechina/zjwzblt/index.m3u8' },
+}), 'https://hlslive1-txy-21.live.cntv.cn/livechina/zjwzblt/index.m3u8')
 assert.equal(manifestUrlFromVdn({ ack: 'yes', status: '1', play: '1', manifest: { hls_nd: streamUrl } }), streamUrl)
 assert.equal(manifestUrlFromVdn({ ack: 'no', status: '20', play: '0', manifest: { hls_nd: streamUrl } }), '')
 

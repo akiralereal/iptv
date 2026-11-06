@@ -1,4 +1,4 @@
-/** 广东台荔枝网：固定本地频道引用，播放时由常驻浏览器自动续签短效地址。 */
+/** 广东台荔枝网：固定本地频道引用，播放时通过官方接口自动续签短效地址。 */
 import { buildChannels } from './channels.js'
 import { clearCache, resolveChannel } from './resolver.js'
 import epg from './epg.js'
@@ -17,7 +17,7 @@ export default {
   refreshDescription: '自动管理：频道表随模块版本维护；播放地址在约 45 秒后后台换新，90 秒前强制续签，失败后 10 秒重试。纪录片的地址自带 30 分钟有效期，离过期 5 分钟再换。',
 
   configSchema: [],
-  // 官网节目单，按频道 id 取；纯 HMAC 签名，不走取流那套浏览器会话（见 epg.js）
+  // 官网节目单，按频道 id 取；与取流共用 HMAC 签名，不需要播放会话（见 epg.js）
   epg,
 
   async fetch() {

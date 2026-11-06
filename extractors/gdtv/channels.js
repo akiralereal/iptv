@@ -41,7 +41,7 @@ export function channelPageUrl(channelId) {
 
 /**
  * 频道编号来自官网固定路由，不把约两分钟过期的播放地址写进频道缓存。
- * 播放时由 resolver.js 通过浏览器会话即时换取地址。
+ * 播放时由 resolver.js 通过官方接口即时换取地址。
  */
 export function buildChannels() {
   return CHANNELS.map(channel => ({

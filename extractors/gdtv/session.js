@@ -1,18 +1,19 @@
-/** 广东台官网浏览器取票会话：复用一个 Chromium 页面，避免每次清单轮询都启动浏览器。 */
-import { launchBrowser, closeBrowser } from '../../utils/browserLauncher.js'
-import { printBlue } from '../../utils/colorOut.js'
-import { channelPageUrl } from './channels.js'
+/** 广东台官网匿名取流：HTTP 会话参数 → WebSocket 节点 → 预检与频道接口。 */
+import { randomUUID } from 'node:crypto'
+import { WebSocket } from 'undici'
+import { proxyAwareFetch, systemProxyDispatcher } from '../../utils/systemProxy.js'
+import { CHANNEL_BY_ID } from './channels.js'
+import { signedHeaders } from './epg.js'
 
+const ORIGIN = 'https://www.gdtv.cn'
+const PARAM_URL = 'https://tcdn-api.itouchtv.cn/getParam'
+const SOCKET_URL = 'wss://tcdn-ws.itouchtv.cn:3800/connect'
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-const IDLE_CLOSE_MS = 5 * 60 * 1000
-// 排队等浏览器位子的上限：略长于单次取票超时，等不到就让本次解析失败、播放器稍后重试
-const SLOT_WAIT_MS = 30 * 1000
-const DEFAULT_CAPTURE_TIMEOUT_MS = 20 * 1000
-
-// 官网两套取流：多数频道走触电 tcdn.itouchtv.cn，带 t_token（实测约两分钟失效）；
-// 纪录片走 lbplay.grtn.cn，带阿里云 A 型鉴权 auth_key=<过期秒>-<随机数>-<uid>-<md5>，签发起 30 分钟有效。
+const DEFAULT_TIMEOUT_MS = 20000
 const AUTH_KEY_RE = /^(\d{10})-\w+-\w+-[0-9a-f]{32}$/i
+const PREFLIGHT_HEADERS = 'content-type,x-itouchtv-ca-key,x-itouchtv-ca-signature,'
+  + 'x-itouchtv-ca-timestamp,x-itouchtv-client,x-itouchtv-device-id'
 
 export function isOfficialStreamUrl(raw) {
   try {
@@ -26,7 +27,7 @@ export function isOfficialStreamUrl(raw) {
   }
 }
 
-/** 地址自带的过期时刻（毫秒）：只有 auth_key 写了，t_token 的地址读不出来返回 0。 */
+/** 地址自带的过期时刻（毫秒）；t_token 未公开有效期，仍由 resolver 使用保守缓存窗口。 */
 export function streamExpiresAt(raw) {
   try {
     const match = AUTH_KEY_RE.exec(new URL(String(raw || '').trim()).searchParams.get('auth_key') || '')
@@ -36,152 +37,121 @@ export function streamExpiresAt(raw) {
   }
 }
 
-export class GdtvBrowserSession {
-  constructor({ idleCloseMs = IDLE_CLOSE_MS } = {}) {
-    this.idleCloseMs = idleCloseMs
-    this.browser = null
-    this.page = null
-    this.opening = null
-    this.queue = Promise.resolve()
-    this.idleTimer = null
-    this.active = 0 // 排队中 + 进行中的取票数，为 0 才算空闲、可让出浏览器位子
-  }
-
-  async #ensurePage() {
-    if (this.page && !this.page.isClosed() && this.browser?.connected) return this.page
-    if (!this.opening) {
-      this.opening = (async () => {
-        const browser = await launchBrowser({
-          label: '广东台续签',
-          waitMs: SLOT_WAIT_MS,
-          onIdleRequest: () => this.#yieldIfIdle(),
-        })
-        // 启动后立刻登记：后面 newPage / 设置 UA 任一步失败都由下方 catch 关闭，
-        // 不留无人管理的 Chromium 进程（此前这里没有兜底）。
-        this.browser = browser
-        browser.once('disconnected', () => {
-          if (this.browser === browser) {
-            this.browser = null
-            this.page = null
-          }
-        })
-        const page = await browser.newPage()
-        await page.evaluateOnNewDocument(() => {
-          Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
-        })
-        await page.setUserAgent(USER_AGENT)
-        await page.setRequestInterception(true)
-        page.on('request', request => {
-          if (['image', 'font'].includes(request.resourceType())) request.abort().catch(() => {})
-          else request.continue().catch(() => {})
-        })
-        this.page = page
-        printBlue('广东台续签浏览器会话已启动')
-        return page
-      })().catch(async error => {
-        const browser = this.browser
-        this.browser = null
-        this.page = null
-        await closeBrowser(browser, { label: '广东台浏览器会话' })
-        throw error
-      }).finally(() => { this.opening = null })
-    }
-    return this.opening
-  }
-
-  /** 浏览器位子被别的任务排队时由启动器回调：当前没活就关掉自己让位。 */
-  async #yieldIfIdle() {
-    if (this.active > 0 || this.opening) return false
-    await this.close()
-    return true
-  }
-
-  // 注意：取票后不要把页面导航走（about:blank 等）。官网在页面卸载时会调用停止播放的
-  // 接口，刚拿到的短效票会被立刻作废，服务端随后取清单只能拿到 403。空闲浪费由
-  // idleCloseMs 兜底：5 分钟无人取票就整个关掉浏览器。
-  #armIdleClose() {
-    clearTimeout(this.idleTimer)
-    this.idleTimer = setTimeout(() => { void this.close() }, this.idleCloseMs)
-    this.idleTimer.unref?.()
-  }
-
-  async #capture(channelId, timeoutMs) {
-    const page = await this.#ensurePage()
-    const target = channelPageUrl(channelId)
-    let timer
-    let onResponse
-    const captured = new Promise((resolve, reject) => {
-      onResponse = response => {
-        const url = response.url()
-        if (isOfficialStreamUrl(url)) resolve(url)
-      }
-      page.on('response', onResponse)
-      timer = setTimeout(() => reject(new Error(`等待官网播放地址超时 ${timeoutMs}ms`)), timeoutMs)
-    })
-    // 机器很慢时 goto 可能拖过 timeoutMs，captured 会在被 await 之前先 reject：
-    // 先挂一个空 catch，避免报「未处理的 Promise rejection」（真正的结果仍由下方 await 取）
-    captured.catch(() => {})
-
-    let navigationError = null
-    try {
-      await page.goto(target, { waitUntil: 'domcontentloaded', timeout: Math.min(timeoutMs, 15000) })
-    } catch (error) {
-      navigationError = error
-    }
-
-    // 官网通常自动起播；浏览器策略或页面改版导致没起播时再补一次用户动作。
-    await page.evaluate(() => {
-      const video = document.querySelector('video')
-      if (video) {
-        video.muted = true
-        const playing = video.play()
-        if (playing?.catch) playing.catch(() => {})
-      }
-      const button = document.querySelector('.vjs-big-play-button, [class*="play-btn"], [class*="btn-play"]')
-      if (button) button.click()
-    }).catch(() => {})
-
-    try {
-      const url = await captured
-      // 页面得留着（见上），但取到票就没人看了：暂停官网播放器，免得服务器一直在后台解码视频。
-      // 实测暂停后浏览器 CPU 从两成多降到个位数，已取到的票照样有效（暂停两分钟后仍能取清单）。
-      await page.evaluate(() => {
-        for (const video of document.querySelectorAll('video')) video.pause()
-      }).catch(() => {})
-      return url
-    } catch (error) {
-      if (navigationError) {
-        throw new Error(`官网页面加载失败：${navigationError?.message || navigationError}`)
-      }
-      throw error
-    } finally {
-      clearTimeout(timer)
-      if (onResponse) page.off('response', onResponse)
-      this.#armIdleClose()
-    }
-  }
-
-  /** 同一个 page 不能并行导航；所有频道取票在模块内部排队。 */
-  capture(channelId, options = {}) {
-    const timeoutMs = Math.max(5000, Number(options.timeoutMs || DEFAULT_CAPTURE_TIMEOUT_MS))
-    const task = () => this.#capture(channelId, timeoutMs)
-    this.active++
-    const pending = this.queue.then(task, task).finally(() => { this.active-- })
-    this.queue = pending.catch(() => {})
-    return pending
-  }
-
-  async close() {
-    clearTimeout(this.idleTimer)
-    this.idleTimer = null
-    // clearResolveCache 可能正好撞在首次启动 Chromium 的窗口；等启动动作落地后再
-    // 取 browser 引用，避免「关闭时还是 null，下一拍却冒出一个无人管理的进程」。
-    if (this.opening) await this.opening.catch(() => {})
-    const browser = this.browser
-    this.browser = null
-    this.page = null
-    if (browser) await closeBrowser(browser, { label: '广东台浏览器会话' })
-  }
+function createSocket() {
+  const dispatcher = systemProxyDispatcher()
+  return new WebSocket(SOCKET_URL, {
+    headers: { Origin: ORIGIN, 'User-Agent': USER_AGENT },
+    ...(dispatcher ? { dispatcher } : {}),
+  })
 }
 
-export const browserSession = new GdtvBrowserSession()
+function receiveNode(socket, initialNode, signal) {
+  return new Promise((resolve, reject) => {
+    const finish = (error, node) => {
+      socket.onopen = socket.onmessage = socket.onerror = socket.onclose = null
+      signal.removeEventListener('abort', abort)
+      if (error) reject(error)
+      else resolve(node)
+    }
+    const abort = () => finish(signal.reason)
+    socket.onopen = () => {
+      try { socket.send(JSON.stringify({ route: 'getwsparam', message: initialNode })) }
+      catch { finish(new Error('广东台会话参数发送失败')) }
+    }
+    socket.onerror = () => finish(new Error('广东台 WebSocket 连接失败'))
+    socket.onclose = () => finish(new Error('广东台 WebSocket 提前关闭'))
+    socket.onmessage = event => {
+      let data
+      try { data = JSON.parse(event.data) } catch { return }
+      if (data?.status !== 201) return
+      if (typeof data.wsnode !== 'string' || !data.wsnode || data.wsnode.length > 8192) {
+        finish(new Error('广东台返回的会话节点无效'))
+        return
+      }
+      finish(null, data.wsnode)
+    }
+    signal.addEventListener('abort', abort, { once: true })
+    if (signal.aborted) abort()
+  })
+}
+
+export function createApiSession({ fetchImpl = proxyAwareFetch, socketFactory = createSocket } = {}) {
+  const controllers = new Set()
+  const deviceId = `WEB_${randomUUID()}`
+
+  async function requestJson(url, signal) {
+    const response = await fetchImpl(url, {
+      signal,
+      headers: {
+        ...signedHeaders(url),
+        'X-ITOUCHTV-DEVICE-ID': deviceId,
+        'User-Agent': USER_AGENT,
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/plain, */*',
+        Origin: ORIGIN,
+        Referer: `${ORIGIN}/`,
+      },
+    })
+    if (!response.ok) {
+      await response.body?.cancel()
+      throw new Error(`广东台接口返回 HTTP ${response.status}`)
+    }
+    return response.json()
+  }
+
+  async function capture(channelId, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+    const id = String(channelId)
+    if (!CHANNEL_BY_ID.has(id)) throw new Error('广东台频道 ID 无效')
+    const controller = new AbortController()
+    const { signal } = controller
+    const timer = setTimeout(() => controller.abort(new Error('广东台取流超时')),
+      Math.max(5000, Number(timeoutMs) || DEFAULT_TIMEOUT_MS))
+    controllers.add(controller)
+    let socket
+    try {
+      const initial = await requestJson(PARAM_URL, signal)
+      let node = initial?.node
+      if (typeof node !== 'string' || !node || node.length > 8192) throw new Error('广东台返回的初始化节点无效')
+      signal.throwIfAborted()
+      if (node.endsWith('-1')) {
+        socket = socketFactory()
+        node = await receiveNode(socket, node, signal)
+      }
+      const url = `https://gdtv-api.gdtv.cn/api/tv/v2/tvChannel/${id}`
+        + `?tvChannelPk=${id}&node=${Buffer.from(node, 'latin1').toString('base64')}`
+
+      // 2026-11-06 对照官网验证：省略此预检时接口仍回 200，但下发的短令牌导致 HLS 403。
+      // 预检必须针对本次含 node 的完整频道 URL；初始化接口的预检不能替代它。
+      const preflight = await fetchImpl(url, {
+        method: 'OPTIONS', signal,
+        headers: {
+          Origin: ORIGIN,
+          'Access-Control-Request-Method': 'GET',
+          'Access-Control-Request-Headers': PREFLIGHT_HEADERS,
+        },
+      })
+      await preflight.body?.cancel()
+      if (!preflight.ok) throw new Error(`广东台频道预检返回 HTTP ${preflight.status}`)
+      const detail = await requestJson(url, signal)
+      signal.throwIfAborted()
+      if (Number(detail?.pk) !== Number(id)) throw new Error('广东台返回的频道不匹配')
+      let streams
+      try { streams = JSON.parse(detail.playUrl) } catch { throw new Error('广东台播放地址格式无效') }
+      const stream = streams?.hd || Object.values(streams || {}).find(isOfficialStreamUrl)
+      if (!isOfficialStreamUrl(stream)) throw new Error('官网没有返回有效的广东台 HLS 地址')
+      return stream
+    } finally {
+      clearTimeout(timer)
+      controllers.delete(controller)
+      try { socket?.close() } catch { /* 已关闭或仍在连接的套接字无需继续使用。 */ }
+    }
+  }
+
+  function close() {
+    for (const controller of controllers) controller.abort(new Error('广东台取流已取消'))
+  }
+
+  return { capture, close }
+}
+
+export const apiSession = createApiSession()

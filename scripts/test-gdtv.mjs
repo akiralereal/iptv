@@ -9,7 +9,7 @@ import {
   STREAM_REFRESH_MS,
   streamSchedule,
 } from '../extractors/gdtv/resolver.js'
-import { isOfficialStreamUrl, streamExpiresAt } from '../extractors/gdtv/session.js'
+import { createApiSession, isOfficialStreamUrl, streamExpiresAt } from '../extractors/gdtv/session.js'
 
 let passed = 0
 const check = (name, fn) => { fn(); passed++; console.log(`  ✅ ${name}`) }
@@ -95,7 +95,7 @@ check('带过期时刻的地址按有效期换票：离过期 5 分钟换、2 �
   }
 })
 
-await checkAsync('纪录片取到一次地址后 25 分钟内不再开官网页', async () => {
+await checkAsync('纪录片取到一次地址后 25 分钟内不再请求频道接口', async () => {
   let calls = 0
   const resolver = createResolver({ capture: async () => { calls++; return documentary() }, close: () => {} })
   assert.equal((await resolver.resolve('gdtv-94', { now: ISSUED })).url, documentary())
@@ -169,7 +169,7 @@ await checkAsync('后台续签失败可短暂沿用旧票，90 秒硬边界必�
   assert.equal(calls, 3)
 })
 
-await checkAsync('清缓存同时释放模块私有浏览器会话', async () => {
+await checkAsync('清缓存同时取消模块取流任务', async () => {
   let closed = 0
   const resolver = createResolver({ capture: async () => stream('x'), close: async () => { closed++ } })
   await resolver.resolve('gdtv-43', { now: 0 })
@@ -178,6 +178,124 @@ await checkAsync('清缓存同时释放模块私有浏览器会话', async () =>
   await Promise.resolve()
   assert.equal(resolver.cache.size, 0)
   assert.equal(closed, 1)
+})
+
+await checkAsync('清缓存发生在取流任务启动前时，不再创建过期会话', async () => {
+  let calls = 0
+  const resolver = createResolver({ capture: async () => { calls++; return stream('old') }, close: () => {} })
+  const resolving = resolver.resolve('gdtv-43')
+  resolver.clear()
+  const result = await resolving
+  assert.equal(result.url, '')
+  assert.match(result.desc, /已取消/)
+  assert.equal(calls, 0)
+  assert.equal(resolver.cache.size, 0)
+})
+
+await checkAsync('已取消的旧任务失败时不影响新一轮缓存', async () => {
+  let rejectOld
+  let calls = 0
+  const resolver = createResolver({
+    capture: () => ++calls === 1
+      ? new Promise((resolve, reject) => { rejectOld = reject })
+      : Promise.resolve(stream('new')),
+    close: () => {},
+  })
+  const old = resolver.resolve('gdtv-43')
+  await Promise.resolve()
+  resolver.clear()
+  await resolver.resolve('gdtv-43')
+  rejectOld(new Error('cancelled'))
+  await old
+  assert.equal(resolver.cache.get('43').lastError, '')
+  assert.equal(resolver.cache.get('43').retryAt, 0)
+})
+
+function apiFixture({ initialNode = 'initial-1', preflightStatus = 204, streamUrl, waitForNode = false } = {}) {
+  const requests = []
+  const sockets = []
+  const socketFactory = () => {
+    const socket = {
+      closed: false,
+      send(message) {
+        assert.deepEqual(JSON.parse(message), { route: 'getwsparam', message: initialNode })
+        if (!waitForNode) queueMicrotask(() => socket.onmessage?.({
+          data: JSON.stringify({ status: 201, wsnode: 'official%2Bnode' }),
+        }))
+      },
+      close() { socket.closed = true },
+    }
+    sockets.push(socket)
+    queueMicrotask(() => socket.onopen?.())
+    return socket
+  }
+  const fetchImpl = async (url, options) => {
+    options.signal.throwIfAborted()
+    requests.push({ url, ...options })
+    if (url.endsWith('/getParam')) return Response.json({ node: initialNode })
+    if (options.method === 'OPTIONS') return new Response(null, { status: preflightStatus })
+    const id = new URL(url).searchParams.get('tvChannelPk')
+    const preflight = requests.findLast(request => request.url === url && request.method === 'OPTIONS')
+    assert.ok(preflight, '取地址前必须完成同一 URL 的预检')
+    assert.equal(preflight.headers['Access-Control-Request-Method'], 'GET')
+    assert.match(options.headers['X-ITOUCHTV-Ca-Signature'], /^[A-Za-z0-9+/]+=*$/)
+    if (sockets.length) assert.ok(sockets.some(socket => !socket.closed), '请求频道时会话仍应打开')
+    return Response.json({ pk: Number(id), playUrl: JSON.stringify({ hd: streamUrl || stream(id) }) })
+  }
+  return { session: createApiSession({ fetchImpl, socketFactory }), requests, sockets }
+}
+
+await checkAsync('纯接口完成节点交换、频道预检及取流，完成后释放 WebSocket', async () => {
+  const { session, requests, sockets } = apiFixture()
+  assert.equal(await session.capture('43'), stream('43'))
+  assert.equal(requests.length, 3)
+  assert.equal(new URL(requests.at(-1).url).searchParams.get('node'),
+    Buffer.from('official%2Bnode', 'latin1').toString('base64'))
+  assert.equal(sockets.length, 1)
+  assert.equal(sockets[0].closed, true)
+})
+
+await checkAsync('初始化节点无需 WebSocket 时仍完成频道预检', async () => {
+  const { session, sockets, requests } = apiFixture({ initialNode: 'ready-node-0' })
+  assert.equal(await session.capture('47'), stream('47'))
+  assert.equal(sockets.length, 0)
+  assert.equal(requests[1].method, 'OPTIONS')
+})
+
+await checkAsync('频道预检失败后停止取流并关闭连接', async () => {
+  const { session, requests, sockets } = apiFixture({ preflightStatus: 503 })
+  await assert.rejects(session.capture('43'), /预检返回 HTTP 503/)
+  assert.equal(requests.length, 2)
+  assert.equal(sockets[0].closed, true)
+})
+
+await checkAsync('初始化节点与播放域名校验失败时不留下连接', async () => {
+  const invalidNode = apiFixture({ initialNode: '' })
+  await assert.rejects(invalidNode.session.capture('43'), /初始化节点无效/)
+  assert.equal(invalidNode.sockets.length, 0)
+  const invalidStream = apiFixture({ streamUrl: 'https://evil.example/live/test.m3u8?t_token=x' })
+  await assert.rejects(invalidStream.session.capture('43'), /没有返回有效/)
+  assert.equal(invalidStream.sockets[0].closed, true)
+  await assert.rejects(invalidStream.session.capture('42'), /频道 ID 无效/)
+})
+
+await checkAsync('清理正在等待节点的取流立即取消请求并释放连接', async () => {
+  const { session, sockets } = apiFixture({ waitForNode: true })
+  const capture = session.capture('43')
+  const rejected = assert.rejects(capture, /取流已取消/)
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(sockets.length, 1)
+  session.close()
+  await rejected
+  assert.equal(sockets[0].closed, true)
+  assert.equal(sockets[0].onmessage, null)
+})
+
+await checkAsync('不同频道可并行取票，各自关闭短连接', async () => {
+  const { session, sockets } = apiFixture()
+  assert.deepEqual(await Promise.all([session.capture('43'), session.capture('47')]), [stream('43'), stream('47')])
+  assert.equal(sockets.length, 2)
+  assert.ok(sockets.every(socket => socket.closed))
 })
 
 console.log(`\n全部通过：${passed} 项`)

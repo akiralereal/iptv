@@ -1,9 +1,9 @@
 /**
  * 广东台短效地址缓存：45 秒后台换票，90 秒硬边界，避免触及实测约两分钟失效点。
- * 自带过期时刻的地址（纪录片的 auth_key，30 分钟）按它自己的有效期换，不必每 45 秒开一次官网页。
+ * 自带过期时刻的地址（纪录片的 auth_key，30 分钟）按它自己的有效期换，不必每 45 秒请求一次频道接口。
  */
 import { CHANNEL_BY_ID, channelIdFromRef } from './channels.js'
-import { browserSession, isOfficialStreamUrl, streamExpiresAt } from './session.js'
+import { apiSession, isOfficialStreamUrl, streamExpiresAt } from './session.js'
 
 export const STREAM_REFRESH_MS = 45 * 1000
 export const STREAM_HARD_TTL_MS = 90 * 1000
@@ -29,8 +29,8 @@ export function streamSchedule(url, acquiredAt) {
 }
 
 export function createResolver({
-  capture = (channelId, options) => browserSession.capture(channelId, options),
-  close = () => browserSession.close(),
+  capture = (channelId, options) => apiSession.capture(channelId, options),
+  close = () => apiSession.close(),
 } = {}) {
   const cache = new Map()
   const pending = new Map()
@@ -42,7 +42,10 @@ export function createResolver({
     const startedInGeneration = generation
 
     current = Promise.resolve()
-      .then(() => capture(channelId, options))
+      .then(() => {
+        if (startedInGeneration !== generation) throw new Error('广东台续签任务已取消')
+        return capture(channelId, options)
+      })
       .then(url => {
         if (startedInGeneration !== generation) throw new Error('广东台续签任务已取消')
         if (!isOfficialStreamUrl(url)) throw new Error('官网没有返回有效的广东台 HLS 地址')
@@ -57,7 +60,7 @@ export function createResolver({
         return entry
       })
       .catch(error => {
-        const old = cache.get(channelId)
+        const old = startedInGeneration === generation ? cache.get(channelId) : null
         if (old) {
           old.retryAt = Number(options.now ?? Date.now()) + STREAM_RETRY_MS
           old.lastError = error?.message || String(error)

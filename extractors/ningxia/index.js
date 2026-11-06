@@ -5,7 +5,7 @@ import epg from './epg.js'
 export default {
   id: 'ningxia',
   name: '宁夏',
-  description: '宁夏广播电视台三套公开频道（宁夏卫视、公共、文旅）；无需登录，地址固定且上游不设防盗链，由播放器直连官方 CDN；节目单取自黄河云官方接口。',
+  description: '宁夏广播电视台三套公开频道（宁夏卫视、公共、文旅）；无需登录，由播放器直连官方直播源；节目单取自黄河云官方接口。部分地区或网络可能无法播放，无法播放时可自行关闭本模块。',
   capabilities: { cache: 'disk', resolve: false, epg: true, catchup: false },
   catalogVersion: 1,
   outputGroupName: '宁夏',

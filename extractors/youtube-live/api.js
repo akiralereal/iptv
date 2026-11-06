@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { systemProxyUrl, proxyAwareFetch } from '../../utils/systemProxy.js'
+import { outboundFetch, outboundProxyKey, ytDlpProxyArg } from '../../utils/outboundProxy.js'
 import { fetchUpstreamResponse } from '../../utils/hlsProxy.js'
 import { topVariantFirst } from '../../utils/hlsTopFirst.js'
 import { hasReplaceToken } from '../../utils/replaceToken.js'
@@ -74,7 +74,7 @@ async function metadata(url, args) {
   try {
     const result = await run(binary, ['--ignore-config', '--no-cache-dir', '--skip-download', '--dump-single-json',
       '--socket-timeout', '12', '--retries', '0', '--extractor-retries', '0', '--js-runtimes', 'node:' + process.execPath,
-      '--proxy', systemProxyUrl() || '', ...args, '--', url], { timeout: 30000, maxBuffer: 8 * 1024 * 1024 })
+      '--proxy', ytDlpProxyArg(), ...args, '--', url], { timeout: 30000, maxBuffer: 8 * 1024 * 1024 })
     data = result.stdout
   } catch (err) {
     // yt-dlp 错误可能带回带签名的播放地址，仅输出分类后的原因。
@@ -155,7 +155,7 @@ export async function inspect(raw) {
     const { channel, events } = await broadcasts(input.channelUrl, id)
     return { item: channel, events }
   }
-  const resp = await proxyAwareFetch(watchUrl(input.videoId), { redirect:'error', signal:AbortSignal.timeout(12000) })
+  const resp = await outboundFetch(watchUrl(input.videoId), { redirect:'error', signal:AbortSignal.timeout(12000) })
   return { item: parseVideo(await readText(resp, 6 * 1024 * 1024), input.videoId), events: [] }
 }
 
@@ -194,7 +194,8 @@ export function parseLive(data, item, expectedVideoId) {
 const sessions = new Map()
 export const clearResolveCache = () => sessions.clear()
 async function session(item, exactId, force = false) {
-  const key = refOf(item) + ':' + (exactId || '')
+  // 播放地址绑定解析时的出口 IP：换了代理，旧解析结果拿去取分片只会 403
+  const key = refOf(item) + ':' + (exactId || '') + ':' + outboundProxyKey()
   const cached = sessions.get(key)
   if (cached && (cached.pending || (!force && cached.until > Date.now()))) return cached.promise
   if (sessions.size >= 512) sessions.delete(sessions.keys().next().value)
@@ -268,7 +269,7 @@ export function publicManifest(text, base) {
 }
 
 async function playlist(url, live) {
-  const resp = await fetchUpstreamResponse(url, { upstreamHeaders:live.upstreamHeaders, signal:AbortSignal.timeout(10000) })
+  const resp = await fetchUpstreamResponse(url, { upstreamHeaders:live.upstreamHeaders, signal:AbortSignal.timeout(10000), fetchImpl:outboundFetch })
   return publicManifest(await readText(resp, 2 * 1024 * 1024), resp.url || url)
 }
 class RemovedSubscription extends Error {}
@@ -318,7 +319,7 @@ export async function fetchProxyMedia(ref, config, raw, options) {
   mediaUrl(raw)
   const item = configured(ref, config)
   const request = async (url, headers = options.upstreamHeaders) => {
-    const res = await fetchUpstreamResponse(url, { ...options, upstreamHeaders:headers })
+    const res = await fetchUpstreamResponse(url, { ...options, upstreamHeaders:headers, fetchImpl:outboundFetch })
     if (res.ok && options.method !== 'HEAD' && new URL(url).pathname.endsWith('.m3u8')) {
       const text = publicManifest(liveWindow(await readText(res, 16 * 1024 * 1024)), res.url || url)
       return new Response(text, { headers: { 'Content-Type': 'application/vnd.apple.mpegurl' } })

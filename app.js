@@ -32,7 +32,7 @@ import { getAlertsAPI, getAlertTracker, postAlertsAPI } from "./utils/alerts.js"
 import { getNotifyAPI, postNotifyAPI, getNotifier } from "./utils/notify.js";
 import { getAliasesAPI, setAliasRuleAPI, removeAliasRuleAPI } from "./utils/aliasesAPI.js";
 import { getGroupRulesAPI, setGroupRuleAPI, removeGroupRuleAPI, moveGroupRuleAPI } from "./utils/groupRulesAPI.js";
-import { getSystemConfigAPI, saveSystemConfigAPI } from "./utils/systemConfigAPI.js";
+import { getSystemConfigAPI, saveSystemConfigAPI, testProxyAPI } from "./utils/systemConfigAPI.js";
 import { exportConfigAPI, importConfigAPI } from "./utils/configBackupAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, collectGroupConflicts, applyConfig,
          listProfiles, createProfile, renameProfile, deleteProfile } from "./utils/playlistConfig.js";
@@ -404,6 +404,20 @@ async function handleRequest(req, res) {
         res.writeHead(result.success ? 200 : 500, { 'Content-Type': 'application/json;charset=UTF-8' });
         res.end(JSON.stringify(result));
         printGreen(result.success ? "系统配置已保存" : "保存失败")
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify({ success: false, message: error.message }));
+      }
+      return
+    }
+
+    // 网络代理测试（系统配置页）：经输入框里的代理连 YouTube / Telegram，连不上是正常结果，不算服务端错误
+    if (routePath === '/api/proxy-test' && method === 'POST') {
+      try {
+        const data = JSON.parse(await readBody(req) || '{}')
+        const result = await testProxyAPI(typeof data.proxy === 'string' ? data.proxy : '')
+        res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json;charset=UTF-8' });
+        res.end(JSON.stringify(result));
       } catch (error) {
         res.writeHead(400, { 'Content-Type': 'application/json;charset=UTF-8' });
         res.end(JSON.stringify({ success: false, message: error.message }));

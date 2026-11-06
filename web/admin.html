@@ -3314,6 +3314,14 @@
         .sys-section-title { font-size: 16px; font-weight: 600; color: var(--ui-text); }
         .sys-section-desc { margin-top: 5px; font-size: 12px; line-height: 1.8; color: var(--ui-muted); }
         .sys-section .system-config-grid { margin-bottom: 0; gap: 20px 28px; }
+        .sys-section .system-config-item.sys-span-all { grid-column: 1 / -1; }
+        .sys-proxy-row { display: flex; gap: 8px; align-items: center; }
+        .sys-proxy-row input { flex: 1 1 auto; min-width: 0; }
+        .sys-proxy-row .btn { flex: 0 0 auto; white-space: nowrap; }
+        .sys-proxy-result { margin-top: 8px; font-size: 12px; line-height: 1.8; color: var(--ui-text-secondary); overflow-wrap: anywhere; }
+        .sys-proxy-result:empty { display: none; }
+        .sys-proxy-result .ok { color: var(--ui-success); }
+        .sys-proxy-result .fail { color: var(--ui-danger); }
         .sys-section .system-config-item { padding: 0; border: 0; background: transparent; box-shadow: none; }
         .sys-section .system-config-item label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .sys-section .system-config-item label.sys-check-label { font-weight: 500; cursor: pointer; }
@@ -4708,6 +4716,24 @@
                         </div>
                     </div>
                 </section>
+                <section class="sys-section">
+                    <div class="sys-section-head">
+                        <div class="sys-section-title">网络代理</div>
+                        <div class="sys-section-desc">只给 YouTube 直播和 Telegram 消息推送用。其他频道、其他推送渠道都不走这里，代理开规则模式还是全局模式都不影响省台。</div>
+                    </div>
+                    <div class="system-config-grid">
+                        <div class="system-config-item sys-span-all">
+                            <label for="sysProxy">代理地址</label>
+                            <div class="sys-proxy-row">
+                                <input type="text" id="sysProxy" oninput="setSaveDirty('sysconfig')" placeholder="http://192.168.1.10:7890" autocomplete="off" spellcheck="false">
+                                <button type="button" class="btn" id="sysProxyTestBtn" onclick="testProxy()">测试</button>
+                            </div>
+                            <div class="system-config-hint">填 Clash、mihomo、OpenClash 等代理软件的 HTTP、SOCKS5 或混合端口，如 <code>http://192.168.1.10:7890</code>、<code>socks5://192.168.1.10:7891</code>；有账号密码的写成 <code>http://用户名:密码@192.168.1.10:7890</code>。代理软件要打开「允许局域网连接」；Docker 用桥接网络时 <code>127.0.0.1</code> 指容器自己，要填代理所在机器的局域网 IP。播放设备不用设代理。点「测试」不用先保存。</div>
+                            <div class="system-config-hint sys-env-hint" id="sysProxyEnvHint" hidden>容器设了 <code>HTTPS_PROXY</code> 环境变量：这里留空时 YouTube 和 Telegram 沿用它，这里填了就以这里为准。</div>
+                            <div class="sys-proxy-result" id="sysProxyResult" aria-live="polite"></div>
+                        </div>
+                    </div>
+                </section>
                 <div class="system-config-hint" style="margin:0 0 10px;">标了「需重启」的项保存后要重启服务才生效；其余项保存即生效。</div>
                 <div class="system-config-actions" style="justify-content:flex-start;">
                     <button class="btn btn-success" data-save-scope="sysconfig" onclick="saveSystemConfig()">保存系统配置</button>
@@ -4807,7 +4833,7 @@
                     <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
                         <div>• 模块抓取失败、官方服务故障<strong>不推送</strong>（你处理不了，会自动重试），只在后台提醒里显示；其他提醒出现即发，恢复时再发一条「已恢复」；</div>
                         <div>• 升级前就已存在的提醒不发；同一个问题没恢复前只发一次；</div>
-                        <div>• Telegram 的接口在大陆连不上：部署在大陆需给容器设 <code>HTTPS_PROXY</code>，或在「API 地址」填自己的反代；</div>
+                        <div>• Telegram 的接口在大陆连不上：部署在大陆的到 <a href="javascript:void(0)" onclick="switchSettingsTab(0)">系统配置 → 网络代理</a> 填代理地址，或在「API 地址」填自己的反代；</div>
                         <div>• 企业微信应用：成员在企业微信里收到，关注了企业「微信插件」的在微信里也能收到；2022 年 6 月以后新建的应用要把服务器公网 IP 加进应用的「企业可信IP」，否则发送失败（60020），IP 不固定的在「API 地址」填一台固定 IP 服务器上转发 <code>qyapi.weixin.qq.com</code> 的反代；</div>
                         <div>• 自定义接口：PushPlus、Server酱、WxPusher、ntfy、Gotify 这类发一个 HTTP 请求就能推送的平台都能接；选「自定义接口」后点「按示例填」，再填上密钥，别的平台照它的接口文档改地址和请求体模板；</div>
                         <div>• 机器人地址和 Token 存在数据目录 <code>notify-channels.json</code>，会随「备份迁移」里的配置导出一起导出，别把备份发给别人。</div>
@@ -9669,6 +9695,9 @@
             document.getElementById('sysAdminPath').value = systemConfig.adminPath || 'admin';
             document.getElementById('sysProgramInterval').value = systemConfig.programInfoUpdateInterval || '8';
             document.getElementById('sysEnableDisplayNameUnify').checked = systemConfig.enableDisplayNameUnify === true;
+            document.getElementById('sysProxy').value = systemConfig.proxy || '';
+            document.getElementById('sysProxyEnvHint').hidden = !systemConfig.proxyEnvFallback;
+            document.getElementById('sysProxyResult').innerHTML = '';
             renderEnvHints();
         }
 
@@ -9847,7 +9876,8 @@ if(success){
                     pass: passInput,
                     adminPath: adminPathInput,
                     programInfoUpdateInterval: document.getElementById('sysProgramInterval').value || '8',
-                    enableDisplayNameUnify: document.getElementById('sysEnableDisplayNameUnify').checked
+                    enableDisplayNameUnify: document.getElementById('sysEnableDisplayNameUnify').checked,
+                    proxy: document.getElementById('sysProxy').value.trim()
                 };
 
                 const response = await fetch(API_PREFIX + '/api/system-config', {
@@ -9903,6 +9933,36 @@ if(success){
             } catch (error) {
                 showStatus('保存失败: ' + error.message, 'error');
                 return false;
+            }
+        }
+
+        // 网络代理「测试」：用输入框里的值（可以还没保存；打码的密码由服务端换回已保存的）连 YouTube 和 Telegram
+        async function testProxy() {
+            const btn = document.getElementById('sysProxyTestBtn');
+            const out = document.getElementById('sysProxyResult');
+            btn.disabled = true;
+            btn.textContent = '测试中…';
+            out.textContent = '正在连接 YouTube 和 Telegram，最多等 10 秒…';
+            try {
+                const res = await fetch(API_PREFIX + '/api/proxy-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proxy: document.getElementById('sysProxy').value.trim() })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    out.innerHTML = `<span class="fail">${escapeHtml(data.message || '测试失败')}</span>`;
+                    return;
+                }
+                const via = { input: '经这个代理', env: '这里没填，按容器的 HTTPS_PROXY 测试' }[data.via] || '这里没填，按直连测试';
+                out.innerHTML = `<div>${via}：</div>` + (data.results || []).map(r => r.ok
+                    ? `<div class="ok">✓ ${escapeHtml(r.name)} 能连上（${r.ms} 毫秒）</div>`
+                    : `<div class="fail">✗ ${escapeHtml(r.name)}：${escapeHtml(r.message || '连不上')}</div>`).join('');
+            } catch (error) {
+                out.innerHTML = `<span class="fail">测试失败：${escapeHtml(error.message)}</span>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试';
             }
         }
 

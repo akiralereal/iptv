@@ -3,6 +3,8 @@ import { writeJsonFileSync } from "./fileUtil.js"
 import { dataPath } from "./paths.js"
 import update from "./updateData.js"
 import { clearUrlCache } from "./appUtils.js"
+import { maskProxyUrl, normalizeProxyUrl, restoreMaskedProxy, settingProxyUrl, testOutboundProxy } from "./outboundProxy.js"
+import { systemProxyUrl } from "./systemProxy.js"
 import {
   reloadConfig, sanitizeSegment,
   port, host, rateType, pass,
@@ -70,7 +72,11 @@ export function getSystemConfigAPI() {
         enableBuiltInSubscriptions,
         enableExtractors,
         enableDisplayNameUnify,
-        enableClientDispatch
+        enableClientDispatch,
+        // 网络代理：密码打码回显（没设访问密码时这个接口谁都能读）；保存时占位符换回原密码
+        proxy: maskProxyUrl(settingProxyUrl()),
+        // 留空时 YouTube / Telegram 是否会沿用 HTTPS_PROXY（只回有没有，不回地址）
+        proxyEnvFallback: Boolean(systemProxyUrl())
       },
       envOverrides
     }
@@ -83,8 +89,20 @@ export function getSystemConfigAPI() {
 }
 
 /**
- * 保存系统配置
+ * 后台「网络代理」的测试按钮：用输入框里的值（可能是打码回显、还没保存）连 YouTube 和 Telegram。
  */
+export async function testProxyAPI(raw) {
+  try {
+    let saved = ''
+    if (existsSync(SYSTEM_CONFIG_PATH)) {
+      try { saved = JSON.parse(readFileSync(SYSTEM_CONFIG_PATH, 'utf-8')).proxy || '' } catch { saved = '' }
+    }
+    return { success: true, ...(await testOutboundProxy(restoreMaskedProxy(raw, saved))) }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+}
+
 /**
  * 只改 system-config.json 里的一个布尔开关。
  *
@@ -166,6 +184,10 @@ export function saveSystemConfigAPI(config) {
     // 客户端就近取流（issue #82）：默认关，显式提交才写入；保存后 clearUrlCache 会清掉旧解析结果，开关即时生效
     if (config.enableClientDispatch !== undefined) {
       validated.enableClientDispatch = config.enableClientDispatch === true
+    }
+    // 网络代理（只给 YouTube / Telegram 用）：显式提交才写；格式不对整次保存失败，不写半截
+    if (config.proxy !== undefined) {
+      validated.proxy = normalizeProxyUrl(restoreMaskedProxy(config.proxy, existing.proxy))
     }
 
     // 原子写入，避免并发保存 / 写入中断损坏文件

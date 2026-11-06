@@ -234,6 +234,8 @@ async function fetchUpstreamResponse(raw, {
   upstreamHeaders,
   upstreamFamily,
   headers = {},
+  // 模块指定的出站 fetch（YouTube 走后台「网络代理」）；不给就按原来的系统代理 / 直连
+  fetchImpl: moduleFetch,
 } = {}) {
   let url = String(raw)
   const initialOrigin = new URL(url).origin
@@ -253,7 +255,7 @@ async function fetchUpstreamResponse(raw, {
     }
     const fetchImpl = upstreamFamily === 4 || upstreamFamily === 6
       ? (url, options) => directFamilyFetch(url, options, upstreamFamily)
-      : proxyAwareFetch
+      : (moduleFetch || proxyAwareFetch)
     const response = await fetchImpl(target.href, {
       method,
       redirect: 'manual',

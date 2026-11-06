@@ -20,6 +20,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { writeJsonFileSync } from "./fileUtil.js"
 import { dataPath } from "./paths.js"
 import { proxyAwareFetch } from "./systemProxy.js"
+import { outboundFetch } from "./outboundProxy.js"
 import { printGreen, printRed, printYellow } from "./colorOut.js"
 
 export const CHANNELS_FILE = 'notify-channels.json'
@@ -559,7 +560,14 @@ async function deliver(channel, message, call, now) {
   }
 }
 
-export async function sendToChannel(channel, message, { fetchImpl = proxyAwareFetch, now = Date.now() } = {}) {
+// Telegram 在大陆连不上，走后台「系统配置 → 网络代理」（没填则沿用 HTTPS_PROXY）；
+// 飞书、企业微信、钉钉在国内，Bark / Webhook / 自定义接口照旧按 HTTPS_PROXY，不受这个设置影响
+function defaultFetchFor(channel) {
+  return channel.type === 'telegram' ? outboundFetch : proxyAwareFetch
+}
+
+export async function sendToChannel(channel, message, { fetchImpl, now = Date.now() } = {}) {
+  fetchImpl ||= defaultFetchFor(channel)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS)
   // body 是对象时按 JSON 发；字符串（自定义接口排好的）原样发，Content-Type 由 headers 给
@@ -624,7 +632,7 @@ export class Notifier {
   constructor(opts = {}) {
     this.channelsPath = opts.channelsPath || dataPath(CHANNELS_FILE)
     this.statePath = opts.statePath || dataPath(STATE_FILE)
-    this.fetchImpl = opts.fetchImpl || proxyAwareFetch
+    this.fetchImpl = opts.fetchImpl   // 不注入时按渠道类型选（见 defaultFetchFor）
     this.host = opts.host || (() => '')
     this.log = opts.log !== false
     this.queue = Promise.resolve()

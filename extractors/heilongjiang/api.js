@@ -1,17 +1,14 @@
 /**
  * 黑龙江广播电视台：极光新闻 App 在用的七套官方直播入口。
  *
- * 这是本项目里少见的「什么都不需要」的源：地址固定、不带签名，清单和分片都
- * 不校验 Referer，也不挑 UA（实测 ffmpeg 的 Lavf、okhttp 都是 200）。所以
- * 频道直接给 url 而不是 deferredRef——既不用 resolve，也不必让分片绕本机一圈，
- * 播放器直连官方 CDN 就行。哪天上游加了门再改成 deferredRef + proxy。
- *
- * 唯一要留意的是端口：官方业务域名走的是 4430 而不是 443，白名单必须放行它。
+ * 地址固定、不带签名。默认由本机转发清单和分片，避免播放器的 fake-IP / 代理
+ * 路径连不上官方 4430 端口。网络正常、希望播放器直连的部署可选原来的直连模式。
  */
+import { fetchUpstreamResponse } from '../../utils/hlsProxy.js'
+import { MEDIA_HOST, MEDIA_ORIGIN, createOfficialTransport } from './transport.js'
 
-export const HLJTV_MEDIA_ORIGIN = 'https://idclive.hljtv.com:4430'
+export const HLJTV_MEDIA_ORIGIN = MEDIA_ORIGIN
 
-const MEDIA_HOST = 'idclive.hljtv.com'
 const MEDIA_PORT = '4430'
 const MEDIA_PATH_PREFIX = '/live/'
 const LOGO_BASE = 'https://imgcdn.hljtv.com/'
@@ -49,13 +46,85 @@ export function officialHlsUrl(stream) {
   return url.href
 }
 
-export function buildChannels() {
+export const refOf = channel => `heilongjiang-${channel.stream.replace(/\.m3u8$/, '')}`
+export const channelForRef = ref => CHANNELS.find(channel => refOf(channel) === ref)
+
+export function buildChannels(config = {}) {
   return CHANNELS.map(channel => ({
     name: channel.name,
-    url: officialHlsUrl(channel.stream),
+    identityUrl: officialHlsUrl(channel.stream),
+    ...(config.networkMode === 'direct'
+      ? { url: officialHlsUrl(channel.stream) }
+      : { deferredRef: refOf(channel), proxyHls: true }),
     logo: channel.logo,
     groupTitle: '黑龙江',
     opts: ['network-caching=3000'],
     catchup: 'none',
   }))
 }
+
+/** 只允许这七路的官方清单及当前序号分片，不开放任意 URL 代理。 */
+export function mediaUrl(raw) {
+  const url = new URL(raw)
+  const filename = url.pathname.slice(MEDIA_PATH_PREFIX.length)
+  if (url.origin !== HLJTV_MEDIA_ORIGIN || url.username || url.password || url.search || url.hash
+      || !url.pathname.startsWith(MEDIA_PATH_PREFIX)
+      || !CHANNELS.some(channel => filename === channel.stream
+        || new RegExp(`^${channel.stream.replace(/\.m3u8$/, '')}-[0-9]+\\.ts$`).test(filename))) {
+    throw new Error('非黑龙江官方媒体地址')
+  }
+  return url.href
+}
+
+export async function readManifest(response, base) {
+  if (!response.ok) { await response.body?.cancel(); throw new Error(`官方直播 HTTP ${response.status}`) }
+  const reader = response.body.getReader()
+  const chunks = []
+  let bytes = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      bytes += value.byteLength
+      if (bytes > 256 * 1024) throw new Error('官方直播清单过大')
+      chunks.push(Buffer.from(value))
+    }
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock() }
+  const text = Buffer.concat(chunks).toString('utf8')
+  if (!text.trimStart().startsWith('#EXTM3U') || !text.includes('#EXTINF:')) throw new Error('官方没有返回直播媒体清单')
+  for (const line of text.split(/\r?\n/).map(value => value.trim()).filter(Boolean)) {
+    const urls = line.startsWith('#') ? [...line.matchAll(/URI="([^"]*)"/g)].map(match => match[1]) : [line]
+    for (const raw of urls) mediaUrl(new URL(raw, base).href)
+  }
+  return text
+}
+
+const transport = createOfficialTransport(mediaUrl)
+
+export async function resolveChannel(ref, { fetchImpl = transport.fetch } = {}) {
+  const channel = channelForRef(ref)
+  if (!channel) return { url: '', status: 404, desc: '黑龙江频道不存在' }
+  try {
+    const url = officialHlsUrl(channel.stream)
+    const response = await fetchUpstreamResponse(url, { fetchImpl, signal: AbortSignal.timeout(12_000) })
+    const manifestUrl = mediaUrl(response.url || url)
+    return { url, manifestUrl, manifestText: await readManifest(response, manifestUrl), proxyHls: true,
+      upstreamUrlTransform: mediaUrl }
+  } catch (error) {
+    return { url: '', status: 502, desc: `黑龙江直播连接失败：${error.cause?.message || error.message}` }
+  }
+}
+
+export async function fetchProxyMedia(ref, _config, raw, options = {}) {
+  if (!channelForRef(ref)) throw new Error('黑龙江频道不存在')
+  mediaUrl(raw)
+  const response = await fetchUpstreamResponse(raw, { ...options, fetchImpl: transport.fetch })
+  if (response.ok && options.method !== 'HEAD' && new URL(raw).pathname.endsWith('.m3u8')) {
+    const text = await readManifest(response, response.url || raw)
+    return new Response(text, { headers: { 'Content-Type': 'application/vnd.apple.mpegurl' } })
+  }
+  return response
+}
+
+export const clearResolveCache = () => transport.clear()
+export const shutdown = () => transport.close()

@@ -301,11 +301,14 @@ export function parseInterfaceTxt({ forTxt = false } = {}) {
           const url = lines[urlIndex].trim()
           
           const tvgName = tvgNameMatch ? tvgNameMatch[1] : channelName
+          // 内部目录可声明迁移前的地址作为身份依据；真实播放仍使用下面的 url。
+          let identityUrl = ''
+          try { identityUrl = decodeURIComponent(line.match(/ identity-url="([^"\s]*)"/)?.[1] || '') } catch { /* 忽略坏属性 */ }
           const channelId = buildChannelId({
             groupName,
             channelName,
             tvgName,
-            url
+            url: identityUrl || url
           })
           
           if (!groups[groupName]) {

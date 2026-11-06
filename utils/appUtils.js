@@ -308,14 +308,14 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix, 
     }
   }
 
-  // 剥离内部属性 source-ids（issue #29/#68 源归属标记）后再输出给播放器：
+  // 剥离内部属性 source-ids（源归属）与 identity-url（频道身份）后再输出给播放器：
   // 覆盖两条路径——原始 interface.txt 直出 与 applyConfig 重生成（generateM3u8 不写该属性，正则兜底无副作用）
   // 值里不许有空白：真正的源归属（migu / ext:<id> / bi:<id> / xt:<id>，分号分隔）从不含空白，
   // 放宽成 [^"]* 的话，第三方属性值里伪造的 ` source-ids=` 能跨到下一个属性。
   // 必须先展开占位符再剥离：反过来的话，第三方地址行 / #EXTVLCOPT 里可以写
   // `${re source-ids="x"place}`，剥掉中间一段正好拼出 `${replace}`，紧接着被换成带访问密码 /
   // 令牌的本机地址发给第三方——汇总时只拦得住字面量（见 replaceToken.js）。
-  result.content = `${result.content}`.replaceAll("${replace}", replaceHost).replace(/ source-ids="[^"\s]*"/g, "");
+  result.content = `${result.content}`.replaceAll("${replace}", replaceHost).replace(/ (?:source-ids|identity-url)="[^"\s]*"/g, "");
 
   // 原始缓存直出和配置档重生成都在这里处理；TXT 没有 M3U 选项，EPG 已提前返回。
   if (url !== '/txt') result.content = omitPlayerOnlyOpts(result.content)

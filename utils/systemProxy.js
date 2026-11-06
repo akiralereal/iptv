@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
-import { Agent, ProxyAgent, fetch as undiciFetch } from 'undici'
+import { Agent, fetch as undiciFetch } from 'undici'
+import { createProxyDispatcher } from './proxyTransport.js'
 
 let detected = false
 let proxyUrl = ''
@@ -28,16 +29,18 @@ function macosHttpsProxy() {
  * / Docker 没配代理时返回 undefined，保持原有直连行为。
  */
 export function systemProxyDispatcher() {
-  if (!detected) {
-    detected = true
-    proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || macosHttpsProxy()
-    if (proxyUrl) dispatcher = new ProxyAgent(proxyUrl)
-  }
+  const url = systemProxyUrl()
+  // 构造成功才缓存。无效配置每次都明确失败，不能随后静默变成直连。
+  if (url && !dispatcher) dispatcher = createProxyDispatcher(url)
   return dispatcher
 }
 
 export function systemProxyUrl() {
-  systemProxyDispatcher()
+  if (!detected) {
+    proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || macosHttpsProxy()
+    detected = true
+  }
+  // 读取配置不创建连接，让后台即使遇到无效环境代理也能打开并改用手动配置。
   return proxyUrl
 }
 

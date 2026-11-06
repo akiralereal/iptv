@@ -2,8 +2,9 @@ import { createHash } from 'node:crypto'
 import http from 'node:http'
 import https from 'node:https'
 import { isIP } from 'node:net'
-import { Agent, ProxyAgent, buildConnector, fetch as undiciFetch } from 'undici'
-import { SocksClient } from 'socks'
+import { fetch as undiciFetch } from 'undici'
+import { normalizeProxyUrl, createProxyDispatcher, formatProxyUrl, validateProxyCredentials } from './proxyTransport.js'
+export { normalizeProxyUrl, createProxyDispatcher } from './proxyTransport.js'
 import { proxy as configuredProxy } from '../config.js'
 import { proxyAwareFetch, systemProxyUrl } from './systemProxy.js'
 
@@ -21,34 +22,13 @@ import { proxyAwareFetch, systemProxyUrl } from './systemProxy.js'
  */
 
 export const PROXY_MASK = '******'
-const SCHEMES = new Set(['http:', 'https:', 'socks5:', 'socks5h:'])
-const CONNECT_TIMEOUT_MS = 10000
-
-/**
- * 校验并规整用户填的代理地址，返回规整后的字符串；空值返回 ''；格式不对抛错（信息可直接给用户看）。
- * 只写「ip:端口」时补 http://（Clash / mihomo 的混合端口两种协议都认）。
- */
-export function normalizeProxyUrl(raw) {
-  const text = typeof raw === 'string' ? raw.trim() : ''
-  if (!text) return ''
-  if (text.length > 1000 || /[\s\x00-\x1f\x7f]/.test(text)) throw new Error('代理地址里不能有空格或换行')
-  let url
-  try { url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : 'http://' + text) }
-  catch { throw new Error('代理地址格式不对，示例：http://192.168.1.10:7890') }
-  if (!SCHEMES.has(url.protocol)) throw new Error('代理只支持 http://、https://、socks5:// 开头的地址')
-  if (!url.hostname) throw new Error('代理地址缺少主机')
-  if (!url.port) throw new Error('代理地址要带端口，如 http://192.168.1.10:7890')
-  if ((url.pathname && url.pathname !== '/') || url.search || url.hash) throw new Error('代理地址只填「协议://主机:端口」，后面不要带路径')
-  return url.href.replace(/\/$/, '')
-}
-
 /** 给界面回显用：密码换成占位符，别的原样。 */
 export function maskProxyUrl(raw) {
   if (!raw) return ''
   try {
     const url = new URL(raw)
     if (url.password) url.password = PROXY_MASK
-    return url.href.replace(/\/$/, '')
+    return formatProxyUrl(url)
   } catch { return '' }
 }
 
@@ -61,11 +41,12 @@ export function restoreMaskedProxy(submitted, saved) {
   if (!text || !saved) return text
   let next, old
   try { next = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : 'http://' + text) } catch { return text }
+  validateProxyCredentials(next)
   if (decodeURIComponent(next.password) !== PROXY_MASK) return text
   try { old = new URL(saved) } catch { return text }
   if (next.username !== old.username) return text
   next.password = old.password
-  return next.href.replace(/\/$/, '')
+  return formatProxyUrl(next)
 }
 
 /** 后台填的代理（已规整）；没填或配置里的值坏了时为 ''。 */
@@ -97,39 +78,6 @@ export function ytDlpProxyArg() {
 
 function bareHost(hostname) {
   return hostname.replace(/^\[(.*)\]$/, '$1')
-}
-
-function socksAgent(url, requestTls) {
-  const proxy = {
-    host: bareHost(url.hostname),
-    port: Number(url.port),
-    type: 5,
-    ...(url.username ? { userId: decodeURIComponent(url.username), password: decodeURIComponent(url.password) } : {}),
-  }
-  const tls = buildConnector({ timeout: CONNECT_TIMEOUT_MS, ...requestTls })
-  return new Agent({
-    connect(opts, callback) {
-      const https = opts.protocol === 'https:'
-      const host = bareHost(opts.hostname)
-      SocksClient.createConnection({
-        proxy,
-        command: 'connect',
-        // 域名原样交给代理（ATYP=域名）；只有本来就是 IP 时才按 IP 发
-        destination: { host, port: Number(opts.port) || (https ? 443 : 80) },
-        timeout: CONNECT_TIMEOUT_MS,
-      }).then(({ socket }) => {
-        if (!https) return callback(null, socket)
-        tls({ ...opts, servername: opts.servername || (isIP(host) ? undefined : host), httpSocket: socket }, callback)
-      }, err => callback(err))
-    },
-  })
-}
-
-/** requestTls 只给测试用（信任自签证书）；线上一律按系统证书校验目标站。 */
-export function createProxyDispatcher(raw, { requestTls } = {}) {
-  const url = new URL(raw)
-  if (url.protocol === 'socks5:' || url.protocol === 'socks5h:') return socksAgent(url, requestTls)
-  return new ProxyAgent({ uri: url.href, ...(requestTls ? { requestTls } : {}) })
 }
 
 let current = { url: '', dispatcher: undefined }
@@ -179,7 +127,7 @@ function connectStatus(proxy, target, timeoutMs) {
   }
   return new Promise((resolve, reject) => {
     const req = (url.protocol === 'https:' ? https : http).request({
-      host: bareHost(url.hostname), port: Number(url.port), method: 'CONNECT', path: headers.Host, headers,
+      host: bareHost(url.hostname), port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80), method: 'CONNECT', path: headers.Host, headers,
       timeout: timeoutMs, servername: isIP(bareHost(url.hostname)) ? undefined : url.hostname,
     })
     req.once('connect', (res, socket) => { socket.destroy(); resolve(res.statusCode) })

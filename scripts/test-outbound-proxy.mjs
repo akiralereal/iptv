@@ -39,6 +39,18 @@ assert.equal(normalizeProxyUrl('192.168.1.10:7890'), 'http://192.168.1.10:7890',
 assert.equal(normalizeProxyUrl('HTTP://192.168.1.10:7890/'), 'http://192.168.1.10:7890')
 assert.equal(normalizeProxyUrl('socks5://u:p@nas.lan:7891'), 'socks5://u:p@nas.lan:7891')
 assert.equal(normalizeProxyUrl('socks5h://[::1]:1080'), 'socks5h://[::1]:1080')
+for (const value of ['http://proxy.example:80', 'https://proxy.example:443', 'http://u:p%25ss@[::1]:80']) {
+  assert.equal(normalizeProxyUrl(value), value, '标准端口不丢失')
+  assert.equal(normalizeProxyUrl(maskProxyUrl(value)), maskProxyUrl(value), '回显值可再次保存')
+  assert.equal(normalizeProxyUrl(restoreMaskedProxy(maskProxyUrl(value), value)), value)
+}
+assert.equal(normalizeProxyUrl('proxy.example:80'), 'http://proxy.example:80')
+for (const value of ['http://u:50%off@host:7890', 'socks5://bad%:pass@host:1080', 'http://u:%FF@host:7890']) {
+  assert.throws(() => normalizeProxyUrl(value), /URL 编码无效/)
+  assert.throws(() => restoreMaskedProxy(value, 'http://u:old@host:7890'), /URL 编码无效/)
+  assert.throws(() => createProxyDispatcher(value), /URL 编码无效/)
+}
+assert.equal(normalizeProxyUrl('http://u:50%25off@host:7890'), 'http://u:50%25off@host:7890')
 for (const bad of ['socks4://1.2.3.4:1080', 'http://1.2.3.4', 'http://1.2.3.4:7890/path', 'http://1.2.3.4:7890?x=1', 'http://1.2.3.4:7890 x', 'ftp://1.2.3.4:21', 'http://:7890']) {
   assert.throws(() => normalizeProxyUrl(bad), Error, bad)
 }
@@ -217,6 +229,23 @@ assert.equal(socksLog.at(-1)?.host, 'api.telegram.example', 'Telegram 走后台�
 socksLog.length = 0
 await sendToChannel({ id: 'b', type: 'bark', name: 'bark', url: 'http://bark.example/key' }, message)
 assert.equal(socksLog.length, 0, 'Bark 等其他渠道不走这个设置')
+
+// 环境代理与后台设置共用传输层；失败不能缓存成“已检测到，但实际直连”。
+process.env.HTTPS_PROXY = `socks5://127.0.0.1:${socksPort}`
+const envSocks = await import('../utils/systemProxy.js?test=env-socks')
+assert.equal((await json(await envSocks.proxyAwareFetch('http://system-proxy.example/env'))).path, '/env')
+assert.equal(socksLog.at(-1).host, 'system-proxy.example')
+process.env.HTTPS_PROXY = 'socks4://127.0.0.1:1080'
+const invalidEnv = await import('../utils/systemProxy.js?test=env-invalid')
+assert.equal(invalidEnv.systemProxyUrl(), process.env.HTTPS_PROXY, '读取配置不因连接初始化失败而打断管理页')
+for (let attempt = 0; attempt < 2; attempt++) {
+  assert.throws(() => invalidEnv.systemProxyDispatcher(), /只支持/)
+  assert.throws(() => invalidEnv.proxyAwareFetch('http://must-not-connect.example/'), /只支持/)
+}
+process.env.HTTPS_PROXY = 'http://u:bad%@host:7890'
+const invalidAuth = await import('../utils/systemProxy.js?test=env-auth')
+for (let attempt = 0; attempt < 2; attempt++) assert.throws(() => invalidAuth.systemProxyDispatcher(), /URL 编码无效/)
+delete process.env.HTTPS_PROXY
 
 for (const server of [origin, httpProxy, socksProxy]) server.close()
 rmSync(DATA_DIR, { recursive: true, force: true })

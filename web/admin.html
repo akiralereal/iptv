@@ -5631,9 +5631,19 @@
             // 存储不可用只会失去「记住展开」，默认全收起
         }
 
-        function toggleExtractorRegion(region) {
-            if (extractorOpenRegions.has(region)) extractorOpenRegions.delete(region);
-            else extractorOpenRegions.add(region);
+        // 筛选命中的面板不多时会自动展开（见 renderExtractors），这里记本次筛选里被手动收起的，
+        // 不写进本机存储：换筛选、换分类就作废，免得自动展开的面板点了标题收不起来。
+        const extractorClosedRegions = new Set();
+        const EXTRACTOR_AUTO_OPEN_PANELS = 3;
+
+        function toggleExtractorRegion(region, wasOpen) {
+            if (wasOpen) {
+                extractorOpenRegions.delete(region);
+                extractorClosedRegions.add(region);
+            } else {
+                extractorOpenRegions.add(region);
+                extractorClosedRegions.delete(region);
+            }
             try {
                 localStorage.setItem('iptv-extractor-open-regions', JSON.stringify([...extractorOpenRegions]));
             } catch (e) {
@@ -5645,6 +5655,7 @@
         function setExtractorCategory(id, render = true) {
             extractorCategory = String(id || 'account');
             extractorFilterHold.clear();
+            extractorClosedRegions.clear();
             try {
                 localStorage.setItem('iptv-extractor-category', extractorCategory);
             } catch (e) {
@@ -5656,6 +5667,7 @@
         function setExtractorFilter(value) {
             extractorFilter = ['on', 'off'].includes(value) ? value : 'all';
             extractorFilterHold.clear();
+            extractorClosedRegions.clear();
             try {
                 localStorage.setItem('iptv-extractor-filter', extractorFilter);
             } catch (e) {
@@ -6287,7 +6299,9 @@
 
             // 免账号小节：模块按面板收（省级地区，或国际、直播中国这类专题；只有一个模块的也收，
             // 统一样式，以后加模块直接进来），不归面板的平铺在前。面板标题的数量和红点按整个地区算，不跟筛选走；
-            // 「已启用 / 已关闭」筛选时有命中的面板自动展开，不然筛完还得一个个点开看。
+            // 「已启用 / 已关闭」筛选后只剩少数几个面板时自动展开，不然筛完还得一个个点开看；
+            // 命中的面板多（典型是「已启用」，几乎全中）就照常收着，否则一进页面就是几十个面板全摊开（作者 11-06）。
+            // 自动展开的面板点标题照样能收起。
             const modulesHtml = list => {
                 const grid = items => `<div class="source-grid">${items.map(m => moduleCardHtml(m, active)).join('')}</div>`;
                 if (active.id !== 'standard') return grid(list);
@@ -6297,14 +6311,15 @@
                     ...list.filter(m => m.region && !m.regionIsArea),
                     ...list.filter(m => m.region && m.regionIsArea),
                 ].map(m => m.region))];
+                const autoOpen = extractorFilter !== 'all' && regions.length <= EXTRACTOR_AUTO_OPEN_PANELS;
                 const panels = regions.map(region => {
                     const members = list.filter(m => m.region === region);
                     const all = modules.filter(m => categoryOf(m) === active.id && m.region === region);
-                    const open = extractorFilter !== 'all' || extractorOpenRegions.has(region);
+                    const open = !extractorClosedRegions.has(region) && (autoOpen || extractorOpenRegions.has(region));
                     const alerting = all.some(needsAttention);
                     return `<section class="region-panel${open ? ' open' : ''}">
                         <button type="button" class="region-panel-head" aria-expanded="${open}"
-                                data-region="${escapeHtml(region)}" onclick="toggleExtractorRegion(this.dataset.region)">
+                                data-region="${escapeHtml(region)}" onclick="toggleExtractorRegion(this.dataset.region, this.getAttribute('aria-expanded') === 'true')">
                             <span class="region-panel-caret" aria-hidden="true">›</span>
                             <span class="region-panel-name">${escapeHtml(region)}</span>
                             <span class="region-panel-meta">${all.length} 个模块 · 已开 ${all.filter(m => m.enabled).length}</span>

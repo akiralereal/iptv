@@ -171,7 +171,31 @@ console.log(`\n全部完成！接下来：`)
 console.log(`  1) 编辑 CHANGELOG.md 填写更新日志（把空 \`- \` 占位补成面向用户的条目）`)
 console.log(`  2) 运行 node bump-version.js sync-notes 同步到顶部「当前版本更新内容」`)
 
+// 7. 提醒：镜像里的 yt-dlp 是发版时锁的版本，YouTube 改版后旧版本会集体解析失败。
+// 只提醒不改：新版本要先在本机实测（npm run setup:youtube 后播一个直播）再写进 requirements.txt。
+await checkYtDlpPin()
+
 // ---- 工具函数 ----
+
+async function checkYtDlpPin() {
+  let pinned
+  try { pinned = readFileSync(r('extractors/youtube-live/requirements.txt'), 'utf-8').match(/^yt-dlp==(\S+)/m)?.[1] } catch { return }
+  if (!pinned) return
+  try {
+    const res = await fetch('https://pypi.org/pypi/yt-dlp/json', { signal: AbortSignal.timeout(5000) })
+    const data = await res.json()
+    const latest = data?.info?.version
+    if (!latest) return
+    const needs = data.releases?.[latest]?.[0]?.requires_python
+    const num = v => v.split('.').map(n => parseInt(n, 10) || 0)
+    const [a, b] = [num(latest), num(pinned)]
+    const i = a.findIndex((n, k) => n !== (b[k] || 0))
+    if (i >= 0 && a[i] > (b[i] || 0)) console.log(`\n⚠️  yt-dlp 有新版本 ${latest}${needs ? `（要求 Python ${needs}）` : ''}，镜像锁的是 ${pinned}：本机实测后改 extractors/youtube-live/requirements.txt 再发版；源码运行的最低 Python 也要跟着看`)
+    else console.log(`\n✔ yt-dlp ${pinned} 已是 PyPI 最新正式版`)
+  } catch {
+    console.log('\n（查不到 PyPI，跳过 yt-dlp 版本检查）')
+  }
+}
 
 // 把 CHANGELOG.md 里最新的 ### vX.Y.Z 条目镜像到 README 顶部 CURRENT_RELEASE_NOTES 标记块之间。
 // 标记缺失或无更新日志条目时安全跳过。正文为空占位时只写版本头 + 待整理提示。

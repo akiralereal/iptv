@@ -755,6 +755,7 @@ class ExtractorManager {
         enabledEnv: module.enabledEnv || '',
         // 打开前要用户确认的一句话（registry.js 的 enableNotice），卡片开关和批量开关都用
         enableNotice: module.enableNotice || '',
+        configSavedNotice: module.configSavedNotice || '',
         configSchema: module.configSchema || [],
         config,
         secretsSet,

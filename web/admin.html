@@ -3315,6 +3315,11 @@
         .sys-section-desc { margin-top: 5px; font-size: 12px; line-height: 1.8; color: var(--ui-muted); }
         .sys-section .system-config-grid { margin-bottom: 0; gap: 20px 28px; }
         .sys-section .system-config-item.sys-span-all { grid-column: 1 / -1; }
+        .youtube-status { color: var(--ui-text-secondary); }
+        .youtube-status.is-live { color: var(--ui-success); }
+        .youtube-status.is-ended, .youtube-status.is-unavailable { color: var(--ui-warning); }
+        .youtube-ended { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0; padding: 8px 12px; border-radius: 8px; background: var(--ui-surface-soft); color: var(--ui-text-secondary); font-size: 12.5px; }
+        .youtube-runtime { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--ui-line); font-size: 12.5px; color: var(--ui-text-secondary); }
         .sys-proxy-row { display: flex; gap: 8px; align-items: center; }
         .sys-proxy-row input { flex: 1 1 auto; min-width: 0; }
         .sys-proxy-row .btn { flex: 0 0 auto; white-space: nowrap; }
@@ -5275,6 +5280,64 @@
             for (const button of document.querySelectorAll('[data-youtube-remove]')) {
                 button.onclick = () => submit('youtubeRemove', { ref: button.dataset.youtubeRemove });
             }
+
+            // 固定场次的状态：结束了的标出来，攒一起给个「全部移除」（场次结束后不会自动删）
+            const STATUS_TEXT = { live: '直播中', upcoming: '已预约', ended: '已结束', unavailable: '已失效（被删除或设为私享）' };
+            const statusSpans = [...document.querySelectorAll('[data-youtube-status]')];
+            if (statusSpans.length) {
+                extractorPost({ action: 'youtubeStatus' }).then(result => {
+                    if (!input.isConnected || !result.success) return;
+                    const done = [];
+                    for (const span of statusSpans) {
+                        const status = result.statuses?.[span.dataset.youtubeStatus];
+                        if (!STATUS_TEXT[status]) continue;
+                        span.textContent = ' · ' + STATUS_TEXT[status];
+                        span.className = 'youtube-status is-' + status;
+                        if (status === 'ended' || status === 'unavailable') done.push(span.dataset.youtubeStatus);
+                    }
+                    const bar = document.getElementById('youtubeEnded');
+                    if (!done.length || !bar) return;
+                    bar.replaceChildren();
+                    const button = document.createElement('button');
+                    button.className = 'btn btn-sm'; button.textContent = `移除这 ${done.length} 场`;
+                    button.onclick = () => submit('youtubeRemove', { refs: done });
+                    bar.append(`有 ${done.length} 场固定场次已经结束或失效，留着打开只会提示已结束。`, button);
+                    bar.hidden = false;
+                }).catch(() => {});
+            }
+
+            // 解析组件（yt-dlp）：打开时只读本机版本；点「检查更新」才去查 PyPI
+            const runtimeText = document.getElementById('youtubeRuntimeText');
+            const checkBtn = document.getElementById('youtubeRuntimeCheck');
+            const updateBtn = document.getElementById('youtubeRuntimeUpdate');
+            const describe = info => info.version ? `解析组件 yt-dlp ${info.version}` : '解析组件 yt-dlp：未安装';
+            async function runtime(op) {
+                checkBtn.disabled = true; updateBtn.disabled = true;
+                if (op !== 'status') runtimeText.textContent = op === 'update' ? '正在更新 yt-dlp，通常半分钟内完成…' : '正在查询最新版本…';
+                try {
+                    const info = await extractorPost({ action: 'youtubeRuntime', op });
+                    if (!runtimeText.isConnected) return;
+                    if (!info.success) { runtimeText.textContent = info.message || '操作失败'; return; }
+                    if (op === 'update') {
+                        runtimeText.textContent = info.updated
+                            ? `已更新到 yt-dlp ${info.version}，立即生效。拉新镜像重建容器后，以镜像自带的版本为准。`
+                            : `yt-dlp ${info.version} 已是最新版`;
+                        updateBtn.hidden = true;
+                        return;
+                    }
+                    let text = describe(info);
+                    if (op === 'check') text += info.outdated ? `，有新版本 ${info.latest}（${info.latestDate} 发布）` : '，已是最新版';
+                    if (!info.managed && info.reason) text += `。${info.reason}`;
+                    if (op === 'check' && info.pythonNote) text += `（${info.pythonNote}）`;
+                    runtimeText.textContent = text;
+                    updateBtn.hidden = !(op === 'check' && info.outdated && info.managed);
+                    updateBtn.textContent = `更新到 ${info.latest || ''}`;
+                } catch { if (runtimeText.isConnected) runtimeText.textContent = '无法连接源管理接口'; }
+                finally { checkBtn.disabled = false; updateBtn.disabled = false; }
+            }
+            checkBtn.onclick = () => runtime('check');
+            updateBtn.onclick = () => runtime('update');
+            runtime('status');
         }
 
         /**
@@ -5380,8 +5443,12 @@
                     <button class="btn btn-sm btn-primary" id="youtubeAdd">添加订阅</button></div>
                     <p>频道未开播时保留；多场同播时按官方列表选择第一场，也可单独添加某场直播或预约。</p>
                     <div id="youtubeEvents" aria-live="polite"></div>
-                    <div id="youtubeSaved">${rows.length ? '' : '<p>还没有订阅。添加第一个频道后，它会出现在 M3U 的「YouTube 直播」分组。</p>'}${rows.map(row => `<p>${escapeHtml(row.name)} · ${row.videoId ? '固定场次' : '关注频道'}
+                    <div id="youtubeEnded" class="youtube-ended" hidden></div>
+                    <div id="youtubeSaved">${rows.length ? '' : '<p>还没有订阅。添加第一个频道后，它会出现在 M3U 的「YouTube 直播」分组。</p>'}${rows.map(row => `<p>${escapeHtml(row.name)} · ${row.videoId ? '固定场次' : '关注频道'}${row.videoId ? `<span class="youtube-status" data-youtube-status="${escapeHtml(row.videoId)}"></span>` : ''}
                       <button class="btn btn-sm" data-youtube-remove="${escapeHtml(row.videoId || row.channelId)}">移除</button></p>`).join('')}</div>
+                    <div class="youtube-runtime"><span id="youtubeRuntimeText">解析组件 yt-dlp：读取中…</span>
+                      <button class="btn btn-sm" id="youtubeRuntimeCheck">检查更新</button>
+                      <button class="btn btn-sm btn-primary" id="youtubeRuntimeUpdate" hidden>更新</button></div>
                 </div>`;
             }
             if (key === 'fengshows-bookmarklet') {
@@ -6543,7 +6610,7 @@
             // 提示走「立即刷新」，而不是像开关那样自动重生成播放列表。
             const r = await extractorPost(body);
             if (r && r.success) setSaveDirty(`xt:${id}`, false);
-            applyExtractorResult(r, '配置已保存。改动需要重新抓取才生效——点「立即刷新」，或等下一轮自动刷新');
+            applyExtractorResult(r, module.configSavedNotice || '配置已保存。改动需要重新抓取才生效——点「立即刷新」，或等下一轮自动刷新');
         }
 
         // ===== 央视频持久浏览器登录 =====

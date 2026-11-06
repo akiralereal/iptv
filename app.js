@@ -763,6 +763,8 @@ async function handleRequest(req, res) {
           case 'youtubeInspect':
           case 'youtubeAdd':
           case 'youtubeRemove':
+          case 'youtubeStatus':
+          case 'youtubeRuntime':
             result = await youtubeSubscriptionAPI(data)
             break
           case 'toggleModule':

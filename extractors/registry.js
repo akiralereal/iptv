@@ -30,6 +30,8 @@
  *   enableNotice          string  可选；用户在后台打开这个模块前要看的一句话。卡片开关先弹确认，
  *                                 点「取消」不打开；「批量开关」里勾上它，摘要下面列出这句话。
  *                                 给能不能播看部署网络的模块用（辽宁）；默认开的模块，用户关掉后再打开才看得到
+ *   configSavedNotice     string  可选；后台「保存配置」成功后的提示。不写时提示「点立即刷新才生效」；
+ *                                 配置只影响播放、不用重抓的模块（YouTube 的画质上限）写自己的说法
  *   capabilities          object  { cache: 'disk'|'memory'|'none',
  *                                   resolve: boolean, epg: boolean }
  *   catalogVersion        number  可选；代码内置频道表变更时递增。缓存版本不一致会在
@@ -148,6 +150,7 @@
  *   name       必需，显示名，也是去重键的一半
  *   url        直链模块必需
  *   deferredRef  延迟解析模块必需（与 url 二选一）
+ *   identityUrl 可选；迁移前的稳定直链，只用于保持频道 ID 与用户编排，不能作为播放地址。
  *   logo       官方台标的完整图片地址；官方确实没有才留空。默认没有台标库兜底，
  *              留空就是没有台标。取法与要求见仓库根目录 LOGO.md
  *   groupTitle 装饰用；真正的分组来自所在 group.name
@@ -347,6 +350,9 @@ export function validateModule(module) {
   }
   if (module.enableNotice != null && (typeof module.enableNotice !== 'string' || !module.enableNotice.trim())) {
     throw new Error(`抓取模块 ${module.id} 的 enableNotice 必须是非空字符串`)
+  }
+  if (module.configSavedNotice != null && (typeof module.configSavedNotice !== 'string' || !module.configSavedNotice.trim())) {
+    throw new Error(`抓取模块 ${module.id} 的 configSavedNotice 必须是非空字符串`)
   }
   if (module.category != null && !MODULE_CATEGORIES.has(module.category)) {
     throw new Error(`抓取模块 ${module.id} 的 category 非法: ${JSON.stringify(module.category)}`)

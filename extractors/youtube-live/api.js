@@ -1,15 +1,13 @@
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { outboundFetch, outboundProxyKey, ytDlpProxyArg } from '../../utils/outboundProxy.js'
+import { outboundFetch, outboundProxyKey, outboundProxyUrl, ytDlpProxyArg } from '../../utils/outboundProxy.js'
+import { ytDlpBinary } from './runtime.js'
 import { fetchUpstreamResponse } from '../../utils/hlsProxy.js'
 import { topVariantFirst } from '../../utils/hlsTopFirst.js'
 import { hasReplaceToken } from '../../utils/replaceToken.js'
 
 const run = promisify(execFile)
-const localBinary = fileURLToPath(new URL('../../.runtime/youtube/bin/yt-dlp', import.meta.url))
 const site = 'https://www.youtube.com'
 const channelPattern = /^UC[\w-]{22}$/
 const handlePattern = /^[\p{L}\p{N}\p{M}_.·-]{1,100}$/u
@@ -68,8 +66,38 @@ function playerData(html) {
   throw new Error('无法读取 YouTube 直播页面');
 }
 
+/**
+ * 连不上 YouTube 时告诉用户去哪儿改：没配代理的指到「网络代理」，配了的让去点「测试」。
+ * 大陆部署没配代理是最常见的原因，原来那句「检查部署机器的网络」用户不知道该干什么。
+ */
+export function unreachableMessage(proxied = Boolean(outboundProxyUrl())) {
+  return proxied
+    ? '经代理连不上 YouTube，请到「设置 → 系统配置 → 网络代理」点「测试」检查代理'
+    : '连不上 YouTube。部署在大陆的，请到「设置 → 系统配置 → 网络代理」填代理地址'
+}
+
+const NETWORK_ERROR = /timed? ?out|Connection (?:refused|reset|aborted)|Network is unreachable|No route to host|getaddrinfo|Name or service not known|Temporary failure in name resolution|nodename nor servname|Tunnel connection failed|ProxyError|Failed to establish|Remote end closed|RemoteDisconnected|EOF occurred|SSLError|SSL: |Unable to connect|Errno (?:101|104|110|111|113)/i
+
+/** yt-dlp 的 stderr → 给用户看的原因。返回 Error（Offline/NoStreamsTab 子类型供调用方区分）。 */
+export function ytDlpError(stderr = '', { killed = false, code } = {}) {
+  if (code === 'ENOENT') return new Error('缺少 yt-dlp，请运行 npm run setup:youtube 或配置 YTDLP_BIN')
+  if (/does not have a streams tab/i.test(stderr)) return new NoStreamsTab()
+  if (/not currently live|live event will begin|will begin in|already ended/i.test(stderr)) return new Offline('这场直播尚未开始或已经结束')
+  // 机房 / 机场出口常被要求人机验证，换节点通常就好；和会员专享、地区限制分开说
+  if (/confirm you.?re not a bot/i.test(stderr)) return new Error('YouTube 要求这个出口 IP 做人机验证，请换一个代理节点再试')
+  if (/HTTP Error 429|Too Many Requests/i.test(stderr)) return new Error('YouTube 限制了这个出口 IP 的请求次数，稍后再试或换一个代理节点')
+  if (/sign in|members.only|not available in your country/i.test(stderr)) return new Error('此直播在当前出口无法匿名播放')
+  if (killed || NETWORK_ERROR.test(stderr)) return new Error(unreachableMessage())
+  return new Error('YouTube 解析失败，可能是解析组件过旧：到「源管理 → YouTube 直播」点「检查更新」')
+}
+
+/** undici 的网络失败（不是我们自己抛的 HTTP 状态错误）。 */
+function isNetworkFailure(err) {
+  return err?.name === 'TimeoutError' || err?.name === 'AbortError' || (err instanceof TypeError && /fetch failed/i.test(err.message)) || Boolean(err?.cause?.code)
+}
+
 async function metadata(url, args) {
-  const binary = process.env.YTDLP_BIN || (existsSync(localBinary) ? localBinary : 'yt-dlp')
+  const binary = ytDlpBinary()
   let data
   try {
     const result = await run(binary, ['--ignore-config', '--no-cache-dir', '--skip-download', '--dump-single-json',
@@ -78,11 +106,7 @@ async function metadata(url, args) {
     data = result.stdout
   } catch (err) {
     // yt-dlp 错误可能带回带签名的播放地址，仅输出分类后的原因。
-    if (err.code === 'ENOENT') throw new Error('缺少 yt-dlp，请运行 npm run setup:youtube 或配置 YTDLP_BIN')
-    if (/does not have a streams tab/i.test(err.stderr)) throw new NoStreamsTab()
-    if (/not currently live|live event will begin|will begin in|already ended/i.test(err.stderr)) throw new Offline('这场直播尚未开始或已经结束')
-    if (/sign in|members.only|not available in your country/i.test(err.stderr)) throw new Error('此直播在当前出口无法匿名播放')
-    throw new Error('YouTube 解析失败，请检查 yt-dlp 及部署机器的网络')
+    throw ytDlpError(String(err.stderr || ''), { killed: err.killed, code: err.code })
   }
   try { return JSON.parse(data) } catch { throw new Error('YouTube 解析结果不是有效的频道或场次数据') }
 }
@@ -155,8 +179,59 @@ export async function inspect(raw) {
     const { channel, events } = await broadcasts(input.channelUrl, id)
     return { item: channel, events }
   }
-  const resp = await outboundFetch(watchUrl(input.videoId), { redirect:'error', signal:AbortSignal.timeout(12000) })
-  return { item: parseVideo(await readText(resp, 6 * 1024 * 1024), input.videoId), events: [] }
+  return { item: parseVideo(await watchPage(input.videoId), input.videoId), events: [] }
+}
+
+async function watchPage(videoId) {
+  let resp
+  try { resp = await outboundFetch(watchUrl(videoId), { redirect:'error', signal:AbortSignal.timeout(12000) }) }
+  catch (err) { throw isNetworkFailure(err) ? new Error(unreachableMessage()) : err }
+  return readText(resp, 6 * 1024 * 1024)
+}
+
+/**
+ * 固定场次现在的状态：live / upcoming / ended / unavailable，看不出来时 unknown。
+ * 只读页面里的播放器数据，不调 yt-dlp。后台据此标出已经结束、可以移除的场次。
+ */
+export function videoStatus(html, id) {
+  let data
+  try { data = playerData(html) } catch { return 'unknown' }
+  const v = data.videoDetails
+  const live = data.microformat?.playerMicroformatRenderer?.liveBroadcastDetails
+  const status = data.playabilityStatus?.status
+  // 删除 / 设为私享才算失效；LOGIN_REQUIRED 多半是出口 IP 被要求人机验证，不能据此说场次没了
+  const gone = ['ERROR', 'UNPLAYABLE'].includes(status)
+  if (!v || v.videoId !== id) return gone ? 'unavailable' : 'unknown'
+  if (live?.endTimestamp) return 'ended'
+  if (v.isLive || live?.isLiveNow) return 'live'
+  if (v.isUpcoming || status === 'LIVE_STREAM_OFFLINE') return 'upcoming'
+  if (gone) return 'unavailable'
+  return status === 'OK' && v.isLiveContent ? 'ended' : 'unknown'
+}
+
+// 状态缓存 10 分钟：打开源管理页就会查，别每次都把所有固定场次的页面拉一遍
+const statusCache = new Map()
+const STATUS_TTL = 10 * 60 * 1000
+export async function eventStatuses(rows, { concurrency = 3, now = Date.now } = {}) {
+  const ids = [...new Set(rows.map(row => row.videoId).filter(id => videoPattern.test(id || '')))]
+  const out = {}
+  const queue = ids.filter(id => {
+    const hit = statusCache.get(id)
+    if (hit && hit.until > now()) { out[id] = hit.status; return false }
+    return true
+  })
+  async function worker() {
+    for (let id = queue.shift(); id; id = queue.shift()) {
+      let status
+      try { status = videoStatus(await watchPage(id), id) } catch { status = 'unknown' }
+      out[id] = status
+      // 查不出来的不缓存，下次再试
+      if (status !== 'unknown') statusCache.set(id, { status, until: now() + STATUS_TTL })
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, worker))
+  if (statusCache.size > 1000) statusCache.clear()
+  return out
 }
 
 export function mediaUrl(raw) {
@@ -192,7 +267,11 @@ export function parseLive(data, item, expectedVideoId) {
 }
 
 const sessions = new Map()
-export const clearResolveCache = () => sessions.clear()
+// 关注频道时「现在在播哪一场」：列频道直播页要多跑一次 yt-dlp（约 4 秒），重开同一频道时先试上次那场，
+// 那场已经结束（Offline）再重新列。10 分钟内频道换成别的场次作为第一场时，会晚一点切过去。
+const liveIds = new Map()
+const LIVE_ID_TTL = 10 * 60 * 1000
+export const clearResolveCache = () => { sessions.clear(); liveIds.clear() }
 async function session(item, exactId, force = false) {
   // 播放地址绑定解析时的出口 IP：换了代理，旧解析结果拿去取分片只会 403
   const key = refOf(item) + ':' + (exactId || '') + ':' + outboundProxyKey()
@@ -202,12 +281,27 @@ async function session(item, exactId, force = false) {
   const state = { pending:true, until:0 }
   state.promise = (async () => {
     let videoId = exactId || item.videoId
+    let live
     if (!videoId) {
-      const { events } = await broadcasts(channelUrl(item.channelId), item.channelId)
-      videoId = events.find(event => event.status === 'is_live')?.videoId
-      if (!videoId) throw new Offline('频道暂未开播，订阅已保留，开播后重新打开即可')
+      const hint = liveIds.get(item.channelId)
+      if (hint && hint.until > Date.now()) {
+        try { live = parseLive(await metadata(watchUrl(hint.videoId), ['--no-playlist']), item, hint.videoId) }
+        catch (err) {
+          if (!(err instanceof Offline)) throw err
+          liveIds.delete(item.channelId)
+        }
+      }
+      if (!live) {
+        const { events } = await broadcasts(channelUrl(item.channelId), item.channelId)
+        videoId = events.find(event => event.status === 'is_live')?.videoId
+        if (!videoId) throw new Offline('频道暂未开播，订阅已保留，开播后重新打开即可')
+      }
     }
-    const live = parseLive(await metadata(watchUrl(videoId), ['--no-playlist']), item, videoId)
+    live ||= parseLive(await metadata(watchUrl(videoId), ['--no-playlist']), item, videoId)
+    if (!exactId && !item.videoId) {
+      if (liveIds.size >= 512) liveIds.delete(liveIds.keys().next().value)
+      liveIds.set(item.channelId, { videoId: live.videoId, until: Date.now() + LIVE_ID_TTL })
+    }
     state.until = Math.min(live.expires - 90000, Date.now() + (exactId ? 240000 : 45000))
     return live
   })().catch(err => {
@@ -269,7 +363,9 @@ export function publicManifest(text, base) {
 }
 
 async function playlist(url, live) {
-  const resp = await fetchUpstreamResponse(url, { upstreamHeaders:live.upstreamHeaders, signal:AbortSignal.timeout(10000), fetchImpl:outboundFetch })
+  let resp
+  try { resp = await fetchUpstreamResponse(url, { upstreamHeaders:live.upstreamHeaders, signal:AbortSignal.timeout(10000), fetchImpl:outboundFetch }) }
+  catch (err) { throw isNetworkFailure(err) ? new Error(unreachableMessage()) : err }
   return publicManifest(await readText(resp, 2 * 1024 * 1024), resp.url || url)
 }
 class RemovedSubscription extends Error {}
@@ -289,7 +385,9 @@ export async function resolve(ref, {config}) {
       live = await session(item, undefined, true)
       master = await playlist(live.url, live)
     }
-    return { url:live.url, manifestUrl:live.url, manifestText:topVariantFirst(master, { highestOnly: true }), proxyHls:true,
+    // 「最高画质」上限：视频全程经服务器和代理转发，限了能省带宽和代理流量；0 = 不限
+    const maxHeight = Number(config?.maxHeight) || 0
+    return { url:live.url, manifestUrl:live.url, manifestText:topVariantFirst(master, { highestOnly: true, maxHeight }), proxyHls:true,
       upstreamHeaders:live.upstreamHeaders, upstreamUrlTransform:mediaUrl }
   } catch (err) {
     const status = err instanceof RemovedSubscription ? 404 : err instanceof Offline ? 503 : 502

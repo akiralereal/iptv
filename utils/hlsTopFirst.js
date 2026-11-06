@@ -26,8 +26,15 @@ export function variantRank(streamInf) {
   return [hasVideo ? 1 : 0, pixels, Number(attribute(streamInf, 'BANDWIDTH')) || 0]
 }
 
+/** 一档的「p 数」：取宽高里较短的一边，竖屏直播 1080×1920 也算 1080p。没写分辨率返回 0。 */
+function variantHeight(streamInf) {
+  const resolution = /^(\d+)x(\d+)$/.exec(attribute(streamInf, 'RESOLUTION') || '')
+  return resolution ? Math.min(Number(resolution[1]), Number(resolution[2])) : 0
+}
+
 // highestOnly 用于固定最高画质的源，仍需用主清单关联独立音轨和字幕。
-export function topVariantFirst(text, { highestOnly = false } = {}) {
+// maxHeight（如 1080）：只在不超过它的档里挑；一档都不满足时取最低的视频档，不至于没画面。
+export function topVariantFirst(text, { highestOnly = false, maxHeight = 0 } = {}) {
   if (typeof text !== 'string' || !text.includes('#EXT-X-STREAM-INF')) return text
   const eol = text.includes('\r\n') ? '\r\n' : '\n'
   const lines = text.split(/\r?\n/)
@@ -55,10 +62,16 @@ export function topVariantFirst(text, { highestOnly = false } = {}) {
     i = j
   }
   if (!blocks.length || (!highestOnly && blocks.length === 1)) return text
-  const sorted = [...blocks].sort((a, b) => {
+  let sorted = [...blocks].sort((a, b) => {
     for (let k = 0; k < 3; k++) if (a.rank[k] !== b.rank[k]) return b.rank[k] - a.rank[k]
     return a.order - b.order
   })
+  if (maxHeight > 0) {
+    const video = sorted.filter(block => block.rank[0] && variantHeight(block.lines[0]) > 0)
+    const fits = video.filter(block => variantHeight(block.lines[0]) <= maxHeight)
+    const capped = fits.length ? fits : video.slice(-1)
+    if (capped.length) sorted = [...capped, ...sorted.filter(block => !video.includes(block))]
+  }
   if (highestOnly) {
     const best = sorted[0]
     const groups = new Map(['AUDIO', 'VIDEO', 'SUBTITLES', 'CLOSED-CAPTIONS'].map(type => [type, attribute(best.lines[0], type)]))
@@ -71,7 +84,7 @@ export function topVariantFirst(text, { highestOnly = false } = {}) {
     }
     return [...head.filter(keep), ...best.lines, ...tail.filter(keep)].join(eol)
   }
-  if (sorted.every((block, index) => block === blocks[index])) return text
+  if (sorted.length === blocks.length && sorted.every((block, index) => block === blocks[index])) return text
   return [...head, ...sorted.flatMap(block => block.lines), ...tail].join(eol)
 }
 

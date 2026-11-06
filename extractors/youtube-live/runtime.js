@@ -72,6 +72,34 @@ export function venvPython(venv) {
   catch { return '' }
 }
 
+// pip is present in every managed venv. Its bundled packaging parser handles
+// version ranges and environment markers without adding another dependency.
+const EJS_STATUS_SCRIPT = `import importlib, importlib.metadata as m, json
+from pip._vendor.packaging.requirements import Requirement
+requirements = [Requirement(r) for r in (m.requires('yt-dlp') or [])]
+requirement = next((r for r in requirements if r.name == 'yt-dlp-ejs' and (not r.marker or r.marker.evaluate({'extra': 'default'}))), None)
+version = ''
+healthy = requirement is None
+if requirement is not None:
+    try:
+        version = m.version('yt-dlp-ejs')
+        importlib.import_module('yt_dlp_ejs')
+        healthy = requirement.specifier.contains(version, prereleases=True)
+    except (m.PackageNotFoundError, ImportError):
+        healthy = False
+print(json.dumps({'requirement': str(requirement).split(';')[0].strip() if requirement else '', 'version': version, 'healthy': healthy}))`
+
+export async function ejsStatus(venv) {
+  try {
+    const { stdout } = await run(join(venv, 'bin', 'python'), ['-c', EJS_STATUS_SCRIPT], { timeout: 15000 })
+    const data = JSON.parse(stdout)
+    if (typeof data.healthy !== 'boolean' || typeof data.requirement !== 'string') throw new Error('invalid result')
+    return data
+  } catch {
+    return { healthy: false, requirement: '', version: '' }
+  }
+}
+
 /** requires_python（如 ">=3.11"、">=3.9,!=3.10.*"）是否接受这个 Python 版本。看不懂的条件不拦。 */
 export function pythonSatisfies(spec, python) {
   if (!spec || !python) return true
@@ -128,6 +156,7 @@ export async function runtimeStatus({ checkLatest = false } = {}) {
     managed: Boolean(venv),
     reason: venv ? '' : process.env.YTDLP_BIN ? '用的是 YTDLP_BIN 指定的 yt-dlp，请自行升级' : version ? '这个 yt-dlp 不是本项目安装的，请自行升级' : '没装 yt-dlp：Docker 镜像已自带；源码运行请执行 npm run setup:youtube',
     updating: Boolean(updating),
+    repairNeeded: Boolean(venv && !updating && !(await ejsStatus(venv)).healthy),
   }
   if (checkLatest) {
     const python = venv ? venvPython(venv) : ''
@@ -156,17 +185,20 @@ export function updateRuntime({ onUpdated } = {}) {
     const venv = managedVenv()
     if (!venv) throw new Error((await runtimeStatus()).reason || '这个 yt-dlp 不能在后台升级')
     const before = await installedVersion()
+    const beforeHealth = await ejsStatus(venv)
     const { version: target } = await latestRelease({ python: venvPython(venv) })
-    if (before && compareVersions(target, before) <= 0) return { updated: false, version: before }
+    const upgrade = !before || compareVersions(target, before) > 0
+    if (!upgrade && beforeHealth.healthy) return { updated: false, repaired: false, version: before }
     const python = join(venv, 'bin', 'python')
     const pip = ['-m', 'pip', 'install', '--disable-pip-version-check', '--no-input', '--root-user-action=ignore', ...pipProxyArgs()]
     try {
-      await run(python, [...pip, '--upgrade', `yt-dlp==${target}`], { timeout: 180000, maxBuffer: 4 * 1024 * 1024 })
-      const { stdout } = await run(python, ['-c',
-        "import importlib.metadata as m\nprint(next((r.split(';')[0].strip() for r in (m.requires('yt-dlp') or []) if r.startswith('yt-dlp-ejs')), ''))"],
-      { timeout: 30000 })
-      const ejs = stdout.trim()
-      if (/^yt-dlp-ejs[=<>!~\d., ]*$/.test(ejs)) await run(python, [...pip, ejs], { timeout: 180000, maxBuffer: 4 * 1024 * 1024 })
+      if (upgrade) await run(python, [...pip, '--upgrade', `yt-dlp==${target}`], { timeout: 180000, maxBuffer: 4 * 1024 * 1024 })
+      const health = await ejsStatus(venv)
+      const ejs = health.requirement
+      if (!health.healthy) {
+        if (!/^yt-dlp-ejs[=<>!~\d.,*a-zA-Z+-]*$/.test(ejs)) throw new Error('无法读取配套 EJS 依赖要求')
+        await run(python, [...pip, '--force-reinstall', ejs], { timeout: 180000, maxBuffer: 4 * 1024 * 1024 })
+      }
     } catch (err) {
       const text = String(err.stderr || err.message || '')
       if (err.killed) throw new Error('下载超时，稍后再试')
@@ -177,8 +209,11 @@ export function updateRuntime({ onUpdated } = {}) {
       installed = null
     }
     const after = await installedVersion()
+    if (!after || (upgrade && compareVersions(after, target) < 0) || !(await ejsStatus(venv)).healthy) {
+      throw new Error('解析组件或配套 EJS 依赖校验失败，请重试修复')
+    }
     onUpdated?.()
-    return { updated: compareVersions(after, before) !== 0, from: before, version: after }
+    return { updated: compareVersions(after, before) !== 0, repaired: !beforeHealth.healthy, from: before, version: after }
   })().finally(() => { updating = null })
   return updating
 }

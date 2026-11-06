@@ -5257,19 +5257,20 @@
                     if (!input.isConnected) return;
                     if (!result.success) { events.textContent = result.message || 'YouTube 请求失败'; return; }
                     if (action !== 'youtubeInspect') {
-                        applyExtractorResult(result, action === 'youtubeRemove' ? '已移除订阅' : '已保存订阅，启用模块后可在 M3U 的 YouTube 直播分组观看');
+                        applyExtractorResult(result, action === 'youtubeRemove' ? '已移除订阅' : '已关注频道，启用模块后可在 M3U 的 YouTube 直播分组观看');
                         return;
                     }
                     events.replaceChildren();
                     const heading = document.createElement('p');
-                    heading.textContent = result.item.name + (result.item.videoId ? ' · 固定场次' : result.events.length ? ' · 当前场次' : ' · 暂无公开直播或预约');
+                    heading.textContent = result.item.name + (result.events.length ? ' · 当前场次' : ' · 暂无公开直播或预约');
+                    const follow = document.createElement('button');
+                    follow.className = 'btn btn-sm'; follow.textContent = '关注此频道';
+                    follow.onclick = () => submit('youtubeAdd', { url: 'https://www.youtube.com/channel/' + result.item.channelId });
+                    heading.append(' ', follow);
                     events.append(heading);
                     for (const event of result.events) {
                         const p = document.createElement('p');
-                        const add = document.createElement('button');
-                        add.className = 'btn btn-sm'; add.textContent = '订阅此场';
-                        add.onclick = () => submit('youtubeAdd', { url: event.url });
-                        p.append((event.status === 'is_live' ? '直播中 · ' : '已预约 · ') + event.name + ' ', add);
+                        p.textContent = (event.status === 'is_live' ? '直播中 · ' : '已预约 · ') + event.name;
                         events.append(p);
                     }
                 } catch { events.textContent = '无法连接源管理接口'; }
@@ -5317,21 +5318,29 @@
                 try {
                     const info = await extractorPost({ action: 'youtubeRuntime', op });
                     if (!runtimeText.isConnected) return;
-                    if (!info.success) { runtimeText.textContent = info.message || '操作失败'; return; }
+                    if (!info.success) {
+                        runtimeText.textContent = info.message || '操作失败';
+                        if (op === 'update') { updateBtn.hidden = false; updateBtn.textContent = '重试更新 / 修复'; }
+                        return;
+                    }
                     if (op === 'update') {
-                        runtimeText.textContent = info.updated
+                        runtimeText.textContent = info.repaired
+                            ? `解析组件及配套依赖已修复（yt-dlp ${info.version}），立即生效。`
+                            : info.updated
                             ? `已更新到 yt-dlp ${info.version}，立即生效。拉新镜像重建容器后，以镜像自带的版本为准。`
                             : `yt-dlp ${info.version} 已是最新版`;
                         updateBtn.hidden = true;
                         return;
                     }
                     let text = describe(info);
-                    if (op === 'check') text += info.outdated ? `，有新版本 ${info.latest}（${info.latestDate} 发布）` : '，已是最新版';
+                    if (info.updating) { runtimeText.textContent = text + '，正在更新…'; updateBtn.hidden = true; return; }
+                    if (info.repairNeeded) text += '，配套依赖不完整，请修复';
+                    else if (op === 'check') text += info.outdated ? `，有新版本 ${info.latest}（${info.latestDate} 发布）` : '，已是最新版';
                     if (!info.managed && info.reason) text += `。${info.reason}`;
                     if (op === 'check' && info.pythonNote) text += `（${info.pythonNote}）`;
                     runtimeText.textContent = text;
-                    updateBtn.hidden = !(op === 'check' && info.outdated && info.managed);
-                    updateBtn.textContent = `更新到 ${info.latest || ''}`;
+                    updateBtn.hidden = !(info.managed && (info.repairNeeded || (op === 'check' && info.outdated)));
+                    updateBtn.textContent = info.repairNeeded ? '修复依赖' : `更新到 ${info.latest || ''}`;
                 } catch { if (runtimeText.isConnected) runtimeText.textContent = '无法连接源管理接口'; }
                 finally { checkBtn.disabled = false; updateBtn.disabled = false; }
             }
@@ -5437,11 +5446,11 @@
                 let rows = [];
                 try { const saved = JSON.parse(config.subscriptions || '[]'); if (Array.isArray(saved)) rows = saved; } catch {}
                 return `<div class="bookmarklet-section">
-                    <label for="youtubeInput"><strong>频道或直播场次</strong></label>
-                    <div class="bookmarklet-actions"><input type="text" id="youtubeInput" maxlength="2048" placeholder="用户名（@ 可省略）、频道或直播链接">
+                    <label for="youtubeInput"><strong>关注 YouTube 频道</strong></label>
+                    <div class="bookmarklet-actions"><input type="text" id="youtubeInput" maxlength="2048" placeholder="用户名、频道 ID、频道或视频分享链接">
                     <button class="btn btn-sm" id="youtubeInspect">查看场次</button>
-                    <button class="btn btn-sm btn-primary" id="youtubeAdd">添加订阅</button></div>
-                    <p>频道未开播时保留；多场同播时按官方列表选择第一场，也可单独添加某场直播或预约。</p>
+                    <button class="btn btn-sm btn-primary" id="youtubeAdd">关注频道</button></div>
+                    <p>频道、直播、视频和 Shorts 链接都用于关注所属频道。未开播时保留，播放时选择频道当前的首场公开直播。</p>
                     <div id="youtubeEvents" aria-live="polite"></div>
                     <div id="youtubeEnded" class="youtube-ended" hidden></div>
                     <div id="youtubeSaved">${rows.length ? '' : '<p>还没有订阅。添加第一个频道后，它会出现在 M3U 的「YouTube 直播」分组。</p>'}${rows.map(row => `<p>${escapeHtml(row.name)} · ${row.videoId ? '固定场次' : '关注频道'}${row.videoId ? `<span class="youtube-status" data-youtube-status="${escapeHtml(row.videoId)}"></span>` : ''}

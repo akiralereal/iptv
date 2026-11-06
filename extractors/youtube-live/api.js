@@ -12,42 +12,69 @@ const site = 'https://www.youtube.com'
 const channelPattern = /^UC[\w-]{22}$/
 const handlePattern = /^[\p{L}\p{N}\p{M}_.·-]{1,100}$/u
 const videoPattern = /^[\w-]{11}$/
+const youtubeHosts = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'])
+const shortHosts = new Set(['youtu.be', 'www.youtu.be'])
+const embedHosts = new Set(['youtube-nocookie.com', 'www.youtube-nocookie.com'])
+const channelTabs = /\/(?:featured|streams|live|videos|shorts|about|playlists|community|posts|podcasts|releases|search)$/
+const reservedPaths = new Set(['watch', 'playlist', 'results', 'feed', 'shorts', 'live', 'embed', 'channel', 'c', 'user',
+  'redirect', 'attribution_link', 'clip', 'hashtag', 'premium', 'gaming', 'account', 'settings', 'upload', 'signin', 'logout', 't', 'oembed'])
 const watchUrl = id => site + '/watch?v=' + id
 const channelUrl = id => site + '/channel/' + id
 class NoStreamsTab extends Error {}
 class Offline extends Error {}
 
 export function normalizeYouTubeInput(raw) {
-  const invalid = () => new Error('请输入 YouTube 用户名（@ 可省略）、频道链接或单场直播链接');
-  if (typeof raw !== 'string' || raw.length > 2048 || /[\x00-\x1f\x7f]/.test(raw)) throw invalid();
+  const invalid = () => new Error('请输入 YouTube 用户名（@ 可省略）、频道 ID、频道或视频链接');
+  if (typeof raw !== 'string' || raw.length > 2048) throw invalid();
   let value = raw.trim();
+  if (!value || /[\x00-\x1f\x7f\\]/.test(value)) throw invalid();
   if (channelPattern.test(value)) value = site + '/channel/' + value;
   else if (handlePattern.test(value)) value = site + '/@' + value;
   else if (value.startsWith('@')) value = site + '/' + value;
-  if (/^(?:(?:www\.|m\.)?youtube\.com|youtu\.be)\//i.test(value)) value = 'https://' + value;
-  let url, path;
-  try {
-    url = new URL(value);
-    path = decodeURIComponent(url.pathname).replace(/\/$/, '');
-  } catch { throw invalid(); }
-  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.port) throw invalid();
-  let videoId;
-  if (url.hostname === 'youtu.be') videoId = path.slice(1);
-  else {
-    if (!['www.youtube.com', 'youtube.com', 'm.youtube.com'].includes(url.hostname)) throw invalid();
-    if (path === '/watch') videoId = url.searchParams.get('v');
-    else if (/^\/(live|embed)\//.test(path)) videoId = path.split('/').slice(2).join('/');
-    else {
-      const base = path.replace(/\/(?:featured|streams|live|videos|shorts|about)$/, '');
-      if (base.startsWith('/@') && handlePattern.test(base.slice(2))) {
-        return { channelUrl: site + '/@' + encodeURIComponent(base.slice(2)) };
-      }
-      if (base.startsWith('/channel/') && channelPattern.test(base.slice(9))) return { channelUrl: site + base };
-      if (/^\/(?:c|user)\/[\w.-]+$/.test(base)) return { channelUrl: site + base };
+  if (value.startsWith('//')) value = 'https:' + value;
+  if (/^(?:(?:www\.|m\.|music\.)?youtube\.com|(?:www\.)?youtu\.be|(?:www\.)?youtube-nocookie\.com)\//i.test(value)) value = 'https://' + value;
+  return normalizeLink(value);
+
+  function normalizeLink(value, depth = 0) {
+    let url, path;
+    try {
+      url = new URL(value);
+      path = decodeURIComponent(url.pathname).replace(/\/+$/, '');
+    } catch { throw invalid(); }
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.port) throw invalid();
+    let videoId;
+    if (shortHosts.has(url.hostname)) videoId = path.slice(1);
+    else if (embedHosts.has(url.hostname)) {
+      if (path === '/embed/live_stream' && channelPattern.test(url.searchParams.get('channel') || '')) return { channelUrl: channelUrl(url.searchParams.get('channel')) };
+      videoId = path.match(/^\/embed\/([\w-]{11})$/)?.[1];
     }
+    else {
+      if (!youtubeHosts.has(url.hostname)) throw invalid();
+      // Decode YouTube's own share wrappers locally; never fetch a redirect target.
+      if (path === '/attribution_link' || path === '/redirect') {
+        const target = url.searchParams.get(path === '/attribution_link' ? 'u' : 'q');
+        if (!target || depth >= 2 || /[\x00-\x1f\x7f\\]/.test(target)) throw invalid();
+        let next;
+        try { next = new URL(target, site).href; } catch { throw invalid(); }
+        return normalizeLink(next, depth + 1);
+      }
+      if (path === '/embed/live_stream' && channelPattern.test(url.searchParams.get('channel') || '')) return { channelUrl: channelUrl(url.searchParams.get('channel')) };
+      if (path === '/watch') videoId = url.searchParams.get('v');
+      else if (/^\/(live|embed|shorts|v)\//.test(path)) videoId = path.split('/').slice(2).join('/');
+      else {
+        const base = path.replace(channelTabs, '');
+        if (base.startsWith('/@') && handlePattern.test(base.slice(2))) {
+          return { channelUrl: site + '/@' + encodeURIComponent(base.slice(2)) };
+        }
+        if (base.startsWith('/channel/') && channelPattern.test(base.slice(9))) return { channelUrl: site + base };
+        const legacy = base.match(/^\/(c|user)\/([^/]+)$/);
+        if (legacy && handlePattern.test(legacy[2])) return { channelUrl: site + '/' + legacy[1] + '/' + encodeURIComponent(legacy[2]) };
+        if (/^\/[\w.-]+$/.test(base) && !reservedPaths.has(base.slice(1).toLowerCase())) return { channelUrl: site + base };
+      }
+    }
+    if (!videoPattern.test(videoId || '')) throw invalid();
+    return { videoId };
   }
-  if (!videoPattern.test(videoId || '')) throw invalid();
-  return { videoId };
 }
 
 // Read the JSON assignment only. The watch page may append other JS in the same script.
@@ -142,21 +169,23 @@ export function records(config = {}) {
   return rows.map(r => record(r.channelId, r.videoId, r.name))
 }
 
-export function parseVideo(html, id) {
+export function parseVideoChannel(html, id) {
   const data = playerData(html)
   const v = data.videoDetails
-  const live = data.microformat?.playerMicroformatRenderer?.liveBroadcastDetails
-  const status = data.playabilityStatus?.status
-  if (!v || !['OK', 'LIVE_STREAM_OFFLINE'].includes(status)) throw new Error('此条目无法公开访问')
-  if (v.videoId !== id || !v.isLiveContent || live?.endTimestamp || !(v.isLive || live?.isLiveNow || status === 'LIVE_STREAM_OFFLINE')) {
-    throw new Error('请选择正在直播或已预约的场次，普通视频和回放不可添加')
-  }
-  return record(v.channelId, id, v.title)
+  if (!v || v.videoId !== id) throw new Error('无法从此视频识别所属频道，请改用频道主页链接')
+  // A video is only a way to identify its owner. Never save its title/ID as a channel.
+  return record(v.channelId, null, v.author || data.microformat?.playerMicroformatRenderer?.ownerChannelName)
+}
+
+function parseChannel(data, expectedId) {
+  const channel = record(data.channel_id, null, data.channel)
+  if (expectedId && expectedId !== channel.channelId) throw new Error('频道身份与直播列表不符')
+  return channel
 }
 
 export function parseBroadcasts(data, expectedId) {
-  const channel = record(data.channel_id, null, data.channel)
-  if ((expectedId && expectedId !== channel.channelId) || !Array.isArray(data.entries)) throw new Error('频道身份与直播列表不符')
+  const channel = parseChannel(data, expectedId)
+  if (!Array.isArray(data.entries)) throw new Error('频道身份与直播列表不符')
   const events = data.entries.filter(v => videoPattern.test(v?.id) && (!v.channel_id || v.channel_id === channel.channelId) &&
     (!v.availability || ['public','unlisted'].includes(v.availability)) && ['is_live','is_upcoming'].includes(v.live_status))
     .map(v => ({ ...record(channel.channelId, v.id, v.title), status: v.live_status, url: watchUrl(v.id) }))
@@ -172,14 +201,17 @@ async function broadcasts(base, expectedId, read = metadata) {
   }
 }
 
-export async function inspect(raw) {
+export async function inspect(raw, { includeEvents = true, readMetadata = metadata, readWatchPage = watchPage } = {}) {
   const input = normalizeYouTubeInput(raw)
-  if (input.channelUrl) {
-    const id = input.channelUrl.match(/\/channel\/(UC[\w-]{22})$/)?.[1]
-    const { channel, events } = await broadcasts(input.channelUrl, id)
-    return { item: channel, events }
+  const owner = input.videoId ? parseVideoChannel(await readWatchPage(input.videoId), input.videoId) : null
+  const base = owner ? channelUrl(owner.channelId) : input.channelUrl
+  const id = owner?.channelId || base.match(/\/channel\/(UC[\w-]{22})$/)?.[1]
+  if (!includeEvents) {
+    const item = owner || parseChannel(await readMetadata(base, ['--flat-playlist', '--playlist-end', '1']), id)
+    return { item, events: [] }
   }
-  return { item: parseVideo(await watchPage(input.videoId), input.videoId), events: [] }
+  const { channel, events } = await broadcasts(base, id, readMetadata)
+  return { item: channel, events }
 }
 
 async function watchPage(videoId) {
@@ -272,11 +304,13 @@ const sessions = new Map()
 const liveIds = new Map()
 const LIVE_ID_TTL = 10 * 60 * 1000
 export const clearResolveCache = () => { sessions.clear(); liveIds.clear() }
-async function session(item, exactId, force = false) {
+async function session(item, exactId, rejected) {
   // 播放地址绑定解析时的出口 IP：换了代理，旧解析结果拿去取分片只会 403
   const key = refOf(item) + ':' + (exactId || '') + ':' + outboundProxyKey()
   const cached = sessions.get(key)
-  if (cached && (cached.pending || (!force && cached.until > Date.now()))) return cached.promise
+  // Only replace the session that actually failed. A late 403 from another
+  // request must reuse an already refreshed session, not evict it again.
+  if (cached && (cached.pending || ((!rejected || cached.live !== rejected) && cached.until > Date.now()))) return cached.promise
   if (sessions.size >= 512) sessions.delete(sessions.keys().next().value)
   const state = { pending:true, until:0 }
   state.promise = (async () => {
@@ -303,6 +337,7 @@ async function session(item, exactId, force = false) {
       liveIds.set(item.channelId, { videoId: live.videoId, until: Date.now() + LIVE_ID_TTL })
     }
     state.until = Math.min(live.expires - 90000, Date.now() + (exactId ? 240000 : 45000))
+    state.live = live
     return live
   })().catch(err => {
     state.until = Date.now() + (err instanceof Offline ? 15000 : 2000)
@@ -382,7 +417,7 @@ export async function resolve(ref, {config}) {
     try { master = await playlist(live.url, live) }
     catch (err) {
       if (!/HTTP (401|403|410)$/.test(err.message)) throw err
-      live = await session(item, undefined, true)
+      live = await session(item, undefined, live)
       master = await playlist(live.url, live)
     }
     // 「最高画质」上限：视频全程经服务器和代理转发，限了能省带宽和代理流量；0 = 不限
@@ -432,9 +467,20 @@ export async function fetchProxyMedia(ref, config, raw, options) {
   }
   const videoId = field(raw, 'id')?.split('.')[0]
   if (!videoPattern.test(videoId || '') || (item.videoId && videoId !== item.videoId) || !field(raw, 'itag')) throw new Error('无法更新此直播签名')
-  const live = await session(item, videoId)
-  const master = await playlist(live.url, live)
-  let url = renewedLink(master, live.url, raw)
-  if (field(raw,'sq')) url = renewedLink(await playlist(url, live), url, raw, true)
-  return request(url, live.upstreamHeaders)
+  let live = await session(item, videoId)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const master = await playlist(live.url, live)
+      let url = renewedLink(master, live.url, raw)
+      if (field(raw,'sq')) url = renewedLink(await playlist(url, live), url, raw, true)
+      const res = await request(url, live.upstreamHeaders)
+      if (attempt || ![401,403,410].includes(res.status)) return res
+      await res.body?.cancel()
+    } catch (err) {
+      // A missing track/segment or a changed programme cannot be fixed by
+      // replacing its signature. Only retry explicit authorization failures.
+      if (attempt || !/HTTP (401|403|410)$/.test(err.message)) throw err
+    }
+    live = await session(item, videoId, live)
+  }
 }

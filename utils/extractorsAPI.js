@@ -329,7 +329,7 @@ export async function youtubeSubscriptionAPI({ action, url, ref, refs, op }) {
       if (op === 'update') return { success: true, ...await updateYouTubeRuntime({ onUpdated: clearYouTubeCache }) }
       return { success: true, ...await youtubeRuntimeStatus({ checkLatest: op === 'check' }) }
     }
-    const item = action === 'youtubeAdd' ? (await inspectYouTube(url)).item : null
+    const item = action === 'youtubeAdd' ? (await inspectYouTube(url, { includeEvents: false })).item : null
     // 网络查询完成后再读最新配置，并发添加不会覆盖其他刚保存的订阅。
     const rows = youtubeRecords(manager.effectiveConfig(module))
     let next

@@ -3,7 +3,7 @@ import { readFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import youtube from '../extractors/youtube-live/index.js'
-import { normalizeYouTubeInput, record, refOf, parseVideo, parseBroadcasts, mediaUrl, parseLive, publicManifest, liveWindow, renewedLink, videoStatus, ytDlpError, unreachableMessage } from '../extractors/youtube-live/api.js'
+import { normalizeYouTubeInput, record, refOf, parseVideoChannel, parseBroadcasts, inspect, mediaUrl, parseLive, publicManifest, liveWindow, renewedLink, videoStatus, ytDlpError, unreachableMessage } from '../extractors/youtube-live/api.js'
 import { topVariantFirst } from '../utils/hlsTopFirst.js'
 import { lookup, toProxyManifest } from '../utils/hlsProxy.js'
 import { ExtractorManager } from '../utils/extractorManager.js'
@@ -20,16 +20,65 @@ assert.deepEqual(normalizeYouTubeInput(channelId), {channelUrl:'https://www.yout
 assert.deepEqual(normalizeYouTubeInput('@ABCNews'), normalizeYouTubeInput('youtube.com/@ABCNews/streams'))
 assert.deepEqual(normalizeYouTubeInput('https://youtu.be/' + id), { videoId:id })
 for (const raw of ['https://youtube.com.example/@ABCNews','https://youtube.com@localhost/@x','file:///etc/passwd','@ABCNews\n--proxy','https://youtube.com/watch?v=bad']) assert.throws(() => normalizeYouTubeInput(raw))
+for (const raw of [
+  '  https://m.youtube.com/@ABCNews/streams?si=share  ', '//www.youtube.com/@ABCNews/videos',
+  'youtube.com/@ABCNews/community', 'https://www.youtube.com/@ABCNews/playlists?view=1',
+]) assert.deepEqual(normalizeYouTubeInput(raw), { channelUrl:'https://www.youtube.com/@ABCNews' })
+for (const raw of [`${channelId}`, `https://youtube.com/channel/${channelId}/live`,
+  `https://www.youtube.com/embed/live_stream?channel=${channelId}`, `https://www.youtube-nocookie.com/embed/live_stream?channel=${channelId}`,
+]) assert.deepEqual(normalizeYouTubeInput(raw), { channelUrl:'https://www.youtube.com/channel/' + channelId })
+for (const raw of [
+  `https://www.youtube.com/watch?v=${id}&list=ignored&si=share`, `https://youtube.com/live/${id}?feature=share`,
+  `www.youtu.be/${id}?t=30`, `https://m.youtube.com/shorts/${id}?si=share`,
+  `https://music.youtube.com/watch?v=${id}`, `https://www.youtube-nocookie.com/embed/${id}`,
+  `https://www.youtube.com/v/${id}`, `https://youtube.com/attribution_link?u=${encodeURIComponent('/watch?v=' + id)}`,
+  `https://youtube.com/redirect?q=${encodeURIComponent('https://youtu.be/' + id)}`,
+]) assert.deepEqual(normalizeYouTubeInput(raw), { videoId:id }, raw)
+for (const base of ['/c/ABCNews', '/user/ABCNews', '/ABCNews']) {
+  assert.deepEqual(normalizeYouTubeInput('https://youtube.com' + base + '/streams'), { channelUrl:'https://www.youtube.com' + base })
+}
+assert.deepEqual(normalizeYouTubeInput('https://youtube.com/@中文频道/shorts'), { channelUrl:'https://www.youtube.com/@' + encodeURIComponent('中文频道') })
+for (const raw of ['https://youtube.com:444/@ABCNews', 'https://youtube-nocookie.com/watch?v=' + id,
+  'https://youtube.com/playlist?list=PL123', 'https://youtube.com/feed/subscriptions',
+  'https://youtube.com/redirect?q=https%3A%2F%2Flocalhost%2Fprivate',
+  'https://youtube.com/attribution_link?u=%2F%2Fevil.test%2Fwatch',
+  'https://youtube.com/@ABC%2FNews', 'https://youtube.com/shorts/' + id + '/extra',
+]) assert.throws(() => normalizeYouTubeInput(raw), raw)
 const entries = [event, {...event, live_status:'is_upcoming'}, {...event,live_status:'was_live'}, {...event,channel_id:'foreign'}, {...event,availability:'subscriber_only'}]
 assert.deepEqual(parseBroadcasts({...fixture,entries}, channelId).events.map(e => e.status), ['is_live','is_upcoming'])
 assert.throws(() => parseBroadcasts(fixture, 'foreign'))
 const page = (status, changes={}, live={}) => '<script>var ytInitialPlayerResponse = ' + JSON.stringify({
-  videoDetails:{ videoId:id, channelId, title, isLiveContent:true, ...changes },
+  videoDetails:{ videoId:id, channelId, title, author:'ABC News', isLiveContent:true, ...changes },
   microformat:{playerMicroformatRenderer:{liveBroadcastDetails:live}}, playabilityStatus:{status},
 }) + '; throw new Error();</script>'
-assert.deepEqual(parseVideo(page('OK',{isLive:true}),id),pinned)
-assert.deepEqual(parseVideo(page('LIVE_STREAM_OFFLINE'),id),pinned)
-for (const html of [page('LOGIN_REQUIRED'),page('OK',{videoId:'other-video',isLive:true}),page('OK',{isLiveContent:false}),page('OK',{}, {endTimestamp:'2026-11-03'})]) assert.throws(() => parseVideo(html,id))
+// 所有视频链接都关注发布频道，包括预约、回放、普通视频与 Shorts；不能用视频标题命名频道。
+for (const html of [page('OK',{isLive:true}), page('LIVE_STREAM_OFFLINE'),
+  page('OK',{isLiveContent:false}), page('OK',{}, {endTimestamp:'2026-11-03'})]) {
+  assert.deepEqual(parseVideoChannel(html,id), channel)
+}
+for (const html of [page('OK',{videoId:'other-video'}), page('OK',{channelId:'wrong'}),
+  page('OK',{author:undefined}), '<script>var ytInitialPlayerResponse={"playabilityStatus":{"status":"LOGIN_REQUIRED"}};</script>']) {
+  assert.throws(() => parseVideoChannel(html,id))
+}
+const calls = []
+const reads = {
+  readWatchPage: async video => { calls.push(['watch',video]); return page('OK',{isLiveContent:false}) },
+  readMetadata: async (url,args) => { calls.push(['metadata',url,args]); return fixture },
+}
+const fromVideo = await inspect('https://youtu.be/' + id, { ...reads, includeEvents:false })
+assert.deepEqual(fromVideo, {item:channel,events:[]})
+assert.deepEqual(calls, [['watch',id]], '保存频道不依赖场次列表，未开播也能关注')
+calls.length = 0
+const fromHandle = await inspect('@ABCNews', { ...reads, includeEvents:false })
+assert.equal(refOf(fromHandle.item), refOf(fromVideo.item), '同一频道的不同链接归并到同一订阅')
+assert.deepEqual(calls, [['metadata','https://www.youtube.com/@ABCNews',['--flat-playlist','--playlist-end','1']]])
+calls.length = 0
+const inspected = await inspect('https://youtube.com/shorts/' + id, reads)
+assert.deepEqual(inspected.item, channel)
+assert.equal(inspected.events[0].videoId, id)
+assert.equal(calls[1][1], 'https://www.youtube.com/channel/' + channelId + '/streams', '查看场次查询已确认的所属频道')
+await assert.rejects(inspect('https://youtu.be/' + id, { ...reads,
+  readMetadata: async () => ({...fixture,channel_id:'UCaaaaaaaaaaaaaaaaaaaaaa'}) }), /频道身份/)
 
 // 固定场次状态：后台据此标出已结束 / 失效、可以移除的
 assert.equal(videoStatus(page('OK',{isLive:true}),id),'live')

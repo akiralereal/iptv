@@ -11,7 +11,7 @@ function groupsFromConfig(config) {
 export default {
   id: 'youtube-live',
   name: 'YouTube 直播',
-  category: 'live',
+  category: 'overseas',
   outbound: 'proxy',
   proxyProbe: { name: 'YouTube', url: 'https://www.youtube.com/generate_204' },
   // 取址与 yt-dlp 走 youtube.com，清单和分片走 googlevideo.com；yt-dlp 更新用的 PyPI 大陆能直连，不列

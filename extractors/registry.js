@@ -18,7 +18,8 @@
  *   description           string  后台一句话说明
  *   category              string  可选；后台源管理分组。'account' 表示带账号/
  *                                 授权能力，'live' 表示网络直播平台，'overseas' 表示
- *                                 面向大陆以外、默认关闭的海外模块；不声明即
+ *                                 面向大陆以外、默认关闭的海外模块（海外频道、澳门、
+ *                                 YouTube 直播）；不声明即
  *                                 'standard'（免账号的普通官方抓取模块）
  *   defaultEnabled        boolean 可选；用户没在卡片上点过开关时开不开，不声明即开。
  *                                 只有面向海外、在大陆连不上或常卡顿的模块写 false

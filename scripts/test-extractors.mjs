@@ -996,7 +996,7 @@ try {
     for (const id of ['migu', 'beijing', 'fengshows', 'sichuan', 'yangshipin']) {
       assert.equal(modules.find(module => module.id === id)?.category, 'account', `${id} 应归入账号与授权`)
     }
-    for (const id of ['bilibili-live', 'huya-live', 'douyu-live', 'youtube-live']) {
+    for (const id of ['bilibili-live', 'huya-live', 'douyu-live']) {
       assert.equal(modules.find(module => module.id === id)?.category, 'live', `${id} 应归入网络直播平台`)
     }
     // 默认关、由用户自己打开的：「海外」小节那几个，加上频道量大、只有本地少数人看的山东市县（#196 作者拍板）
@@ -1008,11 +1008,10 @@ try {
         'shandong-counties',
         'bestv-fj',
         'websports',
-        'youtube-live',
         ...modules.filter(module => module.id.startsWith('guangdianyun-')).map(module => module.id),
       ].sort(),
     )
-    assert.deepEqual(modules.filter(module => module.category === 'overseas').map(module => module.id).sort(), ['overseas', 'tdm'])
+    assert.deepEqual(modules.filter(module => module.category === 'overseas').map(module => module.id).sort(), ['overseas', 'tdm', 'youtube-live'])
   })
 
   check('模块地区透传给后台：省台、地市台、景观归到同一地区，全国性的不归', () => {

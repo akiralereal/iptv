@@ -36,7 +36,7 @@ const MAX_SOURCE_BYTES = 8 * 1024 * 1024
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
 // 这些不是电视台：直播平台的主播间、景观 / 熊猫 / 慢直播机位的封面、活动直播间，不进内置台标
-const SKIP_MODULES = new Set(['livechina', 'ipanda', 'songjiang'])
+const SKIP_MODULES = new Set(['livechina', 'ipanda', 'songjiang', 'youtube-live'])
 const SKIP_GROUP = /景观|风景/
 const SKIP_REF = /^sichuan-live-/
 

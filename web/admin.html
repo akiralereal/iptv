@@ -5515,7 +5515,10 @@
                     </div>
                     <div class="bookmarklet-actions"><a id="fengshowsBookmarklet" class="bookmarklet-link" draggable="true">获取凤凰秀 Token</a>
                         <a href="https://www.fengshows.com/live" target="_blank" rel="noreferrer">打开凤凰秀官网 ↗</a></div>
-                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;">普通账号即可获取三台 720p / 25 帧，无需付费会员。把“获取凤凰秀 Token”拖到书签栏，在已登录的官网点击，再将复制结果粘贴到下方并保存。也可在开发者工具 Application → Cookies 中复制 App.user.token。凭证过期后重新获取。</div>
+                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;">普通账号即可获取三台 720p / 25 帧，无需付费会员。<ol class="hint-list">
+                            <li>把“获取凤凰秀 Token”拖到书签栏，在已登录的官网点击。</li>
+                            <li>将复制结果粘贴到下方并保存。也可在开发者工具 Application → Cookies 中复制 <code>App.user.token</code>。</li>
+                        </ol>凭证过期后重新获取。</div>
                 </div>`;
             }
             if (key === 'migu-bookmarklet') {
@@ -5576,7 +5579,12 @@
                         <textarea id="yspLoginImportInput" rows="2" placeholder="粘贴从开发者工具复制的整段 Cookie 值（vusession=…; ysp_strRefreshtoken=…; …）" style="flex:1; min-width:240px; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:12px; font-family:monospace; resize:vertical;"></textarea>
                         <button id="yspLoginImport" class="btn btn-sm btn-primary" onclick="importYspLoginState()">导入登录态</button>
                     </div>
-                    <div style="font-size:12px; color:#888; margin-top:6px; line-height:1.7;">在自己电脑的浏览器登录央视频官网后，按 F12（Mac 按 ⌥⌘I）打开开发者工具，切到 Network（网络），刷新页面，点开任意一个 <code>yangshipin.cn</code> 的请求，在 Request Headers（请求标头）里单击 <code>Cookie</code> 的值后按 ⌘C（Windows 按 Ctrl+C）复制，粘贴到上方并导入。必须用这种方式：央视频的会话 cookie 是 HttpOnly，网页脚本和书签工具读不到，只有请求头里有完整的一套。导入的 cookie 只写进服务端浏览器 profile，不进配置文件；服务端之后会自动续期，官网撤销或长期失效时重新导入即可。</div>
+                    <div style="font-size:12px; color:#888; margin-top:6px; line-height:1.7;">在自己电脑的浏览器里：<ol class="hint-list">
+                            <li>登录央视频官网，按 F12（Mac 按 ⌥⌘I）打开开发者工具，切到 Network（网络）。</li>
+                            <li>刷新页面，点开任意一个 <code>yangshipin.cn</code> 的请求。</li>
+                            <li>在 Request Headers（请求标头）里单击 <code>Cookie</code> 的值，按 ⌘C（Windows 按 Ctrl+C）复制。</li>
+                            <li>粘贴到上方并导入。</li>
+                        </ol>必须用这种方式：央视频的会话 cookie 是 HttpOnly，网页脚本和书签工具读不到，只有请求头里有完整的一套。导入的 cookie 只写进服务端浏览器 profile，不进配置文件；服务端之后会自动续期，官网撤销或长期失效时重新导入即可。</div>
                 </div>`;
             }
             if (key === 'beijing-cookie') {
@@ -5591,7 +5599,12 @@
                     <div class="bookmarklet-actions">
                         <a href="https://www.btime.com/btv/btvsy_index" target="_blank" rel="noreferrer">打开北京时间官网 ↗</a>
                     </div>
-                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;">先在官网完成登录，再打开开发者工具的 Network（网络），刷新页面并点开 <code>getUserInfo</code> 请求。在 Request Headers 中单击 <code>Cookie</code> 的值后按 ⌘C（Windows/Linux 按 Ctrl+C），不需要鼠标右键；粘贴到下方并保存。Cookie 失效时重新导入即可。</div>
+                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;"><ol class="hint-list">
+                            <li>先在官网完成登录，再打开开发者工具的 Network（网络）。</li>
+                            <li>刷新页面，点开 <code>getUserInfo</code> 请求。</li>
+                            <li>在 Request Headers 中单击 <code>Cookie</code> 的值，按 ⌘C（Windows/Linux 按 Ctrl+C）复制，不需要鼠标右键。</li>
+                            <li>粘贴到下方并保存。</li>
+                        </ol>Cookie 失效时重新导入即可。</div>
                 </div>`;
             }
             if (key === 'sichuan-token') {
@@ -5609,7 +5622,11 @@
                         <a id="sichuanBookmarklet" class="bookmarklet-link" draggable="true">获取四川 Token</a>
                         <a href="https://www.sctv.com/channelLive" target="_blank" rel="noreferrer">打开四川官网 ↗</a>
                     </div>
-                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;">先在四川官网登录，并确认官网里电视频道能正常播放（官网只在播放时检查登录，页面显示已登录不代表还有效），然后把“获取四川 Token”拖到浏览器书签栏，在该页面点击书签。复制结果粘贴到下方并保存，再点“立即刷新”。兼容官网当前 <code>scgc_userAccountInfo</code> 和历史大小写写法。</div>
+                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;"><ol class="hint-list">
+                            <li>先在四川官网登录，并确认官网里电视频道能正常播放（官网只在播放时检查登录，页面显示已登录不代表还有效）。</li>
+                            <li>把“获取四川 Token”拖到浏览器书签栏，在该页面点击书签。</li>
+                            <li>复制结果粘贴到下方并保存，再点“立即刷新”。</li>
+                        </ol>兼容官网当前 <code>scgc_userAccountInfo</code> 和历史大小写写法。</div>
                 </div>`;
             }
             return '';

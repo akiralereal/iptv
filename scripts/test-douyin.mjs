@@ -88,10 +88,12 @@ assert.deepEqual(douyin.configSchema.find(field => field.key === 'quality').opti
   ['蓝光', '超清（推荐）', '高清', '标清'])
 
 const ctx = { fetchImpl, timeoutMs: 1000 }
-// 默认配置：只在「聊天」「生活」两个分类里轮选
+// 默认只勾「影视（一起看）」，其他分类由用户自选
 const defaults = Object.fromEntries(douyin.configSchema.map(field => [field.key, field.default]))
+assert.equal(defaults.categories, '一起看')
+// 「聊天」「生活」两个分类轮选
 requested.length = 0
-const byDefault = await douyin.fetch(defaults, ctx)
+const byDefault = await douyin.fetch({ ...defaults, categories: '聊天\n生活' }, ctx)
 assert.deepEqual(requested.sort(), ['/categorynew/4_101', '/categorynew/4_107'])
 assert.deepEqual(new Set(byDefault.groups[0].dataList.map(channel => channel.deferredRef)),
   new Set(['douyin-101', 'douyin-102', 'douyin-701', 'douyin-702']))

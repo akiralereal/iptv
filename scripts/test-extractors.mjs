@@ -2203,7 +2203,7 @@ check('虎牙：默认配置控制数量与人气，所有频道固定放入虎�
   const areas = huya.configSchema.find(field => field.key === 'topAreas')
   assert.equal(areas.type, 'multiselect')
   assert.deepEqual(areas.options.map(option => option.value), ['赛事', '网游', '手游', '单机', '娱乐', '一起看'])
-  assert.deepEqual(parseHuyaAreaNames(areas.default), ['赛事'])
+  assert.deepEqual(parseHuyaAreaNames(areas.default), ['一起看'], '默认只收核验过的影视正片房间，其他分类由用户自选')
   assert.equal(huya.configSchema.find(field => field.key === 'topPerArea').default, 8)
   assert.equal(huya.configSchema.find(field => field.key === 'minHeat').default, DEFAULT_MIN_HEAT)
   assert.equal(huya.configSchema.find(field => field.key === 'quality').default, 2000)
@@ -2257,7 +2257,7 @@ function huyaUpstream(html, rules = {}) {
 await checkAsync('虎牙：模块抓取赛事卡片，播放时才刷新签名、取回清单并要求清单中继', async () => {
   clearHuyaResolveCache()
   const response = text => ({ ok: true, status: 200, text: async () => text })
-  const config = resolveConfig(huya, {})
+  const config = resolveConfig(huya, { topAreas: '赛事' })
   const fetched = await huya.fetch(config, { fetchImpl: async url => {
     assert.equal(String(url), 'https://www.huya.com/m')
     return response(huyaEventHtml)
@@ -2480,7 +2480,7 @@ check('斗鱼：默认配置控制分类、数量、人气与画质，所有频�
   const areas = douyu.configSchema.find(field => field.key === 'topAreas')
   assert.equal(areas.type, 'multiselect')
   assert.deepEqual(areas.options.map(option => option.value), ['全部', '网游竞技', '单机热游', '手游休闲', '娱乐', '一起看'])
-  assert.deepEqual(parseDouyuAreaNames(areas.default), ['网游竞技'])
+  assert.deepEqual(parseDouyuAreaNames(areas.default), ['一起看'], '默认只收核验过的影视正片房间，其他分类由用户自选')
   assert.equal(douyu.configSchema.find(field => field.key === 'topPerArea').default, 8)
   assert.equal(douyu.configSchema.find(field => field.key === 'minHeat').default, DEFAULT_DOUYU_MIN_HEAT)
   assert.equal(douyu.configSchema.find(field => field.key === 'quality').default, 3)
@@ -2511,7 +2511,7 @@ await checkAsync('斗鱼：手填房间没开播也列出「主播 · 未开播�
     ['douyu-9999', '陪伴每一天', 'https://img.example/cover.jpg'],
   ])
   assert.deepEqual(fetched.meta.warnings, [])
-  await assert.rejects(douyu.fetch(resolveConfig(douyu, { rooms: '606118', topPerArea: 8 }), { fetchImpl }),
+  await assert.rejects(douyu.fetch(resolveConfig(douyu, { rooms: '606118', topAreas: '网游竞技', topPerArea: 8 }), { fetchImpl }),
     /斗鱼分类「网游竞技」抓取失败/, '分类抓失败时不能拿「未开播」占位冲掉上一轮缓存')
 })
 
@@ -2550,7 +2550,7 @@ await checkAsync('斗鱼一起看：去掉跨区推荐、改播和低人气房�
 
 await checkAsync('斗鱼：模块抓取分类热门房间，播放时匿名刷新短效 HLS 并要求清单中继', async () => {
   clearDouyuResolveCache()
-  const config = resolveConfig(douyu, {})
+  const config = resolveConfig(douyu, { topAreas: '网游竞技' })
   const fetched = await douyu.fetch(config, { fetchImpl: async url => {
     assert.equal(String(url), 'https://www.douyu.com/gapi/rkc/directory/mixListV1/1_1/1')
     return { ok: true, status: 200, json: async () => douyuCategoryPayload }

@@ -8,7 +8,7 @@ import { CAROUSELS, hasCarouselTitle } from './carousel.js'
 const CATEGORY_IDS = new Map(Object.entries(CATEGORIES).map(([id, name]) => [name, id]))
 CATEGORY_IDS.set(FILM_CATEGORY, FILM_CATEGORY)
 for (const name of Object.keys(CAROUSELS)) CATEGORY_IDS.set(name, name)
-export const DEFAULT_CATEGORIES = ['聊天', '生活']
+export const DEFAULT_CATEGORIES = [FILM_CATEGORY]
 
 export function parseCategoryNames(text) {
   return String(text || '').split('\n').map(value => value.trim()).filter(name => CATEGORY_IDS.has(name))
@@ -77,7 +77,7 @@ export default {
       key: 'categories', section: '频道从哪来', label: '选择分类（可多选）', type: 'multiselect',
       options: [...CATEGORY_IDS.keys()].map(value => ({ value, label: value === FILM_CATEGORY ? '影视（一起看）' : value })),
       default: DEFAULT_CATEGORIES.join('\n'),
-      hint: '只想看轮播时，取消「聊天」「生活」，勾选想看的轮播类型。「音乐轮播」会在「粤语经典怀旧唱片」播出粤语金曲时收录该房间。各类只导出符合条件的在播房间，可能为 0 路。',
+      hint: '默认只选「影视（一起看）」：电影频道云影院直播间播 CCTV6 电影频道时收录。聊天、生活等分类和轮播按需自己勾选。「音乐轮播」会在「粤语经典怀旧唱片」播出粤语金曲时收录该房间。各类只导出符合条件的在播房间，可能为 0 路。',
     },
     {
       key: 'count', section: '频道从哪来', label: '自动加入房间数', type: 'int',

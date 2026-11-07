@@ -77,8 +77,8 @@ export default {
       label: '选择分类（可多选）',
       type: 'multiselect',
       options: Object.keys(AREA_PAGES).map(value => ({ value, label: value })),
-      default: '赛事',
-      hint: '默认只选「赛事」。「一起看」从官网专区挑选已核验的影视正片房间，按当前标题和最低人气筛选。只用手动房间时，每类数量填 0。',
+      default: '一起看',
+      hint: '默认只选「一起看」：从官网专区挑选已核验的影视正片房间，按当前标题和最低人气筛选。赛事、网游等分类按需自己勾选。只用手动房间时，每类数量填 0。',
     },
     {
       key: 'topPerArea',

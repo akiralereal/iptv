@@ -34,12 +34,12 @@ function harness() {
     applySaveDirtyMarks() {}, escapeHtml: value => String(value),
   })
   vm.runInContext(`const API_PREFIX = ''; let systemConfig = { port: 1905 }; const dirtySaveScopes = new Set();
-    let systemConfigEditVersion = 0, systemConfigSaving = false, proxyTestSequence = 0, proxyTestController = null;
-    ${['setSaveDirty', 'invalidateProxyTest', 'readJsonResponse', 'testProxy', 'saveSystemConfig', 'proxyHostsHtml'].map(source).join('\n')}`, context)
+    let systemConfigEditVersion = 0, systemConfigSaving = false, proxyEditVersion = 0, proxySaving = false, proxyTestSequence = 0, proxyTestController = null;
+    ${['setSaveDirty', 'invalidateProxyTest', 'readJsonResponse', 'testProxy', 'saveSystemConfig', 'saveProxyConfig', 'proxyHostsHtml'].map(source).join('\n')}`, context)
   const inputCode = html.match(/id="sysProxy" oninput="([^"]+)"/)[1]
   return { context, element, controls, pending, messages,
     input(value) { element('sysProxy').value = value; vm.runInContext(inputCode, context) },
-    dirty: () => vm.runInContext("dirtySaveScopes.has('sysconfig')", context),
+    dirty: (scope = 'proxy') => vm.runInContext(`dirtySaveScopes.has('${scope}')`, context),
   }
 }
 const jsonResponse = value => ({ status: 200, headers: { get: name => name === 'content-type' ? 'application/json;charset=UTF-8' : null }, text: async () => JSON.stringify(value) })
@@ -79,9 +79,9 @@ for (const ok of [true, false]) {
   const h = harness()
   h.input('proxy-a:7890')
   h.element('sysHost').disabled = true
-  const save = h.context.saveSystemConfig()
+  const save = h.context.saveProxyConfig()
   assert.ok(h.controls.every(control => control.disabled), '保存期间阻止继续编辑和重复提交')
-  assert.equal(await h.context.saveSystemConfig(), false)
+  assert.equal(await h.context.saveProxyConfig(), false)
   assert.equal(h.pending.length, 1)
   h.pending.shift().resolve({ success: ok, message: ok ? '已保存' : '保存失败', entry: '/admin', apiPrefix: '' })
   assert.equal(await save, ok)
@@ -92,10 +92,10 @@ for (const ok of [true, false]) {
 {
   const h = harness()
   h.input('proxy-a:7890')
-  const save = h.context.saveSystemConfig()
+  const save = h.context.saveProxyConfig()
   const request = h.pending.shift()
   h.input('proxy-b:7890') // 其他代码即使绕过 disabled 修改表单，也不能误清 dirty 或继续重启
-  assert.equal(JSON.parse(request.options.body).proxy, 'proxy-a:7890')
+  assert.deepEqual(JSON.parse(request.options.body), { proxy: 'proxy-a:7890' }, '只提交 proxy，不带系统配置标签的字段')
   request.resolve({ success: true, message: '已保存', entry: '/admin', apiPrefix: '' })
   assert.equal(await save, false)
   assert.equal(h.dirty(), true)
@@ -104,7 +104,7 @@ for (const ok of [true, false]) {
 {
   const h = harness()
   h.input('proxy-a:7890')
-  const save = h.context.saveSystemConfig()
+  const save = h.context.saveProxyConfig()
   h.pending.shift().reject(new Error('offline'))
   assert.equal(await save, false)
   assert.equal(h.element('save').disabled, false)
@@ -115,7 +115,7 @@ for (const ok of [true, false]) {
   // 不能只剩浏览器那句（Safari「The string did not match the expected pattern」）
   const h = harness()
   h.input('proxy-a:7890')
-  const save = h.context.saveSystemConfig()
+  const save = h.context.saveProxyConfig()
   h.pending.shift().respond(htmlResponse(502, '<html><head><title>502 Bad Gateway</title><style>h1{}</style></head><body><center><h1>502 Bad Gateway</h1></center><hr><center>nginx/1.24.0</center></body></html>'))
   assert.equal(await save, false)
   assert.equal(h.messages.at(-1).type, 'error')
@@ -130,7 +130,7 @@ for (const ok of [true, false]) {
   h.pending.shift().respond({ status: 403, headers: { get: () => 'text/plain;charset=UTF-8' }, text: async () => '访问令牌无效或已停用' })
   await test
   assert.match(h.element('sysProxyResult').innerHTML, /测试失败：服务回复不是 JSON（HTTP 403 text\/plain）：访问令牌无效或已停用；/)
-  const save = h.context.saveSystemConfig()
+  const save = h.context.saveProxyConfig()
   h.pending.shift().respond({ status: 200, headers: { get: () => null }, text: async () => '' })
   assert.equal(await save, false)
   assert.match(h.messages.at(-1).message, /服务回复不是 JSON（HTTP 200 未标类型），内容为空；/)
@@ -175,6 +175,17 @@ for (const ok of [true, false]) {
   assert.doesNotMatch(html, /代理可用|断在代理之后/)
 }
 {
+  // 两个标签各存各的：系统配置的保存不带 proxy、不清代理的未保存标记
+  const h = harness()
+  h.input('proxy-a:7890')
+  const save = h.context.saveSystemConfig()
+  const request = h.pending.shift()
+  assert.equal('proxy' in JSON.parse(request.options.body), false)
+  request.resolve({ success: true, message: '已保存', entry: '/admin', apiPrefix: '' })
+  assert.equal(await save, true)
+  assert.equal(h.dirty('proxy'), true, '代理改动仍待保存')
+}
+{
   // 「网络代理」说明里可展开的放行名单：按模块声明列，Telegram 推送固定最后；没名单就不渲染
   const h = harness()
   const html = h.context.proxyHostsHtml({
@@ -186,4 +197,4 @@ for (const ok of [true, false]) {
   assert.equal(h.context.proxyHostsHtml({}), '')
   assert.equal(h.context.proxyHostsHtml({ proxyModules: [{ id: 'x', name: 'x' }] }), '')
 }
-console.log('✓ test-admin-proxy: stale responses, cancellation, save locking, edit tracking, retry, non-JSON replies, test summary and allow-list hints')
+console.log('✓ test-admin-proxy: stale responses, cancellation, save locking, edit tracking, retry, non-JSON replies, separate proxy save, test summary and allow-list hints')

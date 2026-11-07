@@ -99,8 +99,8 @@ function playerData(html) {
  */
 export function unreachableMessage(proxied = Boolean(outboundProxyUrl())) {
   return proxied
-    ? '经代理连不上 YouTube，请到「设置 → 系统配置 → 网络代理」点「测试」检查代理'
-    : '连不上 YouTube。部署在大陆的，请到「设置 → 系统配置 → 网络代理」填代理地址'
+    ? '经代理连不上 YouTube，请到「设置 → 网络代理」点「测试」检查代理'
+    : '连不上 YouTube。部署在大陆的，请到「设置 → 网络代理」填代理地址'
 }
 
 const NETWORK_ERROR = /timed? ?out|Connection (?:refused|reset|aborted)|Network is unreachable|No route to host|getaddrinfo|Name or service not known|Temporary failure in name resolution|nodename nor servname|Tunnel connection failed|ProxyError|Failed to establish|Remote end closed|RemoteDisconnected|EOF occurred|SSLError|SSL: |Unable to connect|Errno (?:101|104|110|111|113)/i

@@ -9,7 +9,7 @@ import { proxy as configuredProxy } from '../config.js'
 import { proxyAwareFetch, systemProxyUrl } from './systemProxy.js'
 
 /**
- * 后台「系统配置 → 网络代理」。
+ * 后台「设置 → 网络代理」。
  *
  * 用于 YouTube、澳门（澳广视）、海外频道及 Telegram；包含取址、节目单与媒体回源。
  * 其他模块一律不读它 —— 省台等国内源不会因为用户的代理开了全局模式、或分流规则判错而被带到境外。

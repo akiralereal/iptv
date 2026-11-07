@@ -4676,6 +4676,7 @@
                     <button class="mode-switch-btn" onclick="switchSettingsTab(4)">用户管理</button>
                     <button class="mode-switch-btn" onclick="switchSettingsTab(5)">消息推送</button>
                     <button class="mode-switch-btn" onclick="switchSettingsTab(6)">备份迁移</button>
+                    <button class="mode-switch-btn" onclick="switchSettingsTab(7)">网络代理</button>
                 </div>
 
                 <div class="settings-subpanel active" id="settingsSub0">
@@ -4728,25 +4729,6 @@
                                 统一频道显示名（合并不同源的同台命名）
                             </label>
                             <div class="system-config-hint">开启后，把不同订阅源里同一个台的不同写法（如 <code>CCTV1</code> / <code>CCTV-1</code> / <code>CCTV1综合</code>）<strong>按内置规则自动统一成同一个显示名</strong>（CCTV 系列、清晰度后缀等已内置）。默认关；手动重命名优先级更高；规则兜不住的写法可在「频道别名」标签里加规则。</div>
-                        </div>
-                    </div>
-                </section>
-                <section class="sys-section">
-                    <div class="sys-section-head">
-                        <div class="sys-section-title">网络代理</div>
-                        <div class="sys-section-desc">适用于 <span id="sysProxyScope">YouTube 直播、澳门、海外频道</span>和 Telegram 消息推送（这些模块的卡片上标有「走代理」）。有生效代理时，这些模块的取址、清单和视频分片均经服务器转发，会使用服务器带宽及代理流量；其他模块不使用这里填写的代理。</div>
-                    </div>
-                    <div class="system-config-grid">
-                        <div class="system-config-item sys-span-all">
-                            <label for="sysProxy">代理地址</label>
-                            <div class="sys-proxy-row">
-                                <input type="text" id="sysProxy" oninput="setSaveDirty('sysconfig'); invalidateProxyTest()" placeholder="http://192.168.1.10:7890" autocomplete="off" spellcheck="false">
-                                <button type="button" class="btn" id="sysProxyTestBtn" onclick="testProxy()">测试</button>
-                            </div>
-                            <div class="system-config-hint">填 Clash、mihomo、OpenClash 等代理软件的 HTTP、SOCKS5 或混合端口，如 <code>http://192.168.1.10:7890</code>、<code>socks5://192.168.1.10:7891</code>；有账号密码的写成 <code>http://用户名:密码@192.168.1.10:7890</code>。账号或密码中的 <code>%</code>、<code>@</code>、<code>#</code> 分别写成 <code>%25</code>、<code>%40</code>、<code>%23</code>。代理软件要打开「允许局域网连接」；Docker 用桥接网络时 <code>127.0.0.1</code> 指容器自己，要填代理所在机器的局域网 IP。播放设备不用设代理。点「测试」不用先保存，测试后仍需保存才生效。测试检查代表性接口与清单，不代表全部频道均可播放。</div>
-                            <details class="system-config-hint sys-proxy-hosts" id="sysProxyHostsBox" hidden><summary>代理软件用规则模式的，要放行这些域名</summary><div id="sysProxyHosts"></div></details>
-                            <div class="system-config-hint sys-env-hint" id="sysProxyEnvHint" hidden>检测到环境变量或系统代理：这里留空时沿用它，填写后以这里为准。</div>
-                            <div class="sys-proxy-result" id="sysProxyResult" aria-live="polite"></div>
                         </div>
                     </div>
                 </section>
@@ -4849,7 +4831,7 @@
                     <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
                         <div>• 模块抓取失败、官方服务故障<strong>不推送</strong>（你处理不了，会自动重试），只在后台提醒里显示；其他提醒出现即发，恢复时再发一条「已恢复」；</div>
                         <div>• 升级前就已存在的提醒不发；同一个问题没恢复前只发一次；</div>
-                        <div>• Telegram 的接口在大陆连不上：部署在大陆的到 <a href="javascript:void(0)" onclick="switchSettingsTab(0)">系统配置 → 网络代理</a> 填代理地址，或在「API 地址」填自己的反代；</div>
+                        <div>• Telegram 的接口在大陆连不上：部署在大陆的到 <a href="javascript:void(0)" onclick="switchSettingsTab(7)">网络代理</a> 填代理地址，或在「API 地址」填自己的反代；</div>
                         <div>• 企业微信应用：成员在企业微信里收到，关注了企业「微信插件」的在微信里也能收到；2022 年 6 月以后新建的应用要把服务器公网 IP 加进应用的「企业可信IP」，否则发送失败（60020），IP 不固定的在「API 地址」填一台固定 IP 服务器上转发 <code>qyapi.weixin.qq.com</code> 的反代；</div>
                         <div>• 自定义接口：PushPlus、Server酱、WxPusher、ntfy、Gotify 这类发一个 HTTP 请求就能推送的平台都能接；选「自定义接口」后点「按示例填」，再填上密钥，别的平台照它的接口文档改地址和请求体模板；</div>
                         <div>• 机器人地址和 Token 存在数据目录 <code>notify-channels.json</code>，会随「备份迁移」里的配置导出一起导出，别把备份发给别人。</div>
@@ -4877,6 +4859,31 @@
                     <div style="margin-top:10px;">
                         <button class="btn btn-primary" onclick="cleanCoreDumps()">立即清理</button>
                     </div>
+                </div>
+                </div>
+                <div class="settings-subpanel" id="settingsSub7">
+                <section class="sys-section">
+                    <div class="sys-section-head">
+                        <div class="sys-section-title">网络代理</div>
+                        <div class="sys-section-desc">适用于 <span id="sysProxyScope">YouTube 直播、澳门、海外频道</span>和 Telegram 消息推送（这些模块的卡片上标有「走代理」）。有生效代理时，这些模块的取址、清单和视频分片均经服务器转发，会使用服务器带宽及代理流量；其他模块不使用这里填写的代理。</div>
+                    </div>
+                    <div class="system-config-grid">
+                        <div class="system-config-item sys-span-all">
+                            <label for="sysProxy">代理地址</label>
+                            <div class="sys-proxy-row">
+                                <input type="text" id="sysProxy" oninput="setSaveDirty('proxy'); invalidateProxyTest()" placeholder="http://192.168.1.10:7890" autocomplete="off" spellcheck="false">
+                                <button type="button" class="btn" id="sysProxyTestBtn" onclick="testProxy()">测试</button>
+                            </div>
+                            <div class="system-config-hint">填 Clash、mihomo、OpenClash 等代理软件的 HTTP、SOCKS5 或混合端口，如 <code>http://192.168.1.10:7890</code>、<code>socks5://192.168.1.10:7891</code>；有账号密码的写成 <code>http://用户名:密码@192.168.1.10:7890</code>。账号或密码中的 <code>%</code>、<code>@</code>、<code>#</code> 分别写成 <code>%25</code>、<code>%40</code>、<code>%23</code>。代理软件要打开「允许局域网连接」；Docker 用桥接网络时 <code>127.0.0.1</code> 指容器自己，要填代理所在机器的局域网 IP。播放设备不用设代理。点「测试」不用先保存，测试后仍需保存才生效。测试检查代表性接口与清单，不代表全部频道均可播放。</div>
+                            <details class="system-config-hint sys-proxy-hosts" id="sysProxyHostsBox" hidden><summary>代理软件用规则模式的，要放行这些域名</summary><div id="sysProxyHosts"></div></details>
+                            <div class="system-config-hint sys-env-hint" id="sysProxyEnvHint" hidden>检测到环境变量或系统代理：这里留空时沿用它，填写后以这里为准。</div>
+                            <div class="sys-proxy-result" id="sysProxyResult" aria-live="polite"></div>
+                        </div>
+                    </div>
+                </section>
+                <div class="system-config-hint" style="margin:0 0 10px;">保存即生效，不用重启服务。</div>
+                <div class="system-config-actions" style="justify-content:flex-start;">
+                    <button class="btn btn-success" data-save-scope="proxy" onclick="saveProxyConfig()">保存代理设置</button>
                 </div>
                 </div>
             </div>
@@ -6290,7 +6297,7 @@
                     id: 'overseas',
                     title: '海外',
                     badge: '海外',
-                    description: ['面向大陆以外的频道，默认关闭，需要时手动打开。', { mark: '能不能看取决于网络：部署在大陆的，到「系统配置 → 网络代理」填代理，视频改由服务器转发；没配代理时，YouTube 要部署的机器能连到大陆以外，海外频道看播放设备，澳门两头都要。' }],
+                    description: ['面向大陆以外的频道，默认关闭，需要时手动打开。', { mark: '能不能看取决于网络：部署在大陆的，到「设置 → 网络代理」填代理，视频改由服务器转发；没配代理时，YouTube 要部署的机器能连到大陆以外，海外频道看播放设备，澳门两头都要。' }],
                 },
             ];
             return categories;
@@ -6339,7 +6346,7 @@
                     <div class="source-card-title">
                         <span class="name">${escapeHtml(m.name)}</span>
                         <span class="source-badge ${escapeHtml(category.id)}">${escapeHtml(category.badge)}</span>
-                        ${m.outbound === 'proxy' ? '<span class="source-badge proxy" title="取址、清单和视频都走「设置 → 系统配置 → 网络代理」里的代理；没配代理时沿用环境变量代理或直连">走代理</span>' : ''}
+                        ${m.outbound === 'proxy' ? '<span class="source-badge proxy" title="取址、清单和视频都走「设置 → 网络代理」里的代理；没配代理时沿用环境变量代理或直连">走代理</span>' : ''}
                         <label class="source-card-toggle" onclick="event.stopPropagation()" title="即时生效，无需保存">
                             启用
                             <input type="checkbox" role="switch" class="module-switch" ${m.enabled ? 'checked' : ''}
@@ -9713,9 +9720,13 @@
         const dirtySaveScopes = new Set();
         let systemConfigEditVersion = 0;
         let systemConfigSaving = false;
+        // 「网络代理」是单独的标签和按钮，与系统配置各存各的，互不带上对方没保存的改动
+        let proxyEditVersion = 0;
+        let proxySaving = false;
 
         function setSaveDirty(scope, dirty = true) {
             if (scope === 'sysconfig' && dirty) systemConfigEditVersion++;
+            if (scope === 'proxy' && dirty) proxyEditVersion++;
             if (dirty) dirtySaveScopes.add(scope); else dirtySaveScopes.delete(scope);
             applySaveDirtyMarks();
         }
@@ -10025,8 +10036,7 @@ if(success){
                     pass: passInput,
                     adminPath: adminPathInput,
                     programInfoUpdateInterval: document.getElementById('sysProgramInterval').value || '8',
-                    enableDisplayNameUnify: document.getElementById('sysEnableDisplayNameUnify').checked,
-                    proxy: document.getElementById('sysProxy').value.trim()
+                    enableDisplayNameUnify: document.getElementById('sysEnableDisplayNameUnify').checked
                 };
 
                 const response = await fetch(API_PREFIX + '/api/system-config', {
@@ -10095,6 +10105,46 @@ if(success){
 
         let proxyTestSequence = 0;
         let proxyTestController = null;
+
+        /**
+         * 保存「网络代理」标签：只提交 proxy，服务端按「显式提交才写」只改这一项，
+         * 系统配置标签里没保存的端口、密码等不会被顺带存掉。保存即生效，不用重启。
+         */
+        async function saveProxyConfig() {
+            if (proxySaving) return false;
+            proxySaving = true;
+            const editVersion = proxyEditVersion;
+            const controls = [...document.querySelectorAll('#settingsSub7 input, [data-save-scope="proxy"]')]
+                .map(el => ({ el, disabled: el.disabled }));
+            controls.forEach(({ el }) => { el.disabled = true; });
+            try {
+                const proxy = document.getElementById('sysProxy').value.trim();
+                const response = await fetch(API_PREFIX + '/api/system-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proxy })
+                });
+                const result = await readJsonResponse(response);
+                if (!result.success) {
+                    showStatus(result.message || '保存失败', 'error');
+                    return false;
+                }
+                const editedWhileSaving = proxyEditVersion !== editVersion;
+                setSaveDirty('proxy', editedWhileSaving);
+                if (editedWhileSaving) {
+                    showStatus('提交时的代理地址已保存；后续修改尚未保存', 'info');
+                    return false;
+                }
+                showStatus(proxy ? '网络代理已保存，立即生效' : '已清空代理地址，立即生效', 'success');
+                return true;
+            } catch (error) {
+                showStatus('保存失败: ' + error.message, 'error');
+                return false;
+            } finally {
+                proxySaving = false;
+                controls.forEach(({ el, disabled }) => { el.disabled = disabled; });
+            }
+        }
 
         function invalidateProxyTest() {
             proxyTestSequence++;

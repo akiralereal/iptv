@@ -59,7 +59,7 @@
  *                                 给「服务端代所有观众向官方取票」且官方按 IP 限频的模块用；
  *                                 直链或分片播放器直连的模块不需要
  *   outbound              string  可选；'proxy' 表示模块的全部出站——取址、节目单、清单、分片、外部工具——
- *                                 都走后台「系统配置 → 网络代理」（utils/outboundProxy.js 的 outboundFetch，
+ *                                 都走后台「设置 → 网络代理」（utils/outboundProxy.js 的 outboundFetch，
  *                                 没配时沿用环境变量代理或直连）。后台「网络代理」的适用名单、「测试」
  *                                 按钮的目标、模块卡片上的「走代理」角标都从这个声明派生，不另外维护；
  *                                 scripts/test-extractors.mjs 静态检查：声明了的模块不许再用 proxyAwareFetch

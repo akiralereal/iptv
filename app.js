@@ -411,7 +411,7 @@ async function handleRequest(req, res) {
       return
     }
 
-    // 网络代理测试（系统配置页）：经输入框里的代理连 YouTube / Telegram，连不上是正常结果，不算服务端错误
+    // 网络代理测试（设置 → 网络代理）：经输入框里的代理连 YouTube / Telegram，连不上是正常结果，不算服务端错误
     if (routePath === '/api/proxy-test' && method === 'POST') {
       try {
         const data = JSON.parse(await readBody(req) || '{}')

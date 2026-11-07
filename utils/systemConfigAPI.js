@@ -141,6 +141,65 @@ export function setSystemFlagAPI(key, value) {
   }
 }
 
+/**
+ * 把一次保存提交的字段合进已有配置：白名单字段做类型校验，没提交的一律沿用已有值。
+ * 纯函数，不写盘、不触发刷新，测试直接调它。代理地址格式不对会抛错（整次保存失败，不写半截）。
+ */
+export function mergeSystemConfig(existing, config) {
+  const validated = { ...existing }
+  // 端口、公网地址、访问密码、更新间隔同样「显式提交才写」：后台「网络代理」是单独的标签，
+  // 只提交 proxy。无条件写的话，用户在那里点保存就会把端口重置成 1905、访问密码清空。
+  if (config.port !== undefined) validated.port = parseInt(config.port) || 1905
+  if (config.host !== undefined) validated.host = config.host || ""
+  if (config.pass !== undefined) validated.pass = config.pass || ""
+  if (config.programInfoUpdateInterval !== undefined) {
+    validated.programInfoUpdateInterval = config.programInfoUpdateInterval || "8"
+  }
+  // 咪咕相关的五项改成「显式提交才写」，与下面那些内容开关一致。
+  //
+  // 原先是无条件写入：任何不带这些字段的 POST 都会把 rateType 钉死成 3、
+  // HDR/H265 强开 true、账号清空。今天后台表单每次都全量提交所以没暴露，但
+  // 一旦这几项从系统配置页挪走（它们是纯咪咕参数，本该归模块管），用户改个端口
+  // 点保存就会把画质重置——而且是延迟发作，不在挪走那天。
+  if (config.userId !== undefined) validated.userId = config.userId || ""
+  if (config.token !== undefined) validated.token = config.token || ""
+  if (config.rateType !== undefined) validated.rateType = parseInt(config.rateType) || 3
+  if (config.enableHDR !== undefined) validated.enableHDR = config.enableHDR !== false
+  if (config.enableH265 !== undefined) validated.enableH265 = config.enableH265 !== false
+  if (config.refreshToken !== undefined) {
+    validated.refreshToken = config.refreshToken !== false
+  }
+  if (config.adminPath !== undefined) {
+    // 清洗为合法路径段（非法/保留字回退 admin），保证存储值与运行时一致
+    validated.adminPath = sanitizeSegment(config.adminPath, 'admin')
+  }
+  // 内容开关：显式提交才写入（避免不带这些字段的旧调用把它们重置）
+  if (config.enableMigu !== undefined) {
+    validated.enableMigu = config.enableMigu !== false
+  }
+  if (config.enableBuiltInSources !== undefined) {
+    validated.enableBuiltInSources = config.enableBuiltInSources !== false
+  }
+  if (config.enableBuiltInSubscriptions !== undefined) {
+    validated.enableBuiltInSubscriptions = config.enableBuiltInSubscriptions !== false
+  }
+  if (config.enableExtractors !== undefined) {
+    validated.enableExtractors = config.enableExtractors !== false
+  }
+  if (config.enableDisplayNameUnify !== undefined) {
+    validated.enableDisplayNameUnify = config.enableDisplayNameUnify === true
+  }
+  // 客户端就近取流（issue #82）：默认关，显式提交才写入；保存后 clearUrlCache 会清掉旧解析结果，开关即时生效
+  if (config.enableClientDispatch !== undefined) {
+    validated.enableClientDispatch = config.enableClientDispatch === true
+  }
+  // 网络代理（只给声明了 outbound: 'proxy' 的模块和 Telegram 用）：显式提交才写；格式不对整次保存失败，不写半截
+  if (config.proxy !== undefined) {
+    validated.proxy = normalizeProxyUrl(restoreMaskedProxy(config.proxy, existing.proxy))
+  }
+  return validated
+}
+
 export function saveSystemConfigAPI(config) {
   try {
     // 读取已有配置，保留表单未提交的字段（如 refreshToken 等无 UI 的开关），
@@ -151,57 +210,7 @@ export function saveSystemConfigAPI(config) {
         existing = JSON.parse(readFileSync(SYSTEM_CONFIG_PATH, 'utf-8'))
       } catch { existing = {} }
     }
-
-    // 验证配置（白名单字段做类型校验，其余沿用已有值）
-    const validated = {
-      ...existing,
-      port: parseInt(config.port) || 1905,
-      host: config.host || "",
-      pass: config.pass || "",
-      programInfoUpdateInterval: config.programInfoUpdateInterval || "8"
-    }
-    // 咪咕相关的五项改成「显式提交才写」，与下面那些内容开关一致。
-    //
-    // 原先是无条件写入：任何不带这些字段的 POST 都会把 rateType 钉死成 3、
-    // HDR/H265 强开 true、账号清空。今天后台表单每次都全量提交所以没暴露，但
-    // 一旦这几项从系统配置页挪走（它们是纯咪咕参数，本该归模块管），用户改个端口
-    // 点保存就会把画质重置——而且是延迟发作，不在挪走那天。
-    if (config.userId !== undefined) validated.userId = config.userId || ""
-    if (config.token !== undefined) validated.token = config.token || ""
-    if (config.rateType !== undefined) validated.rateType = parseInt(config.rateType) || 3
-    if (config.enableHDR !== undefined) validated.enableHDR = config.enableHDR !== false
-    if (config.enableH265 !== undefined) validated.enableH265 = config.enableH265 !== false
-    if (config.refreshToken !== undefined) {
-      validated.refreshToken = config.refreshToken !== false
-    }
-    if (config.adminPath !== undefined) {
-      // 清洗为合法路径段（非法/保留字回退 admin），保证存储值与运行时一致
-      validated.adminPath = sanitizeSegment(config.adminPath, 'admin')
-    }
-    // 内容开关：显式提交才写入（避免不带这些字段的旧调用把它们重置）
-    if (config.enableMigu !== undefined) {
-      validated.enableMigu = config.enableMigu !== false
-    }
-    if (config.enableBuiltInSources !== undefined) {
-      validated.enableBuiltInSources = config.enableBuiltInSources !== false
-    }
-    if (config.enableBuiltInSubscriptions !== undefined) {
-      validated.enableBuiltInSubscriptions = config.enableBuiltInSubscriptions !== false
-    }
-    if (config.enableExtractors !== undefined) {
-      validated.enableExtractors = config.enableExtractors !== false
-    }
-    if (config.enableDisplayNameUnify !== undefined) {
-      validated.enableDisplayNameUnify = config.enableDisplayNameUnify === true
-    }
-    // 客户端就近取流（issue #82）：默认关，显式提交才写入；保存后 clearUrlCache 会清掉旧解析结果，开关即时生效
-    if (config.enableClientDispatch !== undefined) {
-      validated.enableClientDispatch = config.enableClientDispatch === true
-    }
-    // 网络代理（只给 所支持模块 用）：显式提交才写；格式不对整次保存失败，不写半截
-    if (config.proxy !== undefined) {
-      validated.proxy = normalizeProxyUrl(restoreMaskedProxy(config.proxy, existing.proxy))
-    }
+    const validated = mergeSystemConfig(existing, config)
 
     // 原子写入，避免并发保存 / 写入中断损坏文件
     writeJsonFileSync(SYSTEM_CONFIG_PATH, validated)

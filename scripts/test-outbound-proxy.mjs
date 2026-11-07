@@ -245,6 +245,20 @@ if (tlsPort) {
     '每个测试目标带上要在代理规则里放行的域名后缀')
   assert.deepEqual(proxyTestTargets().at(-1).hosts, ['telegram.org'])
 }
+
+// ---- 保存：「网络代理」标签只提交 proxy，系统配置标签不提交 proxy，互不覆盖 ----
+//（测合并逻辑本身：saveSystemConfigAPI 写盘后还会触发一轮播放列表刷新，测试里不能跑）
+{
+  const { mergeSystemConfig } = await import('../utils/systemConfigAPI.js')
+  const existing = { port: 2345, host: 'http://nas.lan:2345', pass: 'pw', programInfoUpdateInterval: '12', userId: 'u1' }
+  const proxyOnly = mergeSystemConfig(existing, { proxy: '192.168.1.10:7890' })
+  assert.deepEqual(proxyOnly, { ...existing, proxy: 'http://192.168.1.10:7890' }, '只提交 proxy 时端口、地址、密码、更新间隔原样保留')
+  const systemTab = mergeSystemConfig(proxyOnly, { port: 2346, host: '', pass: '', adminPath: 'admin', programInfoUpdateInterval: '8', enableDisplayNameUnify: false })
+  assert.equal(systemTab.proxy, 'http://192.168.1.10:7890', '系统配置标签保存不带 proxy，已存的代理不被清空')
+  assert.deepEqual([systemTab.port, systemTab.host, systemTab.pass, systemTab.programInfoUpdateInterval], [2346, '', '', '8'])
+  assert.equal(mergeSystemConfig({ port: 2345 }, { port: 'abc' }).port, 1905, '提交了非法端口仍按原规则回退 1905')
+  assert.throws(() => mergeSystemConfig(existing, { proxy: 'socks4://127.0.0.1:1080' }), /只支持/)
+}
 const targets = [{ name: 'YouTube', url: 'http://youtube.example/generate_204' }]
 let result = await testOutboundProxy(`socks5://127.0.0.1:${socksPort}`, { targets })
 assert.equal(result.via, 'input')

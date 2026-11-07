@@ -20,6 +20,8 @@ import {
   validateHls,
 } from '../extractors/hkstv/api.js'
 import { getModule, resolverFor } from '../extractors/registry.js'
+import { inlineResolvedManifest } from '../utils/appUtils.js'
+import { fetchUpstreamResponse, lookup, toProxyManifest } from '../utils/hlsProxy.js'
 
 let passed = 0
 const check = (name, fn) => { fn(); passed++; console.log(`  ✅ ${name}`) }
@@ -61,12 +63,12 @@ function upstream({ entryUrl = ENTRY_URL, channel = channelPayload() } = {}) {
 
 console.log('香港卫视模块测试')
 
-check('模块注册为免账号的香港中继模块', () => {
+check('模块注册为免账号的香港全代理模块', () => {
   assert.equal(getModule('hkstv'), hkstv)
   assert.equal(hkstv.name, '香港卫视')
   assert.equal(hkstv.category, undefined)
   assert.equal(hkstv.outputGroupName, '香港')
-  assert.equal(hkstv.channelHlsMode, 'relay')
+  assert.equal(hkstv.channelHlsMode, 'proxy')
   assert.equal(hkstv.relayProxyCompatible, true)
   assert.equal(hkstv.capabilities.catchup, false)
   // 官网節目單走独立的 epg.js（见 test-hkstv-epg.mjs）
@@ -116,7 +118,8 @@ check('媒体白名单覆盖清单、子清单与分片，并拒绝任意外部�
   assert.equal(officialHlsUrl(`${ENTRY_URL}?hls_ctx=abc`), `${ENTRY_URL}?hls_ctx=abc`)
   assert.match(officialAssetUrl(`https://webcast.hkstv.tv/livestream/${SOURCE_ID}/playlist-1.ts?hls_ctx=abc`), /playlist-1\.ts/)
   assert.equal(validateHls(media(1, 'abc'), `${ENTRY_URL}?hls_ctx=abc`).startsWith('#EXTM3U'), true)
-  assert.deepEqual(upstreamHeadersFor(ENTRY_URL), { Referer: 'https://hkstv.tv/' })
+  assert.equal(upstreamHeadersFor(ENTRY_URL).Referer, 'https://hkstv.tv/')
+  assert.match(upstreamHeadersFor(ENTRY_URL)['User-Agent'], /Mozilla\/5\.0.*Chrome\//)
   assert.equal(firstVariant(master('abc'), ENTRY_URL), `${ENTRY_URL}?hls_ctx=abc`)
   assert.equal(firstVariant(media(1, 'abc'), ENTRY_URL), null)
   for (const bad of [
@@ -165,6 +168,7 @@ await checkAsync('master 在服务端拍平成媒体清单，每次播放都重�
 
   assert.equal(first.url, ENTRY_URL)
   assert.equal(first.relayHls, true)
+  assert.equal(first.proxyHls, true, '旧 relay 与无后缀入口也必须代理视频分片')
   assert.match(first.manifestText, /#EXTINF:/)
   assert.doesNotMatch(first.manifestText, /#EXT-X-STREAM-INF/)
   assert.equal(first.manifestUrl, `${ENTRY_URL}?hls_ctx=ctx1`)
@@ -177,9 +181,49 @@ await checkAsync('master 在服务端拍平成媒体清单，每次播放都重�
     `https://webcast.hkstv.tv/livestream/${SOURCE_ID}/playlist-1.ts?hls_ctx=ctx1`,
   )
   assert.throws(() => first.upstreamUrlTransform('https://example.com/a.ts'))
-  assert.deepEqual(first.upstreamHeaders(ENTRY_URL), { Referer: 'https://hkstv.tv/' })
-  assert.equal(first.upstreamHeaders(ENTRY_URL)['User-Agent'], undefined, '固定对象里的 UA 不生效，别声明')
+  assert.deepEqual(first.upstreamHeaders(ENTRY_URL), upstreamHeadersFor(ENTRY_URL))
   assert.throws(() => first.upstreamHeaders('https://example.com/a.ts'), /非官方媒体地址/)
+})
+
+await checkAsync('全代理保留分片上下文、官网请求头与白名单，兼容旧订阅路径', async () => {
+  const { fetchImpl } = upstream()
+  const resolver = createResolver({ fetchImpl: async (url, options) => {
+    if (url.startsWith('https://webcast.hkstv.tv/')) {
+      assert.equal(options.headers['User-Agent'], upstreamHeadersFor(url)['User-Agent'])
+      assert.equal(options.headers.Referer, 'https://hkstv.tv/')
+    }
+    return fetchImpl(url, options)
+  } })
+  const resolved = await resolver.resolve(CHANNEL.ref)
+  assert.equal(resolved.proxyHls, true)
+  for (const [path, prefix] of [
+    ['/proxy/hkstv-live.m3u8', ''],
+    ['/relay/hkstv-live.m3u8', '../proxy/'],
+    ['/hkstv-live', 'proxy/'],
+  ]) {
+    const manifest = toProxyManifest(inlineResolvedManifest(resolved), CHANNEL.ref, undefined,
+      resolved.upstreamHeaders, resolved.upstreamUrlTransform, undefined, prefix)
+    assert.doesNotMatch(manifest, /webcast\.hkstv\.tv/)
+    const segment = manifest.split('\n').find(line => line && !line.startsWith('#'))
+    const local = new URL(segment, `http://iptv.test/access${path}`)
+    assert.match(local.pathname, /^\/access\/proxy\/s[a-f0-9]+\.ts$/)
+    const key = local.pathname.split('/').pop().replace(/\.ts$/, '')
+    const target = lookup(key)
+    assert.equal(target.url, `https://webcast.hkstv.tv/livestream/${SOURCE_ID}/playlist-179001.ts?hls_ctx=ctx1`)
+    const response = await fetchUpstreamResponse(target.url, {
+      upstreamHeaders: target.upstreamHeaders,
+      fetchImpl: async (url, options) => {
+        assert.equal(url, target.url)
+        assert.deepEqual(options.headers, upstreamHeadersFor(target.url))
+        return new Response(new Uint8Array([0x47, 0x40, 0x00, 0x10]))
+      },
+    })
+    assert.equal(new Uint8Array(await response.arrayBuffer())[0], 0x47)
+    await assert.rejects(fetchUpstreamResponse(target.url, {
+      upstreamHeaders: target.upstreamHeaders,
+      fetchImpl: async () => new Response('', { status: 302, headers: { Location: 'https://evil.test/a.ts' } }),
+    }), /非官方媒体地址/)
+  }
 })
 
 await checkAsync('并发播放请求共享同一次入口查询', async () => {

@@ -48,10 +48,10 @@ export function officialHlsUrl(raw) {
   return url.href
 }
 
-/** 本机代取清单或分片时补齐的请求头；User-Agent 由代理层统一改写，这里不声明。 */
+/** CDN 拒绝 VLC/Lavf 等播放器标识；清单与分片统一使用官网浏览器标识。 */
 export function upstreamHeadersFor(raw) {
   officialAssetUrl(raw)
-  return { Referer: `https://${SITE_HOST}/` }
+  return { 'User-Agent': UA, Referer: `https://${SITE_HOST}/` }
 }
 
 function parsePayload(payload, label) {
@@ -194,9 +194,8 @@ async function requestHls(raw, { fetchImpl = proxyAwareFetch, signal } = {}) {
       redirect: 'manual',
       signal,
       headers: {
-        'User-Agent': UA,
+        ...upstreamHeadersFor(url),
         Accept: 'application/vnd.apple.mpegurl, application/x-mpegURL, */*',
-        Referer: `https://${SITE_HOST}/`,
       },
     })
     if (REDIRECT_STATUSES.has(response.status)) {
@@ -332,6 +331,8 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
         url: entry.streamUrl,
         desc: `${CHANNEL.name} 官方直播地址获取成功`,
         relayHls: true,
+        // 同时接管已经下发的 /relay/ 和无后缀入口，避免旧订阅继续让播放器直连分片。
+        proxyHls: true,
         manifestText: manifest.text,
         manifestUrl: manifest.url,
         upstreamHeaders: upstreamHeadersFor,

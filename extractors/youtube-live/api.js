@@ -105,14 +105,26 @@ export function unreachableMessage(proxied = Boolean(outboundProxyUrl())) {
 
 const NETWORK_ERROR = /timed? ?out|Connection (?:refused|reset|aborted)|Network is unreachable|No route to host|getaddrinfo|Name or service not known|Temporary failure in name resolution|nodename nor servname|Tunnel connection failed|ProxyError|Failed to establish|Remote end closed|RemoteDisconnected|EOF occurred|SSLError|SSL: |Unable to connect|Errno (?:101|104|110|111|113)/i
 
+/** 出口 IP 被 YouTube 拦下（人机验证 / 请求过多）。播放侧据 exitBlocked 暂停请求、只记一行日志。 */
+const exitBlocked = message => Object.assign(new Error(message), { exitBlocked: true })
+
 /** yt-dlp 的 stderr → 给用户看的原因。返回 Error（Offline/NoStreamsTab 子类型供调用方区分）。 */
-export function ytDlpError(stderr = '', { killed = false, code } = {}) {
+export function ytDlpError(stderr = '', { killed = false, code, proxied = Boolean(outboundProxyUrl()) } = {}) {
   if (code === 'ENOENT') return new Error('缺少 yt-dlp，请运行 npm run setup:youtube 或配置 YTDLP_BIN')
   if (/does not have a streams tab/i.test(stderr)) return new NoStreamsTab()
   if (/not currently live|live event will begin|will begin in|already ended/i.test(stderr)) return new Offline('这场直播尚未开始或已经结束')
-  // 机房 / 机场出口常被要求人机验证，换节点通常就好；和会员专享、地区限制分开说
-  if (/confirm you.?re not a bot/i.test(stderr)) return new Error('YouTube 要求这个出口 IP 做人机验证，请换一个代理节点再试')
-  if (/HTTP Error 429|Too Many Requests/i.test(stderr)) return new Error('YouTube 限制了这个出口 IP 的请求次数，稍后再试或换一个代理节点')
+  // 机房 / 机场出口常被要求人机验证，换节点通常就好；和会员专享、地区限制分开说。
+  // 没配代理的是部署机器自己的出口（海外机房常见），「换节点」无从换起，指到「网络代理」
+  if (/confirm you.?re not a bot/i.test(stderr)) {
+    return exitBlocked(proxied
+      ? 'YouTube 要求这个出口 IP 做人机验证，请换一个代理节点再试'
+      : 'YouTube 要求这台机器的出口 IP 做人机验证，请到「设置 → 网络代理」填一个代理再试')
+  }
+  if (/HTTP Error 429|Too Many Requests/i.test(stderr)) {
+    return exitBlocked(proxied
+      ? 'YouTube 限制了这个出口 IP 的请求次数，稍后再试或换一个代理节点'
+      : 'YouTube 限制了这台机器出口 IP 的请求次数，稍后再试或到「设置 → 网络代理」填一个代理')
+  }
   if (/sign in|members.only|not available in your country/i.test(stderr)) return new Error('此直播在当前出口无法匿名播放')
   if (killed || NETWORK_ERROR.test(stderr)) return new Error(unreachableMessage())
   return new Error('YouTube 解析失败，可能是解析组件过旧：到「源管理 → YouTube 直播」点「检查更新」')
@@ -303,14 +315,26 @@ const sessions = new Map()
 // 那场已经结束（Offline）再重新列。10 分钟内频道换成别的场次作为第一场时，会晚一点切过去。
 const liveIds = new Map()
 const LIVE_ID_TTL = 10 * 60 * 1000
-export const clearResolveCache = () => { sessions.clear(); liveIds.clear() }
+// 出口被拦（人机验证 / 请求过多）后暂停 1 分钟不跑 yt-dlp：失败结果只缓存 2 秒，播放器每隔几秒重试一次，
+// 原来每次都重新解析，日志几秒一行，还一直拿被标记的 IP 去碰 YouTube。按出口记：改了代理地址立即重试；
+// 代理软件里换节点（地址不变）要等这 1 分钟过去。
+const EXIT_COOLDOWN = 60 * 1000
+const exitCooldowns = new Map()   // outboundProxyKey → { until, message }
+export const clearResolveCache = () => { sessions.clear(); liveIds.clear(); exitCooldowns.clear() }
 async function session(item, exactId, rejected) {
   // 播放地址绑定解析时的出口 IP：换了代理，旧解析结果拿去取分片只会 403
-  const key = refOf(item) + ':' + (exactId || '') + ':' + outboundProxyKey()
+  const exit = outboundProxyKey()
+  const key = refOf(item) + ':' + (exactId || '') + ':' + exit
   const cached = sessions.get(key)
   // Only replace the session that actually failed. A late 403 from another
   // request must reuse an already refreshed session, not evict it again.
   if (cached && (cached.pending || ((!rejected || cached.live !== rejected) && cached.until > Date.now()))) return cached.promise
+  const blocked = exitCooldowns.get(exit)
+  if (blocked && blocked.until > Date.now()) {
+    const seconds = Math.ceil((blocked.until - Date.now()) / 1000)
+    // reported：冷却期内的重试不再逐条打红字，见 resolve
+    throw Object.assign(exitBlocked(`${blocked.message}（已暂停向 YouTube 请求，约 ${seconds} 秒后再试）`), { reported: true })
+  }
   if (sessions.size >= 512) sessions.delete(sessions.keys().next().value)
   const state = { pending:true, until:0 }
   state.promise = (async () => {
@@ -341,6 +365,10 @@ async function session(item, exactId, rejected) {
     return live
   })().catch(err => {
     state.until = Date.now() + (err instanceof Offline ? 15000 : 2000)
+    if (err.exitBlocked) {
+      exitCooldowns.set(exit, { until: Date.now() + EXIT_COOLDOWN, message: err.message })
+      err.message += '（已暂停向 YouTube 请求 1 分钟）'
+    }
     throw err
   }).finally(() => { state.pending = false })
   sessions.set(key, state)
@@ -426,7 +454,10 @@ export async function resolve(ref, {config}) {
       upstreamHeaders:live.upstreamHeaders, upstreamUrlTransform:mediaUrl }
   } catch (err) {
     const status = err instanceof RemovedSubscription ? 404 : err instanceof Offline ? 503 : 502
-    return { url:'', desc:err.message, status }
+    // 出口被拦只记一行：同一次解析失败由并发请求共用同一个 Error，第一个请求打红字，其余和冷却期内的重试静默
+    const silent = err.exitBlocked === true && err.reported === true
+    if (err.exitBlocked) err.reported = true
+    return { url:'', desc:err.message, status, ...(silent ? { silent:true } : {}) }
   }
 }
 

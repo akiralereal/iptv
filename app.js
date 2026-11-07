@@ -1458,7 +1458,7 @@ async function handleRequest(req, res) {
   // 结果异常
   if (result.code != 302) {
 
-    // silent：批量探测被本地拒绝，appUtils 已按客户端归并打过黄字，不再逐条刷红
+    // silent：批量探测被本地拒绝，appUtils 已按客户端归并打过黄字；或模块已就同一原因记过一行（如 YouTube 出口被拦），不再逐条刷红
     if (!result.silent) printRed(result.desc)
     res.writeHead(result.code, {
       'Content-Type': 'application/json;charset=UTF-8',

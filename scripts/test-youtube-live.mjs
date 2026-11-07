@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { readFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import youtube from '../extractors/youtube-live/index.js'
@@ -93,8 +93,14 @@ assert.equal(videoStatus('<html>consent</html>',id),'unknown')
 assert.match(unreachableMessage(false),/网络代理.*填代理地址/)
 assert.match(unreachableMessage(true),/点「测试」/)
 assert.equal(ytDlpError('ERROR: [youtube] x: This live event will begin in 3 hours').message,'这场直播尚未开始或已经结束')
-assert.match(ytDlpError("ERROR: [youtube] x: Sign in to confirm you're not a bot").message,/人机验证/)
-assert.match(ytDlpError('ERROR: Unable to download webpage: HTTP Error 429: Too Many Requests').message,/限制了这个出口/)
+const botCheck = "ERROR: [youtube] x: Sign in to confirm you're not a bot"
+const tooMany = 'ERROR: Unable to download webpage: HTTP Error 429: Too Many Requests'
+assert.match(ytDlpError(botCheck,{proxied:true}).message,/人机验证.*换一个代理节点/)
+assert.match(ytDlpError(botCheck,{proxied:false}).message,/这台机器的出口 IP 做人机验证.*网络代理」填一个代理/,'没配代理时不叫人换节点')
+assert.match(ytDlpError(tooMany,{proxied:true}).message,/限制了这个出口.*换一个代理节点/)
+assert.match(ytDlpError(tooMany,{proxied:false}).message,/限制了这台机器出口.*网络代理/)
+assert.ok(ytDlpError(botCheck).exitBlocked && ytDlpError(tooMany).exitBlocked,'人机验证与限流标为出口被拦，播放侧据此冷却')
+assert.ok(!ytDlpError('ERROR: [youtube] x: Some new extractor failure').exitBlocked)
 assert.match(ytDlpError('ERROR: [youtube] x: Join this channel to get access to members-only content').message,/无法匿名播放/)
 for (const net of ['ERROR: Unable to download webpage: <urlopen error [Errno 111] Connection refused>', 'ERROR: [youtube] x: Read timed out. (read timeout=12.0)',
   "ERROR: Unable to download API page: ('Cannot connect to proxy.', ConnectionResetError(54, 'Connection reset by peer'))", 'Tunnel connection failed: 502 Bad Gateway']) {
@@ -187,4 +193,45 @@ try {
   assert.ok(!manager().getValidChannels().some(g=>g.name===youtube.name))
   assert.equal((await youtube.resolve(refOf(channel),{config:{}})).status,404)
 } finally { rmSync(dir,{recursive:true,force:true}) }
+
+// 出口被人机验证：1 分钟内不再跑 yt-dlp；并发请求共用的同一次失败和冷却期内的重试只记一行
+const fakeDir = mkdtempSync(join(tmpdir(),'iptv-youtube-bot-'))
+const runs = join(fakeDir,'runs')
+const fakeBin = join(fakeDir,'yt-dlp')
+writeFileSync(fakeBin, `#!/bin/sh\necho run >> "${runs}"\necho "${botCheck}" >&2\nexit 1\n`, { mode:0o755 })
+const ytDlpRuns = () => { try { return readFileSync(runs,'utf8').split('\n').filter(Boolean).length } catch { return 0 } }
+const savedBin = process.env.YTDLP_BIN, realNow = Date.now
+process.env.YTDLP_BIN = fakeBin
+try {
+  youtube.clearResolveCache()
+  const config = { subscriptions: JSON.stringify([pinned]) }
+  const play = () => youtube.resolve(refOf(pinned), { config })
+  const burst = await Promise.all([play(), play()])
+  assert.equal(ytDlpRuns(), 1)
+  assert.deepEqual(burst.map(r => r.status), [502, 502])
+  assert.equal(burst.filter(r => !r.silent).length, 1, '同一次失败只打一行红字')
+  assert.match(burst.find(r => !r.silent).desc, /人机验证.*已暂停向 YouTube 请求 1 分钟/)
+  const again = await play()
+  assert.ok(again.silent && ytDlpRuns() === 1, '2 秒内复用同一次失败，也不再记')
+  Date.now = () => realNow() + 3000
+  const retry = await play()
+  assert.equal(ytDlpRuns(), 1, '冷却期内的重试不跑 yt-dlp')
+  assert.ok(retry.silent)
+  assert.match(retry.desc, /人机验证.*约 \d+ 秒后再试）$/)
+  assert.ok(!/1 分钟）.*1 分钟）/.test(retry.desc), '冷却说明不重复叠加')
+  Date.now = () => realNow() + 61000
+  const later = await play()
+  assert.equal(ytDlpRuns(), 2, '冷却过后重新解析')
+  assert.ok(!later.silent, '冷却过后再失败重新记一行')
+  Date.now = realNow
+  youtube.clearResolveCache()
+  await play()
+  assert.equal(ytDlpRuns(), 3, '保存配置等清缓存时一并解除冷却')
+} finally {
+  Date.now = realNow
+  if (savedBin === undefined) delete process.env.YTDLP_BIN
+  else process.env.YTDLP_BIN = savedBin
+  youtube.clearResolveCache()
+  rmSync(fakeDir,{recursive:true,force:true})
+}
 console.log('✅ YouTube 订阅、当前场次、配置持久化、HLS 换签及原始字幕')

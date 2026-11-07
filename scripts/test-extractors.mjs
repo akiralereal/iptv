@@ -23,6 +23,8 @@ import { join } from 'node:path'
 import { Readable } from 'node:stream'
 
 import { listModules, getModule, sourceIdOf, resolverFor, validateModule, proxyModules, MODULE_ID_RE, MODULE_CATEGORIES } from '../extractors/registry.js'
+import { domainSuffix, hostCoveredBy } from '../utils/outboundProxy.js'
+import { proxyHostsOf } from '../extractors/overseas/index.js'
 import { clearUrlCache, channel as playbackChannel } from '../utils/appUtils.js'
 import { qualityFrom } from '../utils/qualityOverride.js'
 import {
@@ -1041,14 +1043,23 @@ try {
     assert.match(admin, /\.source-badge\.overseas/, '海外小节的角标要有样式')
   })
 
-  check('outbound / proxyProbe 的声明校验：只认 proxy，声明了就要给探测目标，没声明不许带', () => {
+  check('outbound / proxyProbe / proxyHosts 的声明校验：只认 proxy，声明了就要给探测目标和要放行的域名，没声明不许带', () => {
     const base = { id: 'probe-x', name: 'x', fetch() {}, capabilities: {} }
     assert.throws(() => validateModule({ ...base, outbound: 'direct' }), /outbound 非法/)
     assert.throws(() => validateModule({ ...base, outbound: 'proxy' }), /proxyProbe/)
     assert.throws(() => validateModule({ ...base, outbound: 'proxy', proxyProbe: { url: 'ftp://x/' } }), /proxyProbe/)
     assert.throws(() => validateModule({ ...base, outbound: 'proxy', proxyProbe: { url: 'https://x/', name: ' ' } }), /proxyProbe\.name/)
     assert.throws(() => validateModule({ ...base, proxyProbe: { url: 'https://x/' } }), /没声明 outbound/)
-    validateModule({ ...base, outbound: 'proxy', proxyProbe: { url: 'https://x/' } })
+    assert.throws(() => validateModule({ ...base, proxyHosts: ['x.example'] }), /没声明 outbound/)
+    const probe = { url: 'https://www.x.example/ping' }
+    assert.throws(() => validateModule({ ...base, outbound: 'proxy', proxyProbe: probe }), /proxyHosts/)
+    assert.throws(() => validateModule({ ...base, outbound: 'proxy', proxyProbe: probe, proxyHosts: [] }), /proxyHosts/)
+    for (const bad of ['https://x.example', 'x.example/', '*.x.example', 'X.example', 'example', 'x.example:443']) {
+      assert.throws(() => validateModule({ ...base, outbound: 'proxy', proxyProbe: probe, proxyHosts: [bad] }), /proxyHosts/, bad)
+    }
+    assert.throws(() => validateModule({ ...base, outbound: 'proxy', proxyProbe: probe, proxyHosts: ['other.example'] }), /不在 proxyHosts 里/)
+    validateModule({ ...base, outbound: 'proxy', proxyProbe: probe, proxyHosts: ['x.example'] })
+    validateModule({ ...base, outbound: 'proxy', proxyProbe: probe, proxyHosts: ['cdn.example', 'www.x.example'] })
   })
 
   check('★ 走代理的模块：名单只来自声明；声明了的出站只许 outboundFetch，没声明的目录不许偷用', () => {
@@ -1080,6 +1091,38 @@ try {
         }
       }
     }
+  })
+
+  check('★ 走代理的模块：proxyHosts 盖住模块真会连的域名——探测目标、海外频道表里的每条流和取表的 GitHub', () => {
+    for (const [host, suffix] of [
+      ['www.tdm.com.mo', 'tdm.com.mo'], ['live5.tdm.com.mo', 'tdm.com.mo'], ['api.telegram.org', 'telegram.org'],
+      ['manifest.googlevideo.com', 'googlevideo.com'], ['rr3---sn-abc.googlevideo.com', 'googlevideo.com'],
+      ['amg00654-itv.playouts.now.amagi.tv', 'amagi.tv'], ['tv-trtworld.medya.trt.com.tr', 'trt.com.tr'],
+      ['x.mediatailor.us-west-2.amazonaws.com', 'amazonaws.com'], ['raw.githubusercontent.com', 'githubusercontent.com'],
+      ['bbc.co.uk', 'bbc.co.uk'], ['example.com', 'example.com'], ['localhost', 'localhost'],
+    ]) assert.equal(domainSuffix(host), suffix, host)
+    assert.equal(hostCoveredBy('www.tdm.com.mo', ['tdm.com.mo']), true)
+    assert.equal(hostCoveredBy('tdm.com.mo', ['tdm.com.mo']), true)
+    assert.equal(hostCoveredBy('nottdm.com.mo', ['tdm.com.mo']), false)
+    assert.deepEqual(getModule('tdm').proxyHosts, ['tdm.com.mo'])
+    assert.deepEqual(getModule('youtube-live').proxyHosts, ['youtube.com', 'googlevideo.com'])
+    const overseas = getModule('overseas')
+    const playlist = readFileSync(new URL('../IPTV-overseas.m3u', import.meta.url), 'utf8')
+    assert.deepEqual(overseas.proxyHosts, proxyHostsOf(playlist), '海外频道的名单按镜像自带的频道表派生')
+    assert.ok(overseas.proxyHosts.includes('githubusercontent.com'), '运行时从 GitHub 取频道表，GitHub 也得走代理')
+    assert.ok(overseas.proxyHosts.includes('akamaized.net') && overseas.proxyHosts.includes('amagi.tv'))
+    assert.ok(overseas.proxyHosts.length < 30, `几十个 CDN 主机该收成后缀，现在 ${overseas.proxyHosts.length} 条`)
+    let streams = 0
+    for (const line of playlist.split('\n')) {
+      const match = line.match(/^\s*https?:\/\/([^/\s:?#]+)/i)
+      if (!match) continue
+      streams++
+      assert.ok(hostCoveredBy(match[1], overseas.proxyHosts), `频道表里的 ${match[1]} 没被放行名单盖住`)
+    }
+    assert.ok(streams > 30, `频道表只数出 ${streams} 条流`)
+    assert.ok(!hostCoveredBy('image.xumo.com', overseas.proxyHosts), '台标主机由播放器自己取，不进名单')
+    assert.deepEqual(proxyHostsOf('#EXTM3U\nhttp://a.b.example/x\n#EXTINF:-1 tvg-logo="https://logo.example/l.png",T\nhttps://c.example:443/y\n', ''),
+      ['b.example', 'c.example'])
   })
 
   check('★ 所有非代理抓取模块首次出现默认开启，显式关闭后保持关闭', () => {

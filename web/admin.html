@@ -3334,6 +3334,9 @@
         .sys-proxy-result:empty { display: none; }
         .sys-proxy-result .ok { color: var(--ui-success); }
         .sys-proxy-result .fail { color: var(--ui-danger); }
+        .sys-proxy-hosts summary { cursor: pointer; }
+        .sys-proxy-hosts[hidden] { display: none; }
+        .sys-proxy-hosts code, .sys-proxy-result code { user-select: all; overflow-wrap: anywhere; }
         .sys-section .system-config-item { padding: 0; border: 0; background: transparent; box-shadow: none; }
         .sys-section .system-config-item label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .sys-section .system-config-item label.sys-check-label { font-weight: 500; cursor: pointer; }
@@ -4741,6 +4744,7 @@
                                 <button type="button" class="btn" id="sysProxyTestBtn" onclick="testProxy()">测试</button>
                             </div>
                             <div class="system-config-hint">填 Clash、mihomo、OpenClash 等代理软件的 HTTP、SOCKS5 或混合端口，如 <code>http://192.168.1.10:7890</code>、<code>socks5://192.168.1.10:7891</code>；有账号密码的写成 <code>http://用户名:密码@192.168.1.10:7890</code>。账号或密码中的 <code>%</code>、<code>@</code>、<code>#</code> 分别写成 <code>%25</code>、<code>%40</code>、<code>%23</code>。代理软件要打开「允许局域网连接」；Docker 用桥接网络时 <code>127.0.0.1</code> 指容器自己，要填代理所在机器的局域网 IP。播放设备不用设代理。点「测试」不用先保存，测试后仍需保存才生效。测试检查代表性接口与清单，不代表全部频道均可播放。</div>
+                            <details class="system-config-hint sys-proxy-hosts" id="sysProxyHostsBox" hidden><summary>代理软件用规则模式的，要放行这些域名</summary><div id="sysProxyHosts"></div></details>
                             <div class="system-config-hint sys-env-hint" id="sysProxyEnvHint" hidden>检测到环境变量或系统代理：这里留空时沿用它，填写后以这里为准。</div>
                             <div class="sys-proxy-result" id="sysProxyResult" aria-live="polite"></div>
                         </div>
@@ -9803,6 +9807,17 @@
             }
         }
 
+        // 规则模式的代理要放行的域名：来自各模块的声明（registry.js 的 proxyHosts），Telegram 推送固定在最后；没拿到名单就不显示这块
+        function proxyHostsHtml(config) {
+            const rows = (Array.isArray(config.proxyModules) ? config.proxyModules : [])
+                .filter(m => Array.isArray(m.hosts) && m.hosts.length)
+                .map(m => [m.name, m.hosts]);
+            if (Array.isArray(config.proxyTelegramHosts) && config.proxyTelegramHosts.length) rows.push(['Telegram 消息推送', config.proxyTelegramHosts]);
+            if (!rows.length) return '';
+            return rows.map(([name, hosts]) => `<div>${escapeHtml(name)}：<code>${hosts.map(escapeHtml).join(' ')}</code></div>`).join('')
+                + '<div>按域名后缀匹配（Clash 的 DOMAIN-SUFFIX），子域名一并走代理。海外频道的名单按频道表派生，表变了随版本更新。</div>';
+        }
+
         // 渲染系统配置
         function renderSystemConfig() {
             document.getElementById('sysPort').value = systemConfig.port || 1905;
@@ -9817,6 +9832,12 @@
             const proxyScope = document.getElementById('sysProxyScope');
             if (proxyScope && Array.isArray(systemConfig.proxyModules) && systemConfig.proxyModules.length) {
                 proxyScope.textContent = systemConfig.proxyModules.map(m => m.name).join('、');
+            }
+            const proxyHostsBox = document.getElementById('sysProxyHostsBox');
+            if (proxyHostsBox) {
+                const hostsHtml = proxyHostsHtml(systemConfig);
+                document.getElementById('sysProxyHosts').innerHTML = hostsHtml;
+                proxyHostsBox.hidden = !hostsHtml;
             }
             invalidateProxyTest();
             renderEnvHints();
@@ -10120,10 +10141,16 @@ if(success){
                     : data.via && data.proxyReachable ? `代理可用，但 ${results.length} 项都没连上`
                     : `${results.length} 项都没连上`;
                 const afterProxy = data.via && results.some(r => !r.ok && r.stage === 'target');
+                // 断在代理之后的项把该模块要放行的域名（服务端按模块声明带回）直接列出来，规则模式的代理照着加就行
+                const toAllow = afterProxy ? results.filter(r => !r.ok && r.stage === 'target' && Array.isArray(r.hosts) && r.hosts.length) : [];
+                const fixHint = toAllow.length
+                    ? '代理软件用规则模式的，把下面列的域名加进走代理的规则（按后缀匹配）或切全局模式；节点连不上的换个节点，改完再测，'
+                    : '改分流规则或换节点后再测，';
                 out.innerHTML = `<div>${via}：<strong class="${okCount ? 'ok' : 'fail'}">${summary}</strong></div>` + results.map(r => r.ok
                     ? `<div class="ok">✓ ${escapeHtml(r.name)} 能连上（${r.ms} 毫秒）</div>`
                     : `<div class="fail">✗ ${escapeHtml(r.name)}：${escapeHtml(r.message || '连不上')}</div>`).join('')
-                    + (afterProxy ? '<div>标「代理已接通」的几项断在代理之后：代理软件把这些域名分流成了直连、所用节点连不上它们，或对方站点拒绝了这个出口。改分流规则或换节点后再测，这边的代理地址不用改。</div>' : '');
+                    + (afterProxy ? `<div>标「代理已接通」的几项断在代理之后：代理软件把这些域名分流成了直连、所用节点连不上它们，或对方站点拒绝了这个出口。${fixHint}这边的代理地址不用改。</div>` : '')
+                    + toAllow.map(r => `<div>${escapeHtml(r.name)} 需放行：<code>${r.hosts.map(escapeHtml).join(' ')}</code></div>`).join('');
             } catch (error) {
                 if (!isCurrent()) return;
                 const message = error.name === 'AbortError' ? '请求超时，请重试' : error.message;

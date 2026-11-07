@@ -66,6 +66,10 @@
  *                                 ADD-CHANNELS.md「要走代理的模块」那条做
  *   proxyProbe            object  outbound 为 'proxy' 时必需：{ url, name? }。「测试」按钮用来代表这个模块的
  *                                 一个 https 接口或清单（取址用的接口、或一路直播的主清单）；name 不写用模块名
+ *   proxyHosts            array   outbound 为 'proxy' 时必需：模块出站真会连、大陆直连不通的域名，按后缀写
+ *                                 （'tdm.com.mo'、'googlevideo.com'，不带协议、路径或通配符），要盖住 proxyProbe.url
+ *                                 的主机。代理软件用规则模式时得放行这些域名才会走节点；后台「网络代理」的
+ *                                 说明和「测试」里断在代理之后的失败项按它告诉用户往代理规则里加什么
  *   streamType            string  可选；默认 hls，flv 由本机流式代理且不转码。
  *                                 FLV resolve 须返回 validateMediaUrl 校验官方调度跳转。
  *   capabilities.catchup boolean 可选；false 表示纯直播，不透传回看查询参数。
@@ -259,6 +263,8 @@ import overseas from './overseas/index.js'
 // 模块 id 会进 sourceId 并写进 EXTINF 属性值，不消毒就是注入面。
 // 与 utils/configBackupAPI.js 的文件名白名单同款约束。
 export const MODULE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/
+// proxyHosts 的每一项：小写域名后缀，至少两段，不带协议、端口、路径、通配符
+const PROXY_HOST_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/
 export const MODULE_CATEGORIES = new Set(['account', 'live', 'standard', 'overseas'])
 
 const MODULES = [
@@ -414,8 +420,16 @@ export function validateModule(module) {
     if (probe.name != null && (typeof probe.name !== 'string' || !probe.name.trim())) {
       throw new Error(`抓取模块 ${module.id} 的 proxyProbe.name 必须是非空字符串`)
     }
-  } else if (module.proxyProbe != null) {
-    throw new Error(`抓取模块 ${module.id} 没声明 outbound: 'proxy'，不该有 proxyProbe`)
+    const hosts = module.proxyHosts
+    if (!Array.isArray(hosts) || !hosts.length || hosts.some(host => typeof host !== 'string' || !PROXY_HOST_RE.test(host))) {
+      throw new Error(`抓取模块 ${module.id} 声明了 outbound: 'proxy'，必须给 proxyHosts: ['域名后缀', …]（只写小写域名，如 'tdm.com.mo'，不带协议、路径或通配符）`)
+    }
+    const probeHost = new URL(probe.url).hostname
+    if (!hosts.some(host => probeHost === host || probeHost.endsWith('.' + host))) {
+      throw new Error(`抓取模块 ${module.id} 的 proxyProbe.url 主机 ${probeHost} 不在 proxyHosts 里：测试目标得是模块真会连的域名`)
+    }
+  } else if (module.proxyProbe != null || module.proxyHosts != null) {
+    throw new Error(`抓取模块 ${module.id} 没声明 outbound: 'proxy'，不该有 proxyProbe / proxyHosts`)
   }
 }
 
@@ -450,12 +464,12 @@ export function listModules() {
   return [...registry.values()]
 }
 
-/** 按 id 取模块；不存在返回 undefined（调用方自己决定是报错还是跳过）。 */
-/** 走后台「网络代理」的模块（outbound: 'proxy'），按注册顺序：后台名单、测试目标和角标都从这里拿。 */
+/** 走后台「网络代理」的模块（outbound: 'proxy'），按注册顺序：后台名单、测试目标、要放行的域名和角标都从这里拿。 */
 export function proxyModules() {
   return listModules().filter(module => module.outbound === 'proxy')
 }
 
+/** 按 id 取模块；不存在返回 undefined（调用方自己决定是报错还是跳过）。 */
 export function getModule(id) {
   return registry.get(String(id || ''))
 }

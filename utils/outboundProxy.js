@@ -112,7 +112,28 @@ export function outboundFetch(url, options = {}) {
  * 「测试」按钮的目标：Telegram 推送不是模块，固定在这里；各模块的目标来自它们的 proxyProbe 声明，
  * 由 utils/systemConfigAPI.js 的 proxyTestTargets() 拼起来（这里不能 import 注册表：模块反过来 import 本文件）。
  */
-export const TELEGRAM_TEST_TARGET = { name: 'Telegram', url: 'https://api.telegram.org/' }
+// 公共二级后缀（com.mo、com.tr、co.uk…）：放行域名要收到可注册域，不能只剩 com.tr
+const PUBLIC_SLD_RE = /^(com|net|org|co|gov|edu|ac|ne|or|go)$/
+
+/**
+ * 主机名收成代理规则用的域名后缀（Clash 的 DOMAIN-SUFFIX 口径）：
+ * www.tdm.com.mo → tdm.com.mo，x.playouts.now.amagi.tv → amagi.tv，api.telegram.org → telegram.org
+ */
+export function domainSuffix(hostname) {
+  const labels = String(hostname || '').toLowerCase().replace(/\.$/, '').split('.').filter(Boolean)
+  if (labels.length <= 2) return labels.join('.')
+  const keep = labels.at(-1).length === 2 && PUBLIC_SLD_RE.test(labels.at(-2)) ? 3 : 2
+  return labels.slice(-keep).join('.')
+}
+
+/** 主机名是否被某条后缀盖住（相等，或以 .后缀 结尾） */
+export function hostCoveredBy(hostname, suffixes) {
+  const host = String(hostname || '').toLowerCase()
+  return (suffixes || []).some(suffix => host === suffix || host.endsWith('.' + suffix))
+}
+
+// hosts：这一项要在代理规则里放行的域名后缀，测试结果原样带回给后台写在失败项旁边
+export const TELEGRAM_TEST_TARGET = { name: 'Telegram', url: 'https://api.telegram.org/', hosts: ['telegram.org'] }
 
 /**
  * undici 6 把代理对 CONNECT 的拒绝（如 407）只报成「Request was cancelled.」，看不出原因。
@@ -201,6 +222,8 @@ export async function testOutboundProxy(raw, { targets = [TELEGRAM_TEST_TARGET],
   try {
     const results = await Promise.all(targets.map(async target => {
       const started = Date.now()
+      // 带上这一项要在代理规则里放行的域名后缀：后台把它写在断在代理之后的失败项旁边
+      const base = { name: target.name, ...(Array.isArray(target.hosts) && target.hosts.length ? { hosts: target.hosts } : {}) }
       try {
         const options = { method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(timeoutMs), headers: { 'User-Agent': 'Mozilla/5.0' } }
         const res = dispatcher
@@ -209,7 +232,7 @@ export async function testOutboundProxy(raw, { targets = [TELEGRAM_TEST_TARGET],
         await res.body?.cancel().catch(() => {})
         const ok = res.status >= 200 && res.status < 400
         // 对方答了 HTTP 状态：隧道已经通了，失败在对方那一段
-        return { name: target.name, ok, status: res.status, ms: Date.now() - started, ...(!ok ? { stage: 'target', message: `目标返回 HTTP ${res.status}` } : {}) }
+        return { ...base, ok, status: res.status, ms: Date.now() - started, ...(!ok ? { stage: 'target', message: `目标返回 HTTP ${res.status}` } : {}) }
       } catch (err) {
         let status, accepted = false
         if (proxy && /^https?:/.test(proxy) && err?.name !== 'TimeoutError') {
@@ -218,7 +241,7 @@ export async function testOutboundProxy(raw, { targets = [TELEGRAM_TEST_TARGET],
         }
         // 本机回环目标不经代理（proxyAwareFetch 同样跳过），它的失败不能算到代理头上
         const { stage, message } = describeError(err, isLoopback(target.url) ? '' : effective, status)
-        return { name: target.name, ok: false, ms: Date.now() - started, stage: stage || (accepted ? 'target' : ''), message }
+        return { ...base, ok: false, ms: Date.now() - started, stage: stage || (accepted ? 'target' : ''), message }
       }
     }))
     // 有一项经代理连上了（或已证明隧道能建），别的失败就不会是连不上代理：分不清的归到对方那一段

@@ -10,6 +10,8 @@ export default {
   category: 'overseas',
   outbound: 'proxy',
   proxyProbe: { name: '澳门（澳广视）', url: 'https://www.tdm.com.mo/api/v1/common/get-domain' },
+  // 官网、路由接口与各路 CDN（live3 / live5 / globallive…）都在这个域下（api.js 的 OFFICIAL_HOST_RE 只放行它）
+  proxyHosts: ['tdm.com.mo'],
   description: '澳广视（TDM）自办的六套电视：澳视澳门、澳视葡文、澳门体育、澳门资讯、澳门综艺、澳门-Macau。可在「系统配置 → 网络代理」配置代理：官网取址、节目单和视频均经服务器代理，播放设备无需设置代理。未配置代理时，部署机器和播放器都需要能访问官网及官方 CDN。默认关闭，需要时手动打开。',
   // 默认关闭；用户确认直连网络或代理可用后自行打开
   defaultEnabled: false,

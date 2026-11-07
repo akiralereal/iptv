@@ -241,6 +241,9 @@ if (tlsPort) {
   assert.deepEqual(proxyTestTargets().map(t => t.name), ['澳门（澳广视）', 'YouTube', '海外频道（DW）', 'Telegram'],
     '测试目标从模块的 proxyProbe 声明派生，Telegram 固定在最后')
   assert.ok(proxyTestTargets().every(t => /^https:\/\/\S+$/.test(t.url)))
+  assert.ok(proxyTestTargets().every(t => Array.isArray(t.hosts) && t.hosts.length && t.hosts.every(h => /^[a-z0-9.-]+\.[a-z]+$/.test(h))),
+    '每个测试目标带上要在代理规则里放行的域名后缀')
+  assert.deepEqual(proxyTestTargets().at(-1).hosts, ['telegram.org'])
 }
 const targets = [{ name: 'YouTube', url: 'http://youtube.example/generate_204' }]
 let result = await testOutboundProxy(`socks5://127.0.0.1:${socksPort}`, { targets })
@@ -274,7 +277,7 @@ assert.equal(result.proxyReachable, null, '直连测试不分段')
 assert.equal(result.results[0].stage, '')
 assert.doesNotMatch(result.results[0].message, /代理/)
 const good = { name: 'YouTube', url: 'http://youtube.example/generate_204' }
-const farEnd = [{ name: '澳门', url: 'https://tdm.example:4443/' }, { name: 'DW', url: 'https://dw.example:4444/' }]
+const farEnd = [{ name: '澳门', url: 'https://tdm.example:4443/', hosts: ['tdm.example'] }, { name: 'DW', url: 'https://dw.example:4444/' }]
 for (const [proxyUrl, extra, expected] of [
   [httpProxyUrl, { name: 'Gateway', url: 'https://gw.example:4445/' }, /^代理已接通，但它连不上对方站点（代理回 HTTP 502）$/],
   [`socks5://127.0.0.1:${socksPort}`, { name: 'Unreachable', url: 'https://far.example:4446/' }, /^代理已接通，但它连不上对方站点（主机不可达）$/],
@@ -285,6 +288,8 @@ for (const [proxyUrl, extra, expected] of [
   assert.equal(yt.ok, true, proxyUrl)
   assert.equal(mo.stage, 'target', proxyUrl)
   assert.match(mo.message, /^代理已接通，往对方站点的连接被断开（ECONNRESET）$/, proxyUrl)
+  assert.deepEqual(mo.hosts, ['tdm.example'], '目标声明的放行域名原样带回，后台写在失败项旁边')
+  assert.equal(yt.hosts, undefined, '没声明的不带')
   assert.equal(dw.stage, 'target', proxyUrl)
   assert.equal(dw.message, '代理已接通，对方站点超时没有响应', proxyUrl)
   assert.equal(other.stage, 'target', proxyUrl)

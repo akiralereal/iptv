@@ -35,7 +35,7 @@ function harness() {
   })
   vm.runInContext(`const API_PREFIX = ''; let systemConfig = { port: 1905 }; const dirtySaveScopes = new Set();
     let systemConfigEditVersion = 0, systemConfigSaving = false, proxyTestSequence = 0, proxyTestController = null;
-    ${['setSaveDirty', 'invalidateProxyTest', 'readJsonResponse', 'testProxy', 'saveSystemConfig'].map(source).join('\n')}`, context)
+    ${['setSaveDirty', 'invalidateProxyTest', 'readJsonResponse', 'testProxy', 'saveSystemConfig', 'proxyHostsHtml'].map(source).join('\n')}`, context)
   const inputCode = html.match(/id="sysProxy" oninput="([^"]+)"/)[1]
   return { context, element, controls, pending, messages,
     input(value) { element('sysProxy').value = value; vm.runInContext(inputCode, context) },
@@ -142,18 +142,30 @@ for (const ok of [true, false]) {
   let test = h.context.testProxy()
   h.pending.shift().resolve({ success: true, via: 'input', proxyReachable: true, results: [
     { name: 'YouTube', ok: true, ms: 1 },
-    { name: '澳门（澳广视）', ok: false, stage: 'target', message: '代理已接通，往对方站点的连接被断开（ECONNRESET）' }] })
+    { name: '澳门（澳广视）', ok: false, stage: 'target', hosts: ['tdm.com.mo'], message: '代理已接通，往对方站点的连接被断开（ECONNRESET）' },
+    { name: '海外频道（DW）', ok: false, stage: 'target', message: '代理已接通，对方站点超时没有响应' }] })
   await test
   let html = h.element('sysProxyResult').innerHTML
-  assert.match(html, /经输入的代理：<strong class="ok">代理可用，1\/2 项能连上<\/strong>/)
+  assert.match(html, /经输入的代理：<strong class="ok">代理可用，1\/3 项能连上<\/strong>/)
   assert.match(html, /✗ 澳门（澳广视）：代理已接通，往对方站点的连接被断开（ECONNRESET）/)
-  assert.match(html, /断在代理之后/)
+  assert.match(html, /断在代理之后.*把下面列的域名加进走代理的规则/)
+  // 带了 hosts 的失败项写出要放行的域名；没带的（旧服务端）只有通用提示
+  assert.match(html, /澳门（澳广视） 需放行：<code>tdm.com.mo<\/code>/)
+  assert.doesNotMatch(html, /海外频道（DW） 需放行/)
+  test = h.context.testProxy()
+  h.pending.shift().resolve({ success: true, via: 'input', proxyReachable: true, results: [
+    { name: 'YouTube', ok: true, ms: 1 },
+    { name: '澳门（澳广视）', ok: false, stage: 'target', message: '代理已接通，往对方站点的连接被断开（ECONNRESET）' }] })
+  await test
+  html = h.element('sysProxyResult').innerHTML
+  assert.match(html, /断在代理之后.*改分流规则或换节点后再测/)
+  assert.doesNotMatch(html, /需放行|下面列的域名/)
   test = h.context.testProxy()
   h.pending.shift().resolve({ success: true, via: 'input', proxyReachable: false, results: [{ name: 'YouTube', ok: false, stage: 'proxy', message: '连不上代理：端口没开' }] })
   await test
   html = h.element('sysProxyResult').innerHTML
   assert.match(html, /<strong class="fail">连不上代理<\/strong>/)
-  assert.doesNotMatch(html, /断在代理之后/)
+  assert.doesNotMatch(html, /断在代理之后|需放行/)
   h.input('')
   test = h.context.testProxy()
   h.pending.shift().resolve({ success: true, via: '', proxyReachable: null, results: [{ name: 'YouTube', ok: false, stage: '', message: '超时没有响应' }] })
@@ -162,4 +174,16 @@ for (const ok of [true, false]) {
   assert.match(html, /留空，使用直连：<strong class="fail">1 项都没连上<\/strong>/)
   assert.doesNotMatch(html, /代理可用|断在代理之后/)
 }
-console.log('✓ test-admin-proxy: stale responses, cancellation, save locking, edit tracking, retry, non-JSON replies and test summary')
+{
+  // 「网络代理」说明里可展开的放行名单：按模块声明列，Telegram 推送固定最后；没名单就不渲染
+  const h = harness()
+  const html = h.context.proxyHostsHtml({
+    proxyModules: [{ id: 'tdm', name: '澳门', hosts: ['tdm.com.mo'] }, { id: 'x', name: '没名单的旧模块' }, { id: 'overseas', name: '海外频道', hosts: ['akamaized.net', 'amagi.tv'] }],
+    proxyTelegramHosts: ['telegram.org'],
+  })
+  assert.match(html, /^<div>澳门：<code>tdm.com.mo<\/code><\/div><div>海外频道：<code>akamaized.net amagi.tv<\/code><\/div><div>Telegram 消息推送：<code>telegram.org<\/code><\/div><div>按域名后缀匹配/)
+  assert.doesNotMatch(html, /没名单的旧模块/)
+  assert.equal(h.context.proxyHostsHtml({}), '')
+  assert.equal(h.context.proxyHostsHtml({ proxyModules: [{ id: 'x', name: 'x' }] }), '')
+}
+console.log('✓ test-admin-proxy: stale responses, cancellation, save locking, edit tracking, retry, non-JSON replies, test summary and allow-list hints')

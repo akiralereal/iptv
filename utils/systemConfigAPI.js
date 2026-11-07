@@ -78,8 +78,10 @@ export function getSystemConfigAPI() {
         proxy: maskProxyUrl(settingProxyUrl()),
         // 留空时 所支持模块 是否会沿用 HTTPS_PROXY（只回有没有，不回地址）
         proxyEnvFallback: Boolean(systemProxyUrl()),
-        // 走这个代理的模块（registry.js 的 outbound: 'proxy'），后台「网络代理」的说明按它列名单；Telegram 推送固定另算
-        proxyModules: proxyModules().map(module => ({ id: module.id, name: module.name }))
+        // 走这个代理的模块（registry.js 的 outbound: 'proxy'）和各自要在代理规则里放行的域名后缀（proxyHosts），
+        // 后台「网络代理」的说明按它列名单和域名；Telegram 推送固定另算，它的域名单独给
+        proxyModules: proxyModules().map(module => ({ id: module.id, name: module.name, hosts: module.proxyHosts })),
+        proxyTelegramHosts: TELEGRAM_TEST_TARGET.hosts
       },
       envOverrides
     }
@@ -91,10 +93,10 @@ export function getSystemConfigAPI() {
   }
 }
 
-/** 「测试」的目标：声明了 outbound: 'proxy' 的模块各出一个代表性接口（按注册顺序），Telegram 推送固定排最后。 */
+/** 「测试」的目标：声明了 outbound: 'proxy' 的模块各出一个代表性接口（按注册顺序）并带上要放行的域名，Telegram 推送固定排最后。 */
 export function proxyTestTargets() {
   return [
-    ...proxyModules().map(module => ({ name: module.proxyProbe.name || module.name, url: module.proxyProbe.url })),
+    ...proxyModules().map(module => ({ name: module.proxyProbe.name || module.name, url: module.proxyProbe.url, hosts: module.proxyHosts })),
     TELEGRAM_TEST_TARGET,
   ]
 }

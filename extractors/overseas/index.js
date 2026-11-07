@@ -14,14 +14,13 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 
 import { buildMasterPlaylist, topVariantFirst } from '../../utils/hlsTopFirst.js'
-import { outboundFetch, outboundProxyUrl } from '../../utils/outboundProxy.js'
+import { domainSuffix, outboundFetch, outboundProxyUrl } from '../../utils/outboundProxy.js'
 import { fetchUpstreamResponse } from '../../utils/hlsProxy.js'
 
 export const PLAYLIST_FILE = 'IPTV-overseas.m3u'
+const DEFAULT_PLAYLIST_URL = `https://raw.githubusercontent.com/akiralereal/iptv/refs/heads/main/${PLAYLIST_FILE}`
 // 设成空（moverseasPlaylistUrl=）就只用镜像自带的那份，便于本地调试与测试
-export const PLAYLIST_URL = process.env.moverseasPlaylistUrl !== undefined
-  ? process.env.moverseasPlaylistUrl
-  : `https://raw.githubusercontent.com/akiralereal/iptv/refs/heads/main/${PLAYLIST_FILE}`
+export const PLAYLIST_URL = process.env.moverseasPlaylistUrl !== undefined ? process.env.moverseasPlaylistUrl : DEFAULT_PLAYLIST_URL
 const BUNDLED_PATH = new URL(`../../${PLAYLIST_FILE}`, import.meta.url)
 const REF_PREFIX = 'overseas-'
 const REF_RE = /^overseas-[a-z0-9][a-z0-9-]{0,54}$/
@@ -60,6 +59,19 @@ export async function loadChannels({ url = PLAYLIST_URL } = {}) {
     }
   }
   return { channels: parsePlaylistContent(readFileSync(BUNDLED_PATH, 'utf8')), from: 'bundled', warnings }
+}
+
+/**
+ * 代理规则要放行的域名后缀：取频道表的 GitHub，加上频道表里每条流的主机（几十个 CDN 收成 amagi.tv、
+ * cloudfront.net 这样的后缀）。台标由播放器自己取，不算。按镜像自带的那份算，表改了随下个版本更新。
+ */
+export function proxyHostsOf(playlist, playlistUrl = DEFAULT_PLAYLIST_URL) {
+  const hosts = new Set(playlistUrl ? [domainSuffix(new URL(playlistUrl).hostname)] : [])
+  for (const line of String(playlist || '').split('\n')) {
+    const match = line.match(/^\s*https?:\/\/([^/\s:?#]+)/i)
+    if (match) hosts.add(domainSuffix(match[1]))
+  }
+  return [...hosts].sort()
 }
 
 /** 频道的 deferredRef：按台名生成，重启、换地址都不变（用户对这台的隐藏、改名、排序跟着它走）。 */
@@ -162,6 +174,7 @@ export default {
   category: 'overseas',
   outbound: 'proxy',
   proxyProbe: { name: '海外频道（DW）', url: 'https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8' },
+  proxyHosts: proxyHostsOf(readFileSync(BUNDLED_PATH, 'utf8')),
   description: '海外免费直播频道（体育、娱乐时尚、文旅、国际、韩国），并入现有分组。在大陆常卡顿或连不上，默认关闭；可在「系统配置 → 网络代理」配置代理，清单和视频经服务器转发，播放设备无需设置代理；未配置代理时由播放器直连各平台 CDN。',
   // 默认关闭；用户确认直连网络或代理可用后自行打开
   defaultEnabled: false,

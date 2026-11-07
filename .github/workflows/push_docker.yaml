@@ -48,8 +48,11 @@ jobs:
           platforms: arm
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
-      # 不配构建缓存：每次发版 package.json 版本号都变，npm ci 及之后各层必然重建，
-      # 原先的 registry 缓存实际只命中 WORKDIR，反而每次多花 ~25 秒导出
+      # 层缓存存在 Docker Hub 的 buildcache-<平台> 标签里（每个平台一份，互不覆盖；不像 GitHub 缓存 7 天不用就清）。
+      # Dockerfile 把系统包排在 package.json 之前，发版时 Chromium、Python 这些大层直接复用缓存里的同一份，
+      # 层的 digest 不变，用户升级只下 npm 依赖和代码两层。以前不配缓存，是因为当时 COPY package*.json 排在最前、
+      # 版本号一变后面全部重建，缓存只命中 WORKDIR。
+      # 缓存标签不带版本号，写成 env.IMAGE 而不是仓库名字面量：bump-version.js 按字面量改下面的版本标签
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v7
@@ -58,6 +61,8 @@ jobs:
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ env.PLATFORM_PAIR }}
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ env.PLATFORM_PAIR }},mode=max
       - name: Export digest
         run: |
           mkdir -p ${{ runner.temp }}/digests

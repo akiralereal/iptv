@@ -10,11 +10,16 @@
  *   node bump-version.js 1.5.0          # 直接指定版本号
  *   node bump-version.js sync-notes     # 把 CHANGELOG.md 最新条目同步到 README 顶部「当前版本更新内容」
  *   node bump-version.js release-notes  # 把 CHANGELOG.md 最新条目打印成 GitHub Release 正文（stdout，不改文件）
+ *   node bump-version.js update-base    # 把 Dockerfile 锁定的基础镜像 node:22-alpine 换成最新版（这一版用户要整包下载）
+ *
+ * 发版时会联网检查 yt-dlp 和基础镜像有没有新版本，只提醒不改；设 BUMP_OFFLINE=1 跳过（测试用）。
  */
 
+import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { baseChanged, baseImageInfo, pinnedBase, rewriteBase } from './scripts/base-image.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const r = (f) => resolve(__dirname, f)
@@ -60,9 +65,32 @@ if (arg === 'release-notes' || arg === 'notes') {
     '',
     '---',
     '',
+    ...(fullDownloadSincePreviousTag(tag) ? [
+      '**这一版要重新下载完整镜像**（amd64 / arm64 约 400 MB）：镜像底层换过，各层都重建了。之后的版本恢复只下载有变化的部分（一般几十 MB）。',
+      '',
+    ] : []),
     `**升级**：拉取 \`akiralereal/iptv:${tag}\`（或 \`latest\`），重建容器即可；数据卷与现有订阅不受影响。完整更新历史见 [CHANGELOG.md](${CHANGELOG_URL})。`,
     '',
   ].join('\n'))
+  process.exit(0)
+}
+
+// update-base：把 Dockerfile 锁定的基础镜像换成 node:22-alpine 当前最新版。只改 Dockerfile，不动版本号
+if (arg === 'update-base') {
+  const path = r('Dockerfile')
+  const dockerfile = readFileSync(path, 'utf-8')
+  let latest
+  try { latest = await baseImageInfo() } catch (err) {
+    console.error(`查不到 Docker Hub 上的 node:22-alpine：${err.message}`)
+    process.exit(1)
+  }
+  if (pinnedBase(dockerfile) === latest.digest) {
+    console.log(`基础镜像已是最新（Node ${latest.node} / Alpine ${latest.alpine}），不用换`)
+    process.exit(0)
+  }
+  writeFileSync(path, rewriteBase(dockerfile, latest.digest, latest))
+  console.log(`✔ Dockerfile 基础镜像换成 Node ${latest.node} / Alpine ${latest.alpine}（${latest.digest.slice(0, 19)}…）`)
+  console.log('  这一版用户升级要重下整个镜像：更新日志里写明；release-notes 会自动加上提示')
   process.exit(0)
 }
 
@@ -77,7 +105,7 @@ if (/^\d+\.\d+\.\d+$/.test(arg)) {
     case 'major': newVersion = `${major + 1}.0.0`; break
     default:
       console.error(`无效参数: ${arg}`)
-      console.error('用法: node bump-version.js <patch|minor|major|x.y.z|sync-notes>')
+      console.error('用法: node bump-version.js <patch|minor|major|x.y.z|sync-notes|release-notes|update-base>')
       process.exit(1)
   }
 }
@@ -175,9 +203,51 @@ console.log(`  2) 运行 node bump-version.js sync-notes 同步到顶部「当�
 // 只提醒不改：新版本要先在本机实测（npm run setup:youtube 后播一个直播）再写进 requirements.txt。
 await checkYtDlpPin()
 
+// 8. 提醒：基础镜像锁了版本（见 Dockerfile 开头），有新版时提示，换不换由作者决定：
+// 换的那一版用户要整包下载，可以攒几个版本再换，碰上 Node 安全修复就换。
+await checkBaseImage()
+
 // ---- 工具函数 ----
 
+async function checkBaseImage() {
+  if (process.env.BUMP_OFFLINE) return
+  let pinned
+  try { pinned = pinnedBase(readFileSync(r('Dockerfile'), 'utf-8')) } catch { return }
+  if (!pinned) {
+    console.log('\n⚠️  Dockerfile 的基础镜像没锁版本：每次发版都会跟着 node:22-alpine 变，用户升级就得整包下载。执行 node bump-version.js update-base 锁上')
+    return
+  }
+  try {
+    const latest = await baseImageInfo()
+    if (latest.digest === pinned) {
+      console.log(`\n✔ 基础镜像 node:22-alpine 已是最新（Node ${latest.node} / Alpine ${latest.alpine}）`)
+      return
+    }
+    const current = await baseImageInfo(pinned).catch(() => ({}))
+    console.log(`\n⚠️  基础镜像 node:22-alpine 有新版本：Node ${current.node || '?'} / Alpine ${current.alpine || '?'} → Node ${latest.node} / Alpine ${latest.alpine}。`
+      + '换的话这一版用户升级要重下整个镜像（约 400 MB），可以攒几个版本再换，碰上 Node 安全修复就换：node bump-version.js update-base')
+  } catch {
+    console.log('\n（查不到 Docker Hub，跳过基础镜像检查）')
+  }
+}
+
+// 这一版和上一个发布标签的 Dockerfile 基础镜像不同 → 用户升级要整包下载。查不到 git 或没有上一版时当作没变
+function fullDownloadSincePreviousTag(version) {
+  try {
+    const num = v => v.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0)
+    const older = (a, b) => { const [x, y] = [num(a), num(b)]; const i = x.findIndex((n, k) => n !== y[k]); return i >= 0 && x[i] < y[i] }
+    const tags = execFileSync('git', ['tag', '--list', 'v*', '--sort=-v:refname'], { cwd: __dirname, encoding: 'utf-8' }).split('\n').filter(Boolean)
+    const previous = tags.find(t => older(t, version))
+    if (!previous) return false
+    const before = execFileSync('git', ['show', `${previous}:Dockerfile`], { cwd: __dirname, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] })
+    return baseChanged(before, readFileSync(r('Dockerfile'), 'utf-8'))
+  } catch {
+    return false
+  }
+}
+
 async function checkYtDlpPin() {
+  if (process.env.BUMP_OFFLINE) return
   let pinned
   try { pinned = readFileSync(r('extractors/youtube-live/requirements.txt'), 'utf-8').match(/^yt-dlp==(\S+)/m)?.[1] } catch { return }
   if (!pinned) return

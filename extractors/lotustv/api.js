@@ -1,12 +1,17 @@
-/** 莲花卫视官网 QPlayer 当前签名入口；不保存签名到代码或频道缓存。 */
+/**
+ * 莲花卫视官网首页内嵌播放器的当前签名入口；不保存签名到代码或频道缓存。
+ * 2026-11-07 核对：官网首页改嵌趣看直播间页（cloud.quklive.com/cloud/a/embed/<直播间号>，新直播间 11-05 创建），
+ * 旧的 /live 页仍在但里面的直播间已停推（CDN 回 stream not found），所以从首页跟着当前直播间走。
+ */
 import { proxyAwareFetch } from '../../utils/systemProxy.js'
 import { CHANNEL } from './channels.js'
 
 export { CHANNEL }
 
-export const LIVE_PAGE = 'https://www.lotustv.mo/live'
+export const HOME_PAGE = 'https://www.lotustv.mo/'
 export const ENTRY_TTL_MS = 5 * 60 * 1000
 
+const EMBED_URL_RE = /^https:\/\/cloud\.quklive\.com\/cloud\/a\/embed\/(\d+)$/
 const MEDIA_HOST_RE = /^play-[a-z0-9-]+\.quklive\.com$/
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
@@ -29,18 +34,30 @@ export function officialAssetUrl(raw, expectedHost) {
   return url.href
 }
 
-export function parsePlayerUrl(page) {
-  const player = /new\s+QPlayer\s*\(\s*\{([\s\S]*?)\}\s*\)/.exec(page)?.[1]
-  if (!player) throw new Error('莲花卫视官网没有 QPlayer 配置')
-  // 官网保留了以 //url: 开头的旧线路；只能读取正在使用的属性行。
-  const activeLines = player.replace(/\/\*[\s\S]*?\*\//g, '').split(/\r?\n/)
-    .map(line => line.trim()).filter(line => line && !line.startsWith('//'))
-  const matches = activeLines.map(line => /^url:\s*["']([^"']+)["']\s*,?$/.exec(line)?.[1])
-    .filter(Boolean)
-  if (matches.length !== 1) throw new Error('莲花卫视官网当前 HLS 入口不唯一')
-  const raw = matches[0].startsWith('//') ? `https:${matches[0]}` : matches[0]
-  const url = new URL(officialAssetUrl(raw))
-  if (!/^\/live\/\d+\.m3u8$/.test(url.pathname)) {
+/** 首页 iframe#onlive 指向的趣看直播间页，返回页面地址与直播间号。 */
+export function parseEmbedUrl(home) {
+  const tags = String(home || '').match(/<iframe\b[^>]*>/gi) || []
+  const tag = tags.find(t => /\bid\s*=\s*["']onlive["']/i.test(t))
+  if (!tag) throw new Error('莲花卫视官网首页没有直播播放器')
+  const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1]?.trim() || ''
+  const match = EMBED_URL_RE.exec(src.startsWith('//') ? `https:${src}` : src)
+  if (!match) throw new Error('莲花卫视官网首页的直播播放器已变化')
+  return { url: match[0], id: match[1] }
+}
+
+/** 直播间页里 `var activity = {...};` 写的就是官网播放器正在用的 HLS 入口。 */
+export function parseEmbedEntry(page, id) {
+  const raw = /\bvar\s+activity\s*=\s*(\{.*\})\s*;/.exec(String(page || ''))?.[1]
+  if (!raw) throw new Error('莲花卫视直播间页没有播放配置')
+  let activity
+  try {
+    activity = JSON.parse(raw)
+  } catch {
+    throw new Error('莲花卫视直播间页的播放配置无法解析')
+  }
+  if (String(activity?.id) !== String(id)) throw new Error('莲花卫视直播间页与官网首页不一致')
+  const url = new URL(officialAssetUrl(activity.urlGroup?.hlsUrl))
+  if (url.pathname !== `/live/${id}.m3u8`) {
     throw new Error('莲花卫视官网返回了意外的直播入口')
   }
   return url.href
@@ -95,8 +112,10 @@ async function requestText(url, { fetchImpl, timeoutMs, headers = {} }) {
 }
 
 export async function requestEntry({ fetchImpl = proxyAwareFetch, timeoutMs = 12000 } = {}) {
-  const html = await requestText(LIVE_PAGE, { fetchImpl, timeoutMs, headers: { Accept: 'text/html' } })
-  return parsePlayerUrl(html)
+  const home = await requestText(HOME_PAGE, { fetchImpl, timeoutMs, headers: { Accept: 'text/html' } })
+  const embed = parseEmbedUrl(home)
+  const page = await requestText(embed.url, { fetchImpl, timeoutMs, headers: { Accept: 'text/html' } })
+  return parseEmbedEntry(page, embed.id)
 }
 
 export async function requestManifest(url, { fetchImpl = proxyAwareFetch, timeoutMs = 12000 } = {}) {

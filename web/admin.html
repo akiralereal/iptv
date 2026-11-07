@@ -3334,8 +3334,9 @@
         .sys-proxy-result:empty { display: none; }
         .sys-proxy-result .ok { color: var(--ui-success); }
         .sys-proxy-result .fail { color: var(--ui-danger); }
-        .sys-proxy-steps { margin-bottom: 0; padding-left: 1.6em; }
-        .sys-proxy-steps li + li { margin-top: 2px; }
+        /* 分条说明：三条以上要点写成编号列表，放在原有的说明容器里，字号颜色沿用容器 */
+        .hint-list { margin: 0; padding-left: 1.6em; }
+        .hint-list li + li { margin-top: 2px; }
         .sys-proxy-hosts summary { cursor: pointer; }
         .sys-proxy-hosts[hidden] { display: none; }
         .sys-proxy-hosts code, .sys-proxy-result code { user-select: all; overflow-wrap: anywhere; }
@@ -4730,7 +4731,11 @@
                                 <input type="checkbox" id="sysEnableDisplayNameUnify" onchange="setSaveDirty('sysconfig')">
                                 统一频道显示名（合并不同源的同台命名）
                             </label>
-                            <div class="system-config-hint">开启后，把不同订阅源里同一个台的不同写法（如 <code>CCTV1</code> / <code>CCTV-1</code> / <code>CCTV1综合</code>）<strong>按内置规则自动统一成同一个显示名</strong>（CCTV 系列、清晰度后缀等已内置）。默认关；手动重命名优先级更高；规则兜不住的写法可在「频道别名」标签里加规则。</div>
+                            <div class="system-config-hint">开启后，把不同订阅源里同一个台的不同写法（如 <code>CCTV1</code> / <code>CCTV-1</code> / <code>CCTV1综合</code>）<strong>按内置规则自动统一成同一个显示名</strong>（CCTV 系列、清晰度后缀等已内置）。<ol class="hint-list">
+                                <li>默认关。</li>
+                                <li>手动重命名优先级更高。</li>
+                                <li>规则兜不住的写法，到「频道别名」标签里加规则。</li>
+                            </ol></div>
                         </div>
                     </div>
                 </section>
@@ -4759,7 +4764,12 @@
                 <div class="settings-editor-card" style="margin-top: 4px;">
                     <div>
                         <div style="font-size:16px; font-weight:600; color:#333;">关键字自动分组</div>
-                        <div class="system-config-hint">自定义订阅源里没写分组的频道会落到「未分组」，每次刷新又回到未分组。这里按<strong>频道名关键字</strong>配规则，名字含关键字的<strong>未分组</strong>频道会自动归到对应分组（多条规则按从上到下、首条命中生效）——刷新也不丢，且<strong>不影响源已分好的分组、手动移动优先</strong>。如 分组 <code>央视</code> ← 关键字 <code>CCTV, 央视</code>。保存后下次刷新播放列表即生效。</div>
+                        <div class="system-config-hint">自定义订阅源里没写分组的频道会落到「未分组」，每次刷新又回到未分组。这里按<strong>频道名关键字</strong>配规则：<ol class="hint-list">
+                        <li>名字含关键字的<strong>未分组</strong>频道自动归到对应分组，如 分组 <code>央视</code> ← 关键字 <code>CCTV, 央视</code>。</li>
+                        <li>多条规则从上到下，首条命中生效。</li>
+                        <li>刷新也不丢；<strong>不影响源已分好的分组，手动移动优先</strong>。</li>
+                        <li>保存后下次刷新播放列表即生效。</li>
+                    </ol></div>
                     </div>
                     <div style="margin-top:12px;">
                         <button type="button" class="btn btn-success" onclick="openGroupRuleModal()">＋ 添加规则</button>
@@ -4773,7 +4783,11 @@
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                         <div>
                             <div style="font-size:16px; font-weight:600; color:#333;">EPG 节目单源（聚合）</div>
-                            <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕和各模块官方节目单都没覆盖的频道补节目单。默认已开启，但不带内置外部源，需要更广覆盖时点「＋ 添加 EPG 源」自己加。勾了「优先于官方节目单」的源，对它当前有节目的频道会覆盖咪咕和各模块的官方节目单（源停更只剩旧数据时自动让回官方）。改动即时保存、无需重启，下次更新生效（或点「立即刷新」）。</div>
+                            <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕和各模块官方节目单都没覆盖的频道补节目单。<ol class="hint-list">
+                        <li>默认已开启，但不带内置外部源；需要更广覆盖时点「＋ 添加 EPG 源」自己加。</li>
+                        <li>勾了「优先于官方节目单」的源，对它当前有节目的频道会覆盖咪咕和各模块的官方节目单；源停更只剩旧数据时自动让回官方。</li>
+                        <li>改动即时保存、无需重启，下次更新生效（或点「立即刷新」）。</li>
+                    </ol></div>
                         </div>
                         <label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
                             <input type="checkbox" id="epgEnabled" onchange="setEpgEnabled(this.checked)">
@@ -4847,7 +4861,11 @@
                 <!-- 配置备份 / 迁移（issue #99） -->
                 <div class="settings-backup settings-editor-card" style="margin-top: 4px;">
                     <div style="font-size:16px; font-weight:600; color:#333;">配置备份 / 迁移</div>
-                    <div class="system-config-hint">一键把全部配置（系统配置、外部源、我的频道与各配置档、EPG 源、别名 / 分组规则、用户令牌、消息推送）导出为单个备份文件；换机 / 重装后导入即可恢复。<strong>⚠️ 导出文件包含咪咕账号、访问密码与推送机器人地址，请勿随意发给他人</strong>；自定义台标 <code>logos/</code> 文件夹不在包内，如有请单独拷贝。</div>
+                    <div class="system-config-hint">一键把全部配置导出为单个备份文件，换机 / 重装后导入即可恢复。<ol class="hint-list">
+                        <li>包含系统配置、外部源、我的频道与各配置档、EPG 源、别名 / 分组规则、用户令牌、消息推送。</li>
+                        <li><strong>⚠️ 导出文件包含咪咕账号、访问密码与推送机器人地址，请勿随意发给他人。</strong></li>
+                        <li>自定义台标 <code>logos/</code> 文件夹不在包内，如有请单独拷贝。</li>
+                    </ol></div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px;">
                         <button class="btn btn-primary" onclick="exportConfigBackup()">导出配置</button>
                         <input type="file" id="configImportFile" accept=".json,application/json" style="max-width: 260px;">
@@ -4876,13 +4894,13 @@
                                 <input type="text" id="sysProxy" oninput="setSaveDirty('proxy'); invalidateProxyTest()" placeholder="http://192.168.1.10:7890" autocomplete="off" spellcheck="false">
                                 <button type="button" class="btn" id="sysProxyTestBtn" onclick="testProxy()">测试</button>
                             </div>
-                            <ol class="system-config-hint sys-proxy-steps">
+                            <div class="system-config-hint"><ol class="hint-list">
                                 <li>填代理软件（Clash、mihomo、OpenClash 等）的 HTTP、SOCKS5 或混合端口，如 <code>http://192.168.1.10:7890</code>、<code>socks5://192.168.1.10:7891</code>。</li>
                                 <li>有账号密码的写成 <code>http://用户名:密码@192.168.1.10:7890</code>；账号密码里的 <code>%</code> <code>@</code> <code>#</code> 要写成 <code>%25</code> <code>%40</code> <code>%23</code>。</li>
                                 <li>代理软件要打开「允许局域网连接」。Docker 用桥接网络时不要填 <code>127.0.0.1</code>（那是容器自己），要填代理所在机器的局域网 IP。</li>
                                 <li>只有服务器走代理，播放设备不用设。</li>
                                 <li>点「测试」不用先保存，测完要点「保存代理设置」才生效；测试只查几个代表性接口，不代表所有频道都能播。</li>
-                            </ol>
+                            </ol></div>
                             <details class="system-config-hint sys-proxy-hosts" id="sysProxyHostsBox" hidden><summary>代理软件用规则模式的，要放行这些域名</summary><div id="sysProxyHosts"></div></details>
                             <div class="system-config-hint sys-env-hint" id="sysProxyEnvHint" hidden>检测到环境变量或系统代理：这里留空时沿用它，填写后以这里为准。</div>
                             <div class="sys-proxy-result" id="sysProxyResult" aria-live="polite"></div>

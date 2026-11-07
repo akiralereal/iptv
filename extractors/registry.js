@@ -75,7 +75,9 @@
  *                                 FLV resolve 须返回 validateMediaUrl 校验官方调度跳转。
  *   capabilities.catchup boolean 可选；false 表示纯直播，不透传回看查询参数。
  *   configSchema          array   字段描述，后台据此渲染表单、后端据此校验。值会进请求头的
- *                                 文本字段声明 headerValue: true，保存时去首尾空白、拦下非法字符
+ *                                 文本字段声明 headerValue: true，保存时去首尾空白、拦下非法字符。
+ *                                 字段说明 hint 写一句话的字符串；三条以上要点写成字符串数组，
+ *                                 后台按编号列表显示
  *   credentialCheck       object  要登录的模块（有 secret 字段或 browserLoginFlow）必需：
  *                                 { refresh: 刷新时检查凭证并报 meta.credentialRejected,
  *                                   playback: 播放时发现并经 credentialRejected(config) 上报,

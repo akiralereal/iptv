@@ -5213,7 +5213,11 @@
             if (field.hidden) return '';
             const id = `xf-${moduleId}-${field.key}`;
             const label = escapeHtml(field.label || field.key);
-            const hint = field.hint ? `<div style="font-size:12px; color:#888; margin-top:3px;">${escapeHtml(field.hint)}</div>` : '';
+            // hint 可以是一句话，也可以是数组：三条以上要点写成数组，按编号列表显示，比一整段好读
+            const hintBody = Array.isArray(field.hint)
+                ? (field.hint.length ? `<ol class="hint-list">${field.hint.map(h => `<li>${escapeHtml(h)}</li>`).join('')}</ol>` : '')
+                : escapeHtml(field.hint || '');
+            const hint = hintBody ? `<div style="font-size:12px; color:#888; margin-top:3px;">${hintBody}</div>` : '';
             const envNote = envProvided[field.key]
                 ? `<div style="font-size:12px; color:#faad14; margin-top:3px;">当前值来自环境变量 <code>${escapeHtml(envProvided[field.key])}</code>，在此填写会覆盖它</div>`
                 : '';

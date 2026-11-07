@@ -3334,6 +3334,8 @@
         .sys-proxy-result:empty { display: none; }
         .sys-proxy-result .ok { color: var(--ui-success); }
         .sys-proxy-result .fail { color: var(--ui-danger); }
+        .sys-proxy-steps { margin-bottom: 0; padding-left: 1.6em; }
+        .sys-proxy-steps li + li { margin-top: 2px; }
         .sys-proxy-hosts summary { cursor: pointer; }
         .sys-proxy-hosts[hidden] { display: none; }
         .sys-proxy-hosts code, .sys-proxy-result code { user-select: all; overflow-wrap: anywhere; }
@@ -4874,7 +4876,13 @@
                                 <input type="text" id="sysProxy" oninput="setSaveDirty('proxy'); invalidateProxyTest()" placeholder="http://192.168.1.10:7890" autocomplete="off" spellcheck="false">
                                 <button type="button" class="btn" id="sysProxyTestBtn" onclick="testProxy()">测试</button>
                             </div>
-                            <div class="system-config-hint">填 Clash、mihomo、OpenClash 等代理软件的 HTTP、SOCKS5 或混合端口，如 <code>http://192.168.1.10:7890</code>、<code>socks5://192.168.1.10:7891</code>；有账号密码的写成 <code>http://用户名:密码@192.168.1.10:7890</code>。账号或密码中的 <code>%</code>、<code>@</code>、<code>#</code> 分别写成 <code>%25</code>、<code>%40</code>、<code>%23</code>。代理软件要打开「允许局域网连接」；Docker 用桥接网络时 <code>127.0.0.1</code> 指容器自己，要填代理所在机器的局域网 IP。播放设备不用设代理。点「测试」不用先保存，测试后仍需保存才生效。测试检查代表性接口与清单，不代表全部频道均可播放。</div>
+                            <ol class="system-config-hint sys-proxy-steps">
+                                <li>填代理软件（Clash、mihomo、OpenClash 等）的 HTTP、SOCKS5 或混合端口，如 <code>http://192.168.1.10:7890</code>、<code>socks5://192.168.1.10:7891</code>。</li>
+                                <li>有账号密码的写成 <code>http://用户名:密码@192.168.1.10:7890</code>；账号密码里的 <code>%</code> <code>@</code> <code>#</code> 要写成 <code>%25</code> <code>%40</code> <code>%23</code>。</li>
+                                <li>代理软件要打开「允许局域网连接」。Docker 用桥接网络时不要填 <code>127.0.0.1</code>（那是容器自己），要填代理所在机器的局域网 IP。</li>
+                                <li>只有服务器走代理，播放设备不用设。</li>
+                                <li>点「测试」不用先保存，测完要点「保存代理设置」才生效；测试只查几个代表性接口，不代表所有频道都能播。</li>
+                            </ol>
                             <details class="system-config-hint sys-proxy-hosts" id="sysProxyHostsBox" hidden><summary>代理软件用规则模式的，要放行这些域名</summary><div id="sysProxyHosts"></div></details>
                             <div class="system-config-hint sys-env-hint" id="sysProxyEnvHint" hidden>检测到环境变量或系统代理：这里留空时沿用它，填写后以这里为准。</div>
                             <div class="sys-proxy-result" id="sysProxyResult" aria-live="polite"></div>

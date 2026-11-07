@@ -903,6 +903,13 @@
             border-color: #ffadd2;
         }
 
+        /* 走后台「网络代理」的模块（registry.js 的 outbound: 'proxy'），跟分类角标并排 */
+        .source-badge.proxy {
+            background: #e6f4ff;
+            color: #0958d9;
+            border-color: #91caff;
+        }
+
         /* 自定义源的展开详情区。280px 那一栏是使用说明。 */
         .external-detail-wrap {
             display: grid;
@@ -4724,7 +4731,7 @@
                 <section class="sys-section">
                     <div class="sys-section-head">
                         <div class="sys-section-title">网络代理</div>
-                        <div class="sys-section-desc">适用于 YouTube 直播、澳门（澳广视）、海外频道和 Telegram 消息推送。澳门与海外频道有生效代理时，清单和视频分片均经服务器转发，会使用服务器带宽及代理流量；其他模块不使用这里填写的代理。</div>
+                        <div class="sys-section-desc">适用于 <span id="sysProxyScope">YouTube 直播、澳门、海外频道</span>和 Telegram 消息推送（这些模块的卡片上标有「走代理」）。有生效代理时，这些模块的取址、清单和视频分片均经服务器转发，会使用服务器带宽及代理流量；其他模块不使用这里填写的代理。</div>
                     </div>
                     <div class="system-config-grid">
                         <div class="system-config-item sys-span-all">
@@ -6328,6 +6335,7 @@
                     <div class="source-card-title">
                         <span class="name">${escapeHtml(m.name)}</span>
                         <span class="source-badge ${escapeHtml(category.id)}">${escapeHtml(category.badge)}</span>
+                        ${m.outbound === 'proxy' ? '<span class="source-badge proxy" title="取址、清单和视频都走「设置 → 系统配置 → 网络代理」里的代理；没配代理时沿用环境变量代理或直连">走代理</span>' : ''}
                         <label class="source-card-toggle" onclick="event.stopPropagation()" title="即时生效，无需保存">
                             启用
                             <input type="checkbox" role="switch" class="module-switch" ${m.enabled ? 'checked' : ''}
@@ -7840,7 +7848,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(myPlaylistConfig)
                 });
-                const result = await response.json();
+                const result = await readJsonResponse(response);
                 if (!result.success) {
                     myPlaylistConfig.hiddenRules = before;   // 存失败就回滚内存，别让界面显示一个没落盘的状态
                     showStatus(result.message || '保存失败', 'error');
@@ -9583,7 +9591,7 @@
                     body: JSON.stringify({ action: 'save', sources: externalConfig })
                 });
 
-                const result = await response.json();
+                const result = await readJsonResponse(response);
                 if (response.ok && result.success !== false) {
                     showStatus(`${source.name} 保存成功并已同步到频道列表`, 'success');
                     setSaveDirty('ext', false);
@@ -9761,6 +9769,20 @@
          *                         提示比跳转先消失的话，这句话等于没说。
          */
         /** ms <= 0 表示不自动隐藏（页面已经没法用了、必须让用户看到的那种提示）。 */
+        /**
+         * 读接口回复里的 JSON。/api/* 一律回 JSON；拿到别的东西（反代、内网穿透层替服务答的错误页、
+         * 服务重启中的 502、入口密码不对时的 403 文本）就把状态码、类型和回复开头一起报出来。
+         * 浏览器自己的说法看不出是谁回的：Safari 只说「The string did not match the expected pattern」，
+         * Chrome 只说「Unexpected token '<'」，截图发过来没法判断。
+         */
+        async function readJsonResponse(response) {
+            const text = await response.text();
+            try { return JSON.parse(text); } catch { /* 下面报清楚 */ }
+            const type = (response.headers?.get?.('content-type') || '').split(';')[0].trim() || '未标类型';
+            const snippet = text.replace(/<(script|style)[^]*?<\/\1>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+            throw new Error(`服务回复不是 JSON（HTTP ${response.status} ${type}）${snippet ? '：' + snippet : '，内容为空'}；多半是反代、内网穿透层回的页面，或服务正在重启`);
+        }
+
         function showStatus(message, type, ms = 3000) {
             if (type === 'error') statusErrorSeq++;   // 供 toastSaved 判定「期间出过错」
             const status = document.getElementById('status');
@@ -9791,6 +9813,11 @@
             document.getElementById('sysEnableDisplayNameUnify').checked = systemConfig.enableDisplayNameUnify === true;
             document.getElementById('sysProxy').value = systemConfig.proxy || '';
             document.getElementById('sysProxyEnvHint').hidden = !systemConfig.proxyEnvFallback;
+            // 走代理的模块名单来自各模块的声明（registry.js 的 outbound: 'proxy'），不在页面里写死
+            const proxyScope = document.getElementById('sysProxyScope');
+            if (proxyScope && Array.isArray(systemConfig.proxyModules) && systemConfig.proxyModules.length) {
+                proxyScope.textContent = systemConfig.proxyModules.map(m => m.name).join('、');
+            }
             invalidateProxyTest();
             renderEnvHints();
         }
@@ -9989,7 +10016,7 @@ if(success){
                     body: JSON.stringify(config)
                 });
 
-                const result = await response.json();
+                const result = await readJsonResponse(response);
 
                 if (result.success) {
                     // 访问密码 / 管理页面路径任一变更，本页当前用的入口地址就已经失效了：
@@ -10078,16 +10105,25 @@ if(success){
                     signal: controller.signal,
                     body: JSON.stringify({ proxy })
                 });
-                const data = await res.json();
+                const data = await readJsonResponse(res);
                 if (!isCurrent()) return;
                 if (!data.success) {
                     out.innerHTML = `<span class="fail">${escapeHtml(data.message || '测试失败')}</span>`;
                     return;
                 }
                 const via = { input: '经输入的代理', env: '留空，使用环境变量或系统代理' }[data.via] || '留空，使用直连';
-                out.innerHTML = `<div>${via}：</div>` + (data.results || []).map(r => r.ok
+                const results = data.results || [];
+                const okCount = results.filter(r => r.ok).length;
+                // 先一句总结代理本身通不通，再逐项列：对方站点断开的那几项别让人误以为是代理坏了、反复改地址
+                const summary = okCount ? `${data.via ? '代理可用，' : ''}${okCount}/${results.length} 项能连上`
+                    : data.via && data.proxyReachable === false ? '连不上代理'
+                    : data.via && data.proxyReachable ? `代理可用，但 ${results.length} 项都没连上`
+                    : `${results.length} 项都没连上`;
+                const afterProxy = data.via && results.some(r => !r.ok && r.stage === 'target');
+                out.innerHTML = `<div>${via}：<strong class="${okCount ? 'ok' : 'fail'}">${summary}</strong></div>` + results.map(r => r.ok
                     ? `<div class="ok">✓ ${escapeHtml(r.name)} 能连上（${r.ms} 毫秒）</div>`
-                    : `<div class="fail">✗ ${escapeHtml(r.name)}：${escapeHtml(r.message || '连不上')}</div>`).join('');
+                    : `<div class="fail">✗ ${escapeHtml(r.name)}：${escapeHtml(r.message || '连不上')}</div>`).join('')
+                    + (afterProxy ? '<div>标「代理已接通」的几项断在代理之后：代理软件把这些域名分流成了直连、所用节点连不上它们，或对方站点拒绝了这个出口。改分流规则或换节点后再测，这边的代理地址不用改。</div>' : '');
             } catch (error) {
                 if (!isCurrent()) return;
                 const message = error.name === 'AbortError' ? '请求超时，请重试' : error.message;
@@ -10333,7 +10369,7 @@ if(success){
                     method: 'POST'
                 });
 
-                const result = await response.json();
+                const result = await readJsonResponse(response);
 
                 if (result.success) {
                     if (portChanged) {
@@ -10572,7 +10608,7 @@ if(success){
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ profileId, sourceId, enabled })
                 });
-                const r = await res.json();
+                const r = await readJsonResponse(res);
                 if (!r.success) { showStatus(r.message || '保存失败', 'error'); return; }
                 if (sourceProfileData) sourceProfileData.disabled[profileId] = r.data.disabledSources;
                 // 同步本地整份配置副本：避免「我的频道」后续整份保存把刚设置的禁源带回旧值
@@ -11569,7 +11605,7 @@ if(success){
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(config)
                 });
-                const result = await response.json();
+                const result = await readJsonResponse(response);
                 if (!result.success) failure = '保存失败';
             } catch (error) {
                 failure = '保存失败: ' + error.message;
@@ -12350,7 +12386,7 @@ if(success){
                     body: JSON.stringify(myPlaylistConfig)
                 });
 
-                const result = await response.json();
+                const result = await readJsonResponse(response);
                 if (result.success) {
                     showStatus('配置已保存', 'success');
                 } else {

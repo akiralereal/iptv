@@ -17,12 +17,12 @@
  */
 import assert from 'node:assert/strict'
 import { constants, createCipheriv, createDecipheriv, createHash, createHmac, generateKeyPairSync, privateEncrypt } from 'node:crypto'
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 
-import { listModules, getModule, sourceIdOf, resolverFor, validateModule, MODULE_ID_RE, MODULE_CATEGORIES } from '../extractors/registry.js'
+import { listModules, getModule, sourceIdOf, resolverFor, validateModule, proxyModules, MODULE_ID_RE, MODULE_CATEGORIES } from '../extractors/registry.js'
 import { clearUrlCache, channel as playbackChannel } from '../utils/appUtils.js'
 import { qualityFrom } from '../utils/qualityOverride.js'
 import {
@@ -1039,6 +1039,47 @@ try {
     const block = admin.slice(start, admin.indexOf('];', start))
     for (const id of MODULE_CATEGORIES) assert.match(block, new RegExp(`id: '${id}'`), `后台缺「${id}」小节`)
     assert.match(admin, /\.source-badge\.overseas/, '海外小节的角标要有样式')
+  })
+
+  check('outbound / proxyProbe 的声明校验：只认 proxy，声明了就要给探测目标，没声明不许带', () => {
+    const base = { id: 'probe-x', name: 'x', fetch() {}, capabilities: {} }
+    assert.throws(() => validateModule({ ...base, outbound: 'direct' }), /outbound 非法/)
+    assert.throws(() => validateModule({ ...base, outbound: 'proxy' }), /proxyProbe/)
+    assert.throws(() => validateModule({ ...base, outbound: 'proxy', proxyProbe: { url: 'ftp://x/' } }), /proxyProbe/)
+    assert.throws(() => validateModule({ ...base, outbound: 'proxy', proxyProbe: { url: 'https://x/', name: ' ' } }), /proxyProbe\.name/)
+    assert.throws(() => validateModule({ ...base, proxyProbe: { url: 'https://x/' } }), /没声明 outbound/)
+    validateModule({ ...base, outbound: 'proxy', proxyProbe: { url: 'https://x/' } })
+  })
+
+  check('★ 走代理的模块：名单只来自声明；声明了的出站只许 outboundFetch，没声明的目录不许偷用', () => {
+    const root = new URL('../extractors/', import.meta.url)
+    const filesOf = dir => readdirSync(new URL(`${dir}/`, root))
+      .filter(file => file.endsWith('.js'))
+      .map(file => ({ file, src: readFileSync(new URL(`${dir}/${file}`, root), 'utf8') }))
+    // 一个目录可能出多个模块（广电云），守门按目录：引用了 outboundProxy.js 的目录必须恰好是声明了走代理的模块的目录
+    const dirs = readdirSync(root).filter(name => existsSync(new URL(`${name}/index.js`, root)))
+    const declared = proxyModules().map(module => module.id)
+    assert.deepEqual(declared, ['tdm', 'youtube-live', 'overseas'],
+      '走代理的名单变了：按 ADD-CHANNELS.md「要走代理的模块」做完再改这里')
+    for (const dir of declared) assert.ok(dirs.includes(dir), `${dir} 走代理的模块目录名要和 id 一致`)
+    const using = dirs.filter(dir => filesOf(dir).some(({ src }) => /outboundProxy\.js/.test(src)))
+    assert.deepEqual([...using].sort(), [...declared].sort(),
+      '引用 utils/outboundProxy.js 的目录必须恰好是声明了 outbound: proxy 的模块：接了代理就要登记，登记了就要接')
+    for (const module of proxyModules()) {
+      assert.match(module.proxyProbe.url, /^https:\/\//, `${module.id} 的探测目标要是 https，才能顺带验证隧道`)
+      assert.equal(module.defaultEnabled, false, `${module.id} 走代理的模块默认关，由用户确认代理可用后打开`)
+      if (module.capabilities?.resolve) assert.equal(typeof module.fetchProxyMedia, 'function', `${module.id} 要声明 fetchProxyMedia，清单和分片才走代理`)
+      if (module.capabilities?.epg) assert.equal(typeof module.epgFetch, 'function', `${module.id} 要声明 epgFetch，节目单才走代理`)
+      for (const { file, src } of filesOf(module.id)) {
+        assert.doesNotMatch(src, /proxyAwareFetch|directFamilyFetch|systemProxyDispatcher|from ['"]undici['"]|node:https/,
+          `${module.id}/${file} 走代理的模块不许绕开 outboundFetch`)
+        // 裸的全局 fetch(...) 不走代理。方法定义 `async fetch(config)` 不算；参数默认值要写 outboundFetch
+        for (const [index, line] of src.split('\n').entries()) {
+          if (/^\s*(async\s+)?fetch\s*\(/.test(line)) continue
+          assert.doesNotMatch(line, /(?<![\w.$])fetch\s*\(/, `${module.id}/${file}:${index + 1} 直接调了全局 fetch，不会走代理`)
+        }
+      }
+    }
   })
 
   check('★ 所有非代理抓取模块首次出现默认开启，显式关闭后保持关闭', () => {

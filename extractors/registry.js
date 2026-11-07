@@ -57,6 +57,15 @@
  *                                 刷新预览图 / 检测可用性 / 失败自动换台）时本地拒绝、不打上游。
  *                                 给「服务端代所有观众向官方取票」且官方按 IP 限频的模块用；
  *                                 直链或分片播放器直连的模块不需要
+ *   outbound              string  可选；'proxy' 表示模块的全部出站——取址、节目单、清单、分片、外部工具——
+ *                                 都走后台「系统配置 → 网络代理」（utils/outboundProxy.js 的 outboundFetch，
+ *                                 没配时沿用环境变量代理或直连）。后台「网络代理」的适用名单、「测试」
+ *                                 按钮的目标、模块卡片上的「走代理」角标都从这个声明派生，不另外维护；
+ *                                 scripts/test-extractors.mjs 静态检查：声明了的模块不许再用 proxyAwareFetch
+ *                                 或全局 fetch，没声明的不许引用 outboundFetch。新增要走代理的模块按
+ *                                 ADD-CHANNELS.md「要走代理的模块」那条做
+ *   proxyProbe            object  outbound 为 'proxy' 时必需：{ url, name? }。「测试」按钮用来代表这个模块的
+ *                                 一个 https 接口或清单（取址用的接口、或一路直播的主清单）；name 不写用模块名
  *   streamType            string  可选；默认 hls，flv 由本机流式代理且不转码。
  *                                 FLV resolve 须返回 validateMediaUrl 校验官方调度跳转。
  *   capabilities.catchup boolean 可选；false 表示纯直播，不透传回看查询参数。
@@ -394,6 +403,20 @@ export function validateModule(module) {
   if (module.streamType != null && !['hls', 'flv'].includes(module.streamType)) {
     throw new Error(`抓取模块 ${module.id} 的 streamType 非法`)
   }
+  if (module.outbound != null && module.outbound !== 'proxy') {
+    throw new Error(`抓取模块 ${module.id} 的 outbound 非法: ${JSON.stringify(module.outbound)}（只有 'proxy'）`)
+  }
+  if (module.outbound === 'proxy') {
+    const probe = module.proxyProbe
+    if (!probe || typeof probe !== 'object' || !/^https?:\/\/\S+$/.test(probe.url || '')) {
+      throw new Error(`抓取模块 ${module.id} 声明了 outbound: 'proxy'，必须给 proxyProbe: { url, name? }（测试按钮用的代表性接口）`)
+    }
+    if (probe.name != null && (typeof probe.name !== 'string' || !probe.name.trim())) {
+      throw new Error(`抓取模块 ${module.id} 的 proxyProbe.name 必须是非空字符串`)
+    }
+  } else if (module.proxyProbe != null) {
+    throw new Error(`抓取模块 ${module.id} 没声明 outbound: 'proxy'，不该有 proxyProbe`)
+  }
 }
 
 const registry = new Map()
@@ -428,6 +451,11 @@ export function listModules() {
 }
 
 /** 按 id 取模块；不存在返回 undefined（调用方自己决定是报错还是跳过）。 */
+/** 走后台「网络代理」的模块（outbound: 'proxy'），按注册顺序：后台名单、测试目标和角标都从这里拿。 */
+export function proxyModules() {
+  return listModules().filter(module => module.outbound === 'proxy')
+}
+
 export function getModule(id) {
   return registry.get(String(id || ''))
 }

@@ -3,7 +3,8 @@ import { writeJsonFileSync } from "./fileUtil.js"
 import { dataPath } from "./paths.js"
 import update from "./updateData.js"
 import { clearUrlCache } from "./appUtils.js"
-import { maskProxyUrl, normalizeProxyUrl, restoreMaskedProxy, settingProxyUrl, testOutboundProxy } from "./outboundProxy.js"
+import { maskProxyUrl, normalizeProxyUrl, restoreMaskedProxy, settingProxyUrl, testOutboundProxy, TELEGRAM_TEST_TARGET } from "./outboundProxy.js"
+import { proxyModules } from "../extractors/registry.js"
 import { systemProxyUrl } from "./systemProxy.js"
 import {
   reloadConfig, sanitizeSegment,
@@ -76,7 +77,9 @@ export function getSystemConfigAPI() {
         // 网络代理：密码打码回显（没设访问密码时这个接口谁都能读）；保存时占位符换回原密码
         proxy: maskProxyUrl(settingProxyUrl()),
         // 留空时 所支持模块 是否会沿用 HTTPS_PROXY（只回有没有，不回地址）
-        proxyEnvFallback: Boolean(systemProxyUrl())
+        proxyEnvFallback: Boolean(systemProxyUrl()),
+        // 走这个代理的模块（registry.js 的 outbound: 'proxy'），后台「网络代理」的说明按它列名单；Telegram 推送固定另算
+        proxyModules: proxyModules().map(module => ({ id: module.id, name: module.name }))
       },
       envOverrides
     }
@@ -88,6 +91,14 @@ export function getSystemConfigAPI() {
   }
 }
 
+/** 「测试」的目标：声明了 outbound: 'proxy' 的模块各出一个代表性接口（按注册顺序），Telegram 推送固定排最后。 */
+export function proxyTestTargets() {
+  return [
+    ...proxyModules().map(module => ({ name: module.proxyProbe.name || module.name, url: module.proxyProbe.url })),
+    TELEGRAM_TEST_TARGET,
+  ]
+}
+
 /**
  * 后台「网络代理」的测试按钮：用输入框里的值（可能是打码回显、还没保存）检查官方接口与直播清单。
  */
@@ -97,7 +108,7 @@ export async function testProxyAPI(raw) {
     if (existsSync(SYSTEM_CONFIG_PATH)) {
       try { saved = JSON.parse(readFileSync(SYSTEM_CONFIG_PATH, 'utf-8')).proxy || '' } catch { saved = '' }
     }
-    return { success: true, ...(await testOutboundProxy(restoreMaskedProxy(raw, saved))) }
+    return { success: true, ...(await testOutboundProxy(restoreMaskedProxy(raw, saved), { targets: proxyTestTargets() })) }
   } catch (error) {
     return { success: false, message: error.message }
   }

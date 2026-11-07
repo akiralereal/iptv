@@ -160,6 +160,8 @@ export default {
   id: 'overseas',
   name: '海外频道',
   category: 'overseas',
+  outbound: 'proxy',
+  proxyProbe: { name: '海外频道（DW）', url: 'https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8' },
   description: '海外免费直播频道（体育、娱乐时尚、文旅、国际、韩国），并入现有分组。在大陆常卡顿或连不上，默认关闭；可在「系统配置 → 网络代理」配置代理，清单和视频经服务器转发，播放设备无需设置代理；未配置代理时由播放器直连各平台 CDN。',
   // 默认关闭；用户确认直连网络或代理可用后自行打开
   defaultEnabled: false,

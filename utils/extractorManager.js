@@ -755,6 +755,8 @@ class ExtractorManager {
         enabledEnv: module.enabledEnv || '',
         // 打开前要用户确认的一句话（registry.js 的 enableNotice），卡片开关和批量开关都用
         enableNotice: module.enableNotice || '',
+        // 'proxy' = 这个模块的出站都走后台「网络代理」（registry.js 的 outbound），卡片上标「走代理」
+        outbound: module.outbound || '',
         configSavedNotice: module.configSavedNotice || '',
         configSchema: module.configSchema || [],
         config,

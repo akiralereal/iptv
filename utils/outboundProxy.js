@@ -108,12 +108,11 @@ export function outboundFetch(url, options = {}) {
   return undiciFetch(url, { ...options, dispatcher: dispatcherFor(proxy) })
 }
 
-const TEST_TARGETS = [
-  { name: 'YouTube', url: 'https://www.youtube.com/generate_204' },
-  { name: 'Telegram', url: 'https://api.telegram.org/' },
-  { name: '澳门（澳广视）', url: 'https://www.tdm.com.mo/api/v1/common/get-domain' },
-  { name: '海外频道（DW）', url: 'https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8' },
-]
+/**
+ * 「测试」按钮的目标：Telegram 推送不是模块，固定在这里；各模块的目标来自它们的 proxyProbe 声明，
+ * 由 utils/systemConfigAPI.js 的 proxyTestTargets() 拼起来（这里不能 import 注册表：模块反过来 import 本文件）。
+ */
+export const TELEGRAM_TEST_TARGET = { name: 'Telegram', url: 'https://api.telegram.org/' }
 
 /**
  * undici 6 把代理对 CONNECT 的拒绝（如 407）只报成「Request was cancelled.」，看不出原因。
@@ -140,18 +139,42 @@ function connectStatus(proxy, target, timeoutMs) {
   })
 }
 
+/** SOCKS 代理回的拒绝码（socks 库给的是枚举名），翻成能看懂的话。 */
+const SOCKS_REJECT_REASONS = {
+  Failure: '一般性失败', NetworkUnreachable: '网络不可达', HostUnreachable: '主机不可达',
+  ConnectionRefused: '连接被拒绝', TTLExpired: 'TTL 超时',
+}
+
+/**
+ * 一次失败分到哪一段：
+ *   'proxy'  连代理这一步就失败——端口没开、账号密码不对、代理按规则拒绝这个目标；
+ *   'target' 代理已经接通，往对方站点那一步失败——连接被断开、代理报告连不上、CONNECT 被回 5xx；
+ *   ''       分不清（整次超时、认不出的错误），由 testOutboundProxy 按别的目标的结果再判。
+ * 「YouTube 通、澳门 ECONNRESET」就是 'target'：代理本身没问题，是代理软件把该域名分流成了直连、
+ * 节点连不上它，或对方站点拒绝了这个出口——都不是这边的设置能改的，不说清楚用户会一直改代理地址。
+ * 没有代理（直连测试）时不分段，错误原样给。
+ */
 function describeError(err, proxy, status) {
-  if (err?.name === 'TimeoutError' || err?.name === 'AbortError') return '超时没有响应'
+  if (err?.name === 'TimeoutError' || err?.name === 'AbortError') return { stage: '', message: '超时没有响应' }
   const cause = err?.cause || err
   const text = [cause?.code, cause?.message].filter(Boolean).join(' ') || err?.message || '连接失败'
   status ||= text.match(/Proxy response \((\d+)\)/)?.[1]
-  let message = String(status) === '407' ? '代理要求账号密码，或账号密码不对（HTTP 407）'
-    : status ? `代理拒绝了连接（HTTP ${status}）`
-    : /Authentication failed/i.test(text) ? '代理账号密码不对'
-    : /ECONNREFUSED/.test(text) ? '连不上代理：端口没开，或没打开「允许局域网连接」'
-    : /EHOSTUNREACH|ENETUNREACH/.test(text) ? '连不上代理所在的机器'
-    : /ENOTFOUND|EAI_AGAIN/.test(text) ? '代理主机名解析失败'
-    : text
+  const code = Number(status) || 0
+  const socksReject = text.match(/proxy rejected connection - (\w+)/i)?.[1]
+  const resetCode = text.match(/\b(ECONNRESET|EPIPE)\b/)?.[1]
+  let stage = '', message = text
+  if (!proxy) { /* 直连：没有代理可分段 */ }
+  else if (code === 407) { stage = 'proxy'; message = '代理要求账号密码，或账号密码不对（HTTP 407）' }
+  else if (code >= 500) { stage = 'target'; message = `代理已接通，但它连不上对方站点（代理回 HTTP ${code}）` }
+  else if (code) { stage = 'proxy'; message = `代理拒绝了连接（HTTP ${code}）` }
+  else if (/Authentication failed/i.test(text)) { stage = 'proxy'; message = '代理账号密码不对' }
+  else if (/ECONNREFUSED/.test(text)) { stage = 'proxy'; message = '连不上代理：端口没开，或没打开「允许局域网连接」' }
+  else if (/EHOSTUNREACH|ENETUNREACH/.test(text)) { stage = 'proxy'; message = '连不上代理所在的机器' }
+  else if (/ENOTFOUND|EAI_AGAIN/.test(text)) { stage = 'proxy'; message = '代理主机名解析失败' }
+  else if (/Proxy connection timed out/i.test(text)) { stage = 'proxy'; message = '连代理超时没有响应' }
+  else if (socksReject === 'NotAllowed') { stage = 'proxy'; message = '代理按它的规则拒绝了这个目标' }
+  else if (socksReject) { stage = 'target'; message = `代理已接通，但它连不上对方站点（${SOCKS_REJECT_REASONS[socksReject] || socksReject}）` }
+  else if (resetCode || /secure TLS connection|socket hang up/i.test(text)) { stage = 'target'; message = `代理已接通，往对方站点的连接被断开（${resetCode || 'ECONNRESET'}）` }
   // 错误里可能带回代理地址，账号密码别显示出去
   if (proxy) {
     try {
@@ -161,15 +184,17 @@ function describeError(err, proxy, status) {
       }
     } catch { /* 无效地址前面已拦 */ }
   }
-  return message.slice(0, 300)
+  return { stage, message: message.slice(0, 300) }
 }
 
 /**
- * 后台「测试」按钮：经输入框里的代理检查代表性官方接口和直播清单（还没保存也能测）。
+ * 后台「测试」按钮：经输入框里的代理检查代表性官方接口和直播清单（还没保存也能测）；目标见 proxyTestTargets()。
  * 输入框为空时按保存后会用的路子测：环境变量 / 系统代理，都没有就直连。
  * 2xx/3xx 表示可达；HTTP 错误直接展示。仅验证这些目标，不代表全部频道可播。
+ * 每项带 stage（见 describeError），整体带 proxyReachable：true 代理本身能用、false 连代理就失败、
+ * null 看不出来（直连测试，或全部超时）。
  */
-export async function testOutboundProxy(raw, { targets = TEST_TARGETS, timeoutMs = 10000 } = {}) {
+export async function testOutboundProxy(raw, { targets = [TELEGRAM_TEST_TARGET], timeoutMs = 10000 } = {}) {
   const proxy = raw ? normalizeProxyUrl(raw) : ''
   const effective = proxy || systemProxyUrl()
   const dispatcher = proxy ? createProxyDispatcher(proxy) : undefined
@@ -183,17 +208,30 @@ export async function testOutboundProxy(raw, { targets = TEST_TARGETS, timeoutMs
           : await proxyAwareFetch(target.url, options)
         await res.body?.cancel().catch(() => {})
         const ok = res.status >= 200 && res.status < 400
-        return { name: target.name, ok, status: res.status, ms: Date.now() - started, ...(!ok ? { message: `目标返回 HTTP ${res.status}` } : {}) }
+        // 对方答了 HTTP 状态：隧道已经通了，失败在对方那一段
+        return { name: target.name, ok, status: res.status, ms: Date.now() - started, ...(!ok ? { stage: 'target', message: `目标返回 HTTP ${res.status}` } : {}) }
       } catch (err) {
-        let status
+        let status, accepted = false
         if (proxy && /^https?:/.test(proxy) && err?.name !== 'TimeoutError') {
           try { status = await connectStatus(proxy, target.url, 5000) } catch { /* 连代理本身失败，原错误已经说明 */ }
-          if (status === 200) status = undefined
+          if (status === 200) { status = undefined; accepted = true }   // 隧道建得起来：失败在代理之后
         }
-        return { name: target.name, ok: false, ms: Date.now() - started, message: describeError(err, effective, status) }
+        // 本机回环目标不经代理（proxyAwareFetch 同样跳过），它的失败不能算到代理头上
+        const { stage, message } = describeError(err, isLoopback(target.url) ? '' : effective, status)
+        return { name: target.name, ok: false, ms: Date.now() - started, stage: stage || (accepted ? 'target' : ''), message }
       }
     }))
-    return { via: proxy ? 'input' : (systemProxyUrl() ? 'env' : ''), results }
+    // 有一项经代理连上了（或已证明隧道能建），别的失败就不会是连不上代理：分不清的归到对方那一段
+    const reachable = Boolean(effective) && results.some(r => r.ok || r.stage === 'target')
+    for (const r of results) {
+      if (r.ok) continue
+      if (!r.stage && reachable) r.stage = 'target'
+      if (r.stage === 'target' && !/^(代理已接通|目标返回)/.test(r.message)) {
+        r.message = r.message === '超时没有响应' ? '代理已接通，对方站点超时没有响应' : `代理已接通，往对方站点那一步失败：${r.message}`
+      }
+    }
+    const proxyReachable = !effective ? null : reachable ? true : results.length && results.every(r => r.stage === 'proxy') ? false : null
+    return { via: proxy ? 'input' : (systemProxyUrl() ? 'env' : ''), proxyReachable, results }
   } finally {
     dispatcher?.close().catch(() => {})
   }

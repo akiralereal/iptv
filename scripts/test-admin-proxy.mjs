@@ -28,19 +28,22 @@ function harness() {
   const context = vm.createContext({ AbortController, setTimeout, clearTimeout,
     document: { getElementById: element, querySelectorAll: () => controls },
     window: { location: { pathname: '/admin', origin: 'http://localhost' } },
-    fetch: (url, options) => new Promise((resolve, reject) => pending.push({ url, options, resolve: value => resolve({ json: async () => value }), reject })),
+    // resolve：接口正常回 JSON；respond：原样给一个响应对象（反代 / 穿透层替服务答的错误页）
+    fetch: (url, options) => new Promise((resolve, reject) => pending.push({ url, options, resolve: value => resolve(jsonResponse(value)), respond: resolve, reject })),
     showStatus: (message, type) => messages.push({ message, type }),
     applySaveDirtyMarks() {}, escapeHtml: value => String(value),
   })
   vm.runInContext(`const API_PREFIX = ''; let systemConfig = { port: 1905 }; const dirtySaveScopes = new Set();
     let systemConfigEditVersion = 0, systemConfigSaving = false, proxyTestSequence = 0, proxyTestController = null;
-    ${['setSaveDirty', 'invalidateProxyTest', 'testProxy', 'saveSystemConfig'].map(source).join('\n')}`, context)
+    ${['setSaveDirty', 'invalidateProxyTest', 'readJsonResponse', 'testProxy', 'saveSystemConfig'].map(source).join('\n')}`, context)
   const inputCode = html.match(/id="sysProxy" oninput="([^"]+)"/)[1]
   return { context, element, controls, pending, messages,
     input(value) { element('sysProxy').value = value; vm.runInContext(inputCode, context) },
     dirty: () => vm.runInContext("dirtySaveScopes.has('sysconfig')", context),
   }
 }
+const jsonResponse = value => ({ status: 200, headers: { get: name => name === 'content-type' ? 'application/json;charset=UTF-8' : null }, text: async () => JSON.stringify(value) })
+const htmlResponse = (status, body) => ({ status, headers: { get: name => name === 'content-type' ? 'text/html;charset=UTF-8' : null }, text: async () => body })
 const success = { success: true, via: 'input', results: [{ name: 'YouTube', ok: true, ms: 1 }] }
 {
   const h = harness()
@@ -107,4 +110,56 @@ for (const ok of [true, false]) {
   assert.equal(h.element('save').disabled, false)
   assert.equal(h.dirty(), true)
 }
-console.log('✓ test-admin-proxy: stale responses, cancellation, save locking, edit tracking and retry')
+{
+  // 反代 / 内网穿透层替服务回了 502 页：提示要带状态码、类型和页面文字，
+  // 不能只剩浏览器那句（Safari「The string did not match the expected pattern」）
+  const h = harness()
+  h.input('proxy-a:7890')
+  const save = h.context.saveSystemConfig()
+  h.pending.shift().respond(htmlResponse(502, '<html><head><title>502 Bad Gateway</title><style>h1{}</style></head><body><center><h1>502 Bad Gateway</h1></center><hr><center>nginx/1.24.0</center></body></html>'))
+  assert.equal(await save, false)
+  assert.equal(h.messages.at(-1).type, 'error')
+  assert.match(h.messages.at(-1).message, /^保存失败: 服务回复不是 JSON（HTTP 502 text\/html）：502 Bad Gateway 502 Bad Gateway nginx\/1\.24\.0；多半是反代、内网穿透层回的页面，或服务正在重启$/)
+  assert.equal(h.dirty(), true)
+}
+{
+  // 入口密码不对时服务回 403 文本；空回复也要说明
+  const h = harness()
+  h.input('proxy-a:7890')
+  const test = h.context.testProxy()
+  h.pending.shift().respond({ status: 403, headers: { get: () => 'text/plain;charset=UTF-8' }, text: async () => '访问令牌无效或已停用' })
+  await test
+  assert.match(h.element('sysProxyResult').innerHTML, /测试失败：服务回复不是 JSON（HTTP 403 text\/plain）：访问令牌无效或已停用；/)
+  const save = h.context.saveSystemConfig()
+  h.pending.shift().respond({ status: 200, headers: { get: () => null }, text: async () => '' })
+  assert.equal(await save, false)
+  assert.match(h.messages.at(-1).message, /服务回复不是 JSON（HTTP 200 未标类型），内容为空；/)
+}
+{
+  // 总结行先说代理本身通不通；「代理已接通」的失败项带一句断在代理之后的提示
+  const h = harness()
+  h.input('proxy-a:7890')
+  let test = h.context.testProxy()
+  h.pending.shift().resolve({ success: true, via: 'input', proxyReachable: true, results: [
+    { name: 'YouTube', ok: true, ms: 1 },
+    { name: '澳门（澳广视）', ok: false, stage: 'target', message: '代理已接通，往对方站点的连接被断开（ECONNRESET）' }] })
+  await test
+  let html = h.element('sysProxyResult').innerHTML
+  assert.match(html, /经输入的代理：<strong class="ok">代理可用，1\/2 项能连上<\/strong>/)
+  assert.match(html, /✗ 澳门（澳广视）：代理已接通，往对方站点的连接被断开（ECONNRESET）/)
+  assert.match(html, /断在代理之后/)
+  test = h.context.testProxy()
+  h.pending.shift().resolve({ success: true, via: 'input', proxyReachable: false, results: [{ name: 'YouTube', ok: false, stage: 'proxy', message: '连不上代理：端口没开' }] })
+  await test
+  html = h.element('sysProxyResult').innerHTML
+  assert.match(html, /<strong class="fail">连不上代理<\/strong>/)
+  assert.doesNotMatch(html, /断在代理之后/)
+  h.input('')
+  test = h.context.testProxy()
+  h.pending.shift().resolve({ success: true, via: '', proxyReachable: null, results: [{ name: 'YouTube', ok: false, stage: '', message: '超时没有响应' }] })
+  await test
+  html = h.element('sysProxyResult').innerHTML
+  assert.match(html, /留空，使用直连：<strong class="fail">1 项都没连上<\/strong>/)
+  assert.doesNotMatch(html, /代理可用|断在代理之后/)
+}
+console.log('✓ test-admin-proxy: stale responses, cancellation, save locking, edit tracking, retry, non-JSON replies and test summary')

@@ -112,6 +112,13 @@ const origin = http.createServer((req, res) => {
 origin.listen(0, '127.0.0.1'); await once(origin, 'listening')
 const originPort = origin.address().port
 
+// 代理接通之后对方那一端的几种坏法：一连上就断（4443）、一直不答（4444）、CONNECT 被代理回 502（4445）、SOCKS 回「主机不可达」（4446）
+const resetServer = net.createServer(socket => socket.destroy()).unref()
+resetServer.listen(0, '127.0.0.1'); await once(resetServer, 'listening')
+const hangServer = net.createServer(socket => socket.unref()).unref()
+hangServer.listen(0, '127.0.0.1'); await once(hangServer, 'listening')
+const upstreamPortFor = port => port === 443 ? tlsPort : port === 4443 ? resetServer.address().port : port === 4444 ? hangServer.address().port : originPort
+
 const connects = []
 const httpProxy = http.createServer((req, res) => { res.writeHead(405).end() })
 httpProxy.on('connect', (req, socket, head) => {
@@ -120,8 +127,9 @@ httpProxy.on('connect', (req, socket, head) => {
     socket.end('HTTP/1.1 407 Proxy Authentication Required\r\n\r\n')
     return
   }
-  const port = Number(req.url.split(':').pop()) === 443 ? tlsPort : originPort
-  const upstream = net.connect(port, '127.0.0.1', () => {
+  const destPort = Number(req.url.split(':').pop())
+  if (destPort === 4445) { socket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n'); return }
+  const upstream = net.connect(upstreamPortFor(destPort), '127.0.0.1', () => {
     socket.write('HTTP/1.1 200 Connection Established\r\n\r\n')
     upstream.write(head)
     upstream.pipe(socket).pipe(upstream)
@@ -146,7 +154,8 @@ const socksProxy = net.createServer(socket => {
       else { socket.destroy(); return }
       const port = req.readUInt16BE(at)
       socksLog.push({ atyp: req[3], host, port })
-      const upstream = net.connect(port === 443 ? tlsPort : originPort, '127.0.0.1', () => {
+      if (port === 4446) { socket.end(Buffer.from([5, 4, 0, 1, 0, 0, 0, 0, 0, 0])); return }   // HostUnreachable
+      const upstream = net.connect(upstreamPortFor(port), '127.0.0.1', () => {
         socket.write(Buffer.from([5, 0, 0, 1, 127, 0, 0, 1, 0, 0]))
         upstream.pipe(socket).pipe(upstream)
       })
@@ -227,6 +236,12 @@ if (tlsPort) {
 }
 
 // ---- 测试按钮 ----
+{
+  const { proxyTestTargets } = await import('../utils/systemConfigAPI.js')
+  assert.deepEqual(proxyTestTargets().map(t => t.name), ['澳门（澳广视）', 'YouTube', '海外频道（DW）', 'Telegram'],
+    '测试目标从模块的 proxyProbe 声明派生，Telegram 固定在最后')
+  assert.ok(proxyTestTargets().every(t => /^https:\/\/\S+$/.test(t.url)))
+}
 const targets = [{ name: 'YouTube', url: 'http://youtube.example/generate_204' }]
 let result = await testOutboundProxy(`socks5://127.0.0.1:${socksPort}`, { targets })
 assert.equal(result.via, 'input')
@@ -248,6 +263,36 @@ await assert.rejects(testOutboundProxy('socks4://1.2.3.4:1080', { targets }), /�
 result = await testOutboundProxy(httpProxyUrl, { targets: [{ name: 'Denied', url: 'http://youtube.example/denied' }] })
 assert.equal(result.results[0].ok, false)
 assert.match(result.results[0].message, /HTTP 403/)
+assert.equal(result.results[0].stage, 'target', '对方答了 HTTP 状态：隧道已经通了')
+
+// ---- 分段：连代理就失败 vs 代理接通后对方那一步失败（截图里「YouTube 通、澳门 ECONNRESET」）----
+result = await testOutboundProxy(`127.0.0.1:${deadPort}`, { targets, timeoutMs: 3000 })
+assert.equal(result.proxyReachable, false)
+assert.equal(result.results[0].stage, 'proxy')
+result = await testOutboundProxy('', { targets: [{ name: 'Dead', url: `http://127.0.0.1:${deadPort}/` }] })
+assert.equal(result.proxyReachable, null, '直连测试不分段')
+assert.equal(result.results[0].stage, '')
+assert.doesNotMatch(result.results[0].message, /代理/)
+const good = { name: 'YouTube', url: 'http://youtube.example/generate_204' }
+const farEnd = [{ name: '澳门', url: 'https://tdm.example:4443/' }, { name: 'DW', url: 'https://dw.example:4444/' }]
+for (const [proxyUrl, extra, expected] of [
+  [httpProxyUrl, { name: 'Gateway', url: 'https://gw.example:4445/' }, /^代理已接通，但它连不上对方站点（代理回 HTTP 502）$/],
+  [`socks5://127.0.0.1:${socksPort}`, { name: 'Unreachable', url: 'https://far.example:4446/' }, /^代理已接通，但它连不上对方站点（主机不可达）$/],
+]) {
+  result = await testOutboundProxy(proxyUrl, { targets: [good, ...farEnd, extra], timeoutMs: 1500 })
+  const [yt, mo, dw, other] = result.results
+  assert.equal(result.proxyReachable, true, proxyUrl)
+  assert.equal(yt.ok, true, proxyUrl)
+  assert.equal(mo.stage, 'target', proxyUrl)
+  assert.match(mo.message, /^代理已接通，往对方站点的连接被断开（ECONNRESET）$/, proxyUrl)
+  assert.equal(dw.stage, 'target', proxyUrl)
+  assert.equal(dw.message, '代理已接通，对方站点超时没有响应', proxyUrl)
+  assert.equal(other.stage, 'target', proxyUrl)
+  assert.match(other.message, expected, proxyUrl)
+}
+result = await testOutboundProxy(httpProxyUrl, { targets: [farEnd[1]], timeoutMs: 1500 })
+assert.equal(result.proxyReachable, null, '只有超时、没有别的证据：分不清')
+assert.equal(result.results[0].message, '超时没有响应')
 
 // ---- 推送：只有 Telegram 走这个代理 ----
 setProxy(`socks5://127.0.0.1:${socksPort}`)

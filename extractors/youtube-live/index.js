@@ -12,6 +12,8 @@ export default {
   id: 'youtube-live',
   name: 'YouTube 直播',
   category: 'live',
+  outbound: 'proxy',
+  proxyProbe: { name: 'YouTube', url: 'https://www.youtube.com/generate_204' },
   defaultEnabled: false,
   catalogVersion: 2,
   description: '输入用户名、频道 ID、频道或视频链接，自动关注所属频道的直播。部署机器需能访问 YouTube 和 Google Video，大陆部署在「设置 → 系统配置 → 网络代理」填代理；默认输出最高画质（可在下方限制），保留配套音轨和字幕。',

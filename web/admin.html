@@ -3339,7 +3339,8 @@
         .hint-list li + li { margin-top: 2px; }
         .sys-proxy-hosts summary { cursor: pointer; }
         .sys-proxy-hosts[hidden] { display: none; }
-        .sys-proxy-hosts code, .sys-proxy-result code { user-select: all; overflow-wrap: anywhere; }
+        /* 不用 user-select: all：一整行域名在同一个 code 里，拖选会被吸到整段的头尾、选区来回跳，没法只选几个 */
+        .sys-proxy-hosts code, .sys-proxy-result code { overflow-wrap: anywhere; }
         .sys-section .system-config-item { padding: 0; border: 0; background: transparent; box-shadow: none; }
         .sys-section .system-config-item label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .sys-section .system-config-item label.sys-check-label { font-weight: 500; cursor: pointer; }

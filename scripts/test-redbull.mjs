@@ -77,6 +77,8 @@ test('动态赛事预告→开播→结束/回放，刷新结果和已收藏入�
   await assert.rejects(p.resolve(refFor(event.id)), /已结束/)
   const groups = buildGroups((await p.discover()).items)
   assert.equal(groups[0].dataList[0].catchup, 'none')
+  assert.equal(buildGroups([{ ...event, eventTitle: 'Gazir Contra Todos 2026 ', title: ' Gazir  livestream' }])[1].dataList[0].name,
+    '红牛 Gazir Contra Todos 2026 · Gazir livestream', '官方标题首尾空格不进频道名')
   assert.match(packLogoUrl({ ...groups[0].dataList[0], sourceId: 'xt:redbull' }), /logo-pack/)
 })
 test('集合 live 滞后时动态接口优先，未来开始、收费和播放权限均排除', async () => {

@@ -13,12 +13,14 @@ function providerFor(ctx = {}) {
   return active
 }
 const transport = createTransport()
+const tidy = text => String(text || '').replace(/\s+/g, ' ').trim()
 export function buildGroups(items) {
   const groups = [{ name: '红牛轮播', dataList: [] }, { name: '红牛赛事', dataList: [] }]
   for (const item of items) {
     const linear = item.content_type === 'video_channel'
     groups[linear ? 0 : 1].dataList.push({
-      name: linear ? TOPICS[item.title] || `红牛 ${item.title}` : `红牛 ${[item.eventTitle || item.subheading, item.title].filter(Boolean).join(' · ')}`,
+      // 官方标题偶有首尾空格（如「Gazir Contra Todos 2026 」），拼频道名前先收拾掉，免得出现双空格
+      name: linear ? TOPICS[item.title] || `红牛 ${tidy(item.title)}` : `红牛 ${[item.eventTitle || item.subheading, item.title].map(tidy).filter(Boolean).join(' · ')}`,
       deferredRef: refFor(item.id), catchup: 'none',
       // 轮播使用已核对的官方 Red Bull TV 台标；赛事直播间不用节目海报冒充台标。
       logo: '',

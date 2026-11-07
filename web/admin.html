@@ -4114,7 +4114,11 @@
         <div class="modal-content" style="width: 560px; max-width: 92%;">
             <h3>缺台标的频道 <span style="font-size:13px;font-weight:normal;color:#888;">共 <span id="missingLogoCount">0</span> 个</span></h3>
             <p style="color:#666;font-size:13px;margin-bottom:4px;">这些台的源没带台标，或带的已失效，订阅里留了空、播放器会画自己的占位图。想补的话：</p>
-            <p style="color:#999;font-size:12px;margin-bottom:12px;">① 点「补台标」进频道详情上传；② 直接把 <code>&lt;频道名&gt;.png</code> 放进数据目录的 <code>logos/</code>；③ 想整批按名兜底，自己设 <code>mexternalLogoBase</code> 接一个公共台标库（默认不配，见 README）。景观 / 慢直播这类本来就不是台名的，留空即可。</p>
+            <div style="color:#999;font-size:12px;line-height:1.7;margin-bottom:12px;"><ol class="hint-list">
+                <li>点「补台标」进频道详情上传。</li>
+                <li>直接把 <code>&lt;频道名&gt;.png</code> 放进数据目录的 <code>logos/</code>。</li>
+                <li>想整批按名兜底，自己设 <code>mexternalLogoBase</code> 接一个公共台标库（默认不配，见 README）。</li>
+            </ol>景观 / 慢直播这类本来就不是台名的，留空即可。</div>
             <div id="missingLogoList" style="max-height:380px;overflow-y:auto;"></div>
             <div class="modal-actions" style="margin-top:16px;">
                 <button class="btn" onclick="closeMissingLogoModal()">关闭</button>
@@ -8943,7 +8947,12 @@
                                     <input type="number" min="${SUBSCRIPTION_FETCH_RANGES.fetchRetries[0]}" max="${SUBSCRIPTION_FETCH_RANGES.fetchRetries[1]}" step="1" value="${escapeHtml(String(source.fetchRetries ?? ''))}" onchange="setSubscriptionFetchField(${index}, 'fetchRetries', this)" placeholder="0">
                                 </div>
                             </div>
-                            <div class="form-hint">总是「请求超时」时再调。超时从发起请求算到列表下载完，留空 15 秒，可填 5–120；重试留空为不重试，最多 3 次，只对超时、连接中断、服务器忙（5xx / 429）重试，404 这类直接算失败。GitHub raw 地址会依次试 5 条线路、每条各算一次超时，重试对它不生效。设得越大，这个源拉不到时其它源的自动刷新等得越久。</div>
+                            <div class="form-hint">总是「请求超时」时再调。<ol class="hint-list">
+                                <li>超时：从发起请求算到列表下载完，留空 15 秒，可填 5–120。</li>
+                                <li>重试：留空为不重试，最多 3 次；只对超时、连接中断、服务器忙（5xx / 429）重试，404 这类直接算失败。</li>
+                                <li>GitHub raw 地址会依次试 5 条线路、每条各算一次超时，重试对它不生效。</li>
+                                <li>设得越大，这个源拉不到时其它源的自动刷新等得越久。</li>
+                            </ol></div>
                         </div>` : ''}
                         <div class="external-field">
                             <label>默认分组</label>

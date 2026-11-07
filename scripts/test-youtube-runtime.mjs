@@ -4,10 +4,12 @@
  * 不连网：PyPI 返回值用假数据，虚拟环境用临时目录模拟。
  */
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { execFile } from 'node:child_process'
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { compareVersions, latestRelease, managedVenv, pythonSatisfies, venvPython } from '../extractors/youtube-live/runtime.js'
+import { promisify } from 'node:util'
+import { compareVersions, latestRelease, managedVenv, pythonSatisfies, venvPython, ytDlpCommand } from '../extractors/youtube-live/runtime.js'
 
 // yt-dlp 报 2026.08.19，PyPI 写 2026.8.19
 assert.equal(compareVersions('2026.08.19', '2026.8.19'), 0)
@@ -63,6 +65,22 @@ try {
   writeFileSync(join(system, 'python3'), '')
   assert.equal(managedVenv(join(system, 'yt-dlp'), { env: {} }), '', '系统 Python 装的 yt-dlp 不碰')
   assert.equal(managedVenv(join(dir, 'missing'), { env: {} }), '')
+
+  // 本项目的虚拟环境用其中的 python -m yt_dlp；YTDLP_BIN 指定的、系统里的照旧直接执行
+  const viaVenv = { file: join(venv, 'bin', 'python'), args: ['-m', 'yt_dlp'] }
+  assert.deepEqual(ytDlpCommand(join(dir, 'usr', 'local', 'bin', 'yt-dlp'), { env: {} }), viaVenv, 'Docker 软链接')
+  assert.deepEqual(ytDlpCommand(join(venv, 'bin', 'yt-dlp'), { env: {} }), viaVenv, '源码运行的 .runtime/youtube')
+  assert.deepEqual(ytDlpCommand(join(system, 'yt-dlp'), { env: {} }), { file: join(system, 'yt-dlp'), args: [] })
+  assert.deepEqual(ytDlpCommand('/x/yt-dlp', { env: { YTDLP_BIN: '/x/yt-dlp' } }), { file: '/x/yt-dlp', args: [] })
+
+  // 源码运行装完后挪过项目目录：启动脚本第一行还指着旧路径，系统报「找不到」；python -m yt_dlp 照样能跑
+  const run = promisify(execFile)
+  writeFileSync(join(venv, 'bin', 'python'), '#!/bin/sh\n[ "$*" = "-m yt_dlp --version" ] && echo 2026.10.26\n')
+  writeFileSync(join(venv, 'bin', 'yt-dlp'), '#!/old/place/iptv/.runtime/youtube/bin/python\n')
+  for (const name of ['python', 'yt-dlp']) chmodSync(join(venv, 'bin', name), 0o755)
+  await assert.rejects(run(join(venv, 'bin', 'yt-dlp'), ['--version']), { code: 'ENOENT' })
+  const { file: python, args } = ytDlpCommand(join(venv, 'bin', 'yt-dlp'), { env: {} })
+  assert.equal((await run(python, [...args, '--version'])).stdout.trim(), '2026.10.26')
 } finally { rmSync(dir, { recursive: true, force: true }) }
 
-console.log('✅ YouTube 解析组件：版本比较、按 Python 选版本、只升级本项目的虚拟环境')
+console.log('✅ YouTube 解析组件：版本比较、按 Python 选版本、只升级本项目的虚拟环境、挪过目录照样能跑')

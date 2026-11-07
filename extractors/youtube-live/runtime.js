@@ -43,6 +43,16 @@ export function managedVenv(binary = ytDlpBinary(), { env = process.env } = {}) 
   } catch { return '' }
 }
 
+/**
+ * 运行 yt-dlp 的命令。本项目自己的虚拟环境用其中的 python -m yt_dlp，不走 bin/yt-dlp 启动脚本：
+ * pip 把安装时 Python 的绝对路径写死在脚本第一行，源码运行的项目目录挪动、改名或整份拷到别处后，
+ * 脚本就报「找不到」，其实 Python 和 yt-dlp 都还在。YTDLP_BIN 指定的、系统里的照旧直接执行。
+ */
+export function ytDlpCommand(binary = ytDlpBinary(), { env = process.env } = {}) {
+  const venv = managedVenv(binary, { env })
+  return venv ? { file: join(venv, 'bin', 'python'), args: ['-m', 'yt_dlp'] } : { file: binary, args: [] }
+}
+
 /** yt-dlp 自己报 2026.08.19，PyPI 写 2026.8.19：按数字逐段比。 */
 export function compareVersions(a, b) {
   const pa = String(a).split('.').map(n => parseInt(n, 10) || 0)
@@ -56,12 +66,13 @@ export function compareVersions(a, b) {
 let installed = null   // { version } 缓存，更新后清掉
 async function installedVersion() {
   if (installed) return installed.version
+  const { file, args } = ytDlpCommand()
   try {
-    const { stdout } = await run(ytDlpBinary(), ['--version'], { timeout: 15000 })
+    const { stdout } = await run(file, [...args, '--version'], { timeout: 15000 })
     installed = { version: stdout.trim().split(/\s+/)[0] }
   } catch (err) {
     if (err.code === 'ENOENT') return ''
-    throw new Error('读不到 yt-dlp 版本')
+    throw Object.assign(new Error(err.killed ? '读取 yt-dlp 版本超时，稍后再试' : '读不到 yt-dlp 版本'), { timeout: Boolean(err.killed) })
   }
   return installed.version
 }
@@ -149,14 +160,18 @@ export async function latestRelease({ python = '', fetchImpl = outboundFetch } =
  * 当前状态。checkLatest 时顺带查 PyPI（只在用户点「检查更新」时查，打开源管理页不打外网）。
  */
 export async function runtimeStatus({ checkLatest = false } = {}) {
-  const version = await installedVersion()
   const venv = managedVenv()
+  // 本项目的虚拟环境里跑不起来（yt-dlp 没装上或装坏了）不直接报错：标成待修复，后台给「修复」按钮。
+  // 超时不算装坏（机器慢、正忙），照旧报错
+  const version = venv
+    ? await installedVersion().catch(err => { if (err.timeout) throw err; return '' })
+    : await installedVersion()
   const out = {
     version,
     managed: Boolean(venv),
     reason: venv ? '' : process.env.YTDLP_BIN ? '用的是 YTDLP_BIN 指定的 yt-dlp，请自行升级' : version ? '这个 yt-dlp 不是本项目安装的，请自行升级' : '没装 yt-dlp：Docker 镜像已自带；源码运行请执行 npm run setup:youtube',
     updating: Boolean(updating),
-    repairNeeded: Boolean(venv && !updating && !(await ejsStatus(venv)).healthy),
+    repairNeeded: Boolean(venv && !updating && (!version || !(await ejsStatus(venv)).healthy)),
   }
   if (checkLatest) {
     const python = venv ? venvPython(venv) : ''
@@ -184,7 +199,7 @@ export function updateRuntime({ onUpdated } = {}) {
   updating ||= (async () => {
     const venv = managedVenv()
     if (!venv) throw new Error((await runtimeStatus()).reason || '这个 yt-dlp 不能在后台升级')
-    const before = await installedVersion()
+    const before = await installedVersion().catch(() => '')
     const beforeHealth = await ejsStatus(venv)
     const { version: target } = await latestRelease({ python: venvPython(venv) })
     const upgrade = !before || compareVersions(target, before) > 0
@@ -192,7 +207,8 @@ export function updateRuntime({ onUpdated } = {}) {
     const python = join(venv, 'bin', 'python')
     const pip = ['-m', 'pip', 'install', '--disable-pip-version-check', '--no-input', '--root-user-action=ignore', ...pipProxyArgs()]
     try {
-      if (upgrade) await run(python, [...pip, '--upgrade', `yt-dlp==${target}`], { timeout: 180000, maxBuffer: 4 * 1024 * 1024 })
+      // 读不到版本（没装上或装坏了）时强制重装：版本号相同的话，pip 会当成已经装好、什么都不做
+      if (upgrade) await run(python, [...pip, before ? '--upgrade' : '--force-reinstall', `yt-dlp==${target}`], { timeout: 180000, maxBuffer: 4 * 1024 * 1024 })
       const health = await ejsStatus(venv)
       const ejs = health.requirement
       if (!health.healthy) {
@@ -208,12 +224,12 @@ export function updateRuntime({ onUpdated } = {}) {
     } finally {
       installed = null
     }
-    const after = await installedVersion()
+    const after = await installedVersion().catch(() => '')
     if (!after || (upgrade && compareVersions(after, target) < 0) || !(await ejsStatus(venv)).healthy) {
       throw new Error('解析组件或配套 EJS 依赖校验失败，请重试修复')
     }
     onUpdated?.()
-    return { updated: compareVersions(after, before) !== 0, repaired: !beforeHealth.healthy, from: before, version: after }
+    return { updated: Boolean(before) && compareVersions(after, before) !== 0, repaired: !before || !beforeHealth.healthy, from: before, version: after }
   })().finally(() => { updating = null })
   return updating
 }

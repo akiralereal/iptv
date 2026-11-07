@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { promisify } from 'node:util'
 import { outboundFetch, outboundProxyKey, outboundProxyUrl, ytDlpProxyArg } from '../../utils/outboundProxy.js'
-import { ytDlpBinary } from './runtime.js'
+import { ytDlpCommand } from './runtime.js'
 import { fetchUpstreamResponse } from '../../utils/hlsProxy.js'
 import { topVariantFirst } from '../../utils/hlsTopFirst.js'
 import { hasReplaceToken } from '../../utils/replaceToken.js'
@@ -137,10 +137,10 @@ function isNetworkFailure(err) {
 }
 
 async function metadata(url, args) {
-  const binary = ytDlpBinary()
+  const { file, args: command } = ytDlpCommand()
   let data
   try {
-    const result = await run(binary, ['--ignore-config', '--no-cache-dir', '--skip-download', '--dump-single-json',
+    const result = await run(file, [...command, '--ignore-config', '--no-cache-dir', '--skip-download', '--dump-single-json',
       '--socket-timeout', '12', '--retries', '0', '--extractor-retries', '0', '--js-runtimes', 'node:' + process.execPath,
       '--proxy', ytDlpProxyArg(), ...args, '--', url], { timeout: 30000, maxBuffer: 8 * 1024 * 1024 })
     data = result.stdout

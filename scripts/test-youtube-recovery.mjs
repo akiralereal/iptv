@@ -69,7 +69,7 @@ async function playback() {
         formats: [{ protocol: 'm3u8_native', vcodec: 'avc1', manifest_url: master(state.parses === 1 ? 'A' : 'B') }] }) }
     }),
     'node:crypto': crypto, 'node:util': util,
-    './runtime.js': { ytDlpBinary: () => '/mock/yt-dlp' },
+    './runtime.js': { ytDlpCommand: () => ({ file: '/mock/yt-dlp', args: [] }) },
     '../../utils/replaceToken.js': { hasReplaceToken }, '../../utils/hlsTopFirst.js': { topVariantFirst },
     '../../utils/hlsProxy.js': { fetchUpstreamResponse },
     '../../utils/outboundProxy.js': {
@@ -172,15 +172,25 @@ await check('the muxed-audio setting reaches yt-dlp on open and on renewal; defa
   assert.match(h.state.args.at(-1), /player_client=mweb/, 'renewal keeps the muxed client')
 })
 
+const harnesses = []
 async function runtime(state = {}) {
-  Object.assign(state, { version: state.version || '2026.10.21', ejs: state.ejs ?? '0.8.0', installs: [], fail: state.fail || '', updated:0 })
+  harnesses.push(state)
+  Object.assign(state, { version: state.version || '2026.10.21', ejs: state.ejs ?? '0.8.0', installs: [], installArgs: [], fail: state.fail || '', updated:0 })
   const required = () => state.version === '2026.10.21' ? '0.8.0' : '0.9.0'
   const api = await load('extractors/youtube-live/runtime.js', {
-    'node:child_process': subprocess(async (_binary, args) => {
-      if (args.includes('--version')) return {stdout:state.version}
+    'node:child_process': subprocess(async (binary, args) => {
+      if (args.includes('--version')) {
+        // 本项目的虚拟环境不走 bin/yt-dlp 启动脚本（挪过目录就失效），用其中的 python -m yt_dlp
+        // 状态读取会吞掉这里的异常（当成读不到版本），断言失败记下来，由各用例结尾统一检查
+        if (!/\/\.runtime\/youtube\/bin\/python$/.test(binary) || args.slice(0, 2).join(' ') !== '-m yt_dlp') state.wrongCommand = `${binary} ${args.join(' ')}`
+        if (state.slow) throw Object.assign(new Error('killed'), {killed:true, signal:'SIGTERM'})
+        if (state.broken) throw Object.assign(new Error('exit 1'), {code:1, stderr:'No module named yt_dlp'})
+        return {stdout:state.version}
+      }
       if (args.includes('-c')) return {stdout:JSON.stringify({requirement:'yt-dlp-ejs==' + required(), version:state.ejs, healthy:state.ejs === required()})}
       assert.ok(args.includes('install'))
-      const name = args.at(-1); state.installs.push(name)
+      const name = args.at(-1); state.installs.push(name); state.installArgs.push(args)
+      if (name.startsWith('yt-dlp==') && !state.fail) state.broken = false
       if (state.gate) { const gate=state.gate; state.gate=null; gate.entered.resolve(); await gate.release.promise }
       if (state.fail === 'core' || (state.fail === 'ejs' && name.startsWith('yt-dlp-ejs'))) {
         throw Object.assign(new Error('install failed'), {stderr:'ConnectionError: timed out'})
@@ -241,20 +251,53 @@ await check('successful installer exit alone is insufficient; verify dependencie
   assert.equal((await h.update()).updated, false)
   assert.equal(h.state.installs.length, count, 'healthy current versions need no installation')
 })
-await check('admin offers repair after reopening and keeps retry available after failure', async () => {
+await check('unrunnable yt-dlp in our own environment is offered as a repair and force-reinstalled', async () => {
+  const h = await runtime({version:'2026.10.26',ejs:'0.9.0',broken:true})
+  const status = await h.api.runtimeStatus({checkLatest:true})
+  assert.equal(status.version, ''); assert.equal(status.managed, true)
+  assert.equal(status.repairNeeded, true); assert.equal(status.outdated, false)
+  const result = await h.update()
+  assert.equal(result.version, '2026.10.26'); assert.equal(result.repaired, true); assert.equal(result.updated, false)
+  assert.deepEqual(h.state.installs, ['yt-dlp==2026.10.26'])
+  assert.ok(h.state.installArgs[0].includes('--force-reinstall'), 'same version: plain --upgrade would be a no-op')
+  assert.equal((await h.api.runtimeStatus()).repairNeeded, false)
+  assert.equal(h.state.updated, 1)
+})
+await check('a version read that times out is reported, not offered as a reinstall', async () => {
+  const h = await runtime({version:'2026.10.26',ejs:'0.9.0',slow:true})
+  await assert.rejects(h.api.runtimeStatus(), /超时/)
+  h.state.slow = false
+  assert.equal((await h.api.runtimeStatus()).version, '2026.10.26')
+})
+await check('our own environment always runs yt-dlp as python -m yt_dlp, never the launcher script', async () => {
+  assert.ok(harnesses.length >= 5)
+  for (const state of harnesses) assert.equal(state.wrongCommand, undefined)
+})
+async function adminRuntime(extractorPost) {
   const admin = readFileSync(new URL('web/admin.html', root), 'utf8')
   const source = admin.match(/^ {8}function initYouTubeSubscriptions\([^]*?^ {8}\}/m)[0]
   const elements = Object.fromEntries(['youtubeInput','youtubeEvents','youtubeInspect','youtubeAdd',
     'youtubeRuntimeText','youtubeRuntimeCheck','youtubeRuntimeUpdate'].map(id => [id, {isConnected:true,hidden:true}]))
-  let fail = true
-  const context = vm.createContext({
-    document: {getElementById:id=>elements[id],querySelectorAll:()=>[]},
-    extractorPost: async ({op}) => op === 'update'
-      ? fail ? {success:false,message:'下载超时'} : {success:true,version:'2026.10.26',updated:false,repaired:true}
-      : {success:true,version:'2026.10.26',managed:true,repairNeeded:true,latest:'2026.10.26',outdated:false},
-  })
+  const context = vm.createContext({ document: {getElementById:id=>elements[id],querySelectorAll:()=>[]}, extractorPost })
   vm.runInContext(source + '\ninitYouTubeSubscriptions()', context)
   await new Promise(setImmediate)
+  return elements
+}
+await check('admin never calls an unreadable yt-dlp up to date', async () => {
+  const broken = await adminRuntime(async () => ({success:true,version:'',managed:true,repairNeeded:true,latest:'2026.10.26',outdated:false}))
+  await broken.youtubeRuntimeCheck.onclick()
+  assert.equal(broken.youtubeRuntimeText.textContent, '解析组件 yt-dlp 无法运行，请点「修复」重新安装')
+  assert.equal(broken.youtubeRuntimeUpdate.hidden, false); assert.equal(broken.youtubeRuntimeUpdate.textContent, '修复')
+  const missing = await adminRuntime(async () => ({success:true,version:'',managed:false,reason:'没装 yt-dlp',latest:'2026.10.26',outdated:false}))
+  await missing.youtubeRuntimeCheck.onclick()
+  assert.equal(missing.youtubeRuntimeText.textContent, '解析组件 yt-dlp：未安装。没装 yt-dlp')
+  assert.equal(missing.youtubeRuntimeUpdate.hidden, true)
+})
+await check('admin offers repair after reopening and keeps retry available after failure', async () => {
+  let fail = true
+  const elements = await adminRuntime(async ({op}) => op === 'update'
+    ? fail ? {success:false,message:'下载超时'} : {success:true,version:'2026.10.26',updated:false,repaired:true}
+    : {success:true,version:'2026.10.26',managed:true,repairNeeded:true,latest:'2026.10.26',outdated:false})
   const button = elements.youtubeRuntimeUpdate
   assert.equal(button.hidden, false); assert.equal(button.textContent, '修复依赖')
   await elements.youtubeRuntimeCheck.onclick()

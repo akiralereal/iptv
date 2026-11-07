@@ -5364,7 +5364,8 @@
             const runtimeText = document.getElementById('youtubeRuntimeText');
             const checkBtn = document.getElementById('youtubeRuntimeCheck');
             const updateBtn = document.getElementById('youtubeRuntimeUpdate');
-            const describe = info => info.version ? `解析组件 yt-dlp ${info.version}` : '解析组件 yt-dlp：未安装';
+            // 读不到版本：本项目自己装的是「装坏了」（给修复），别处的才是「未安装」
+            const describe = info => info.version ? `解析组件 yt-dlp ${info.version}` : info.managed ? '解析组件 yt-dlp 无法运行' : '解析组件 yt-dlp：未安装';
             async function runtime(op) {
                 checkBtn.disabled = true; updateBtn.disabled = true;
                 if (op !== 'status') runtimeText.textContent = op === 'update' ? '正在更新 yt-dlp，通常半分钟内完成…' : '正在查询最新版本…';
@@ -5387,13 +5388,13 @@
                     }
                     let text = describe(info);
                     if (info.updating) { runtimeText.textContent = text + '，正在更新…'; updateBtn.hidden = true; return; }
-                    if (info.repairNeeded) text += '，配套依赖不完整，请修复';
-                    else if (op === 'check') text += info.outdated ? `，有新版本 ${info.latest}（${info.latestDate} 发布）` : '，已是最新版';
+                    if (info.repairNeeded) text += info.version ? '，配套依赖不完整，请修复' : '，请点「修复」重新安装';
+                    else if (op === 'check' && info.version) text += info.outdated ? `，有新版本 ${info.latest}（${info.latestDate} 发布）` : '，已是最新版';
                     if (!info.managed && info.reason) text += `。${info.reason}`;
                     if (op === 'check' && info.pythonNote) text += `（${info.pythonNote}）`;
                     runtimeText.textContent = text;
                     updateBtn.hidden = !(info.managed && (info.repairNeeded || (op === 'check' && info.outdated)));
-                    updateBtn.textContent = info.repairNeeded ? '修复依赖' : `更新到 ${info.latest || ''}`;
+                    updateBtn.textContent = info.repairNeeded ? (info.version ? '修复依赖' : '修复') : `更新到 ${info.latest || ''}`;
                 } catch { if (runtimeText.isConnected) runtimeText.textContent = '无法连接源管理接口'; }
                 finally { checkBtn.disabled = false; updateBtn.disabled = false; }
             }

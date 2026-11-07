@@ -21,7 +21,7 @@ services:
       # ---- 内容开关（默认全开，老用户无需理会；任一设 false 即关闭对应内容）----
       # - mblank=true                           # 空白模式总开关：开启后下面三项「默认」关闭（一行得到空白部署）；可叠加 menableMigu=true 等单独开回
       # - menableMigu=true                      # 咪咕源（核心：CCTV/卫视抓取 + 体育赛事 + EPG），关闭后仅用内置/外部源
-      # - menableBuiltInSources=true            # 内置单频道源（纬来体育/Red Bull/4K卫视 等）
+      # - menableBuiltInSources=true            # 内置单频道源（纬来体育/4K卫视 等）
       # - menableBuiltInSubscriptions=true      # 内置订阅源（精选频道），关闭后不加入且已删除的不再复活
       # - mbrowserConcurrency=2                 # 可选：同时允许存活的无头 Chromium 数（默认 2）。内存 ≤2G 的 NAS/小主机建议设 1；每个 Chromium 约占 200~400MB，开多了会把机器拖进交换、表现为卡死 + 硬盘狂读写
       - mdataDir=/iptv/data                      # 配置/数据持久化目录（对应下方挂载的卷）

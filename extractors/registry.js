@@ -191,6 +191,7 @@ import bilibiliLive from './bilibili-live/index.js'
 import douyinLive from './douyin-live/index.js'
 import youtubeLive from './youtube-live/index.js'
 import asianLive from './asian-live/index.js'
+import redbull from './redbull/index.js'
 import anhui from './anhui/index.js'
 import beijing from './beijing/index.js'
 import chongqing from './chongqing/index.js'
@@ -350,6 +351,7 @@ const MODULES = [
   // 市县台（广电云，按省拆成 20 个模块）跟在各省级、地市模块之后：并进同省分组时排在省台、市台后面
   ...guangdianyunModules,
   // 海外频道排最后：并进体育、文旅等现有分组时，跟在各台官方频道后面
+  redbull,
   overseas,
 ]
 

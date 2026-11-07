@@ -1,0 +1,1273 @@
+{
+  "checkedAt": "2026-11-07T13:21:24.145Z",
+  "environment": {
+    "node": "v26.10.0",
+    "platform": "darwin",
+    "officialRegion": "US",
+    "isolatedDataDirectories": true,
+    "systemProxySettingsChanged": false,
+    "directMode": "No configured or environment proxy; macOS auto-discovery disabled only inside the test child with a temporary loader; underlying network/TUN route not claimed."
+  },
+  "automated": {
+    "fullSuite": "npm test passed (exit 0)",
+    "redbullTests": 13
+  },
+  "shortConfiguredProxy": {
+    "checkedAt": "2026-11-07T12:51:40.049Z",
+    "base": "http://127.0.0.1:1958",
+    "seconds": 15,
+    "complete": true,
+    "passed": 12,
+    "failed": 0,
+    "items": [
+      {
+        "name": "红牛自行车",
+        "ref": "redbull-channel-ee30c528-32b1-4604-8976-e3bcee4ae7f0",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451356,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18,
+        "frames": 450,
+        "after": {
+          "sequence": 451361,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 23409
+      },
+      {
+        "name": "红牛板式网球",
+        "ref": "redbull-channel-e0e6dee0-8c39-4de1-9488-72828468efe0",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 450990,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18,
+        "frames": 450,
+        "after": {
+          "sequence": 450996,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 25287
+      },
+      {
+        "name": "红牛综合",
+        "ref": "redbull-channel-c81f8686-ab67-4965-ba04-5f6658bb96cc",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "eng"
+        },
+        "audioLanguages": [
+          "eng"
+        ],
+        "before": {
+          "sequence": 644205,
+          "endlist": false,
+          "resources": 10
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.004,
+        "frames": 540,
+        "after": {
+          "sequence": 644208,
+          "endlist": false,
+          "resources": 10
+        },
+        "warnings": [],
+        "elapsedMs": 27881
+      },
+      {
+        "name": "红牛户外探险",
+        "ref": "redbull-channel-870bcfa8-62b1-4e84-9c85-39f083df368a",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451425,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.018,
+        "frames": 533,
+        "after": {
+          "sequence": 451430,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 23512
+      },
+      {
+        "name": "红牛赛车",
+        "ref": "redbull-channel-fd4ed3c9-1800-477b-9909-53255da06632",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451663,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.018,
+        "frames": 537,
+        "after": {
+          "sequence": 451669,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 22518
+      },
+      {
+        "name": "红牛冲浪",
+        "ref": "redbull-channel-2f6afaec-7ade-4fb8-961a-a51aa8279a99",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451656,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.018,
+        "frames": 432,
+        "after": {
+          "sequence": 451662,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 22236
+      },
+      {
+        "name": "红牛滑板",
+        "ref": "redbull-channel-5021f46c-6f34-4f51-ba1f-967f2885ac97",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451587,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18,
+        "frames": 450,
+        "after": {
+          "sequence": 451593,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 22583
+      },
+      {
+        "name": "红牛冬季运动",
+        "ref": "redbull-channel-f4aa4fe4-5ce6-4b1c-a60b-abc6f21f16d0",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451269,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18,
+        "frames": 450,
+        "after": {
+          "sequence": 451274,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 23372
+      },
+      {
+        "name": "红牛极限精选",
+        "ref": "redbull-channel-69a66f02-21fd-42a1-be5b-6965541cfe6a",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451674,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18,
+        "frames": 430,
+        "after": {
+          "sequence": 451679,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 22554
+      },
+      {
+        "name": "红牛 Gazir Contra Todos 2026  · Gazir Contra Todos livestream",
+        "ref": "redbull-event-6fcf0e24-6fc5-4161-ba56-9281ad052bdb",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "und"
+        },
+        "audioLanguages": [
+          "und"
+        ],
+        "before": {
+          "sequence": 2444,
+          "endlist": false,
+          "resources": 30
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.004,
+        "frames": 540,
+        "after": {
+          "sequence": 2445,
+          "endlist": false,
+          "resources": 30
+        },
+        "warnings": [],
+        "elapsedMs": 20327
+      },
+      {
+        "name": "红牛 FIP World Cup 2026 · Finals Centre Court",
+        "ref": "redbull-event-f0ee7f41-1e0e-4abd-a4d2-b84d89a29f21",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en",
+          "es",
+          "de"
+        ],
+        "before": {
+          "sequence": 1580,
+          "endlist": false,
+          "resources": 30
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.014667,
+        "frames": 540,
+        "after": {
+          "sequence": 1583,
+          "endlist": false,
+          "resources": 30
+        },
+        "warnings": [],
+        "elapsedMs": 31224
+      },
+      {
+        "name": "红牛 FIP World Cup 2026 · Finals Secondary Court",
+        "ref": "redbull-event-b8d58282-6803-44a0-a632-e704744aeb46",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en",
+          "es"
+        ],
+        "before": {
+          "sequence": 4683,
+          "endlist": false,
+          "resources": 30
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.004,
+        "frames": 540,
+        "after": {
+          "sequence": 4685,
+          "endlist": false,
+          "resources": 30
+        },
+        "warnings": [],
+        "elapsedMs": 37045
+      }
+    ]
+  },
+  "shortWithoutApplicationProxy": {
+    "checkedAt": "2026-11-07T12:53:13.976Z",
+    "base": "http://127.0.0.1:1959",
+    "seconds": 15,
+    "complete": true,
+    "passed": 12,
+    "failed": 0,
+    "items": [
+      {
+        "name": "红牛综合",
+        "ref": "redbull-channel-c81f8686-ab67-4965-ba04-5f6658bb96cc",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "eng"
+        },
+        "audioLanguages": [
+          "eng"
+        ],
+        "before": {
+          "sequence": 644221,
+          "endlist": false,
+          "resources": 10
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.004,
+        "frames": 540,
+        "after": {
+          "sequence": 644222,
+          "endlist": false,
+          "resources": 10
+        },
+        "warnings": [],
+        "elapsedMs": 21463
+      },
+      {
+        "name": "红牛自行车",
+        "ref": "redbull-channel-ee30c528-32b1-4604-8976-e3bcee4ae7f0",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451387,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18,
+        "frames": 450,
+        "after": {
+          "sequence": 451392,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 23940
+      },
+      {
+        "name": "红牛板式网球",
+        "ref": "redbull-channel-e0e6dee0-8c39-4de1-9488-72828468efe0",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451022,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18,
+        "frames": 449,
+        "after": {
+          "sequence": 451027,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 27510
+      },
+      {
+        "name": "红牛户外探险",
+        "ref": "redbull-channel-870bcfa8-62b1-4e84-9c85-39f083df368a",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451455,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.018,
+        "frames": 531,
+        "after": {
+          "sequence": 451460,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 22387
+      },
+      {
+        "name": "红牛赛车",
+        "ref": "redbull-channel-fd4ed3c9-1800-477b-9909-53255da06632",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451695,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.018,
+        "frames": 535,
+        "after": {
+          "sequence": 451699,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 22669
+      },
+      {
+        "name": "红牛冲浪",
+        "ref": "redbull-channel-2f6afaec-7ade-4fb8-961a-a51aa8279a99",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451688,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.021497,
+        "frames": 432,
+        "after": {
+          "sequence": 451693,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 22489
+      },
+      {
+        "name": "红牛滑板",
+        "ref": "redbull-channel-5021f46c-6f34-4f51-ba1f-967f2885ac97",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451617,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18,
+        "frames": 450,
+        "after": {
+          "sequence": 451622,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 22126
+      },
+      {
+        "name": "红牛冬季运动",
+        "ref": "redbull-channel-f4aa4fe4-5ce6-4b1c-a60b-abc6f21f16d0",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451299,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18,
+        "frames": 450,
+        "after": {
+          "sequence": 451304,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 23479
+      },
+      {
+        "name": "红牛极限精选",
+        "ref": "redbull-channel-69a66f02-21fd-42a1-be5b-6965541cfe6a",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451705,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18,
+        "frames": 427,
+        "after": {
+          "sequence": 451709,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 22532
+      },
+      {
+        "name": "红牛 Gazir Contra Todos 2026  · Gazir Contra Todos livestream",
+        "ref": "redbull-event-6fcf0e24-6fc5-4161-ba56-9281ad052bdb",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "und"
+        },
+        "audioLanguages": [
+          "und"
+        ],
+        "before": {
+          "sequence": 2459,
+          "endlist": false,
+          "resources": 30
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.004,
+        "frames": 540,
+        "after": {
+          "sequence": 2462,
+          "endlist": false,
+          "resources": 30
+        },
+        "warnings": [],
+        "elapsedMs": 28369
+      },
+      {
+        "name": "红牛 FIP World Cup 2026 · Finals Centre Court",
+        "ref": "redbull-event-f0ee7f41-1e0e-4abd-a4d2-b84d89a29f21",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en",
+          "es",
+          "de"
+        ],
+        "before": {
+          "sequence": 1596,
+          "endlist": false,
+          "resources": 30
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.004,
+        "frames": 540,
+        "after": {
+          "sequence": 1598,
+          "endlist": false,
+          "resources": 30
+        },
+        "warnings": [],
+        "elapsedMs": 27013
+      },
+      {
+        "name": "红牛 FIP World Cup 2026 · Finals Secondary Court",
+        "ref": "redbull-event-b8d58282-6803-44a0-a632-e704744aeb46",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en",
+          "es"
+        ],
+        "before": {
+          "sequence": 4698,
+          "endlist": false,
+          "resources": 30
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.004,
+        "frames": 540,
+        "after": {
+          "sequence": 4701,
+          "endlist": false,
+          "resources": 30
+        },
+        "warnings": [],
+        "elapsedMs": 42258
+      }
+    ]
+  },
+  "proxyRouting": {
+    "startedAt": "2026-11-07T12:56:41.675Z",
+    "hosts": {
+      "www.redbull.tv": {
+        "connections": 1,
+        "receivedBytes": 79042
+      },
+      "tv-api.redbull.com": {
+        "connections": 9,
+        "receivedBytes": 55880
+      },
+      "play.redbull.com": {
+        "connections": 4,
+        "receivedBytes": 78604
+      },
+      "freqsyndlin.redbull.com": {
+        "connections": 19,
+        "receivedBytes": 34721371
+      },
+      "rbmn-live.akamaized.net": {
+        "connections": 21,
+        "receivedBytes": 45741873
+      },
+      "cs.liiift.io": {
+        "connections": 8,
+        "receivedBytes": 16443218
+      }
+    }
+  },
+  "moduleToggle": {
+    "disabled": {
+      "success": true,
+      "streamStatus": 404,
+      "nestedStatus": 404
+    },
+    "enabled": {
+      "success": true,
+      "streamStatus": 200,
+      "nestedStatus": 200
+    }
+  },
+  "proxySwitch": {
+    "unreachableProxy": {
+      "saved": true,
+      "status": 502,
+      "hls": false
+    },
+    "directAgain": {
+      "saved": true,
+      "status": 200,
+      "hls": true
+    }
+  },
+  "browser": {
+    "groups": {
+      "linear": 9,
+      "liveEvents": 3
+    },
+    "overseasCategory": true,
+    "proxyBadge": true,
+    "proxySettingsAndDomainsVisible": true,
+    "channel": "红牛自行车",
+    "video": {
+      "width": 1280,
+      "height": 720,
+      "readyState": 4,
+      "paused": false,
+      "currentTime": 16.902979
+    }
+  },
+  "logos": {
+    "count": 9,
+    "httpStatus": 200,
+    "contentType": "image/png",
+    "bytes": 21606
+  },
+  "retiredBuiltInChannelPresent": false,
+  "longPlayback": {
+    "decodeTargetSeconds": 720,
+    "decodeTargetMet": 3,
+    "cleanProcessExits": 2,
+    "timeoutWarnings": 1,
+    "items": [
+      {
+        "name": "红牛综合",
+        "ref": "redbull-channel-c81f8686-ab67-4965-ba04-5f6658bb96cc",
+        "decodedSeconds": 723.006667,
+        "frames": 21690,
+        "elapsedMs": 742692,
+        "processExitCode": 0,
+        "timedOut": false,
+        "endedCleanly": true
+      },
+      {
+        "name": "红牛自行车",
+        "ref": "redbull-channel-ee30c528-32b1-4604-8976-e3bcee4ae7f0",
+        "decodedSeconds": 720.32,
+        "frames": 17519,
+        "elapsedMs": 851366,
+        "processExitCode": null,
+        "timedOut": true,
+        "endedCleanly": false
+      },
+      {
+        "name": "红牛 FIP World Cup 2026 · Finals Centre Court",
+        "ref": "redbull-event-f0ee7f41-1e0e-4abd-a4d2-b84d89a29f21",
+        "decodedSeconds": 723.001333,
+        "frames": 21690,
+        "elapsedMs": 733233,
+        "processExitCode": 0,
+        "timedOut": false,
+        "endedCleanly": true
+      }
+    ],
+    "verdict": "All three decoded at least 12 minutes; Bike was terminated at the 14-minute deadline after decoding 720.32 seconds, while the then-current command requested 723 seconds including margin. This remains a timeout warning, not a clean pass. Current proxy buffering is not ruled out.",
+    "registryExpired404": 0,
+    "proxyUpstreamErrors": 0
+  },
+  "limitations": [
+    "Actual live events differ over time; transition coverage uses official-shaped offline fixtures, not a claim of observing a live event end.",
+    "Mainland direct reachability, all regions and future events were not tested.",
+    "XMLTV programme schedule not integrated.",
+    "Bike did not exit cleanly in either long test; 12-minute decoded duration was achieved only on retry. No claim of interruption-free playback.",
+    "These recorded long commands requested 723 seconds (720 plus old margin); probe-redbull now reserves the margin only for short tests."
+  ],
+  "fixesFromValidation": [
+    "Used logo-pack ref mappings instead of putting internal placeholders into raw source fields.",
+    "Windowed Red Bull EVENT manifests to three minutes to avoid evicting active entries from the shared 5000-resource HLS registry."
+  ],
+  "proxyRoutingPlayback": {
+    "checkedAt": "2026-11-07T12:57:34.966Z",
+    "base": "http://127.0.0.1:1959",
+    "seconds": 15,
+    "complete": true,
+    "passed": 3,
+    "failed": 0,
+    "items": [
+      {
+        "name": "红牛自行车",
+        "ref": "redbull-channel-ee30c528-32b1-4604-8976-e3bcee4ae7f0",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451500,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18,
+        "frames": 375,
+        "after": {
+          "sequence": 451506,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 28660
+      },
+      {
+        "name": "红牛综合",
+        "ref": "redbull-channel-c81f8686-ab67-4965-ba04-5f6658bb96cc",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "eng"
+        },
+        "audioLanguages": [
+          "eng"
+        ],
+        "before": {
+          "sequence": 644276,
+          "endlist": false,
+          "resources": 10
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.004,
+        "frames": 540,
+        "after": {
+          "sequence": 644279,
+          "endlist": false,
+          "resources": 10
+        },
+        "warnings": [],
+        "elapsedMs": 29503
+      },
+      {
+        "name": "红牛 FIP World Cup 2026 · Finals Centre Court",
+        "ref": "redbull-event-f0ee7f41-1e0e-4abd-a4d2-b84d89a29f21",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en",
+          "es",
+          "de"
+        ],
+        "before": {
+          "sequence": 1640,
+          "endlist": false,
+          "resources": 30
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 18.014667,
+        "frames": 540,
+        "after": {
+          "sequence": 1642,
+          "endlist": false,
+          "resources": 30
+        },
+        "warnings": [],
+        "elapsedMs": 35167
+      }
+    ]
+  },
+  "alternateAudio": {
+    "programme": "FIP World Cup Finals Centre Court",
+    "language": "es",
+    "decodedSeconds": 18,
+    "exitCode": 0
+  },
+  "initialLongPlayback": {
+    "checkedAt": "2026-11-07T13:04:17.632Z",
+    "base": "http://127.0.0.1:1958",
+    "seconds": 720,
+    "complete": true,
+    "passed": 1,
+    "failed": 2,
+    "items": [
+      {
+        "name": "红牛综合",
+        "ref": "redbull-channel-c81f8686-ab67-4965-ba04-5f6658bb96cc",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "eng"
+        },
+        "audioLanguages": [
+          "eng"
+        ],
+        "before": {
+          "sequence": 644205,
+          "endlist": false,
+          "resources": 10
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 723.006667,
+        "frames": 21690,
+        "after": {
+          "sequence": 644328,
+          "endlist": false,
+          "resources": 10
+        },
+        "warnings": [],
+        "elapsedMs": 742692
+      },
+      {
+        "name": "红牛自行车",
+        "ref": "redbull-channel-ee30c528-32b1-4604-8976-e3bcee4ae7f0",
+        "ok": false,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451356,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": null,
+        "timedOut": true,
+        "decodedSeconds": 692.92,
+        "frames": 13279,
+        "after": {
+          "sequence": 451640,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 850237
+      },
+      {
+        "name": "红牛 FIP World Cup 2026 · Finals Centre Court",
+        "ref": "redbull-event-f0ee7f41-1e0e-4abd-a4d2-b84d89a29f21",
+        "ok": false,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en",
+          "es",
+          "de"
+        ],
+        "before": {
+          "sequence": 1570,
+          "endlist": false,
+          "resources": 30
+        },
+        "code": null,
+        "timedOut": true,
+        "decodedSeconds": 678.004,
+        "frames": 20326,
+        "after": {
+          "sequence": 1710,
+          "endlist": false,
+          "resources": 30
+        },
+        "warnings": [],
+        "elapsedMs": 862990
+      }
+    ],
+    "pacing": "FFmpeg -re",
+    "note": "Initial forced-highest-quality parallel run with FFmpeg -re: World passed, Bike and FIP timed out; all original results retained."
+  },
+  "longPlaybackRetry": {
+    "checkedAt": "2026-11-07T13:20:03.469Z",
+    "base": "http://127.0.0.1:1958",
+    "seconds": 720,
+    "pacing": "live-source",
+    "complete": true,
+    "passed": 1,
+    "failed": 1,
+    "items": [
+      {
+        "name": "红牛 FIP World Cup 2026 · Finals Centre Court",
+        "ref": "redbull-event-f0ee7f41-1e0e-4abd-a4d2-b84d89a29f21",
+        "ok": true,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en",
+          "es",
+          "de"
+        ],
+        "before": {
+          "sequence": 1729,
+          "endlist": false,
+          "resources": 30
+        },
+        "code": 0,
+        "timedOut": false,
+        "decodedSeconds": 723.001333,
+        "frames": 21690,
+        "after": {
+          "sequence": 1848,
+          "endlist": false,
+          "resources": 30
+        },
+        "warnings": [
+          "[http @ 0x7b06c94460] Error reading HTTP response: End of file\n[http @ 0x7b06c94500] Error reading HTTP response: End of file\n"
+        ],
+        "elapsedMs": 733233
+      },
+      {
+        "name": "红牛自行车",
+        "ref": "redbull-channel-ee30c528-32b1-4604-8976-e3bcee4ae7f0",
+        "ok": false,
+        "video": {
+          "codec": "h264",
+          "width": 1280,
+          "height": 720
+        },
+        "audio": {
+          "codec": "aac",
+          "language": "en"
+        },
+        "audioLanguages": [
+          "en"
+        ],
+        "before": {
+          "sequence": 451679,
+          "endlist": false,
+          "resources": 8
+        },
+        "code": null,
+        "timedOut": true,
+        "decodedSeconds": 720.32,
+        "frames": 17519,
+        "after": {
+          "sequence": 451960,
+          "endlist": false,
+          "resources": 8
+        },
+        "warnings": [],
+        "elapsedMs": 851366
+      }
+    ]
+  }
+}

@@ -266,10 +266,12 @@ function dropSupersededFeatured(groups) {
     const names = new Set((group.dataList || [])
       .filter(channel => channel?.supersedesFeatured === true)
       .map(channel => String(channel.name || '').trim().toLowerCase()))
-    if (!names.size) return group
-    const dataList = group.dataList.filter(channel => !(channel?.builtInSubscription === true
-      && names.has(String(channel.name || '').trim().toLowerCase())))
-    return dataList.length === group.dataList.length ? group : { ...group, dataList }
+    // Red Bull 旧单频道已删除；远程精选列表或旧缓存仍可能带着它。无论新模块是否开启都不恢复，
+    // 用户自己添加的订阅不受影响，新模块的综合频道归入「红牛轮播」。
+    const dataList = (group.dataList || []).filter(channel => !(channel?.builtInSubscription === true
+      && (String(channel.name || '').trim().toLowerCase() === 'red bull tv'
+        || names.has(String(channel.name || '').trim().toLowerCase()))))
+    return dataList.length === (group.dataList || []).length ? group : { ...group, dataList }
   })
 }
 

@@ -107,7 +107,7 @@ function applyConfig(systemConfig) {
   // 由观看设备的网络就近分配节点。解决服务器与观看设备运营商不同（如服务器移动宽带、电视联通网）时的跨网卡顿。
   // 默认关（opt-in）：多数部署服务器与设备同网，服务端解析可少一跳 302，且个别老盒子对多级跳转兼容性存疑。
   enableClientDispatch = systemConfig.enableClientDispatch !== undefined ? systemConfig.enableClientDispatch : parseBool(process.env.menableClientDispatch, false)
-  // 网络代理（后台「设置 → 网络代理」）：供声明了 outbound: 'proxy' 的模块（YouTube、澳门、海外频道，见 extractors/registry.js）和 Telegram 使用，见 utils/outboundProxy.js。
+  // 网络代理（后台「设置 → 网络代理」）：供声明了 outbound: 'proxy' 的模块（YouTube、澳门、海外频道、Red Bull TV，见 extractors/registry.js）和 Telegram 使用，见 utils/outboundProxy.js。
   // 没有对应的 m 开头环境变量：留空时上述模块沿用标准的 HTTPS_PROXY。
   proxy = typeof systemConfig.proxy === 'string' ? systemConfig.proxy.trim() : ""
 
@@ -117,7 +117,7 @@ function applyConfig(systemConfig) {
   const defOn = !blank
   // 咪咕核心（CCTV/卫视抓取 + 体育赛事 + EPG + token刷新）
   enableMigu = systemConfig.enableMigu !== undefined ? systemConfig.enableMigu : parseBool(process.env.menableMigu, defOn)
-  // 内置单频道源（built-in-sources.json：纬来体育/RedBull/4K卫视等）
+  // 内置单频道源（built-in-sources.json：纬来体育/4K卫视等）
   enableBuiltInSources = systemConfig.enableBuiltInSources !== undefined ? systemConfig.enableBuiltInSources : parseBool(process.env.menableBuiltInSources, defOn)
   // 内置订阅源（精选频道）
   enableBuiltInSubscriptions = systemConfig.enableBuiltInSubscriptions !== undefined ? systemConfig.enableBuiltInSubscriptions : parseBool(process.env.menableBuiltInSubscriptions, defOn)

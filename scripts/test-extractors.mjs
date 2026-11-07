@@ -1011,7 +1011,7 @@ try {
         ...modules.filter(module => module.id.startsWith('guangdianyun-')).map(module => module.id),
       ].sort(),
     )
-    assert.deepEqual(modules.filter(module => module.category === 'overseas').map(module => module.id).sort(), ['overseas', 'tdm', 'youtube-live'])
+    assert.deepEqual(modules.filter(module => module.category === 'overseas').map(module => module.id).sort(), ['overseas', 'redbull', 'tdm', 'youtube-live'])
   })
 
   check('模块地区透传给后台：省台、地市台、景观归到同一地区，全国性的不归', () => {
@@ -1024,7 +1024,7 @@ try {
     assert.equal(regionOf['asian-live'], '国际')
     assert.equal(regionOf.livechina, '直播中国')
     assert.equal(regionOf.ipanda, 'iPanda')
-    for (const id of ['yangshipin', 'overseas', 'youtube-live']) assert.equal(regionOf[id], '', id)
+    for (const id of ['yangshipin', 'overseas', 'redbull', 'youtube-live']) assert.equal(regionOf[id], '', id)
     const state = newManager().getState().modules
     assert.equal(state.find(module => module.id === 'iqilu').regionIsArea, true)
     assert.equal(state.find(module => module.id === 'livechina').regionIsArea, false)
@@ -1069,7 +1069,7 @@ try {
     // 一个目录可能出多个模块（广电云），守门按目录：引用了 outboundProxy.js 的目录必须恰好是声明了走代理的模块的目录
     const dirs = readdirSync(root).filter(name => existsSync(new URL(`${name}/index.js`, root)))
     const declared = proxyModules().map(module => module.id)
-    assert.deepEqual(declared, ['tdm', 'youtube-live', 'overseas'],
+    assert.deepEqual(declared, ['tdm', 'youtube-live', 'redbull', 'overseas'],
       '走代理的名单变了：按 ADD-CHANNELS.md「要走代理的模块」做完再改这里')
     for (const dir of declared) assert.ok(dirs.includes(dir), `${dir} 走代理的模块目录名要和 id 一致`)
     const using = dirs.filter(dir => filesOf(dir).some(({ src }) => /outboundProxy\.js/.test(src)))
@@ -1148,7 +1148,7 @@ try {
     assert.ok(gdy.length >= 20, '市县台各省模块都默认关闭')
     assert.equal(listModules().filter(module => module.id.startsWith('guangdianyun-')).length, gdy.length)
     assert.deepEqual(optIn.filter(id => !id.startsWith('guangdianyun-')).sort(),
-      ['bestv-fj', 'overseas', 'shandong-counties', 'tdm', 'websports', 'youtube-live'],
+      ['bestv-fj', 'overseas', 'redbull', 'shandong-counties', 'tdm', 'websports', 'youtube-live'],
       '百视通因出口可用性差异默认关闭；WebSports 来自第三方赛事网站；其余默认关闭模块保持不变')
     const manager = newManager(undefined, { modules: {}, masterSwitchRetired: true })
     for (const id of optIn) assert.equal(manager.isModuleEnabled(getModule(id)), false, id)

@@ -64,9 +64,6 @@ https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_5000.m3u8
 #       留给没升级的部署；多数部署升级后删
 #EXTINF:-1 group-title="体育",World Poker Tour
 https://amg00477-samsungelectron-worldpokertour-samsunguk-81igb.amagi.tv/playlist/amg00477-samsungelectron-worldpokertour-samsunguk/playlist.m3u8
-# 实验台备注：极限运动、赛车及户外节目，最高 1080p；直接用 1080p 档，免得播放器从最低档起播
-#EXTINF:-1 group-title="体育",Red Bull TV
-https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master_6660.m3u8
 # 实验台备注：NHL 官方免费内容频道，不是付费线性频道 NHL Network
 #EXTINF:-1 group-title="体育",NHL FAST
 https://nhl-firetv.amagi.tv/playlist1080p.m3u8

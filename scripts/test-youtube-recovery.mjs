@@ -59,10 +59,11 @@ const segment = (sig, { itag = '232', language = 'en', sq = '42', id = video } =
   `https://rr3---sn-test.googlevideo.com/videoplayback/expire/${expiry}/id/${id}.1/itag/${itag}/xtags/${language}/sq/${sq}/sig/${sig}/seg.ts`
 const field = (raw, name) => new URL(raw).pathname.split('/' + name + '/')[1]?.split('/')[0]
 async function playback() {
-  const state = { parses: 0, requests: [], revoked: false, status: 403, failAt: 'media', newVideo: video, missingSq: false, gate: null }
+  const state = { parses: 0, args: [], requests: [], revoked: false, status: 403, failAt: 'media', newVideo: video, missingSq: false, gate: null }
   const api = await load('extractors/youtube-live/api.js', {
     'node:child_process': subprocess(async (_binary, args) => {
       state.parses++
+      state.args.push(args.join(' '))
       assert.equal(args.at(-1), 'https://www.youtube.com/watch?v=' + video, 'renew the original programme')
       return { stdout: JSON.stringify({ id: video, channel_id: channelId, live_status: 'is_live',
         formats: [{ protocol: 'm3u8_native', vcodec: 'avc1', manifest_url: master(state.parses === 1 ? 'A' : 'B') }] }) }
@@ -153,6 +154,22 @@ await check('a changed broadcast or missing segment never switches programme or 
     await assert.rejects(h.fetch(changed === 'newVideo' ? track('old',{expire:1}) : segment('old').replace('/expire/' + expiry + '/', '/expire/1/')), /退出窗口/)
     assert.equal(h.state.parses, 1)
   }
+})
+
+await check('the muxed-audio setting reaches yt-dlp on open and on renewal; default stays on the default clients', async () => {
+  const h = await playback()
+  assert.ok(!h.state.args.some(a => a.includes('player_client')), 'default: no mweb')
+  const muxedConfig = { ...h.config, muxedAudio: true }
+  const ref = h.api.refOf(h.item)
+  const opened = await h.api.resolve(ref, { config: muxedConfig })
+  assert.ok(opened.url, opened.desc)
+  assert.match(h.state.args.at(-1), /player_client=mweb/)
+  const parses = h.state.parses
+  h.state.revoked = true
+  const res = await h.api.fetchProxyMedia(ref, muxedConfig, track('A'), {})
+  assert.equal(res.status, 200)
+  assert.ok(h.state.parses > parses)
+  assert.match(h.state.args.at(-1), /player_client=mweb/, 'renewal keeps the muxed client')
 })
 
 async function runtime(state = {}) {

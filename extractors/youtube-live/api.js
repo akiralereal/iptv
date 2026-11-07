@@ -126,7 +126,8 @@ export function ytDlpError(stderr = '', { killed = false, code, proxied = Boolea
       : 'YouTube 限制了这台机器出口 IP 的请求次数，稍后再试或到「设置 → 网络代理」填一个代理')
   }
   if (/sign in|members.only|not available in your country/i.test(stderr)) return new Error('此直播在当前出口无法匿名播放')
-  if (killed || NETWORK_ERROR.test(stderr)) return new Error(unreachableMessage())
+  // unreachable：换个客户端重解析也是一样连不上，取流时不再退回默认客户端多等一轮
+  if (killed || NETWORK_ERROR.test(stderr)) return Object.assign(new Error(unreachableMessage()), { unreachable: true })
   return new Error('YouTube 解析失败，可能是解析组件过旧：到「源管理 → YouTube 直播」点「检查更新」')
 }
 
@@ -290,11 +291,12 @@ export function mediaUrl(raw) {
 export function parseLive(data, item, expectedVideoId) {
   if (data.live_status !== 'is_live') throw new Offline('这场直播尚未开始或已经结束')
   if (data.channel_id !== item.channelId || data.id !== expectedVideoId || data.has_drm) throw new Error('直播归属、场次或保护状态不符')
-  // 不同客户端可能返回不同的 HLS 主清单，从包含最高视频档的那一份取流。
+  // 不同客户端可能返回不同的 HLS 主清单，从包含最高视频档的那一份取流；同画质时优先音视频合在一起的那份。
   const formats = (data.formats || []).filter(f => f.protocol?.startsWith('m3u8') && f.vcodec !== 'none' && !f.has_drm && f.manifest_url)
   if (!formats.length) throw new Error('当前直播没有公开 HLS')
+  const muxed = f => f.acodec && f.acodec !== 'none' ? 1 : 0
   formats.sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0)
-    || (b.tbr || 0) - (a.tbr || 0))
+    || muxed(b) - muxed(a) || (b.tbr || 0) - (a.tbr || 0))
   for (const format of formats) {
     let url
     try { url = new URL(mediaUrl(format.manifest_url)) } catch { continue }
@@ -310,6 +312,25 @@ export function parseLive(data, item, expectedVideoId) {
   throw new Error('YouTube 主清单签名无效')
 }
 
+/**
+ * 解析一场直播的播放地址。yt-dlp 默认客户端给的是纯视频分片 + 单独一路音轨（HLS 标准写法，主流播放器都认），
+ * 但有人用 VSTV（ExoPlayer 内核）只出画面不出声。模块里打开「音视频合流」（muxed）时先用 mweb 客户端：
+ * 它给的直播 HLS（itag 91～96）每个分片里音视频都在，代价是解析多两三秒（多拉一份客户端配置和播放器脚本），
+ * 所以默认不开。mweb 解析失败、或没给出可用的 HLS 时退回默认客户端；直播没开 / 出口被拦 / 连不上 YouTube
+ * 换客户端也一样，直接抛出，不多跑一轮 yt-dlp。
+ */
+const MUXED_CLIENT = ['--extractor-args', 'youtube:player_client=mweb']
+export async function liveInfo(item, videoId, { muxed = false } = {}, read = metadata) {
+  if (muxed) {
+    try { return parseLive(await read(watchUrl(videoId), ['--no-playlist', ...MUXED_CLIENT]), item, videoId) }
+    catch (err) {
+      if (err instanceof Offline || err.exitBlocked || err.unreachable) throw err
+    }
+  }
+  return parseLive(await read(watchUrl(videoId), ['--no-playlist']), item, videoId)
+}
+const muxedOf = config => config?.muxedAudio === true
+
 const sessions = new Map()
 // 关注频道时「现在在播哪一场」：列频道直播页要多跑一次 yt-dlp（约 4 秒），重开同一频道时先试上次那场，
 // 那场已经结束（Offline）再重新列。10 分钟内频道换成别的场次作为第一场时，会晚一点切过去。
@@ -321,10 +342,10 @@ const LIVE_ID_TTL = 10 * 60 * 1000
 const EXIT_COOLDOWN = 60 * 1000
 const exitCooldowns = new Map()   // outboundProxyKey → { until, message }
 export const clearResolveCache = () => { sessions.clear(); liveIds.clear(); exitCooldowns.clear() }
-async function session(item, exactId, rejected) {
+async function session(item, exactId, rejected, muxed = false) {
   // 播放地址绑定解析时的出口 IP：换了代理，旧解析结果拿去取分片只会 403
   const exit = outboundProxyKey()
-  const key = refOf(item) + ':' + (exactId || '') + ':' + exit
+  const key = refOf(item) + ':' + (exactId || '') + ':' + exit + (muxed ? ':muxed' : '')
   const cached = sessions.get(key)
   // Only replace the session that actually failed. A late 403 from another
   // request must reuse an already refreshed session, not evict it again.
@@ -343,7 +364,7 @@ async function session(item, exactId, rejected) {
     if (!videoId) {
       const hint = liveIds.get(item.channelId)
       if (hint && hint.until > Date.now()) {
-        try { live = parseLive(await metadata(watchUrl(hint.videoId), ['--no-playlist']), item, hint.videoId) }
+        try { live = await liveInfo(item, hint.videoId, { muxed }) }
         catch (err) {
           if (!(err instanceof Offline)) throw err
           liveIds.delete(item.channelId)
@@ -355,7 +376,7 @@ async function session(item, exactId, rejected) {
         if (!videoId) throw new Offline('频道暂未开播，订阅已保留，开播后重新打开即可')
       }
     }
-    live ||= parseLive(await metadata(watchUrl(videoId), ['--no-playlist']), item, videoId)
+    live ||= await liveInfo(item, videoId, { muxed })
     if (!exactId && !item.videoId) {
       if (liveIds.size >= 512) liveIds.delete(liveIds.keys().next().value)
       liveIds.set(item.channelId, { videoId: live.videoId, until: Date.now() + LIVE_ID_TTL })
@@ -440,12 +461,13 @@ function configured(ref, config) {
 export async function resolve(ref, {config}) {
   try {
     const item = configured(ref, config)
-    let live = await session(item)
+    const muxed = muxedOf(config)
+    let live = await session(item, undefined, undefined, muxed)
     let master
     try { master = await playlist(live.url, live) }
     catch (err) {
       if (!/HTTP (401|403|410)$/.test(err.message)) throw err
-      live = await session(item, undefined, live)
+      live = await session(item, undefined, live, muxed)
       master = await playlist(live.url, live)
     }
     // 「最高画质」上限：视频全程经服务器和代理转发，限了能省带宽和代理流量；0 = 不限
@@ -498,7 +520,8 @@ export async function fetchProxyMedia(ref, config, raw, options) {
   }
   const videoId = field(raw, 'id')?.split('.')[0]
   if (!videoPattern.test(videoId || '') || (item.videoId && videoId !== item.videoId) || !field(raw, 'itag')) throw new Error('无法更新此直播签名')
-  let live = await session(item, videoId)
+  const muxed = muxedOf(config)
+  let live = await session(item, videoId, undefined, muxed)
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const master = await playlist(live.url, live)
@@ -512,6 +535,6 @@ export async function fetchProxyMedia(ref, config, raw, options) {
       // replacing its signature. Only retry explicit authorization failures.
       if (attempt || !/HTTP (401|403|410)$/.test(err.message)) throw err
     }
-    live = await session(item, videoId, live)
+    live = await session(item, videoId, live, muxed)
   }
 }

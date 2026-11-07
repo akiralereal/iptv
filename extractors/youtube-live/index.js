@@ -27,7 +27,7 @@ export default {
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,
   refreshDescription: '添加或移除订阅后更新列表。未开播的频道保留，播放时重新查找直播。',
-  configSavedNotice: '配置已保存，重新打开频道即按新画质播放',
+  configSavedNotice: '配置已保存，重新打开频道即生效',
   configSchema: [
     { key:'subscriptions', type:'text', label:'YouTube 订阅', default:'[]', hidden:true },
     { key:'maxHeight', type:'select', label:'最高画质', default:0,
@@ -36,6 +36,12 @@ export default {
         { value:1080, label:'1080p' }, { value:720, label:'720p' }, { value:480, label:'480p' },
       ],
       hint:'视频全程经服务器转发，部署在大陆的还要走代理流量，4K 直播很费流量。限制后只在不超过这一档的画质里取最高的。' },
+    { key:'muxedAudio', type:'boolean', label:'音视频合流（有画面没声音时打开）', default:false,
+      hint: [
+        'YouTube 直播的声音是单独一路，部分电视播放软件只放出画面、没有声音。',
+        '打开后改取声音和画面合在一起的直播流，画质不变，打开频道会慢两三秒。',
+        '播放正常的不用开；YouTube 不给这种流时，自动改用原来的方式。',
+      ] },
   ],
   groupsFromConfig,
   async fetch(config) {

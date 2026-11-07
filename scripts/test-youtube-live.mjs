@@ -3,7 +3,7 @@ import { readFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import youtube from '../extractors/youtube-live/index.js'
-import { normalizeYouTubeInput, record, refOf, parseVideoChannel, parseBroadcasts, inspect, mediaUrl, parseLive, publicManifest, liveWindow, renewedLink, videoStatus, ytDlpError, unreachableMessage } from '../extractors/youtube-live/api.js'
+import { normalizeYouTubeInput, record, refOf, parseVideoChannel, parseBroadcasts, inspect, mediaUrl, parseLive, liveInfo, publicManifest, liveWindow, renewedLink, videoStatus, ytDlpError, unreachableMessage } from '../extractors/youtube-live/api.js'
 import { topVariantFirst } from '../utils/hlsTopFirst.js'
 import { lookup, toProxyManifest } from '../utils/hlsProxy.js'
 import { ExtractorManager } from '../utils/extractorManager.js'
@@ -135,6 +135,42 @@ assert.equal(parseLive({ ...data, formats: [
   { ...format, width:640, height:360 }, { ...format, width:1920, height:1080, manifest_url:highMaster },
   { ...format, width:3840, height:2160, manifest_url:master.replace(String(expiry), '1') },
 ] }, channel, id).url, highMaster)
+// 同画质优先音视频合在一起的那份（mweb 的 91～96），哪怕码率略低；更高画质仍优先
+const muxedMaster = master.replace('index.m3u8','muxed/index.m3u8')
+assert.equal(parseLive({ ...data, formats: [
+  { ...format, width:1920, height:1080, acodec:'none', tbr:5000 }, { ...format, width:1920, height:1080, acodec:'mp4a.40.2', tbr:4500, manifest_url:muxedMaster },
+] }, channel, id).url, muxedMaster)
+assert.equal(parseLive({ ...data, formats: [
+  { ...format, width:1280, height:720, acodec:'mp4a.40.2', manifest_url:muxedMaster }, { ...format, width:1920, height:1080, acodec:'none', manifest_url:highMaster },
+] }, channel, id).url, highMaster)
+// 默认只用 yt-dlp 默认客户端；打开「音视频合流」才先试 mweb，失败或没有 HLS 再退回默认客户端；
+// 没开播 / 出口被拦 / 连不上不再多跑一轮
+const liveReads = []
+const liveReader = (...results) => async (url, args) => {
+  liveReads.push(args.join(' '))
+  const next = results.shift()
+  if (next instanceof Error) throw next
+  return next
+}
+const MWEB = '--no-playlist --extractor-args youtube:player_client=mweb'
+const muxedData = { ...data, formats: [{ ...format, width:1920, height:1080, acodec:'mp4a.40.2', manifest_url:muxedMaster }] }
+assert.equal((await liveInfo(channel, id, {}, liveReader(data))).url, master)
+assert.deepEqual(liveReads, ['--no-playlist'], '默认不开合流：只解析一次、不带 mweb')
+liveReads.length = 0
+assert.equal((await liveInfo(channel, id, { muxed:true }, liveReader(muxedData))).url, muxedMaster)
+assert.deepEqual(liveReads, [MWEB])
+for (const first of [ytDlpError('ERROR: [youtube] x: No video formats found!'), { ...data, formats: [] }]) {
+  liveReads.length = 0
+  assert.equal((await liveInfo(channel, id, { muxed:true }, liveReader(first, data))).url, master)
+  assert.deepEqual(liveReads, [MWEB, '--no-playlist'])
+}
+for (const stop of [ytDlpError('ERROR: [youtube] x: This live event will begin in 3 hours'), ytDlpError(botCheck), ytDlpError('Tunnel connection failed: 502 Bad Gateway'), { ...data, live_status:'was_live' }]) {
+  liveReads.length = 0
+  await assert.rejects(liveInfo(channel, id, { muxed:true }, liveReader(stop, data)))
+  assert.equal(liveReads.length, 1)
+}
+const muxedField = youtube.configSchema.find(f => f.key === 'muxedAudio')
+assert.ok(muxedField && muxedField.type === 'boolean' && muxedField.default === false, '合流开关默认关')
 const live = parseLive(data,channel,id)
 assert.deepEqual(live.upstreamHeaders(master), {'User-Agent':'player'})
 for (const bad of ['https://localhost/','http://manifest.googlevideo.com/test','https://manifest.googlevideo.com.evil.test/x']) {

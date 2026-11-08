@@ -3,7 +3,7 @@
  *
  * 固定直连源写在根目录 IPTV.m3u 的独立标记区块；这里只放两类：
  * - 必须先访问官方接口才能取得当前 HLS 地址的频道（YTN、NHK World），清单与媒体都由本机代理；
- * - 地址固定、但官方主清单把低档排在前面的频道（CNA、France 24 English / Français、World Poker Tour）：
+ * - 地址固定、但官方主清单把低档排在前面的频道（CNA、France 24 English / Français）：
  *   服务端转发一次主清单，
  *   把最高档挪到最前（utils/hlsTopFirst.js），子清单和分片仍由播放器直连官方 CDN，网速不够照常降档。
  *   France 24 各语种官方只公开了 1080p、360p 两条单档清单（master.m3u8 回 403），由模块拼成两档主清单。
@@ -18,7 +18,7 @@
  * - NHK World：英文直播页 browserconfig 里的方形站标 PNG（与页面上的 logo_world.svg 同图，
  *   SVG 不少播放器画不出来）。www3.nhk.or.jp 大陆连不上（取流的 nhkworld.jp 线路可以），
  *   nhkworld.jp 上找不到这张图，服务端走系统代理才托管得到。
- * - CNA、France 24、World Poker Tour：台标在内置台标库（logo-pack），按台名对上，这里留空。
+ * - CNA、France 24：台标在内置台标库（logo-pack），按台名对上，这里留空。
  */
 export const SOURCES = [
   {
@@ -80,20 +80,6 @@ export const SOURCES = [
       { url: 'https://live.france24.com/hls/live/2037179-b/F24_FR_HI_HLS/master_500.m3u8', bandwidth: 760000, resolution: '640x360' },
     ],
     rules: ['live.france24.com'],
-    direct: true,
-    supersedesFeatured: true,
-  },
-  {
-    id: 'world-poker-tour',
-    name: 'World Poker Tour',
-    group: '体育',
-    page: 'https://www.samsungtvplus.com/',
-    logo: '',
-    // Samsung TV Plus 英国区的 Amagi 频道：主清单 360p 排第一；子清单落在区域节点、带长会话串，
-    // 服务端取主清单时建立的会话换个 IP 的播放器照样能用（10-06 Globalping 大陆、德、日探针都通）
-    kind: 'master',
-    masterUrl: 'https://amg00477-samsungelectron-worldpokertour-samsunguk-81igb.amagi.tv/playlist/amg00477-samsungelectron-worldpokertour-samsunguk/playlist.m3u8',
-    rules: ['amg00477-samsungelectron-worldpokertour-samsunguk-81igb.amagi.tv'],
     direct: true,
     supersedesFeatured: true,
   },

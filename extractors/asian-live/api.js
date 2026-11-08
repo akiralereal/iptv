@@ -153,7 +153,7 @@ function createUpstreamHeaders(baseHeaders, cookies, rules) {
 }
 
 /**
- * 地址固定、只需把最高档挪到最前的频道（CNA、France 24 English / Français、World Poker Tour）：只给播放器一份主清单，
+ * 地址固定、只需把最高档挪到最前的频道（CNA、France 24 English / Français）：只给播放器一份主清单，
  * 子清单和分片由播放器直连官方 CDN。主清单取不到时退回官方原地址（302），和以前直连一样能播。
  */
 async function resolveTopFirst(source, request) {

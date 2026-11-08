@@ -134,7 +134,7 @@
 - 网页播放（后台和独立播放页）：Thai PBS 的 CDN 只放行官网自己的 Origin，浏览器跨域请求必带 Origin，网页里播不了，外部播放器正常；NASA+ 的分片拒绝别家来源头、放行不带来源的请求，播放页加了 `no-referrer` 后网页可播。
 - 没收的：港台电视 31 只放行香港（香港三类网络 200，大陆、台湾、日本、美国 403）；面包台大陆、海外都 404，源已挂，已从精选列表删除。
 - 台标按台名用内置台标库（9 月手工收的），beIN Sports Xtra 用 Xumo 频道卡，Tennis Channel International 暂无。
-- 起播清晰度：主清单把最低档排第一的，AVPlayer 等会从最低档起播、先糊一阵（实验台网页播放器锁最高档，所以那边清楚）。最高档地址固定的 14 台（加精选列表的 Red Bull TV、CNA、Pet Club TV）10-06 改成直接写最高档，和 NHL FAST、WildEarth 一样，代价是没了自动降档；最高档地址带会话参数的 8 台（World Poker Tour、FUEL TV、MTRSPT1、Terra Mater WILD、Wipeout Xtra、MovieSphere、FIFA+、Qello Concerts）当时仍是主清单，同日改为服务端转发主清单时把最高档挪到第一位（见下一条；World Poker Tour 在精选列表里，挪进了亚洲与国际直播模块）。
+- 起播清晰度：主清单把最低档排第一的，AVPlayer 等会从最低档起播、先糊一阵（实验台网页播放器锁最高档，所以那边清楚）。最高档地址固定的 14 台（加精选列表的 Red Bull TV、CNA、Pet Club TV）10-06 改成直接写最高档，和 NHL FAST、WildEarth 一样，代价是没了自动降档；最高档地址带会话参数的 8 台（World Poker Tour、FUEL TV、MTRSPT1、Terra Mater WILD、Wipeout Xtra、MovieSphere、FIFA+、Qello Concerts）当时仍是主清单，同日改为服务端转发主清单时把最高档挪到第一位（见下一条；World Poker Tour 当时从精选列表接入亚洲与国际直播模块；2026-11-08 已移除模块入口，仅保留 from-the-web 订阅条目）。
 - 最高档前置（10-06）：频道表里标了 `x-top-first="1"` 的台写官方主清单，新镜像播放时由服务端取一次主清单、把最高档挪到最前（`utils/hlsTopFirst.js`），子清单和分片仍由播放器直连，网速不够照常降档、独立音轨和字幕都在。现在标了 14 台：Thai PBS、DW English、TRT World、NASA+、Gusto TV、Arirang（Arirang、NASA+ 由写死最高档改回主清单），FUEL TV、MTRSPT1、Terra Mater WILD、Wipeout Xtra、MovieSphere、FIFA+、Qello Concerts（子清单带会话参数，会话由服务端取主清单时建立；Globalping 大陆、德国、日本探针取同一份子清单都通，播放设备换了 IP 照样能用），以及 France 24 Español——官方只有 1080p、360p 两条单档清单，登记在模块的 LADDERS 里，播放时直接拼主清单、不发请求。服务端只在起播时多一次清单请求；取不到（部署机器连不上官方入口）就 302 回官方原地址，和直连一样。所以这几台是「服务端取主清单 + 播放器直连视频」，服务端连不上时也不比以前差。不是多档主清单的地址别标——播放器每次刷新清单都会打到服务端。
 
 ## 澳广视（动态的海外源）

@@ -245,8 +245,8 @@ function consolidateLocalChannels(groups, { targetGroup, matches, keyOf }) {
   // 模块标了 trailing 的海外台（extractors/overseas）虽是模块频道，也排在组尾（见 moveTrailingChannelsLast）
   const ordered = [...merged.filter(channel => channel?.trailing !== true), ...merged.filter(channel => channel?.trailing === true)]
   // 合并优先级是「抓取模块 → 内置源 → 外部订阅」：地方官方频道插在第一个外部订阅频道
-  // （或海外台）之前，不追加到组尾——否则精选列表里起播慢的海外台（World Poker Tour、
-  // UFC 24/7 等）会夹在咪咕与各地体育频道中间。组里没有这两类时仍排在最后。紧贴官方线路的用户线路不算。
+  // （或海外台）之前，不追加到组尾——否则外部订阅里起播慢的海外台
+  // 会夹在咪咕与各地体育频道中间。组里没有这两类时仍排在最后。紧贴官方线路的用户线路不算。
   const firstExternal = ordered.findIndex(channel =>
     (isExternalChannel(channel) || channel?.trailing === true) && !gluedUserLines.has(channel))
   ordered.splice(firstExternal >= 0 ? firstExternal : ordered.length, 0, ...appended)
@@ -258,7 +258,7 @@ function consolidateLocalChannels(groups, { targetGroup, matches, keyOf }) {
 /**
  * 模块接手了精选频道（IPTV.m3u）里的某台时，给频道标 supersedesFeatured：同组里同名（不分大小写）的
  * 精选频道条目在新镜像里收掉，只留模块那份。精选列表是运行中的实例直接从仓库拉的，条目要留给没升级的
- * 部署；而两份地址不同，按「名字 + 地址」的组内去重收不掉（先例：CNA、France 24 英语与法语台、World Poker Tour 挪进
+ * 部署；而两份地址不同，按「名字 + 地址」的组内去重收不掉（先例：CNA、France 24 英语与法语台挪进
  * 亚洲与国际直播模块，好把最高档挪到最前）。用户自己的订阅不受影响。
  */
 function dropSupersededFeatured(groups) {

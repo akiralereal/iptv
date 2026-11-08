@@ -17,22 +17,21 @@ import { buildGroups, claimsRef, sourceFromRef, SOURCES } from '../extractors/as
 import { getModule, resolverFor } from '../extractors/registry.js'
 import { pruneUnclaimedCachedChannels } from '../utils/extractorManager.js'
 
-assert.deepEqual(SOURCES.map(source => source.id), ['ytn', 'nhk-world', 'cna', 'france24-en', 'france24-fr', 'world-poker-tour'])
+assert.deepEqual(SOURCES.map(source => source.id), ['ytn', 'nhk-world', 'cna', 'france24-en', 'france24-fr'])
 assert.equal(new Set(SOURCES.map(source => source.id)).size, SOURCES.length, '频道 id 必须唯一')
 assert.ok(SOURCES.every(source => source.kind && !source.streamUrl), '每个频道都要声明取址方式')
 assert.ok(SOURCES.every(source => source.rules.length > 0), '每个频道都必须声明媒体主机边界')
 // 只转发主清单的几台：固定官方地址，不走动态接口；也只有它们接手精选列表里的同名条目
-assert.deepEqual(SOURCES.filter(source => source.direct).map(source => [source.id, source.kind]), [['cna', 'master'], ['france24-en', 'ladder'], ['france24-fr', 'ladder'], ['world-poker-tour', 'master']])
-assert.deepEqual(SOURCES.filter(source => source.supersedesFeatured).map(source => source.id), ['cna', 'france24-en', 'france24-fr', 'world-poker-tour'])
+assert.deepEqual(SOURCES.filter(source => source.direct).map(source => [source.id, source.kind]), [['cna', 'master'], ['france24-en', 'ladder'], ['france24-fr', 'ladder']])
+assert.deepEqual(SOURCES.filter(source => source.supersedesFeatured).map(source => source.id), ['cna', 'france24-en', 'france24-fr'])
 
 const groups = buildGroups()
-assert.deepEqual(groups.map(group => group.name), ['韩国', '日本', '国际', '体育'])
-assert.equal(groups.reduce((sum, group) => sum + group.dataList.length, 0), 6)
+assert.deepEqual(groups.map(group => group.name), ['韩国', '日本', '国际'])
+assert.equal(groups.reduce((sum, group) => sum + group.dataList.length, 0), 5)
 assert.ok(groups.flatMap(group => group.dataList).every(channel => channel.deferredRef.startsWith('asian-live-')))
 // YTN、NHK 清单与媒体全代理；其余只转发主清单，写成普通入口，并标明接手精选列表的同名条目
 assert.deepEqual(groups.flatMap(group => group.dataList).map(channel => [channel.name, channel.proxyHls === true, channel.supersedesFeatured === true]), [
   ['YTN News', true, false], ['NHK World', true, false], ['CNA', false, true], ['France 24 English', false, true], ['France 24 Français', false, true],
-  ['World Poker Tour', false, true],
 ])
 // 台标取官网自有的频道标，每台一张完整地址（CNA、France 24 的官方台标在内置台标库）；频道表改动要带着 catalogVersion 走，老缓存才会重建
 assert.deepEqual(groups.flatMap(group => group.dataList).map(channel => [channel.name, channel.logo]), [
@@ -41,15 +40,17 @@ assert.deepEqual(groups.flatMap(group => group.dataList).map(channel => [channel
   ['CNA', ''],
   ['France 24 English', ''],
   ['France 24 Français', ''],
-  ['World Poker Tour', ''],
 ])
 const logoPack = JSON.parse(readFileSync(new URL('../logo-pack/index.json', import.meta.url), 'utf8')).logos
-assert.ok(['CNA', 'France 24 English', 'France 24 Français', 'World Poker Tour'].every(name => logoPack[name]), '留空台标的几台要在内置台标库里有图')
-assert.equal(asianLive.catalogVersion, 2)
+assert.ok(['CNA', 'France 24 English', 'France 24 Français'].every(name => logoPack[name]), '留空台标的几台要在内置台标库里有图')
+assert.equal(asianLive.catalogVersion, 3)
 
 assert.equal(claimsRef('asian-live-ytn'), true)
 assert.equal(claimsRef('asian-live-ytn/extra'), false)
 assert.equal(claimsRef('asian-live-missing'), false)
+assert.equal(claimsRef('asian-live-world-poker-tour'), false, '迁入网络订阅的频道不再由模块认领')
+assert.equal(resolverFor('asian-live-world-poker-tour'), null, '旧模块播放入口不再路由到解析器')
+assert.equal((await createResolver({ fetchImpl: () => assert.fail('已删除的模块入口不得请求上游') }).resolve('asian-live-world-poker-tour')).url, '')
 assert.equal(sourceFromRef('asian-live-nhk-world')?.name, 'NHK World')
 
 const oldModuleCache = [
@@ -64,9 +65,13 @@ const oldModuleCache = [
     name: '国际',
     dataList: [{ name: 'Reuters', deferredRef: 'asian-live-reuters' }],
   },
+  {
+    name: '体育',
+    dataList: [{ name: 'World Poker Tour', deferredRef: 'asian-live-world-poker-tour' }],
+  },
 ]
 const prunedCache = pruneUnclaimedCachedChannels(asianLive, oldModuleCache)
-assert.equal(prunedCache.removed, 2, '升级时应移除旧模块中已迁入 IPTV.m3u 的缓存频道')
+assert.equal(prunedCache.removed, 3, '升级时应移除已退出模块的缓存频道，包括 World Poker Tour')
 assert.deepEqual(prunedCache.groups, [
   { name: '韩国', dataList: [{ name: 'YTN News', deferredRef: 'asian-live-ytn' }] },
 ])
@@ -241,7 +246,7 @@ assert.deepEqual(readCookies({
 
 assert.equal(asianLive.channelHlsMode, undefined, '代理改按频道声明')
 assert.equal(asianLive.capabilities.resolve, true)
-assert.equal((await asianLive.fetch()).groups.length, 4)
+assert.equal((await asianLive.fetch()).groups.length, 3)
 assert.equal(getModule('asian-live')?.id, 'asian-live')
 assert.equal(resolverFor('asian-live-ytn')?.id, 'asian-live')
 

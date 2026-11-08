@@ -7,14 +7,15 @@ export default {
   id: 'asian-live',
   name: '亚洲与国际直播',
   region: '国际',
-  description: `来自独立实验台验证的 ${SOURCES.length} 个公开直播频道（YTN、NHK World、CNA、France 24 English / Français、World Poker Tour），播放时从最高画质起播；其余固定直连源由内置 IPTV.m3u 提供。`,
+  description: `来自独立实验台验证的 ${SOURCES.length} 个公开直播频道（YTN、NHK World、CNA、France 24 English / Français），播放时从最高画质起播；其余固定直连源由内置 IPTV.m3u 提供。`,
   capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   // v1：频道表补上官方台标。此前未声明，老缓存没有版本号，启动时会按新表重建一次
   // v2：加 CNA、France 24 English / Français、World Poker Tour；代理改按频道声明（YTN、NHK 全代理，其余只转发主清单）
-  catalogVersion: 2,
+  // v3：移除 World Poker Tour 模块入口，仅保留 from-the-web 订阅条目；启动时重建旧目录缓存
+  catalogVersion: 3,
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,
-  refreshDescription: '频道表随模块版本维护；YTN、NHK World 播放时从官方接口获取当前 HLS，清单与媒体由本机代理；CNA、France 24 English / Français、World Poker Tour 只由本机转发一次主清单（最高档在前），视频由播放器直连官方 CDN。',
+  refreshDescription: '频道表随模块版本维护；YTN、NHK World 播放时从官方接口获取当前 HLS，清单与媒体由本机代理；CNA、France 24 English / Français 只由本机转发一次主清单（最高档在前），视频由播放器直连官方 CDN。',
   configSchema: [],
   // YTN / NHK World 官方节目表（均为 UTC+9）；与取流链路互不依赖（见 epg.js）
   epg,

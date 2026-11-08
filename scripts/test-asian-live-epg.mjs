@@ -319,7 +319,7 @@ await checkAsync('每个节目单 ref 与显示名都是模块实际产出的频
   const emitted = groups.flatMap(group => group.dataList).map(channel => [channel.deferredRef, channel.name])
   const listed = asianEpg.channels().map(channel => [channel.ref, channel.name])
   assert.deepEqual(listed, emitted.filter(([ref]) => listed.some(([epgRef]) => epgRef === ref)))
-  assert.deepEqual(emitted.filter(([ref]) => !listed.some(([epgRef]) => epgRef === ref)).map(([, name]) => name), ['CNA', 'France 24 English', 'France 24 Français', 'World Poker Tour'])
+  assert.deepEqual(emitted.filter(([ref]) => !listed.some(([epgRef]) => epgRef === ref)).map(([, name]) => name), ['CNA', 'France 24 English', 'France 24 Français'])
   assert.deepEqual(asianEpg.channels().map(channel => channel.key), ['ytn', 'nhk-world'])
   assert.ok(asianEpg.channels().every(channel => module.claimsRef(channel.ref)))
 })

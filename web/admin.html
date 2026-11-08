@@ -8966,7 +8966,7 @@
                             <div class="form-hint">填写包含多个频道的 m3u/m3u8 或 txt（频道名,地址）播放列表地址，系统会自动识别格式并解析其中的所有频道</div>
                             ${isFromTheWebUrl(source.subscriptionUrl) ? `
                             <div style="margin-top:8px;padding:8px 10px;background:#fffbe6;border:1px solid #ffe58f;border-radius:4px;font-size:12px;color:#8c6d1f;line-height:1.6;">
-                                这是仓库 from-the-web 里的<strong>网络第三方转发源</strong>，不是电视台官方地址：国内直连大多播不了，需要海外网络、路由器全局代理，或填好「设置 → 网络代理」后勾下方「经网络代理转发」；本项目不维护，失效不作为 bug 处理。不想要了删掉这条订阅即可。<a href="${FROM_THE_WEB_README}" target="_blank" rel="noopener">收录范围 ↗</a>
+                                这是仓库 from-the-web 里的<strong>网络源订阅</strong>，包含第三方转发源、平台分发源及来源待确认的 CDN。第三方转发站国内直连大多播不了，其他线路按各自情况判断；需要代理时，可使用海外网络、路由器全局代理，或填好「设置 → 网络代理」后勾下方「经网络代理转发」；本项目不维护，失效不作为 bug 处理。不想要了删掉这条订阅即可。<a href="${FROM_THE_WEB_README}" target="_blank" rel="noopener">收录范围 ↗</a>
                             </div>` : (!isSaved && findFromTheWebSource(index) === -1 ? `
                             <div class="form-hint">想加回以前精选列表里的港澳台、新马、影视等网络第三方频道？<a href="javascript:void(0)" onclick="fillFromTheWeb(${index})">一键填入「来源于网络」列表</a></div>` : '')}
                             ` : `

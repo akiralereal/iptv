@@ -764,6 +764,10 @@ class ExtractorManager {
     const health = {
       ...emptyHealth(),
       ...cacheEntry.health,
+      // 频道数按手上实际有的缓存算，不信落盘的记账：cache:'memory' 的模块（咪咕、大连）
+      // groups 不落盘、health 落盘，重启后列表是空的，记账里却还是上一轮的数，
+      // 卡片就成了「失败 · 83 频道」配「目前没有抓到频道」（TG 群反馈截图）。
+      channelCount: cachedChannelCount,
       // 失败状态下的 channelCount 描述的是仍在输出的上次成功缓存，不是本轮结果。
       // 显式告诉前端，避免卡片出现「失败 · 16 频道」却不解释链接为何还在。
       usingCachedChannels: ['failed', 'risk'].includes(cacheEntry.health.status)

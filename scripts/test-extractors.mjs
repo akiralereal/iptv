@@ -1699,6 +1699,20 @@ try {
     assert.equal(moduleState.health.usingCachedChannels, false)
   })
 
+  check('只放内存的模块重启后列表为空：面板频道数按实际缓存算，不沿用落盘的旧数', () => {
+    const manager = newManager()
+    // 咪咕 groups 不落盘、health 落盘：重启后就是「groups 空 + channelCount 还是上一轮」
+    manager.cache.modules.migu = {
+      groups: [],
+      health: { ...emptyHealth(), status: 'failed', consecutiveFailures: 238, lastError: '咪咕分类接口无响应', channelCount: 83 },
+      memoryOnly: true,
+    }
+    const health = manager.getState().modules.find(module => module.id === 'migu').health
+    assert.equal(health.channelCount, 0, '列表是空的，卡片不能写「83 频道」')
+    assert.equal(health.usingCachedChannels, false)
+    assert.equal(manager.alertSnapshot().modules.find(module => module.id === 'migu').health.channelCount, 0)
+  })
+
   // 「抓取模块总开关」已退休：旧关闭态只负责升级迁移，运行时不能再覆盖卡片选择。
   // 这条钉住「模块开关就是唯一真相」，防将来有人
   // 看到 config.js 里还留着 enableExtractors 就顺手把那道闸加回 isModuleEnabled。

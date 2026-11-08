@@ -68,10 +68,12 @@ function fakeUpstream({ manifestStatuses = [], configPayload = CONFIG_PAYLOAD, c
       return response(catalogPayload(CHANNELS.map(channel => channelRecord(channel, channelConfig(channel), channelMeta(channel)))))
     }
     if (/\/live\/\/[a-z\d]+\.m3u8\?txSecret=/.test(String(url))) {
-      // 两个官方 CDN 的 UA 规则不同；清单回源不附加防盗链头。
-      const accepted = new URL(url).hostname === 'seclive.ahsx.ahtv.cn'
-        ? options.headers?.['User-Agent'] === 'ijkplayer'
-        : /Chrome\//.test(options.headers?.['User-Agent'] || '')
+      // 三个 CDN 的标识不能混用；卫视新源拒绝 ijkplayer，须用 App 内置 FFmpeg 的 Lavf。
+      const host = new URL(url).hostname
+      const userAgent = options.headers?.['User-Agent'] || ''
+      const accepted = host === 'live.ahcartv.dev.geek-zoo.cn'
+        ? userAgent === 'Lavf/58.12.100'
+        : host === 'seclive.ahsx.ahtv.cn' ? userAgent === 'ijkplayer' : /Chrome\//.test(userAgent)
       if (!accepted
           || Object.keys(options.headers || {}).some(key => /^(referer|origin)$/i.test(key))) {
         return response('ua rejected', 403)
@@ -218,6 +220,10 @@ check('只放行官方媒体域名，拒绝下线占位与外域', () => {
   assert.doesNotThrow(() => officialMediaUrl('https://lives.ahsx.ahtv.cn/live/x.ts'))
   assert.doesNotThrow(() => officialMediaUrl('https://nrtapush.ahsx.ahtv.cn/live/x.ts'))
   assert.doesNotThrow(() => officialMediaUrl('http://seclive.ahsx.ahtv.cn/live/x.ts'))
+  assert.doesNotThrow(() => officialMediaUrl('https://live.ahcartv.dev.geek-zoo.cn/live/1104-1.ts'))
+  assert.throws(() => officialMediaUrl('http://live.ahcartv.dev.geek-zoo.cn/live/x.ts'), /非官方/)
+  assert.throws(() => officialMediaUrl('https://live.ahcartv.dev.geek-zoo.cn.evil.example/live/x.ts'), /非官方/)
+  assert.throws(() => officialMediaUrl('https://other.ahcartv.dev.geek-zoo.cn/live/x.ts'), /非官方/)
   assert.throws(() => officialMediaUrl('http://lives.ahsx.ahtv.cn/live/x.ts'), /非官方/)
   assert.throws(() => officialMediaUrl('http://seclive.ahsx.ahtv.cn:8080/live/x.ts'), /非官方/)
   assert.throws(() => officialMediaUrl('http://live.ahsx.ahtv.cn/live//jjshtv.m3u8'), /非官方/)
@@ -232,11 +238,12 @@ check('只放行官方媒体域名，拒绝下线占位与外域', () => {
   assert.throws(() => officialMediaUrl('not a url'), /无效媒体地址/)
 })
 
-check('上游请求头只带兼容的浏览器标识，不带 Referer 或 Origin', () => {
+check('上游请求头只带对应 CDN 的客户端标识，不带 Referer 或 Origin', () => {
   assert.deepEqual(upstreamHeadersFor(SIGNED_STREAM), { 'User-Agent': MEDIA_USER_AGENT })
   assert.match(MEDIA_USER_AGENT, /^Mozilla\/5\.0 .*Chrome\//)
   assert.deepEqual(upstreamHeadersFor('https://seclive.ahsx.ahtv.cn/live/x.ts'), { 'User-Agent': 'ijkplayer' })
   assert.deepEqual(upstreamHeadersFor('http://seclive.ahsx.ahtv.cn/live/x.ts'), { 'User-Agent': 'ijkplayer' })
+  assert.deepEqual(upstreamHeadersFor('https://live.ahcartv.dev.geek-zoo.cn/live/x.ts'), { 'User-Agent': 'Lavf/58.12.100' })
   assert.throws(() => upstreamHeadersFor('https://evil.example/segment.ts'), /非官方/)
   const manifest = mediaManifest(1)
   assert.equal(validateHls(manifest, SIGNED_STREAM), manifest)
@@ -305,6 +312,32 @@ await checkAsync('源被拒后重新读取官方配置，卫视换域名与流 I
   assert.equal(upstream.catalogCalls().length, 2)
 })
 
+await checkAsync('卫视迁到 App 新域名后动态读取流 ID，清单与分片沿用原频道引用', async () => {
+  const domain = 'https://live.ahcartv.dev.geek-zoo.cn/live/'
+  const upstream = fakeUpstream({ channelConfig: channel => channel === CHANNELS[0]
+    ? { liveDomain: domain, liveId: '1104' } : {} })
+  const result = await createResolver({ fetchImpl: upstream.fetchImpl }).resolve('anhui-ahwssx')
+  assert.ok(result.url, result.desc)
+  assert.equal(new URL(result.url).hostname, 'live.ahcartv.dev.geek-zoo.cn')
+  assert.equal(new URL(result.url).pathname, '/live//1104.m3u8')
+  const segment = new URL('1104-1.ts', result.url).href
+  assert.equal(result.upstreamUrlTransform(segment), segment)
+  assert.deepEqual(result.upstreamHeaders(segment), { 'User-Agent': 'Lavf/58.12.100' })
+  assert.equal(upstream.catalogCalls().length, 1)
+})
+
+await checkAsync('新卫视源返回 403 时如实失败，不回退到旧流或同域 HTTP', async () => {
+  const upstream = fakeUpstream({
+    channelConfig: () => ({ liveDomain: 'https://live.ahcartv.dev.geek-zoo.cn/live/', liveId: '1104' }),
+    manifestStatuses: [403, 403],
+  })
+  const result = await createResolver({ fetchImpl: upstream.fetchImpl }).resolve('anhui-ahwssx')
+  assert.equal(result.url, '')
+  assert.match(result.desc, /直播清单 HTTP 403/)
+  assert.equal(upstream.manifestCalls().length, 2)
+  assert.ok(upstream.manifestCalls().every(call => new URL(call.url).origin === 'https://live.ahcartv.dev.geek-zoo.cn'))
+})
+
 await checkAsync('seclive 证书主机名不匹配时仅回退到同域 HTTP，成功入口被缓存', async () => {
   const upstream = fakeUpstream({ channelConfig: () => ({ liveDomain: 'https://seclive.ahsx.ahtv.cn/live/' }) })
   let tlsCalls = 0
@@ -329,7 +362,11 @@ await checkAsync('正常 HTTPS、HTTP 403 与其他 TLS 错误不会触发 HTTP 
   const secure = fakeUpstream({ channelConfig: () => ({ liveDomain: 'https://seclive.ahsx.ahtv.cn/live/' }) })
   const normal = await createResolver({ fetchImpl: secure.fetchImpl }).resolve('anhui-jjshtv')
   assert.ok(normal.url.startsWith('https://seclive.'))
-  for (const [host, code] of [['seclive.ahsx.ahtv.cn', 'CERT_HAS_EXPIRED'], ['live.ahsx.ahtv.cn', 'ERR_TLS_CERT_ALTNAME_INVALID']]) {
+  for (const [host, code] of [
+    ['seclive.ahsx.ahtv.cn', 'CERT_HAS_EXPIRED'],
+    ['live.ahsx.ahtv.cn', 'ERR_TLS_CERT_ALTNAME_INVALID'],
+    ['live.ahcartv.dev.geek-zoo.cn', 'ERR_TLS_CERT_ALTNAME_INVALID'],
+  ]) {
     const calls = []
     await assert.rejects(requestManifest(`https://${host}/live/x.m3u8`, { fetchImpl: async url => {
       calls.push(url)

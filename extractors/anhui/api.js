@@ -7,6 +7,8 @@
  *   3. 2026-10-25 官方迁至 seclive，卫视流 ID 也已变更；新域名要求 ijkplayer，旧域名用 Chrome。
  *      seclive 的 HTTPS 证书当前不匹配，仅该域名遇到此错误时改用同域 HTTP，不关闭 TLS 校验。
  *      清单与分片使用同一标识全代理，不附加 Referer / Origin。
+ *      卫视栏目现已迁至 live.ahcartv.dev.geek-zoo.cn，按 App 配置动态读取流 ID，
+ *      新 CDN 使用 App 内置 FFmpeg 的 Lavf 标识；Chrome / ijkplayer 都会被拒绝。
  *
  * 官网旧接口还会返回 8 路地址，能取到清单和分片，但画面全是「网站直播已下线，请使用安徽视讯」
  * 的占位告示，所以只收 App 这条链路；/forbid/ 路径在媒体边界里显式拒绝。
@@ -19,8 +21,13 @@ export const ANHUI_CONFIG_API = 'https://console.ahsx.ahtv.cn/api/appapi/api/con
 export const ANHUI_TV_CATALOG_API = 'https://console.ahsx.ahtv.cn/api/appapi/api/content/list/15'
 export const MEDIA_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-export const MEDIA_HOSTS = Object.freeze(['live.ahsx.ahtv.cn', 'lives.ahsx.ahtv.cn', 'nrtapush.ahsx.ahtv.cn', 'seclive.ahsx.ahtv.cn'])
+export const MEDIA_HOSTS = Object.freeze([
+  'live.ahsx.ahtv.cn', 'lives.ahsx.ahtv.cn', 'nrtapush.ahsx.ahtv.cn',
+  'seclive.ahsx.ahtv.cn', 'live.ahcartv.dev.geek-zoo.cn',
+])
 const SEC_LIVE_HOST = 'seclive.ahsx.ahtv.cn'
+const SATELLITE_LIVE_HOST = 'live.ahcartv.dev.geek-zoo.cn'
+const SATELLITE_MEDIA_USER_AGENT = 'Lavf/58.12.100'
 export const APP_TOKEN_LIFETIME_MS = 2 * 60 * 60 * 1000
 export const AUTH_KEY_TTL_MS = 15 * 60 * 1000
 export const STREAM_URL_TTL_MS = 30 * 60 * 1000
@@ -102,12 +109,13 @@ export function officialHlsUrl(raw) {
 }
 
 /**
- * 清单与分片回源统一带该域名放行的标识。刻意不带 Referer / Origin：实测同一 Chrome UA
+ * 清单与分片回源统一使用各域名对应的客户端标识。刻意不带 Referer / Origin：实测同一 Chrome UA
  * 加上浏览器式的 Referer / Origin / Sec-Fetch 头后清单与分片全部 403。
  * 函数形态：代理层只对函数返回的 User-Agent 放行（见 utils/hlsProxy.js）。
  */
 export function upstreamHeadersFor(raw) {
   const url = new URL(officialMediaUrl(raw))
+  if (url.hostname === SATELLITE_LIVE_HOST) return { 'User-Agent': SATELLITE_MEDIA_USER_AGENT }
   return { 'User-Agent': url.hostname === SEC_LIVE_HOST ? 'ijkplayer' : MEDIA_USER_AGENT }
 }
 

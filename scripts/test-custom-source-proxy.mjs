@@ -30,7 +30,7 @@ delete process.env.https_proxy
 
 const { reloadConfig } = await import('../config.js')
 const cp = await import('../utils/customSourceProxy.js')
-const { ExternalSourceManager, BUILT_IN_SUBSCRIPTIONS } = await import('../utils/externalSources.js')
+const { ExternalSourceManager, BUILT_IN_SUBSCRIPTIONS, fetchAndParseM3u } = await import('../utils/externalSources.js')
 const { startProbe, getProbeStatus } = await import('../utils/sourceProbe.js')
 const { registerRefResolver, resolverFor } = await import('../extractors/registry.js')
 const { channel } = await import('../utils/appUtils.js')
@@ -234,6 +234,8 @@ try {
     const r = await resolver.resolve(refOf('裸流台'), { query: {} })
     assert.equal(r.url, 'http://cdn.example/live/raw')
     assert.equal(r.proxyHls, undefined)
+    // app.js 据此直接 302，不再由服务器去取一遍（那样会把裸流读满 10 秒才回）
+    assert.equal(r.directRedirect, 'not-hls')
     assert.ok(Date.now() - started < 3000, '没在开头停下')
     assert.ok(logs.some(line => /不是 HLS/.test(line)))
   })
@@ -255,6 +257,8 @@ try {
     const r = await resolver.resolve(refOf('代理台'), { query: {} })
     assert.equal(r.url, 'http://cdn.example/live/master.m3u8?id=1&token=T1')
     assert.equal(r.proxyHls, undefined)
+    // app.js 据此直接 302：入口在 /proxy/ 下也不能改由服务器直连取清单、转发分片
+    assert.equal(r.directRedirect, 'no-proxy')
     assert.equal(seen.length, 0)
     proxyOn = true
   })
@@ -290,6 +294,43 @@ try {
     assert.equal(result.proxyHls, true)
     assert.match(result.manifestText, /#EXTM3U/)
     assert.equal(typeof result.upstreamHeaders, 'function')
+    assert.equal(result.directRedirect, '')
+    // 没有代理：外壳把 directRedirect 带给 app.js，回看参数也接回原地址
+    proxyOn = false
+    const direct = await channel(`/${ref}?playseek=a-b`, '', '', { key: 't', tag: 't' }, {})
+    proxyOn = true
+    assert.equal(direct.code, 302, direct.desc)
+    assert.equal(direct.directRedirect, 'no-proxy')
+    assert.equal(direct.proxyHls, false)
+    assert.equal(direct.playURL, 'http://cdn.example/live/master.m3u8?id=1&token=T2&playseek=a-b')
+  })
+
+  await check('回看模板：本机入口不带 ?，& 开头的改成 ? 开头，其余原样', () => {
+    const ch = { name: 'x', catchup: 'append', catchupSource: '&playseek=${(b)yyyyMMddHHmmss}-${(e)yyyyMMddHHmmss}' }
+    assert.equal(cp.catchupForProxyEntry(ch).catchupSource, '?playseek=${(b)yyyyMMddHHmmss}-${(e)yyyyMMddHHmmss}')
+    assert.equal(ch.catchupSource.startsWith('&'), true, '不改原对象')
+    const plain = { name: 'y', catchupSource: '?playseek=1' }
+    assert.equal(cp.catchupForProxyEntry(plain), plain)
+    const absolute = { name: 'z', catchup: 'default', catchupSource: 'http://cdn.example/tv?start=${start}' }
+    assert.equal(cp.catchupForProxyEntry(absolute), absolute)
+    assert.equal(cp.catchupForProxyEntry({ name: 'w' }).catchupSource, undefined)
+  })
+
+  await check('拉订阅：undici 的网络错误（TypeError: fetch failed）也按设的次数重试', async () => {
+    let calls = 0
+    const fetchImpl = async () => {
+      calls++
+      if (calls === 1) throw new TypeError('fetch failed', { cause: Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }) })
+      return new Response('#EXTM3U\n#EXTINF:-1,台\nhttp://cdn.example/a.m3u8\n')
+    }
+    const channels = await fetchAndParseM3u('http://lists.example/retry.m3u', { retries: 1, retryDelayMs: 1, fetchImpl })
+    assert.equal(calls, 2)
+    assert.equal(channels.length, 1)
+    // 地址本身不合法的 TypeError 照旧不重试
+    calls = 0
+    const bad = async () => { calls++; throw new TypeError('Invalid URL') }
+    await assert.rejects(() => fetchAndParseM3u('http://lists.example/bad.m3u', { retries: 2, retryDelayMs: 1, fetchImpl: bad }))
+    assert.equal(calls, 1)
   })
 
   await check('失效检测：会由服务器转发的频道经代理探', async () => {

@@ -441,6 +441,9 @@ async function channel(url, urlUserId, urlToken, client, request = {}) {
   // 平台可要求旧的无后缀入口也直出动态 HLS 清单；用于兼容已收藏/已下发的旧地址。
   result.relayHls = resolved.relayHls === true
   result.proxyHls = resolved.proxyHls === true
+  // 自定义源「经网络代理转发」交回原地址（'no-proxy' 没有生效代理 / 'not-hls' 不是 HLS）：app.js 直接 302
+  result.directRedirect = resolved.directRedirect === 'no-proxy' || resolved.directRedirect === 'not-hls'
+    ? resolved.directRedirect : ''
   result.upstreamFamily = resolved.upstreamFamily === 4 || resolved.upstreamFamily === 6 ? resolved.upstreamFamily : undefined
   result.streamType = resolved.streamType || module.streamType || 'hls'
   result.validateMediaUrl = resolved.validateMediaUrl

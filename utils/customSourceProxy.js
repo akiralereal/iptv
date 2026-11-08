@@ -117,6 +117,17 @@ function hostOf(url) {
 }
 
 /**
+ * 本机入口 ${replace}/proxy/cp-….m3u8 不带「?」：原地址带 ? 的源常把回看模板写成 &playseek=…，
+ * 播放器直接拼在入口后面会拼成 cp-….m3u8&playseek=…，认不出来就 404。写盘时把开头的 & 换成 ?，
+ * 参数到了 resolve 再按原地址接回（withQuery 会按原地址重新选 ? 还是 &）。
+ */
+export function catchupForProxyEntry(channel) {
+  const source = channel?.catchupSource
+  if (typeof source !== 'string' || !source.startsWith('&')) return channel
+  return { ...channel, catchupSource: `?${source.slice(1)}` }
+}
+
+/**
  * 读清单正文；开头不是 #EXTM3U（FLV、TS 裸流、网页）就停下返回 null，不把一条直播流读进内存。
  */
 async function readHlsText(response) {
@@ -189,7 +200,8 @@ export function createCustomProxyResolver({
     const url = withQuery(entry.url, ctx.query)
     if (!proxyEnabled()) {
       note(`direct|${entry.sourceId || ''}`, `${entry.sourceName || '自定义源'}：没有生效的网络代理，开了「经网络代理转发」的频道暂由播放器直连`)
-      return { url, desc: `${label} 没有生效的网络代理，改由播放器直连` }
+      // directRedirect：app.js 据此直接 302，不因入口在 /proxy/ 下就改由服务器取清单、转发分片
+      return { url, directRedirect: 'no-proxy', desc: `${label} 没有生效的网络代理，改由播放器直连` }
     }
     const upstreamHeaders = upstreamHeadersOf(entry.opts)
     try {
@@ -207,7 +219,7 @@ export function createCustomProxyResolver({
       if (text == null) {
         // 转发链路只管 HLS；FLV、TS 裸流这类交还给播放器，和没开开关时一样
         note(`nonhls|${entry.ref}`, `${label} 不是 HLS 直播，改由播放器直连（经网络代理转发只支持 HLS）`)
-        return { url, desc: `${label} 不是 HLS 直播，改由播放器直连` }
+        return { url, directRedirect: 'not-hls', desc: `${label} 不是 HLS 直播，改由播放器直连` }
       }
       const manifestUrl = response.url || url
       return { url: manifestUrl, proxyHls: true, manifestText: text, manifestUrl, upstreamHeaders, desc: `${label} 经网络代理转发` }

@@ -96,6 +96,8 @@ function sanitizeSystemConfig(content) {
 function refreshRuntime() {
   reloadConfig()
   externalSourceManager.sources = externalSourceManager.loadSources()
+  // 没经过 saveSources：版本号得自己加，自定义源「经网络代理转发」的播放索引才会按导入后的源重建
+  externalSourceManager.revision++
   userManager.load()
   getExtractorManager().reload()
   clearUrlCache()

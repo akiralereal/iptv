@@ -1491,7 +1491,15 @@ async function handleRequest(req, res) {
     proxyMode = true
     proxyPid ||= routeUrl.split('?')[0].split('/').filter(Boolean).at(-1).replace(/\.m3u8$/, '')
   }
-  if (relayMode || proxyMode || result.relayHls) {
+  // 自定义源「经网络代理转发」交回了原地址：照没勾开关时一样由播放器直连，不能因为入口在 /proxy/ 下
+  // 就改由服务器取清单、转发分片（没代理时等于服务器直连转发，连不上还要白等 10 秒才 302）。
+  // 清单直出（relay）订阅的播放器不跟随跳转，没代理时仍替它取清单、分片照旧直连；不是 HLS 的只能 302
+  let skipManifest = false
+  if (result.directRedirect) {
+    proxyMode = false
+    skipManifest = !relayMode || result.directRedirect === 'not-hls'
+  }
+  if (!skipManifest && (relayMode || proxyMode || result.relayHls)) {
     // 服务端取回清单、相对路径改写为绝对地址后直出，播放器无需跟随任何跳转
     const failKey = proxyMode ? proxyPid : routeUrl.split('?')[0]
     let manifest = inlineResolvedManifest(result)

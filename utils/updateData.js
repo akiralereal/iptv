@@ -9,7 +9,7 @@ import { ensureLogoIndex, resolveLibraryLogo } from "./logoLibrary.js"
 import { renderOpts, needsOpts } from "./channelOpts.js"
 import { renderCatchupAttrs } from "./channelCatchup.js"
 import { hasReplaceToken } from "./replaceToken.js"
-import { claimsRef as claimsCustomProxyRef } from "./customSourceProxy.js"
+import { catchupForProxyEntry, claimsRef as claimsCustomProxyRef } from "./customSourceProxy.js"
 import { refreshToken as enableTokenRefresh, host, pass, enableMigu, externalLogoBase, enableLogoCache } from "../config.js"
 import { finishLogoCache, hostedLogoUrl, prefetchLogos } from "./logoCache.js"
 import { packLogoUrl } from "./logoPack.js"
@@ -508,7 +508,10 @@ async function updateTV(hours, options = {}) {
       // 写入节目
       // 频道级回看声明：模块的 catchup:'none'（issue #119）与第三方订阅自带的模板 / 天数（issue #190），
       // 行内覆盖订阅头的咪咕模板。没有声明时为空串，输出与之前逐字节一致。
-      const catchupAttr = renderCatchupAttrs(channelItem)
+      // 改写成本机入口的自定义源频道：入口不带 ?，& 开头的回看模板要改成 ? 开头
+      const catchupAttr = renderCatchupAttrs(isExternal && claimsCustomProxyRef(channelItem.proxyRef)
+        ? catchupForProxyEntry(channelItem)
+        : channelItem)
       appendFileSync(interfacePath, `#EXTINF:-1 tvg-id="${channelItem.name}" tvg-name="${channelItem.name}" tvg-logo="${logoUrl}"${sourceAttr}${identityAttr}${catchupAttr} group-title="${datas[i].name}",${channelItem.name}\n${optLines}${playUrl}\n`)
       writtenChannels++
       // txt：diyp/TVBox 格式只有「频道名,地址」两列，放不下请求头，依赖请求头的

@@ -332,8 +332,10 @@ const isRetryableStatus = (status) => status >= 500 || status === 408 || status 
 function isRetryableFetchError(error) {
   if (typeof error?.retryable === 'boolean') return error.retryable
   if (error?.name === 'AbortError' || error?.type === 'aborted') return true
-  // node-fetch 对不合法地址、不支持的协议抛 TypeError；网络层错误是 FetchError
-  return !(error instanceof TypeError)
+  // node-fetch 对不合法地址、不支持的协议抛 TypeError；网络层错误是 FetchError。
+  // undici（开了「经网络代理转发」的源用它）的网络层错误也是 TypeError，固定写 fetch failed，原因在 cause 里
+  if (error instanceof TypeError) return error.message === 'fetch failed' && error.cause != null
+  return true
 }
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))

@@ -5299,16 +5299,18 @@
             if (!input) return;
             const events = document.getElementById('youtubeEvents');
             let busy = false;
-            async function submit(action, fields) {
+            async function submit(action, fields, feedback = events) {
                 if (busy) return;
                 busy = true;
                 const controls = input.closest('.bookmarklet-section').querySelectorAll('button,input');
                 controls.forEach(el => { el.disabled = true; });
-                events.textContent = action === 'youtubeInspect' ? '正在查询 YouTube 场次…' : '正在更新订阅…';
+                feedback.textContent = action === 'youtubeInspect' ? '正在查询 YouTube 场次…'
+                    : action === 'youtubeCheck' ? '正在从部署机器检查直播入口，请稍候…' : '正在更新订阅…';
                 try {
                     const result = await extractorPost({ action, ...fields });
                     if (!input.isConnected) return;
-                    if (!result.success) { events.textContent = result.message || 'YouTube 请求失败'; return; }
+                    if (!result.success) { feedback.textContent = result.message || 'YouTube 请求失败'; return; }
+                    if (action === 'youtubeCheck') { feedback.textContent = result.message; return; }
                     if (action !== 'youtubeInspect') {
                         applyExtractorResult(result, action === 'youtubeRemove' ? '已移除订阅'
                             : fields.pin ? '已订阅这一场，启用模块后可在 M3U 的 YouTube 直播分组观看'
@@ -5332,11 +5334,14 @@
                         p.append((event.status === 'is_live' ? '直播中 · ' : '已预约 · ') + event.name + ' ', pin);
                         events.append(p);
                     }
-                } catch { events.textContent = '无法连接源管理接口'; }
+                } catch { feedback.textContent = '无法连接源管理接口'; }
                 finally { busy = false; controls.forEach(el => { el.disabled = false; }); }
             }
             document.getElementById('youtubeInspect').onclick = () => submit('youtubeInspect', { url: input.value });
             document.getElementById('youtubeAdd').onclick = () => submit('youtubeAdd', { url: input.value });
+            for (const button of document.querySelectorAll('[data-youtube-check]')) {
+                button.onclick = () => submit('youtubeCheck', { ref: button.dataset.youtubeCheck }, button.parentElement.querySelector('[data-youtube-result]'));
+            }
             for (const button of document.querySelectorAll('[data-youtube-remove]')) {
                 button.onclick = () => submit('youtubeRemove', { ref: button.dataset.youtubeRemove });
             }
@@ -5514,7 +5519,9 @@
                     <div id="youtubeEvents" aria-live="polite"></div>
                     <div id="youtubeEnded" class="youtube-ended" hidden></div>
                     <div id="youtubeSaved">${rows.length ? '' : '<p>还没有订阅。添加第一个频道后，它会出现在 M3U 的「YouTube 直播」分组。</p>'}${rows.map(row => `<p>${escapeHtml(row.name)} · ${row.videoId ? '固定场次' : '关注频道'}${row.videoId ? `<span class="youtube-status" data-youtube-status="${escapeHtml(row.videoId)}"></span>` : ''}
-                      <button class="btn btn-sm" data-youtube-remove="${escapeHtml(row.videoId || row.channelId)}">移除</button></p>`).join('')}</div>
+                      <button class="btn btn-sm" data-youtube-check="${escapeHtml(row.videoId || row.channelId)}">检查播放</button>
+                      <button class="btn btn-sm" data-youtube-remove="${escapeHtml(row.videoId || row.channelId)}">移除</button>
+                      <span data-youtube-result aria-live="polite" style="display:block; font-size:12px; margin-top:4px;"></span></p>`).join('')}</div>
                     <div class="youtube-runtime"><span id="youtubeRuntimeText">解析组件 yt-dlp：读取中…</span>
                       <button class="btn btn-sm" id="youtubeRuntimeCheck">检查更新</button>
                       <button class="btn btn-sm btn-primary" id="youtubeRuntimeUpdate" hidden>更新</button></div>

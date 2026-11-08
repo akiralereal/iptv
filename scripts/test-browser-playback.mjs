@@ -35,6 +35,12 @@ for (const file of ['admin.html', 'player.html']) {
   const convert = runInNewContext(`${helper}\nbrowserPlaybackUrl`, { URL, window: { location: { href: pageUrl } } })
   for (const [name, input, expected] of cases) assert.equal(convert(input), expected, `${file}: ${name}`)
   assert.equal(convert('608807420', `${origin}/pass/admin`), `${origin}/pass/proxy/608807420.m3u8`, `${file}: 带前缀页面中的相对入口`)
+  const reasonHelper = html.match(/        function hlsServerReason\([\s\S]*?\n        }\n/)?.[0]
+  assert.ok(reasonHelper, `${file} 必须展示服务端失败原因`)
+  const serverReason = runInNewContext(`${reasonHelper}\nhlsServerReason`)
+  for (const reason of ['网络不通：部署机器连不上 YouTube', '出口被拦：YouTube 要求人机验证', '未开播：订阅已保留', '需要登录：此直播要求账号年龄验证']) {
+    assert.equal(serverReason({response:{code:502, data:reason}}), reason, `${file}: ${reason}`)
+  }
 }
 
 console.log(`网页播放地址测试通过（管理台和独立播放器，共 ${(cases.length + 1) * 2} 项）`)

@@ -119,23 +119,67 @@ assert.equal(videoStatus('<html>consent</html>',id),'unknown')
 // yt-dlp 报错 → 给用户看的原因；连不上时指到「网络代理」
 assert.match(unreachableMessage(false),/网络代理.*填代理地址/)
 assert.match(unreachableMessage(true),/点「测试」/)
-assert.equal(ytDlpError('ERROR: [youtube] x: This live event will begin in 3 hours').message,'这场直播尚未开始或已经结束')
+assert.equal(ytDlpError('ERROR: [youtube] x: This live event will begin in 3 hours').reasonCode, 'NOT_LIVE')
 const botCheck = "ERROR: [youtube] x: Sign in to confirm you're not a bot"
 const tooMany = 'ERROR: Unable to download webpage: HTTP Error 429: Too Many Requests'
 assert.match(ytDlpError(botCheck,{proxied:true}).message,/人机验证.*换一个代理节点/)
 assert.match(ytDlpError(botCheck,{proxied:false}).message,/这台机器的出口 IP 做人机验证.*网络代理」填一个代理/,'没配代理时不叫人换节点')
-assert.match(ytDlpError(tooMany,{proxied:true}).message,/限制了这个出口.*换一个代理节点/)
-assert.match(ytDlpError(tooMany,{proxied:false}).message,/限制了这台机器出口.*网络代理/)
+assert.match(ytDlpError(tooMany,{proxied:true}).message,/限制了当前出口或访客会话.*换一个代理节点/)
+assert.match(ytDlpError(tooMany,{proxied:false}).message,/限制了当前出口或访客会话.*网络代理/)
 assert.ok(ytDlpError(botCheck).exitBlocked && ytDlpError(tooMany).exitBlocked,'人机验证与限流标为出口被拦，播放侧据此冷却')
 assert.ok(!ytDlpError('ERROR: [youtube] x: Some new extractor failure').exitBlocked)
-assert.match(ytDlpError('ERROR: [youtube] x: Join this channel to get access to members-only content').message,/无法匿名播放/)
+assert.match(ytDlpError('ERROR: [youtube] x: Join this channel to get access to members-only content').message,/需要会员权限.*普通登录不一定可用/)
 for (const net of ['ERROR: Unable to download webpage: <urlopen error [Errno 111] Connection refused>', 'ERROR: [youtube] x: Read timed out. (read timeout=12.0)',
   "ERROR: Unable to download API page: ('Cannot connect to proxy.', ConnectionResetError(54, 'Connection reset by peer'))", 'Tunnel connection failed: 502 Bad Gateway']) {
   assert.match(ytDlpError(net).message,/网络代理/,net)
 }
-assert.match(ytDlpError('',{killed:true}).message,/网络代理/,'30 秒没解析完按网络问题提示')
+assert.equal(ytDlpError('',{killed:true}).reasonCode,'PARSE_TIMEOUT','进程超时不能直接断言网络不通')
 assert.match(ytDlpError('ERROR: [youtube] x: Some new extractor failure').message,/检查更新/,'看不懂的失败提示更新解析组件')
 assert.match(ytDlpError('',{code:'ENOENT'}).message,/缺少 yt-dlp/)
+
+const reasons = [
+  ["Sign in to confirm you're not a bot", 'BOT_CHECK', /出口被拦/],
+  ['Sign in to confirm you’re not a bot', 'BOT_CHECK', /人机验证/],
+  ['Sign in to confirm you are not a bot', 'BOT_CHECK', /人机验证/],
+  ['YouTube is requiring a captcha challenge before playback', 'BOT_CHECK', /人机验证/],
+  ['HTTP Error 429: Too Many Requests', 'RATE_LIMITED', /请求受限/],
+  ["This content isn't available, try again later. The current session has been rate-limited", 'RATE_LIMITED', /请求受限/],
+  ['Sign in to confirm your age', 'LOGIN_REQUIRED', /年龄验证.*浏览器登录不会同步/],
+  ['This video is age-restricted', 'LOGIN_REQUIRED', /年龄验证/],
+  ['Join this channel to get access to members-only content', 'MEMBERS_ONLY', /需要会员权限/],
+  ['Private video. Sign in if you have been granted access', 'PRIVATE_VIDEO', /仅获授权的账号/],
+  ['Sign in to watch this video', 'LOGIN_REQUIRED', /需要登录.*仅支持匿名公开直播/],
+  ['The uploader has not made this video available in your country', 'GEO_RESTRICTED', /地区限制/],
+  ['This video is not available in your country', 'GEO_RESTRICTED', /地区限制/],
+  ['This live event will begin in 3 hours', 'NOT_LIVE', /未开播/],
+  ['This live stream has ended', 'LIVE_ENDED', /直播已结束/],
+  ['HTTP Error 403: Forbidden', 'UPSTREAM_REJECTED', /不能仅凭此错误判断需要登录/],
+  ['Connection refused', 'NETWORK_UNREACHABLE', /网络不通/],
+  ['Something new went wrong', 'EXTRACTION_FAILED', /尚未确定原因/],
+]
+for (const [reason, reasonCode, message] of reasons) {
+  const error = ytDlpError('ERROR: [youtube] x: ' + reason)
+  assert.equal(error.reasonCode, reasonCode, reason)
+  assert.match(error.message, message)
+  assert.equal(Boolean(error.exitBlocked), ['BOT_CHECK','RATE_LIMITED'].includes(reasonCode), reason)
+}
+assert.match(ytDlpError('Connection refused', { proxied:true }).message, /经代理.*点「测试」/)
+assert.match(ytDlpError('Connection refused', { proxied:false }).message, /填代理地址/)
+assert.equal(ytDlpError("WARNING: Sign in to confirm you're not a bot\nERROR: Sign in to confirm your age").reasonCode, 'LOGIN_REQUIRED', '其他客户端的警告不能覆盖最终错误')
+assert.equal(ytDlpError('WARNING: Skipping formats that may yield HTTP Error 403\nERROR: Connection refused').reasonCode, 'NETWORK_UNREACHABLE')
+assert.doesNotMatch(ytDlpError('ERROR: HTTP Error 403 https://manifest.googlevideo.com/secret?sig=private').message, /secret|sig=|https:/)
+
+// 网页播放器返回的原因也参与同一分类；只给 LOGIN_REQUIRED 时不能猜是账号还是人机验证。
+const deniedPage = playabilityStatus => '<script>var ytInitialPlayerResponse = ' + JSON.stringify({ playabilityStatus }) + ';</script>'
+for (const [reason, reasonCode] of reasons.slice(0, 13)) {
+  const html = deniedPage({ status:'LOGIN_REQUIRED', reason })
+  assert.throws(() => parseVideo(html, id), err => err.reasonCode === reasonCode)
+  assert.throws(() => parseVideoChannel(html, id), err => err.reasonCode === reasonCode)
+  assert.equal(videoStatus(html, id), 'unknown', '权限/出口限制不能标为已失效并建议移除')
+}
+assert.throws(() => parseVideo(deniedPage({status:'LOGIN_REQUIRED'}), id), err => err.reasonCode === 'ACCESS_RESTRICTED')
+assert.throws(() => parseVideo(deniedPage({status:'UNPLAYABLE', errorScreen:{playerErrorMessageRenderer:{subreason:{runs:[{text:'Join this channel'},{text:' to get access'}]}}}}), id), err => err.reasonCode === 'MEMBERS_ONLY')
+assert.throws(() => parseVideo(deniedPage({status:'LOGIN_REQUIRED', reason:'Sign in', errorScreen:{playerCaptchaViewModel:{}}}), id), err => err.reasonCode === 'BOT_CHECK')
 
 // 最高画质上限：只在不超过它的档里取最高；一档都不满足时取最低的视频档；竖屏按短边算
 const ladder = ['#EXTM3U','#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a",NAME="en",URI="a.m3u8"',
@@ -191,7 +235,9 @@ for (const first of [ytDlpError('ERROR: [youtube] x: No video formats found!'), 
   assert.equal((await liveInfo(channel, id, { muxed:true }, liveReader(first, data))).url, master)
   assert.deepEqual(liveReads, [MWEB, '--no-playlist'])
 }
-for (const stop of [ytDlpError('ERROR: [youtube] x: This live event will begin in 3 hours'), ytDlpError(botCheck), ytDlpError('Tunnel connection failed: 502 Bad Gateway'), { ...data, live_status:'was_live' }]) {
+for (const stop of [ytDlpError('ERROR: [youtube] x: This live event will begin in 3 hours'), ytDlpError(botCheck), ytDlpError('Tunnel connection failed: 502 Bad Gateway'),
+  ytDlpError('Sign in to confirm your age'), ytDlpError('Join this channel'), ytDlpError('not available in your country'), ytDlpError('', { killed:true }),
+  { ...data, live_status:'was_live' }, { ...data, availability:'subscriber_only' }]) {
   liveReads.length = 0
   await assert.rejects(liveInfo(channel, id, { muxed:true }, liveReader(stop, data)))
   assert.equal(liveReads.length, 1)
@@ -199,6 +245,7 @@ for (const stop of [ytDlpError('ERROR: [youtube] x: This live event will begin i
 const muxedField = youtube.configSchema.find(f => f.key === 'muxedAudio')
 assert.ok(muxedField && muxedField.type === 'boolean' && muxedField.default === false, '合流开关默认关')
 const live = parseLive(data,channel,id)
+assert.throws(() => parseLive({...data, live_status:undefined}, channel, id), error => error.reasonCode === 'EXTRACTION_FAILED', '缺少直播状态不能误报未开播')
 assert.deepEqual(live.upstreamHeaders(master), {'User-Agent':'player'})
 for (const bad of ['https://localhost/','http://manifest.googlevideo.com/test','https://manifest.googlevideo.com.evil.test/x']) {
   assert.throws(() => live.upstreamHeaders(bad))
@@ -278,6 +325,7 @@ try {
   assert.ok(again.silent && ytDlpRuns() === 1, '2 秒内复用同一次失败，也不再记')
   Date.now = () => realNow() + 3000
   const retry = await play()
+  assert.equal(retry.reasonCode, 'BOT_CHECK', '冷却期保留原因分类')
   assert.equal(ytDlpRuns(), 1, '冷却期内的重试不跑 yt-dlp')
   assert.ok(retry.silent)
   assert.match(retry.desc, /人机验证.*约 \d+ 秒后再试）$/)

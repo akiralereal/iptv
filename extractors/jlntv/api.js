@@ -217,10 +217,6 @@ export function selectStreamDetail(payload, expected, options = {}) {
   return validateTopicStreamUrl(selected.playUrl, options.now)
 }
 
-export function parseStreamDetail(text, expected, options = {}) {
-  return selectStreamDetail(decryptJlntvResponse(text), expected, options)
-}
-
 async function requestApi(path, { timeoutMs = 15000, fetchImpl = proxyAwareFetch } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -331,7 +327,7 @@ export function buildScenicGroups(channels = SCENIC_CHANNELS) {
 const offline = reason => ({ status: 'offline', reason })
 const unknown = reason => ({ status: 'unknown', reason })
 
-/** 取一次清单看还在不在播：4xx、不是 HLS、已结束、没有分片算下线；超时、5xx 说不准。 */
+/** 取一次清单看还在不在播：404、403 这类 4xx、不是 HLS、已结束、没有分片算下线；超时、5xx、限流说不准。 */
 async function scenicManifestStatus(url, page, options = {}) {
   const fetchImpl = options.fetchImpl || proxyAwareFetch
   let target = url
@@ -348,7 +344,8 @@ async function scenicManifestStatus(url, page, options = {}) {
     } catch (error) {
       return unknown(error?.name === 'TimeoutError' || error?.name === 'AbortError' ? '清单请求超时' : (error?.message || String(error)))
     }
-    if (response.status >= 500) return unknown(`清单 HTTP ${response.status}`)
+    // 限流（429）、请求超时（408）这类说明不了停没停播，和 5xx 一样照旧保留
+    if (response.status >= 500 || [408, 425, 429].includes(response.status)) return unknown(`清单 HTTP ${response.status}`)
     if (!response.ok) return offline(`清单 HTTP ${response.status}`)
     if (!text.trimStart().startsWith('#EXTM3U')) return offline('返回的不是 HLS 清单')
     if (/#EXT-X-STREAM-INF/.test(text)) {
@@ -376,7 +373,11 @@ const SLOW_TITLE_RE = /慢直播|慢时光/
 const KNOWN_TOPIC_IDS = new Set(SCENIC_CHANNELS.map(channel => String(channel.contentId)))
 const LEGACY_FIXED = SCENIC_CHANNELS.filter(channel => channel.url)
 const LEGACY_DYNAMIC = SCENIC_CHANNELS.filter(channel => !channel.url)
-const DYNAMIC_SCENIC_REF_RE = /^jlntv-slow-(\d{1,12})-([a-f\d]{10})$/
+// 新机位的引用只看信号，不带专题号：官网换季撤掉专题、或新专题排到前面也挂着这一路时，引用不变
+// （引用就是频道 ID，变了用户的隐藏、改名、排序都会失效）
+const DYNAMIC_SCENIC_REF_RE = /^jlntv-slow-([a-f\d]{10})$/
+// 上一轮刷新时每个慢直播频道挂在哪个专题：播放时先问它，省得逐个专题找。只是提示，重启后为空也照样找得到
+const scenicTopicHints = new Map()
 
 /** 同一路信号在不同主机、不同专题里的统一标识：腾讯云直播看频道号（固定地址与签名地址共用），其余看主机 + 路径。 */
 export function scenicStreamKey(raw) {
@@ -415,42 +416,51 @@ export function selectSlowTopics(payload) {
 }
 
 /**
- * 把各专题的机位排成频道表（纯函数，方便测试）。同一路信号可能挂在好几个专题里（看敦化挂了三个），只出一次；
- * 原来频道表里有的沿用原来的引用和名字（用户做过的隐藏、改名、排序照旧生效），新机位的引用是
- * 「专题号 + 信号标识摘要」。名字重复但信号不同的（白山市·松岭有两路）后一路加序号。
+ * 把各专题的机位排成频道表（纯函数，方便测试）。同一路信号可能挂在好几个专题里（看敦化挂了三个），只出一次、
+ * 位置按第一次出现；原来频道表里有的沿用原来的引用和名字（用户做过的隐藏、改名、排序照旧生效），新机位的引用
+ * 只用信号标识摘要。名字重复但信号不同的（白山市·松岭有两路）后一路加序号。
+ * 行上的 topic 是这一路这次挂在哪个专题，只给播放时当提示。
  */
 export function discoverScenicChannels(topics, options = {}) {
-  const rows = []
-  const byKey = new Map()
+  const found = []
   const invalid = []
   for (const { id, title, payload } of topics) {
     for (const stream of topicStreams(payload)) {
-      let url
-      let key
       try {
-        url = validateTopicStreamUrl(stream.playUrl, options.now)
-        key = scenicStreamKey(url)
+        const url = validateTopicStreamUrl(stream.playUrl, options.now)
+        found.push({ topic: id, name: stream.name, url, key: scenicStreamKey(url) })
       } catch (error) {
         invalid.push({ name: stream.name, reason: error?.message || String(error), topic: title })
-        continue
       }
-      const legacy = LEGACY_FIXED.find(channel => scenicStreamKey(channel.url) === key)
-        || LEGACY_DYNAMIC.find(channel => String(channel.contentId) === id && channel.streamName === stream.name)
-      const row = legacy
-        ? { ref: legacy.ref, name: legacy.name, url: legacy.url ? officialHlsUrl(legacy.url) : url, page: slowPage(legacy.contentId), legacy: true }
-        : { ref: `jlntv-slow-${id}-${streamHash(key)}`, name: stream.name, url, page: slowPage(id), legacy: false }
-      const existing = byKey.get(key)
-      if (existing) {
-        // 挂在多个专题里的同一路：原来频道表里有的优先，位置不动
-        if (row.legacy && !existing.legacy) {
-          rows[rows.indexOf(existing)] = row
-          byKey.set(key, row)
-        }
-        continue
-      }
-      byKey.set(key, row)
-      rows.push(row)
     }
+  }
+  // 原来频道表里按名字记的机位：先在记下的专题里认，官网把它挪到别的专题也按名字认回；一路信号只认一个
+  const legacyByKey = new Map()
+  const claimed = new Set()
+  const claim = matches => {
+    for (const channel of LEGACY_DYNAMIC) {
+      if (claimed.has(channel.ref)) continue
+      const hit = found.find(item => !legacyByKey.has(item.key) && matches(channel, item))
+      if (!hit) continue
+      legacyByKey.set(hit.key, { channel, topic: hit.topic })
+      claimed.add(channel.ref)
+    }
+  }
+  claim((channel, item) => String(channel.contentId) === item.topic && channel.streamName === item.name)
+  claim((channel, item) => channel.streamName === item.name)
+
+  const rows = []
+  const byKey = new Map()
+  for (const item of found) {
+    if (byKey.has(item.key)) continue
+    const fixedLegacy = LEGACY_FIXED.find(channel => scenicStreamKey(channel.url) === item.key)
+    const dynamicLegacy = legacyByKey.get(item.key)
+    const legacy = fixedLegacy || dynamicLegacy?.channel
+    const row = legacy
+      ? { ref: legacy.ref, name: legacy.name, url: legacy.url ? officialHlsUrl(legacy.url) : item.url, page: slowPage(legacy.contentId), topic: dynamicLegacy?.topic || item.topic, legacy: true }
+      : { ref: `jlntv-slow-${streamHash(item.key)}`, name: item.name, url: item.url, page: slowPage(item.topic), topic: item.topic, legacy: false }
+    byKey.set(item.key, row)
+    rows.push(row)
   }
   const seen = new Map()
   for (const row of rows) {
@@ -474,6 +484,7 @@ export async function fetchScenicGroups(ctx = {}) {
     payload: decryptJlntvResponse(await cachedApi(`/detail/stream/${topic.id}?backend=true`, options)),
   })))
   const { rows, invalid } = discoverScenicChannels(withDetails, options)
+  for (const row of rows) scenicTopicHints.set(row.ref, row.topic)
   // 官网目录里已经不挂、但固定地址还在推流的（长白山两路），照旧试一次
   for (const channel of LEGACY_FIXED) {
     if (!rows.some(row => row.ref === channel.ref)) {
@@ -504,25 +515,38 @@ export async function fetchScenicGroups(ctx = {}) {
   }
 }
 
-/** 新机位（jlntv-slow-<专题号>-<摘要>）播放时取址：先问记下的专题，机位挪了专题就在当前在播的慢直播专题里找。 */
-async function resolveDiscoveredStream(contentId, hash, options) {
+/**
+ * 慢直播机位播放时取址：先问提示的专题（上一轮刷新时挂在哪、频道表里记的专题），没有就在官网当前在播的
+ * 慢直播专题里按目录顺序找。提示的专题官网撤了、取不到都不算失败，接着找；目录也取不到才报错。
+ */
+async function findScenicStream(matches, preferred, options) {
   const findIn = async id => {
     const payload = decryptJlntvResponse(await cachedApi(`/detail/stream/${id}?backend=true`, options))
     for (const stream of topicStreams(payload)) {
       try {
         const url = validateTopicStreamUrl(stream.playUrl, options.now)
-        if (streamHash(scenicStreamKey(url)) === hash) return { url, page: slowPage(id), name: stream.name }
+        if (matches(stream, url)) return { url, page: slowPage(id), name: stream.name }
       } catch {
         // 这一路地址不合规，跳过
       }
     }
     return null
   }
-  const own = await findIn(contentId)
-  if (own) return own
+  const tried = new Set()
+  for (const id of preferred) {
+    if (!id || tried.has(id)) continue
+    tried.add(id)
+    try {
+      const found = await findIn(id)
+      if (found) return found
+    } catch {
+      // 提示的专题官网已撤下或这次没取到，到目录里接着找
+    }
+  }
   const topics = selectSlowTopics(decryptJlntvResponse(await cachedApi(STREAM_LIST_PATH, options)))
   for (const topic of topics) {
-    if (topic.id === contentId) continue
+    if (tried.has(topic.id)) continue
+    tried.add(topic.id)
     const found = await findIn(topic.id)
     if (found) return found
   }
@@ -574,7 +598,12 @@ export async function resolveChannel(ref, ctx = {}) {
   if (discovered) {
     try {
       const options = { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now }
-      const found = await resolveDiscoveredStream(discovered[1], discovered[2], options)
+      const hash = discovered[1]
+      const found = await findScenicStream(
+        (_stream, url) => streamHash(scenicStreamKey(url)) === hash,
+        [scenicTopicHints.get(String(ref))],
+        options,
+      )
       return {
         url: found.url,
         desc: `${found.name}官方直播地址获取成功`,
@@ -599,9 +628,14 @@ export async function resolveChannel(ref, ctx = {}) {
       url = parseBroadcast(text, channel, options)
     } else {
       if (!/^\d+$/.test(String(channel.contentId))) throw new Error('慢直播内容 ID 无效')
-      page = slowPage(channel.contentId)
-      const text = await cachedApi(`/detail/stream/${channel.contentId}?backend=true`, options)
-      url = parseStreamDetail(text, channel, options)
+      // 按名字找：官网换季会把机位挪进别的专题（仁义同时挂在两个专题里），频道表里记的专题撤了也要找得到
+      const found = await findScenicStream(
+        stream => stream.name === channel.streamName,
+        [scenicTopicHints.get(channel.ref), String(channel.contentId)],
+        options,
+      )
+      url = found.url
+      page = found.page
     }
     return {
       url,
@@ -617,4 +651,5 @@ export async function resolveChannel(ref, ctx = {}) {
 export function clearCache() {
   apiCache.clear()
   apiPending.clear()
+  scenicTopicHints.clear()
 }

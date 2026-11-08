@@ -1,11 +1,11 @@
-/** 吉林广电：15 路电视，动态签名在播放时自动刷新。13 路慢直播在「吉林风景」模块（scenic.js）。 */
+/** 吉林广电：15 路电视，动态签名在播放时自动刷新。慢直播在「吉林风景」模块（scenic.js）。 */
 import { claimsRef, clearCache, fetchGroups, resolveChannel } from './api.js'
 import epg from './epg.js'
 
 export default {
   id: 'jlntv',
   name: '吉林',
-  description: '吉林广电官网 6 路省级频道和 9 路地方台；无需登录，动态签名自动刷新，清单和媒体全代理。13 路慢直播在「吉林风景」模块。',
+  description: '吉林广电官网 6 路省级频道和 9 路地方台；无需登录，动态签名自动刷新，清单和媒体全代理。慢直播在「吉林风景」模块。',
   capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   // 3：慢直播拆去「吉林风景」模块（2026-11-08）
   catalogVersion: 3,

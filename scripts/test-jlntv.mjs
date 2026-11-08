@@ -164,13 +164,12 @@ await checkAsync('吉林风景：官网换季后撤下的不显示、新换上�
   // 原来就有的沿用原引用（仁义先出现在 986656，但频道表记的是 1020462，认回原引用、位置不动）
   assert.equal(refs['通化市·浑江'], legacy('通化市·浑江').ref)
   assert.equal(refs['靖宇县·松花江仁义风景区'], legacy('靖宇县·松花江仁义风景区').ref)
-  // 新机位：专题号 + 信号标识摘要；看敦化记在第一个挂它的专题
+  // 新机位：引用只用信号标识摘要，不带专题号
   for (const name of ['看敦化', '长春市·吉塔', '敦化市·渤海湖公园', '白山市·松岭', '白山市·松岭 2']) {
-    assert.match(refs[name], /^jlntv-slow-\d+-[a-f\d]{10}$/, name)
+    assert.match(refs[name], /^jlntv-slow-[a-f\d]{10}$/, name)
     assert.equal(claimsScenicRef(refs[name]), true, name)
     assert.equal(resolverFor(refs[name]), jlntvScenic, name)
   }
-  assert.match(refs['看敦化'], /^jlntv-slow-659599-/)
   assert.notEqual(refs['白山市·松岭'], refs['白山市·松岭 2'])
   assert.deepEqual(result.meta.skipped.map(row => row.name).sort(), [
     '长春市·新民广场', '长春市·双阳区', '临江市·江心岛', '长春市·南湖公园', '靖宇县·四海龙湾玛珥湖', '长春市·碧松净月塔楼', '松原市·查干湖',
@@ -181,7 +180,7 @@ await checkAsync('吉林风景：官网换季后撤下的不显示、新换上�
   const again = await jlntvScenic.fetch({}, { fetchImpl: fakeJilinSite({ topics: THIS_SEASON }).fetchImpl, now })
   assert.deepEqual(refsOf(again), refsOf(result))
 
-  // 播放：新机位按引用里的专题取址；看敦化（不带签名的 plus-live）放进媒体白名单
+  // 播放：新机位按信号在官网目录里找；看敦化（不带签名的 plus-live）放进媒体白名单
   clearCache()
   const play = await resolveChannel(refs['看敦化'], { fetchImpl: site.fetchImpl, now })
   assert.equal(play.url, DUNHUA)
@@ -201,6 +200,44 @@ await checkAsync('吉林风景：官网换季后撤下的不显示、新换上�
   assert.equal(gone.url, '')
   assert.match(gone.desc, /官网已撤下这个慢直播机位/)
   assert.equal(claimsScenicRef('jlntv-slow-659599-xyz'), false)
+  assert.equal(claimsScenicRef('jlntv-slow-659599-0123456789'), false)
+  clearCache()
+})
+
+await checkAsync('吉林风景：机位换了专题引用不变（隐藏、改名留得住），播放时跨专题找得到；老机位按名字认回', async () => {
+  clearCache()
+  const before = await jlntvScenic.fetch({}, { fetchImpl: fakeJilinSite({ topics: THIS_SEASON }).fetchImpl, now })
+  const refsBefore = Object.fromEntries(before.groups[0].dataList.map(channel => [channel.name, channel.deferredRef]))
+  // 下一季：「金秋吉林」两个专题撤了，新出的「冬日吉林」排在最前面也挂着看敦化、仁义
+  const WINTER = [
+    topic('1100001', '吉祥新闻慢直播｜冬日吉林', [s('看敦化', DUNHUA), s('靖宇县·松花江仁义风景区')]),
+    ...THIS_SEASON.filter(item => !['659599', '1020462'].includes(item.id)),
+  ]
+  clearCache()
+  const winterSite = fakeJilinSite({ topics: WINTER })
+  const after = await jlntvScenic.fetch({}, { fetchImpl: winterSite.fetchImpl, now })
+  const refsAfter = Object.fromEntries(after.groups[0].dataList.map(channel => [channel.name, channel.deferredRef]))
+  for (const name of ['看敦化', '敦化市·渤海湖公园', '白山市·松岭', '白山市·松岭 2', '靖宇县·松花江仁义风景区']) {
+    assert.equal(refsAfter[name], refsBefore[name], name)
+  }
+  assert.equal(refsAfter['靖宇县·松花江仁义风景区'], legacy('靖宇县·松花江仁义风景区').ref)
+  // 刷新记下了挂在哪个专题，播放直接问那个专题
+  winterSite.requests.length = 0
+  const play = await resolveChannel(refsAfter['看敦化'], { fetchImpl: winterSite.fetchImpl, now: now + 60_000 })
+  assert.equal(play.url, DUNHUA)
+  assert.equal(play.upstreamHeaders(DUNHUA).Referer, 'https://www.jlntv.cn/streamDetail?contentId=1100001&type=stream&id=102')
+  assert.deepEqual(winterSite.requests.map(href => new URL(href).pathname), ['/detail/stream/1100001'])
+
+  // 重启后没有提示：老机位频道表里记的专题（1020462）撤了，到目录里按名字找
+  clearCache()
+  const renyi = await resolveChannel(legacy('靖宇县·松花江仁义风景区').ref, { fetchImpl: fakeJilinSite({ topics: WINTER }).fetchImpl, now })
+  assert.equal(renyi.url, signed('靖宇县·松花江仁义风景区'))
+  assert.equal(renyi.upstreamHeaders(renyi.url).Referer, 'https://www.jlntv.cn/streamDetail?contentId=1100001&type=stream&id=102')
+  clearCache()
+  const cold = await resolveChannel(refsAfter['看敦化'], { fetchImpl: fakeJilinSite({ topics: WINTER }).fetchImpl, now })
+  assert.equal(cold.url, DUNHUA)
+  // 频道表里的引用都是有名字的，不会被当成新机位的摘要引用
+  assert.ok(SCENIC_CHANNELS.every(channel => !/^jlntv-slow-[a-f\d]{10}$/.test(channel.ref)))
   clearCache()
 })
 
@@ -236,16 +273,17 @@ await checkAsync('吉林风景：固定地址给主清单时跟到媒体清单�
   assert.deepEqual(result.meta.skipped, [{ name: '长白山·万达滑雪场将军顶', reason: '清单 HTTP 404' }])
 })
 
-await checkAsync('吉林风景：单路超时、5xx 照旧保留并提示；目录、专题详情取不到或一路都没确认成就整轮失败、沿用上一轮', async () => {
+await checkAsync('吉林风景：单路超时、5xx、限流照旧保留并提示；目录、专题详情取不到或一路都没确认成就整轮失败、沿用上一轮', async () => {
   clearCache()
   const site = fakeJilinSite({ manifests: {
     [fixed('长白山·万达滑雪场')]: 502,
     [fixed('《红男绿女》慢直播')]: Object.assign(new Error('timeout'), { name: 'TimeoutError' }),
+    [signed('通化市·浑江')]: 429,
   } })
   const result = await jlntvScenic.fetch({}, { fetchImpl: site.fetchImpl, now })
-  assert.equal(namesOf(result).length, 13, '说不准的不藏')
+  assert.equal(namesOf(result).length, 13, '说不准的不藏（含被限流的）')
   assert.deepEqual(result.meta.skipped, [])
-  assert.match(result.meta.warnings[0], /《红男绿女》慢直播、长白山·万达滑雪场 这一轮没查成（清单请求超时），照旧保留/)
+  assert.match(result.meta.warnings[0], /通化市·浑江、《红男绿女》慢直播、长白山·万达滑雪场 这一轮没查成（清单 HTTP 429），照旧保留/)
 
   clearCache()
   await assert.rejects(() => jlntvScenic.fetch({}, { fetchImpl: fakeJilinSite({ listFails: true }).fetchImpl, now }), /ETIMEDOUT/)

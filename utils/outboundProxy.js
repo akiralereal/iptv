@@ -13,6 +13,7 @@ import { proxyAwareFetch, systemProxyUrl } from './systemProxy.js'
  *
  * 用于 YouTube、澳门（澳广视）、海外频道及 Telegram；包含取址、节目单与媒体回源。
  * 其他模块一律不读它 —— 省台等国内源不会因为用户的代理开了全局模式、或分流规则判错而被带到境外。
+ * 用户自己加的订阅源、直连源勾了「经网络代理转发」的也用它（customSourceProxy.js），那是用户逐个源自己选的。
  *
  * 没填时沿用原来的 HTTPS_PROXY 环境变量 / macOS 系统代理（systemProxy.js），老部署行为不变；
  * 那条路径的作用范围也保持原样（各模块照旧读它），这里不去收窄。

@@ -4890,7 +4890,7 @@
                 <section class="sys-section">
                     <div class="sys-section-head">
                         <div class="sys-section-title">网络代理</div>
-                        <div class="sys-section-desc">适用于 <span id="sysProxyScope">YouTube 直播、澳门、海外频道</span>和 Telegram 消息推送（这些模块的卡片上标有「走代理」）。有生效代理时，这些模块的取址、清单和视频分片均经服务器转发，会使用服务器带宽及代理流量；其他模块不使用这里填写的代理。</div>
+                        <div class="sys-section-desc">适用于 <span id="sysProxyScope">YouTube 直播、澳门、海外频道</span>和 Telegram 消息推送（这些模块的卡片上标有「走代理」）。有生效代理时，这些模块的取址、清单和视频分片均经服务器转发，会使用服务器带宽及代理流量；其他模块不使用这里填写的代理。自己添加的订阅源、直连源要走代理，在「自定义源」里该源的卡片上勾「经网络代理转发」。</div>
                     </div>
                     <div class="system-config-grid">
                         <div class="system-config-item sys-span-all">
@@ -8325,8 +8325,39 @@
         // 各源最近一次拉取失败的记账（服务端内存态，随 GET /api/external-sources 的 fetchStatus 带下来，
         // 按源 id 存 { failCount, lastError, nextRetryAt }）。单独存放、不进 externalConfig，整份保存时不会被 POST 回去
         let externalFetchStatus = {};
+        // 当前有没有生效的网络代理（'setting' 后台填的、'env' 环境变量 / 系统代理、'' 没有），随 GET /api/external-sources 带下来
+        let externalProxySource = '';
+
+        // 订阅、直连卡片上的「经网络代理转发」（字段 useProxy，服务端见 utils/customSourceProxy.js）。
+        // 内置模块走不走代理是固定的，这里只给用户自己加的源；没有生效代理时不能勾，已勾的可以取消
+        function externalProxyField(index, source, { list, saveLabel }) {
+            const checked = source.useProxy === true;
+            const available = !!externalProxySource;
+            const what = list ? '拉取列表、播放其中的 HLS 频道' : '播放这个频道（HLS）';
+            const hint = available
+                ? `<ol class="hint-list">
+                        <li>勾选后，${what}都经「设置 → 网络代理」，清单和视频由服务器转发，播放设备不用设代理。</li>
+                        <li>会用服务器的带宽和代理流量，同时看的人越多用得越多。</li>
+                        <li>${list ? '局域网地址、rtmp / udp 等非 HTTP 地址和 FLV 频道' : '局域网地址、非 HTTP 地址和 FLV'}照旧由播放器直连。</li>
+                        <li>代理软件用规则模式的，要自己放行这些频道的域名。</li>
+                        <li>改完点「${saveLabel}」生效。</li>
+                    </ol>`
+                : checked
+                    ? '当前没有生效的网络代理，这个源暂由播放器直连；在「设置 → 网络代理」填好代理后自动改为服务器转发。'
+                    : '要先在「设置 → 网络代理」填好代理才能勾选。';
+            return `
+                        <div class="external-field">
+                            <label>
+                                <input type="checkbox" ${checked ? 'checked' : ''} ${available || checked ? '' : 'disabled'} onchange="updateExternalField(${index}, 'useProxy', this.checked)">
+                                经网络代理转发
+                            </label>
+                            <div class="form-hint">${hint}</div>
+                        </div>`;
+        }
+
         function normalizeExternalConfig(payload) {
             if (payload && payload.fetchStatus && typeof payload.fetchStatus === 'object') externalFetchStatus = payload.fetchStatus;
+            if (payload && typeof payload.proxy === 'string') externalProxySource = payload.proxy;
             const data = payload && payload.data !== undefined ? payload.data : payload || {};
             if (Array.isArray(data)) {
                 return {
@@ -8929,7 +8960,7 @@
                             <div class="form-hint">填写包含多个频道的 m3u/m3u8 或 txt（频道名,地址）播放列表地址，系统会自动识别格式并解析其中的所有频道</div>
                             ${isFromTheWebUrl(source.subscriptionUrl) ? `
                             <div style="margin-top:8px;padding:8px 10px;background:#fffbe6;border:1px solid #ffe58f;border-radius:4px;font-size:12px;color:#8c6d1f;line-height:1.6;">
-                                这是仓库 from-the-web 里的<strong>网络第三方转发源</strong>，不是电视台官方地址：国内直连大多播不了，需要海外网络或路由器全局代理；本项目不维护，失效不作为 bug 处理。不想要了删掉这条订阅即可。<a href="${FROM_THE_WEB_README}" target="_blank" rel="noopener">收录范围 ↗</a>
+                                这是仓库 from-the-web 里的<strong>网络第三方转发源</strong>，不是电视台官方地址：国内直连大多播不了，需要海外网络、路由器全局代理，或填好「设置 → 网络代理」后勾下方「经网络代理转发」；本项目不维护，失效不作为 bug 处理。不想要了删掉这条订阅即可。<a href="${FROM_THE_WEB_README}" target="_blank" rel="noopener">收录范围 ↗</a>
                             </div>` : (!isSaved && findFromTheWebSource(index) === -1 ? `
                             <div class="form-hint">想加回以前精选列表里的港澳台、新马、影视等网络第三方频道？<a href="javascript:void(0)" onclick="fillFromTheWeb(${index})">一键填入「来源于网络」列表</a></div>` : '')}
                             ` : `
@@ -8949,6 +8980,7 @@
                             </label>
                             <div class="form-hint">勾选后，本源频道在 m3u 里都带上 <code>#EXTVLCOPT:http-user-agent</code>，需要播放器认这一行（VLC、Kodi 等）；订阅里已自带 UA 的频道保持不变。带请求头的频道 TXT 格式放不下，会从 TXT 订阅里跳过。</div>
                         </div>
+                        ${externalProxyField(index, source, { list: !source.localImport, saveLabel: '导入并保存' })}
                         ${!source.localImport ? `
                         <div class="external-field">
                             <div class="external-field-row">
@@ -9043,6 +9075,7 @@
                             <input type="text" value="${source.m3u8Url || ''}" oninput="updateExternalField(${index}, 'm3u8Url', this.value)" placeholder="例：https://example.com/live.m3u8">
                             <div class="form-hint">直接填写m3u8直播流地址</div>
                         </div>
+                        ${externalProxyField(index, source, { list: false, saveLabel: '保存' })}
                     </div>
                     <div class="external-detail-footer">
                         <div class="external-switches">
@@ -10202,6 +10235,8 @@ if(success){
                     return false;
                 }
                 showStatus(proxy ? '网络代理已保存，立即生效' : '已清空代理地址，立即生效', 'success');
+                // 自定义源卡片上「经网络代理转发」能不能勾跟着变，不用刷新页面
+                externalProxySource = proxy ? 'setting' : (systemConfig && systemConfig.proxyEnvFallback ? 'env' : '');
                 return true;
             } catch (error) {
                 showStatus('保存失败: ' + error.message, 'error');

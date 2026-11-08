@@ -496,6 +496,13 @@ export function hasModule(id) {
 }
 
 /**
+ * 不是抓取模块、但也要认领播放引用的解析者：目前只有自定义源「经网络代理转发」
+ * （utils/customSourceProxy.js，由 app.js 挂上）。它不进注册表——后台没有它的卡片，
+ * 也不在 proxyModules 名单里。模块总是先认领，挂上来的只接模块都不认的引用。
+ */
+const extraResolvers = []
+
+/**
  * 找出该 ref 归哪个模块解析（播放请求到达时用）。
  *
  * 模块用 claimsRef(ref) 自己认领——判定属于平台知识，不该硬编码在注册表里。
@@ -509,7 +516,17 @@ export function resolverFor(ref) {
   for (const module of registry.values()) {
     if (typeof module.claimsRef === 'function' && module.claimsRef(ref)) return module
   }
+  for (const resolver of extraResolvers) {
+    if (resolver.claimsRef(ref)) return resolver
+  }
   return null
+}
+
+export function registerRefResolver(resolver) {
+  if (!resolver || typeof resolver.claimsRef !== 'function' || typeof resolver.resolve !== 'function') {
+    throw new Error('registerRefResolver 需要 claimsRef 与 resolve')
+  }
+  if (!extraResolvers.includes(resolver)) extraResolvers.push(resolver)
 }
 
 /** 找出哪个模块认领本机媒体路径；只做路由，不在注册表里放平台正则。 */

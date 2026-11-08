@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from "
 import { getAllChannels, externalSourceManager, builtInSourceManager } from "./channelMerger.js"
 import { BUILT_IN_SUBSCRIPTIONS, parsePlaylistContent, decodeAndParseLocalContent } from "./externalSources.js"
 import { dataPath } from "./paths.js"
+import { outboundProxySource } from "./outboundProxy.js"
 import update, { LOGO_EXTS } from "./updateData.js"
 
 /**
@@ -90,7 +91,9 @@ export function getExternalSourcesAPI() {
       success: true,
       data: externalSourceManager.sources,
       // 各源最近一次拉取失败的记账（内存态，不在 data 里，整份保存时不会被带回来）
-      fetchStatus: externalSourceManager.fetchStatus()
+      fetchStatus: externalSourceManager.fetchStatus(),
+      // 「经网络代理转发」开关据此决定能不能勾、提示怎么写：'setting' 后台填了、'env' 沿用环境变量 / 系统代理、'' 没有
+      proxy: outboundProxySource()
     }
   } catch (error) {
     return {
@@ -259,13 +262,22 @@ export async function removeLogoAPI(name) {
 export async function copyChannelToGroupsAPI({ name, url, logo, groups, catchup, catchupDays, catchupSource } = {}) {
   try {
     if (!name || !url) return { success: false, message: '缺少频道名或地址' }
+    // 开了「经网络代理转发」的自定义源频道：订阅里是本机入口，复制按原地址建副本，副本照样经代理转发
+    let useProxy = false
+    const proxyRef = String(url).match(/^\$\{replace\}\/proxy\/(cp-[0-9a-f]{16})\.m3u8$/)?.[1]
+    if (proxyRef) {
+      const original = externalSourceManager.proxiedChannels().find(ch => ch.ref === proxyRef)
+      if (!original) return { success: false, message: '找不到这个频道的原地址，请先刷新页面' }
+      url = original.url
+      useProxy = true
+    }
     if (String(url).includes('${replace}')) return { success: false, message: '咪咕频道暂不支持复制（地址为服务端跳转）' }
     const targets = Array.isArray(groups) ? [...new Set(groups.map(g => String(g || '').trim()).filter(Boolean))] : []
     if (!targets.length) return { success: false, message: '未选择目标分组' }
     const safeLogo = (typeof logo === 'string' && /^https?:\/\//.test(logo)) ? logo : ''
     let added = 0
     for (const group of targets) {
-      externalSourceManager.addSource({ name, group, m3u8Url: url, logo: safeLogo, enabled: true, autoRefresh: false, catchup, catchupDays, catchupSource })
+      externalSourceManager.addSource({ name, group, m3u8Url: url, logo: safeLogo, enabled: true, autoRefresh: false, catchup, catchupDays, catchupSource, useProxy })
       added++
     }
     await update(0, { regenerateOnly: true }).catch(err => console.error('复制频道后重新生成失败:', err))

@@ -1,5 +1,5 @@
 import http from "node:http"
-import { localRequestHandlerFor, resolverFor, shutdownModules } from './extractors/registry.js'
+import { localRequestHandlerFor, registerRefResolver, resolverFor, shutdownModules } from './extractors/registry.js'
 import { pipeFlv } from './utils/flvProxy.js'
 import { sendLocalMediaResponse } from './utils/localMediaResponse.js'
 import { readFileSync, mkdirSync, existsSync, statSync } from "node:fs"
@@ -37,11 +37,19 @@ import { exportConfigAPI, importConfigAPI } from "./utils/configBackupAPI.js";
 import { readConfig, saveConfig, parseInterfaceTxt, collectGroupConflicts, applyConfig,
          listProfiles, createProfile, renameProfile, deleteProfile } from "./utils/playlistConfig.js";
 import { updateBuiltInSources, updateExternalSources, updateExtractors, hasChangedResult, changedSourceNames, externalSourceManager, builtInSourceManager } from "./utils/channelMerger.js";
-import { GITHUB_RAW_MIRRORS, isBuiltInSubscriptionSource } from "./utils/externalSources.js";
+import { GITHUB_RAW_MIRRORS, isBuiltInSubscriptionSource, sourceUsesProxy } from "./utils/externalSources.js";
+import { createCustomProxyResolver, customSourceFetch, proxiableUrl } from "./utils/customSourceProxy.js";
+import { outboundProxyUrl } from "./utils/outboundProxy.js";
 import { startProbe, getProbeStatus, cancelProbe } from "./utils/sourceProbe.js";
 import { cleanUserAgent, userAgentOf } from "./utils/channelOpts.js";
 import { SYSTEM_ASSET_PATHS, readAnnouncementAsset } from "./utils/announcement.js";
 import { cleanCoreDumps } from "./utils/coreDumpCleanup.js";
+
+// 自定义源「经网络代理转发」的播放引用（${replace}/proxy/cp-<hex>.m3u8）：不是抓取模块，挂到 resolverFor 上
+registerRefResolver(createCustomProxyResolver({
+  getChannels: () => externalSourceManager.proxiedChannels(),
+  getVersion: () => externalSourceManager.revision,
+}))
 
 // 全代理/兼容模式（issue #98）的服务端可观测性。上一版的日志设计在实战里分不清三种情况
 // （首行不带分片数、每 pid 每分钟一行会让 curl 与播放器互吞对方的行、分片 404 与上游失败全静默），
@@ -519,15 +527,18 @@ async function handleRequest(req, res) {
             result = { success: false, message: '源不存在' }
           } else {
             const channels = []
+            // 开了「经网络代理转发」且有生效代理：会由服务器转发的频道也经代理探，否则全被误判失效
+            const viaProxy = sourceUsesProxy(src) && Boolean(outboundProxyUrl())
+            const probeFetch = url => (viaProxy && proxiableUrl(url) ? { fetchImpl: customSourceFetch } : {})
             if (src.mode === 'subscription' && Array.isArray(src.parsedChannels)) {
               // 按播放器会发的 UA 探：频道自带的优先，其次订阅源里填的（issue #170）
               const sourceUa = cleanUserAgent(src.userAgent)
               for (const ch of src.parsedChannels) {
-                channels.push({ name: ch.name, url: ch.url, group: ch.group, userAgent: userAgentOf(ch.opts) || sourceUa })
+                channels.push({ name: ch.name, url: ch.url, group: ch.group, userAgent: userAgentOf(ch.opts) || sourceUa, ...probeFetch(ch.url) })
               }
             } else if (src.m3u8Url) {
               // 直连/抓取模式：检测当前 m3u8 地址
-              channels.push({ name: src.name || '未命名源', url: src.m3u8Url, group: src.group })
+              channels.push({ name: src.name || '未命名源', url: src.m3u8Url, group: src.group, ...probeFetch(src.m3u8Url) })
             }
             result = channels.length === 0
               ? { success: false, message: '该源没有可检测的频道（请先导入/保存）' }

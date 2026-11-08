@@ -9,6 +9,8 @@ import { collectOptsUntilUrl, cleanUserAgent, withUserAgent } from "./channelOpt
 import { parseCatchupAttrs, resolveCatchup, sanitizeCatchup } from "./channelCatchup.js"
 import { FailureBackoff } from "./refreshBackoff.js"
 import fetch from 'node-fetch'
+import { customSourceFetch, proxiableUrl, proxyRefFor } from "./customSourceProxy.js"
+import { outboundProxyUrl } from "./outboundProxy.js"
 
 /**
  * 从一行 #EXTINF 提取频道显示名。
@@ -544,6 +546,17 @@ function isBuiltInSubscriptionSource(source) {
   return !!(source && source.subscriptionUrl && BUILT_IN_SUBSCRIPTION_URLS.has(source.subscriptionUrl))
 }
 
+/**
+ * 这个源有没有开「经网络代理转发」（customSourceProxy.js）。只认用户自己加的订阅源和直连源：
+ * 内置「精选频道」订阅不认（它和内置模块一样不让用户改出站），抓取模式不认（网页抓取由浏览器做，不经这个代理）。
+ */
+function sourceUsesProxy(source) {
+  if (!source || source.useProxy !== true || isBuiltInSubscriptionSource(source)) return false
+  if (source.mode === 'subscription') return true
+  const mode = source.mode || (String(source.webUrl || '').trim() ? 'fetch' : 'direct')
+  return mode === 'direct'
+}
+
 // 播种内置订阅源（精选频道）。
 // 关键改动：从「缺了就加回来」改为「只播种从未播种过的 URL」，用 config.seededBuiltInUrls 记录已播种集合。
 // 这样用户删除内置订阅后不会在重启时复活（修复 issue：默认源删不掉）。
@@ -690,6 +703,7 @@ function playlistFingerprint(source) {
 class ExternalSourceManager {
   
   constructor() {
+    this.revision = 0
     this.sources = this.loadSources()
     // 网页抓取失败的退避（内存态）。抓取失败不会更新 lastUpdated，否则到期的源
     // 会在每个 5 分钟 tick 都起一次 Chromium 重抓（见 refreshBackoff.js）
@@ -793,6 +807,8 @@ class ExternalSourceManager {
       ensureSourceIds(sources)
       writeJsonFileSync(EXTERNAL_SOURCES_PATH, sources)
       this.sources = sources
+      // 改写过的频道地址都是落盘后才生效的：经代理转发的播放索引按这个版本号重建（customSourceProxy.js）
+      this.revision++
       return { success: true }
     } catch (error) {
       printRed(`保存外部源配置失败: ${error.message}`)
@@ -838,7 +854,9 @@ class ExternalSourceManager {
         ...sourceConfig.extractOptions
       },
       ...catchup,
-      ...(Object.keys(catchup).length ? { catchupUrl: sourceConfig.m3u8Url || "" } : {})
+      ...(Object.keys(catchup).length ? { catchupUrl: sourceConfig.m3u8Url || "" } : {}),
+      // 从开了「经网络代理转发」的源复制出来的副本照样走代理（见 copyChannelToGroupsAPI）
+      ...(sourceConfig.useProxy === true ? { useProxy: true } : {})
     }
     
     this.sources.sources.push(newSource)
@@ -968,9 +986,11 @@ class ExternalSourceManager {
       return { success: true, skipped: true, message: '内置订阅源已禁用，跳过抓取' }
     }
 
-    const fetchOptions = subscriptionFetchOptions(source)
+    // 开了「经网络代理转发」且有生效代理：列表也经代理拉（局域网地址照旧直连）；没有代理就照常直连
+    const viaProxy = sourceUsesProxy(source) && Boolean(outboundProxyUrl())
+    const fetchOptions = { ...subscriptionFetchOptions(source), ...(viaProxy ? { fetchImpl: customSourceFetch } : {}) }
     try {
-      printBlue(`更新订阅源: ${source.name} (${source.subscriptionUrl})`)
+      printBlue(`更新订阅源: ${source.name} (${source.subscriptionUrl})${viaProxy ? '，经网络代理' : ''}`)
       const channels = await fetchAndParseM3u(source.subscriptionUrl, fetchOptions)
 
       const cur = this.relocateSource(source)
@@ -984,7 +1004,7 @@ class ExternalSourceManager {
       printGreen(`${source.name} 订阅更新成功，共 ${channels.length} 个频道`)
       return { success: true, channelCount: channels.length }
     } catch (error) {
-      const message = `${error.message}${subscriptionFailureHint(error, fetchOptions, source)}`
+      const message = `${viaProxy ? '经网络代理拉取失败：' : ''}${error.message}${subscriptionFailureHint(error, fetchOptions, source)}`
       printRed(`${source.name} 订阅更新失败: ${message}`)
 
       // 按 id 重新定位（await 期间快照 index 可能已失效）；源已被删则不记
@@ -1143,6 +1163,8 @@ class ExternalSourceManager {
         const builtInSubscription = isBuiltInSubscriptionSource(source)
         // 「播放时也带上」：在这里补而不是解析时补——开关一改、保存即生效，不必重新拉订阅（issue #170）
         const playbackUa = source.playWithUserAgent === true ? source.userAgent : ''
+        // 开了「经网络代理转发」：公网 http(s) 频道带上本机固定引用，写盘时改写成 ${replace}/proxy/<ref>.m3u8
+        const proxied = sourceUsesProxy(source) && source.id
         source.parsedChannels.forEach(ch => {
           const opts = withUserAgent(ch.opts, playbackUa, ch.url)
           const group = resolveSubscriptionGroup(ch, source)
@@ -1160,6 +1182,7 @@ class ExternalSourceManager {
             sourceId: source.id ? `ext:${source.id}` : undefined,  // 源归属（issue #29/#68）
             ...(builtInSubscription ? { builtInSubscription: true } : {}),
             ...(opts && opts.length ? { opts } : {}),
+            ...(proxied && proxiableUrl(ch.url) ? { proxyRef: proxyRefFor(source.id, ch.name, ch.url) } : {}),
             ...sanitizeCatchup(ch)   // 源自带的回看声明（issue #190）；没有就不带，照旧继承订阅头
           })
         })
@@ -1181,6 +1204,7 @@ class ExternalSourceManager {
           logo: source.logo || "",
           groupTitle: source.group,
           sourceId: source.id ? `ext:${source.id}` : undefined,   // 源归属（issue #29/#68）
+          ...(sourceUsesProxy(source) && source.id && proxiableUrl(source.m3u8Url) ? { proxyRef: proxyRefFor(source.id, source.name, source.m3u8Url) } : {}),
           // 复制来的副本保留原频道的回看声明（issue #190），地址改过就不再适用
           ...(source.catchupUrl && source.catchupUrl === source.m3u8Url ? sanitizeCatchup(source) : {})
         })
@@ -1188,6 +1212,22 @@ class ExternalSourceManager {
     })
     
     return Array.from(groupMap.values())
+  }
+
+  /**
+   * 开了「经网络代理转发」的源里改写过的频道（带 proxyRef 的那些），播放时按引用查原地址用。
+   * 直接取 getValidChannels 的结果，保证与写进订阅的那份一致（含「播放时也带上这个 UA」补的请求头）。
+   */
+  proxiedChannels() {
+    const names = new Map((this.sources.sources || []).filter(s => s && s.id).map(s => [`ext:${s.id}`, s.name]))
+    const out = []
+    for (const group of this.getValidChannels()) {
+      for (const ch of group.dataList) {
+        if (!ch.proxyRef) continue
+        out.push({ ref: ch.proxyRef, name: ch.name, url: ch.url, opts: ch.opts, sourceId: ch.sourceId, sourceName: names.get(ch.sourceId) || '' })
+      }
+    }
+    return out
   }
 
   /**
@@ -1258,4 +1298,4 @@ class ExternalSourceManager {
 const externalSourceManager = new ExternalSourceManager()
 
 export default externalSourceManager
-export { ExternalSourceManager, reseedBuiltInSubscriptions, fetchAndParseM3u, subscriptionFetchOptions, subscriptionFailureHint, SUBSCRIPTION_FETCH_LIMITS, parsePlaylistContent, decodeAndParseLocalContent, splitCredentials, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS, DEFAULT_CUSTOM_SUBSCRIPTIONS, ensureSourceIds, inheritExistingSourceIds }
+export { ExternalSourceManager, sourceUsesProxy, reseedBuiltInSubscriptions, fetchAndParseM3u, subscriptionFetchOptions, subscriptionFailureHint, SUBSCRIPTION_FETCH_LIMITS, parsePlaylistContent, decodeAndParseLocalContent, splitCredentials, isBuiltInSubscriptionSource, GITHUB_RAW_MIRRORS, BUILT_IN_SUBSCRIPTIONS, DEFAULT_CUSTOM_SUBSCRIPTIONS, ensureSourceIds, inheritExistingSourceIds }

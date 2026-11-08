@@ -3,7 +3,7 @@ import { readFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import youtube from '../extractors/youtube-live/index.js'
-import { normalizeYouTubeInput, record, refOf, parseVideoChannel, parseBroadcasts, inspect, mediaUrl, parseLive, liveInfo, publicManifest, liveWindow, renewedLink, videoStatus, ytDlpError, unreachableMessage } from '../extractors/youtube-live/api.js'
+import { normalizeYouTubeInput, record, refOf, parseVideoChannel, parseVideo, parseBroadcasts, inspect, inspectEvent, mediaUrl, parseLive, liveInfo, publicManifest, liveWindow, renewedLink, videoStatus, ytDlpError, unreachableMessage } from '../extractors/youtube-live/api.js'
 import { topVariantFirst } from '../utils/hlsTopFirst.js'
 import { lookup, toProxyManifest } from '../utils/hlsProxy.js'
 import { ExtractorManager } from '../utils/extractorManager.js'
@@ -79,6 +79,33 @@ assert.equal(inspected.events[0].videoId, id)
 assert.equal(calls[1][1], 'https://www.youtube.com/channel/' + channelId + '/streams', '查看场次查询已确认的所属频道')
 await assert.rejects(inspect('https://youtu.be/' + id, { ...reads,
   readMetadata: async () => ({...fixture,channel_id:'UCaaaaaaaaaaaaaaaaaaaaaa'}) }), /频道身份/)
+
+// 订阅单场：新闻台同时开好几路，关注频道只播第一路，要能固定其中一场；只收在播 / 已预约的
+assert.deepEqual(parseVideo(page('OK',{isLive:true}),id),pinned)
+assert.deepEqual(parseVideo(page('LIVE_STREAM_OFFLINE'),id),pinned)
+for (const html of [page('LOGIN_REQUIRED'),page('OK',{videoId:'other-video',isLive:true}),page('OK',{isLiveContent:false}),page('OK',{}, {endTimestamp:'2026-11-03'})]) {
+  assert.throws(() => parseVideo(html,id))
+}
+const livePage = { readWatchPage: async () => page('OK',{isLive:true}) }
+assert.deepEqual(await inspectEvent('https://youtube.com/live/' + id + '?si=share', livePage), pinned)
+assert.notEqual(refOf(await inspectEvent('https://youtu.be/' + id, livePage)), refOf(channel), '固定场次和关注频道是两条订阅')
+await assert.rejects(inspectEvent('@ABCNews', livePage), /查看场次/)
+await assert.rejects(inspectEvent('https://youtu.be/' + id, { readWatchPage: async () => page('OK',{isLiveContent:false}) }), /正在直播或已预约/)
+// 「查看场次」粘的是单场链接：这一场排第一（不在频道直播页里的 unlisted 也列出来），不重复
+const unlisted = 'Unlisted001'
+const pastedReads = {
+  readWatchPage: async video => page('OK',{videoId:video,isLive:true,title:'Unlisted live'}),
+  readMetadata: async () => fixture,
+}
+const pastedList = await inspect('https://youtu.be/' + unlisted, pastedReads)
+assert.deepEqual(pastedList.events.map(e => [e.videoId, e.status]), [[unlisted,'is_live'], ...fixture.entries.map(e => [e.id, e.live_status])])
+assert.equal(pastedList.events[0].url, 'https://www.youtube.com/watch?v=' + unlisted)
+const listedAgain = await inspect('https://youtu.be/' + id, { ...pastedReads, readWatchPage: async () => page('OK',{isLive:true}) })
+assert.deepEqual(listedAgain.events.map(e => e.videoId), [id], '粘的场次本来就在列表里时不重复')
+const upcomingPasted = await inspect('https://youtu.be/' + unlisted, { ...pastedReads, readWatchPage: async video => page('LIVE_STREAM_OFFLINE',{videoId:video,isUpcoming:true}) })
+assert.equal(upcomingPasted.events[0].status, 'is_upcoming')
+const vodPasted = await inspect('https://youtu.be/' + unlisted, { ...pastedReads, readWatchPage: async video => page('OK',{videoId:video,isLiveContent:false}) })
+assert.ok(!vodPasted.events.some(e => e.videoId === unlisted), '普通视频只用来找频道，不列成场次')
 
 // 固定场次状态：后台据此标出已结束 / 失效、可以移除的
 assert.equal(videoStatus(page('OK',{isLive:true}),id),'live')

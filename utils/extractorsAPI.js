@@ -10,7 +10,7 @@
  */
 import { getExtractorManager } from "./extractorManager.js"
 import { getModule, listModules } from "../extractors/registry.js"
-import { clearResolveCache as clearYouTubeCache, eventStatuses as youtubeEventStatuses, inspect as inspectYouTube, records as youtubeRecords, refOf as youtubeRef } from "../extractors/youtube-live/api.js"
+import { clearResolveCache as clearYouTubeCache, eventStatuses as youtubeEventStatuses, inspect as inspectYouTube, inspectEvent as inspectYouTubeEvent, records as youtubeRecords, refOf as youtubeRef } from "../extractors/youtube-live/api.js"
 import { runtimeStatus as youtubeRuntimeStatus, updateRuntime as updateYouTubeRuntime } from "../extractors/youtube-live/runtime.js"
 import { setSystemFlagAPI } from "./systemConfigAPI.js"
 import { enableBuiltInSources, enableBuiltInSubscriptions } from "../config.js"
@@ -315,7 +315,7 @@ export const importBrowserLoginAPI = (id, payload) => {
 }
 
 /** 查询只返回公开频道/场次标识。增删复用模块配置、刷新和订阅生成流程。 */
-export async function youtubeSubscriptionAPI({ action, url, ref, refs, op }) {
+export async function youtubeSubscriptionAPI({ action, url, ref, refs, op, pin }) {
   try {
     const manager = getExtractorManager()
     const module = getModule('youtube-live')
@@ -329,7 +329,10 @@ export async function youtubeSubscriptionAPI({ action, url, ref, refs, op }) {
       if (op === 'update') return { success: true, ...await updateYouTubeRuntime({ onUpdated: clearYouTubeCache }) }
       return { success: true, ...await youtubeRuntimeStatus({ checkLatest: op === 'check' }) }
     }
-    const item = action === 'youtubeAdd' ? (await inspectYouTube(url, { includeEvents: false })).item : null
+    // pin：「查看场次」里点「订阅此场」，固定这一场；其余链接一律关注所属频道
+    const item = action !== 'youtubeAdd' ? null
+      : pin === true ? await inspectYouTubeEvent(url)
+      : (await inspectYouTube(url, { includeEvents: false })).item
     // 网络查询完成后再读最新配置，并发添加不会覆盖其他刚保存的订阅。
     const rows = youtubeRecords(manager.effectiveConfig(module))
     let next

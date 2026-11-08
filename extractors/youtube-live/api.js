@@ -190,6 +190,22 @@ export function parseVideoChannel(html, id) {
   return record(v.channelId, null, v.author || data.microformat?.playerMicroformatRenderer?.ownerChannelName)
 }
 
+/**
+ * 单独订阅一场：只收正在直播或已预约的。24 小时新闻台常同时开四五路，关注频道只会播第一路，
+ * 想看指定栏目就得固定这一场。普通视频、回放和已结束的场次不收。
+ */
+export function parseVideo(html, id) {
+  const data = playerData(html)
+  const v = data.videoDetails
+  const live = data.microformat?.playerMicroformatRenderer?.liveBroadcastDetails
+  const status = data.playabilityStatus?.status
+  if (!v || !['OK', 'LIVE_STREAM_OFFLINE'].includes(status)) throw new Error('此场次无法公开访问')
+  if (v.videoId !== id || !v.isLiveContent || live?.endTimestamp || !(v.isLive || live?.isLiveNow || status === 'LIVE_STREAM_OFFLINE')) {
+    throw new Error('只能订阅正在直播或已预约的场次，普通视频和回放请改为关注频道')
+  }
+  return record(v.channelId, id, v.title)
+}
+
 function parseChannel(data, expectedId) {
   const channel = record(data.channel_id, null, data.channel)
   if (expectedId && expectedId !== channel.channelId) throw new Error('频道身份与直播列表不符')
@@ -216,7 +232,8 @@ async function broadcasts(base, expectedId, read = metadata) {
 
 export async function inspect(raw, { includeEvents = true, readMetadata = metadata, readWatchPage = watchPage } = {}) {
   const input = normalizeYouTubeInput(raw)
-  const owner = input.videoId ? parseVideoChannel(await readWatchPage(input.videoId), input.videoId) : null
+  const html = input.videoId ? await readWatchPage(input.videoId) : null
+  const owner = html ? parseVideoChannel(html, input.videoId) : null
   const base = owner ? channelUrl(owner.channelId) : input.channelUrl
   const id = owner?.channelId || base.match(/\/channel\/(UC[\w-]{22})$/)?.[1]
   if (!includeEvents) {
@@ -224,7 +241,24 @@ export async function inspect(raw, { includeEvents = true, readMetadata = metada
     return { item, events: [] }
   }
   const { channel, events } = await broadcasts(base, id, readMetadata)
+  // 粘贴的就是一场直播或预约时，它排第一；不公开列在频道直播页的（unlisted）也能从这里订阅
+  const pasted = html ? pastedEvent(html, input.videoId) : null
+  if (pasted) return { item: channel, events: [pasted, ...events.filter(event => event.videoId !== pasted.videoId)] }
   return { item: channel, events }
+}
+
+function pastedEvent(html, id) {
+  try {
+    const item = parseVideo(html, id)
+    return { ...item, status: videoStatus(html, id) === 'live' ? 'is_live' : 'is_upcoming', url: watchUrl(id) }
+  } catch { return null }
+}
+
+/** 「订阅此场」：只认单场链接，按场次固定。 */
+export async function inspectEvent(raw, { readWatchPage = watchPage } = {}) {
+  const input = normalizeYouTubeInput(raw)
+  if (!input.videoId) throw new Error('请先点「查看场次」，在要看的那一场后面点「订阅此场」')
+  return parseVideo(await readWatchPage(input.videoId), input.videoId)
 }
 
 async function watchPage(videoId) {

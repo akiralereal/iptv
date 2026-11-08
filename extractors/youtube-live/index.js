@@ -18,7 +18,7 @@ export default {
   proxyHosts: ['youtube.com', 'googlevideo.com'],
   defaultEnabled: false,
   catalogVersion: 2,
-  description: '输入用户名、频道 ID、频道或视频链接，自动关注所属频道的直播。部署机器需能访问 YouTube 和 Google Video，大陆部署在「设置 → 网络代理」填代理；默认输出最高画质（可在下方限制），保留配套音轨和字幕。',
+  description: '输入用户名、频道 ID、频道或视频链接，自动关注所属频道的直播；同时开多路的，可在「查看场次」里单独订阅某一场。部署机器需能访问 YouTube 和 Google Video，大陆部署在「设置 → 网络代理」填代理；默认输出最高画质（可在下方限制），保留配套音轨和字幕。',
   capabilities: { cache:'disk', resolve:true, epg:false, catchup:false },
   channelHlsMode: 'proxy',
   resolveBurstGuard: true,

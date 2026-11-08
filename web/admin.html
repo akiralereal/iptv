@@ -5310,7 +5310,9 @@
                     if (!input.isConnected) return;
                     if (!result.success) { events.textContent = result.message || 'YouTube 请求失败'; return; }
                     if (action !== 'youtubeInspect') {
-                        applyExtractorResult(result, action === 'youtubeRemove' ? '已移除订阅' : '已关注频道，启用模块后可在 M3U 的 YouTube 直播分组观看');
+                        applyExtractorResult(result, action === 'youtubeRemove' ? '已移除订阅'
+                            : fields.pin ? '已订阅这一场，启用模块后可在 M3U 的 YouTube 直播分组观看'
+                            : '已关注频道，启用模块后可在 M3U 的 YouTube 直播分组观看');
                         return;
                     }
                     events.replaceChildren();
@@ -5321,9 +5323,13 @@
                     follow.onclick = () => submit('youtubeAdd', { url: 'https://www.youtube.com/channel/' + result.item.channelId });
                     heading.append(' ', follow);
                     events.append(heading);
+                    // 新闻台常同时开好几路，关注频道只播第一路；想看哪一路就单独订阅那一场
                     for (const event of result.events) {
                         const p = document.createElement('p');
-                        p.textContent = (event.status === 'is_live' ? '直播中 · ' : '已预约 · ') + event.name;
+                        const pin = document.createElement('button');
+                        pin.className = 'btn btn-sm'; pin.textContent = '订阅此场';
+                        pin.onclick = () => submit('youtubeAdd', { url: event.url, pin: true });
+                        p.append((event.status === 'is_live' ? '直播中 · ' : '已预约 · ') + event.name + ' ', pin);
                         events.append(p);
                     }
                 } catch { events.textContent = '无法连接源管理接口'; }
@@ -5504,7 +5510,7 @@
                     <div class="bookmarklet-actions"><input type="text" id="youtubeInput" maxlength="2048" placeholder="用户名、频道 ID、频道或视频分享链接">
                     <button class="btn btn-sm" id="youtubeInspect">查看场次</button>
                     <button class="btn btn-sm btn-primary" id="youtubeAdd">关注频道</button></div>
-                    <p>频道、直播、视频和 Shorts 链接都用于关注所属频道。未开播时保留，播放时选择频道当前的首场公开直播。</p>
+                    <p>频道、直播、视频和 Shorts 链接都用于关注所属频道。未开播时保留，播放时选择频道当前的首场公开直播。同时开好几路的（如新闻台），点「查看场次」，在要看的那一场后面点「订阅此场」。</p>
                     <div id="youtubeEvents" aria-live="polite"></div>
                     <div id="youtubeEnded" class="youtube-ended" hidden></div>
                     <div id="youtubeSaved">${rows.length ? '' : '<p>还没有订阅。添加第一个频道后，它会出现在 M3U 的「YouTube 直播」分组。</p>'}${rows.map(row => `<p>${escapeHtml(row.name)} · ${row.videoId ? '固定场次' : '关注频道'}${row.videoId ? `<span class="youtube-status" data-youtube-status="${escapeHtml(row.videoId)}"></span>` : ''}

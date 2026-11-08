@@ -311,4 +311,41 @@ await check('admin offers repair after reopening and keeps retry available after
   assert.equal(button.hidden, true)
   assert.match(elements.youtubeRuntimeText.textContent, /已修复/)
 })
+await check('admin lists every event with its own 订阅此场 that pins that event, not the channel', async () => {
+  const admin = readFileSync(new URL('web/admin.html', root), 'utf8')
+  const source = admin.match(/^ {8}function initYouTubeSubscriptions\([^]*?^ {8}\}/m)[0]
+  const node = () => ({ children: [], textContent: '', isConnected: true, hidden: true,
+    append(...items) { for (const item of items) typeof item === 'string' ? this.textContent += item : this.children.push(item) },
+    replaceChildren() { this.children = []; this.textContent = '' } })
+  const elements = Object.fromEntries(['youtubeInput','youtubeEvents','youtubeInspect','youtubeAdd',
+    'youtubeRuntimeText','youtubeRuntimeCheck','youtubeRuntimeUpdate'].map(id => [id, node()]))
+  elements.youtubeInput.value = 'https://www.youtube.com/@SkyNews'
+  elements.youtubeInput.closest = () => ({ querySelectorAll: () => [] })
+  const posts = [], applied = []
+  const live = (videoId, name, status = 'is_live') => ({ channelId: 'UCoMdktPbSTixAyNGwb-UYkQ', videoId, name, status, url: 'https://www.youtube.com/watch?v=' + videoId })
+  const extractorPost = async body => {
+    posts.push(body)
+    if (body.action === 'youtubeRuntime') return { success: true, version: '2026.10.26', managed: true }
+    if (body.action === 'youtubeInspect') return { success: true, item: { channelId: 'UCoMdktPbSTixAyNGwb-UYkQ', name: 'Sky News' },
+      events: [live('aaaaaaaaaaa', 'Sky News Live'), live('bbbbbbbbbbb', 'Sky News Ukraine'), live('ccccccccccc', 'Press conference', 'is_upcoming')] }
+    return { success: true }
+  }
+  const context = vm.createContext({ document: { getElementById: id => elements[id], querySelectorAll: () => [], createElement: node },
+    extractorPost, applyExtractorResult: (result, message) => applied.push(message) })
+  vm.runInContext(source + '\ninitYouTubeSubscriptions()', context)
+  await new Promise(setImmediate)
+  await elements.youtubeInspect.onclick()
+  const [heading, ...rows] = elements.youtubeEvents.children
+  assert.equal(heading.children[0].textContent, '关注此频道')
+  assert.deepEqual(rows.map(row => row.textContent), ['直播中 · Sky News Live ', '直播中 · Sky News Ukraine ', '已预约 · Press conference '])
+  assert.ok(rows.every(row => row.children[0].textContent === '订阅此场'))
+  await rows[1].children[0].onclick()
+  assert.deepEqual({ ...posts.at(-1) }, { action: 'youtubeAdd', url: 'https://www.youtube.com/watch?v=bbbbbbbbbbb', pin: true })
+  assert.match(applied.at(-1), /已订阅这一场/)
+  await heading.children[0].onclick()
+  assert.deepEqual({ ...posts.at(-1) }, { action: 'youtubeAdd', url: 'https://www.youtube.com/channel/UCoMdktPbSTixAyNGwb-UYkQ' })
+  assert.match(applied.at(-1), /已关注频道/)
+  await elements.youtubeAdd.onclick()
+  assert.deepEqual({ ...posts.at(-1) }, { action: 'youtubeAdd', url: 'https://www.youtube.com/@SkyNews' }, '主按钮照旧关注频道')
+})
 console.log(`YouTube recovery: ${passed} checks passed`)

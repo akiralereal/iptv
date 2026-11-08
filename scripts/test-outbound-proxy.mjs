@@ -238,7 +238,7 @@ if (tlsPort) {
 // ---- 测试按钮 ----
 {
   const { proxyTestTargets } = await import('../utils/systemConfigAPI.js')
-  assert.deepEqual(proxyTestTargets().map(t => t.name), ['澳门（澳广视）', 'YouTube', 'Red Bull TV 官网', '海外频道（DW）', 'Telegram'],
+  assert.deepEqual(proxyTestTargets().map(t => t.name), ['澳门（澳广视）', 'YouTube', 'Red Bull TV 官网', 'Xumo 官方直播指南', '海外频道（DW）', 'Telegram'],
     '测试目标从模块的 proxyProbe 声明派生，Telegram 固定在最后')
   assert.ok(proxyTestTargets().every(t => /^https:\/\/\S+$/.test(t.url)))
   assert.ok(proxyTestTargets().every(t => Array.isArray(t.hosts) && t.hosts.length && t.hosts.every(h => /^[a-z0-9.-]+\.[a-z]+$/.test(h))),

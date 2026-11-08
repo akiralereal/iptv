@@ -40,6 +40,9 @@ RUN apk add --no-cache python3 \
   && /opt/youtube/bin/pip install --no-cache-dir -r /tmp/youtube-requirements.txt \
   && ln -s /opt/youtube/bin/yt-dlp /usr/local/bin/yt-dlp
 
+# Xumo 只在新增频道/更换入口时解码已通过网络代理下载的本地样本；播放不转码。
+RUN apk add --no-cache ffmpeg
+
 # 跳过 Puppeteer 自动下载 Chromium，使用系统的（更快更稳定）
 # 注意变量名是 PUPPETEER_SKIP_DOWNLOAD，不是 ..._SKIP_CHROMIUM_DOWNLOAD（后者 puppeteer 不认，是空操作）
 ENV PUPPETEER_SKIP_DOWNLOAD=true \

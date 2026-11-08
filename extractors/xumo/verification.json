@@ -1,0 +1,317 @@
+{
+  "checkedAt": "2026-11-08T13:22:02.995572+00:00",
+  "mainProject": "iptv",
+  "module": "xumo",
+  "category": "overseas",
+  "defaultEnabled": false,
+  "subscriptionChannelCount": 422,
+  "unitTests": {
+    "passed": 13
+  },
+  "fullRegression": {
+    "command": "npm test",
+    "exitCode": 0
+  },
+  "maintenance": {
+    "checkedAt": "2026-11-08T13:19:46.142Z",
+    "ok": true,
+    "channelCount": 422,
+    "jobs": {
+      "update": {
+        "nextRunAt": 1794230386122,
+        "failureStreak": 0,
+        "lastSuccessAt": 1794143986122,
+        "error": "",
+        "checked": 440,
+        "passed": 422,
+        "failed": 18
+      },
+      "check": {
+        "nextRunAt": 1794165586122,
+        "failureStreak": 0
+      }
+    },
+    "excludedCount": 11,
+    "retained": [],
+    "unavailable": [
+      [
+        "99951268",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "官方没有独立的直播 HLS 入口"
+        }
+      ],
+      [
+        "99951332",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "DRM 频道请使用官方播放器"
+        }
+      ],
+      [
+        "99951333",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "DRM 频道请使用官方播放器"
+        }
+      ],
+      [
+        "99951334",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "DRM 频道请使用官方播放器"
+        }
+      ],
+      [
+        "99951335",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "DRM 频道请使用官方播放器"
+        }
+      ],
+      [
+        "99951336",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "DRM 频道请使用官方播放器"
+        }
+      ],
+      [
+        "99951357",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "DRM 频道请使用官方播放器"
+        }
+      ],
+      [
+        "99991125",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "官方没有独立的直播 HLS 入口"
+        }
+      ],
+      [
+        "99991299",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "官方没有独立的直播 HLS 入口"
+        }
+      ],
+      [
+        "99991350",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "官方没有独立的直播 HLS 入口"
+        }
+      ],
+      [
+        "99991351",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "官方没有独立的直播 HLS 入口"
+        }
+      ],
+      [
+        "99991352",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "官方没有独立的直播 HLS 入口"
+        }
+      ],
+      [
+        "99991353",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "官方没有独立的直播 HLS 入口"
+        }
+      ],
+      [
+        "99991362",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "官方没有独立的直播 HLS 入口"
+        }
+      ],
+      [
+        "99991363",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "官方没有独立的直播 HLS 入口"
+        }
+      ],
+      [
+        "99991364",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "Xumo 上游 HTTP 400"
+        }
+      ],
+      [
+        "99991392",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "官方没有独立的直播 HLS 入口"
+        }
+      ],
+      [
+        "99991397",
+        {
+          "status": "unavailable",
+          "at": 1794143986122,
+          "error": "官方没有独立的直播 HLS 入口"
+        }
+      ]
+    ]
+  },
+  "upstreamAudit": {
+    "channels": 422,
+    "failures": [],
+    "resourceHostCount": 367
+  },
+  "logos": {
+    "checkedAt": "2026-11-08T13:18:52.528Z",
+    "count": 422,
+    "passed": 422,
+    "failed": []
+  },
+  "playback": {
+    "checkedAt": "2026-11-08T13:17:29.650108+00:00",
+    "checks": [
+      {
+        "name": "UFC",
+        "id": 99951134,
+        "mode": "environment-system-proxy",
+        "variantCount": 1,
+        "subtitles": 1,
+        "captions": 1,
+        "subtitleBytes": 197,
+        "webvtt": true,
+        "streams": [
+          {
+            "codec_name": "webvtt",
+            "codec_type": "subtitle"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "scte_35",
+            "codec_type": "data"
+          },
+          {
+            "codec_name": "timed_id3",
+            "codec_type": "data"
+          }
+        ],
+        "probeExitCode": 0,
+        "decodeExitCode": 0,
+        "frames": 180,
+        "ok": true,
+        "warning": "[null @ 0x7ab4c3ef80] Application provided invalid, non monotonically increasing dts to muxer in stream 1: 512 >= 512\n"
+      },
+      {
+        "name": "CBS News 24/7",
+        "id": 99991158,
+        "mode": "environment-system-proxy",
+        "variantCount": 1,
+        "subtitles": 0,
+        "captions": 1,
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          },
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080
+          },
+          {
+            "codec_name": "timed_id3",
+            "codec_type": "data"
+          }
+        ],
+        "probeExitCode": 0,
+        "decodeExitCode": 0,
+        "frames": 180,
+        "ok": true
+      },
+      {
+        "name": "Local Now",
+        "id": 99991282,
+        "mode": "environment-system-proxy",
+        "variantCount": 1,
+        "subtitles": 0,
+        "captions": 0,
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 720
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio"
+          }
+        ],
+        "probeExitCode": 0,
+        "decodeExitCode": 0,
+        "frames": 180,
+        "ok": true
+      }
+    ]
+  },
+  "explicitProxyAndSwitches": {
+    "checkedAt": "2026-11-08T13:19:24.609266+00:00",
+    "channel": "UFC",
+    "mode": "settings-network-proxy",
+    "decodeExitCode": 0,
+    "decodedSeconds": 15.015,
+    "frames": 450,
+    "subtitleBytes": 292,
+    "webvtt": true,
+    "masterAndMediaContainOnlyLocalReferences": true,
+    "masterPath": "http://127.0.0.1:1959/proxy/xumo-99951134.m3u8",
+    "childPath": "http://127.0.0.1:1959/proxy/sfb93450aaf7da673.m3u8",
+    "ok": true,
+    "brokenProxyStatus": 502,
+    "brokenProxyNoDirectFallback": true,
+    "restoredProxyStatus": 200,
+    "disabledMasterStatus": 404,
+    "disabledChildStatus": 404,
+    "disabledRemovedFromSubscription": true,
+    "finalModuleEnabled": false
+  },
+  "networkScope": "macOS host with its existing network exit; tested system/environment fallback and explicit Settings network proxy. Not a verification of unproxied mainland access. Docker image was not built or published.",
+  "cleanup": {
+    "temporaryMainInstanceStopped": true,
+    "standaloneLaunchAgentStopped": true,
+    "standaloneSnapshotRetained": true
+  }
+}

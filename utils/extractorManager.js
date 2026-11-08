@@ -1216,7 +1216,7 @@ class ExtractorManager {
     printBlue(`抓取模块 ${module.name} 更新中...`)
     try {
       const payload = await withTimeout(
-        module.fetch(config, { timeoutMs: 10000 }),
+        module.fetch(config, { timeoutMs: 10000, isEnabled: () => this.isModuleEnabled(module) }),
         MODULE_TIMEOUT_MS,
         `${module.name} 超过 ${MODULE_TIMEOUT_MS / 1000}s 未返回`,
       )

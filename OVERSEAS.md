@@ -109,7 +109,7 @@
 
 ## 网络代理
 
-「设置 → 网络代理」适用于声明了 `outbound: 'proxy'` 的模块（现在是 YouTube、澳门、海外频道、Red Bull TV；名单、「测试」的目标、要放行的域名和卡片上的「走代理」角标都从 `extractors/registry.js` 的声明派生）和 Telegram。代理软件用规则模式时，说明里可展开「要放行这些域名」照着加（澳门 `tdm.com.mo`，YouTube `youtube.com`、`googlevideo.com`，海外频道按 IPTV-overseas.m3u 里的流地址收成后缀，加取表用的 `githubusercontent.com`，红牛 `redbull.tv`、`redbull.com`、`akamaized.net`、`liiift.io`，Telegram `telegram.org`）；「测试」里断在代理之后的失败项也会列出该项要放行的域名。支持 HTTP、HTTPS、SOCKS5；留空时沿用环境变量或 macOS 系统代理，都没有才使用直连。其他模块不使用这里填写的代理，但原有环境变量／系统代理的作用范围保持不变。
+「设置 → 网络代理」适用于声明了 `outbound: 'proxy'` 的模块（现在是 YouTube、澳门、海外频道、Red Bull TV、Xumo Play；名单、「测试」的目标、要放行的域名和卡片上的「走代理」角标都从 `extractors/registry.js` 的声明派生）和 Telegram。代理软件用规则模式时，说明里可展开「要放行这些域名」照着加（澳门 `tdm.com.mo`，YouTube `youtube.com`、`googlevideo.com`，海外频道按 IPTV-overseas.m3u 里的流地址收成后缀，加取表用的 `githubusercontent.com`，红牛 `redbull.tv`、`redbull.com`、`akamaized.net`、`liiift.io`，Telegram `telegram.org`）；「测试」里断在代理之后的失败项也会列出该项要放行的域名。支持 HTTP、HTTPS、SOCKS5；留空时沿用环境变量或 macOS 系统代理，都没有才使用直连。其他模块不使用这里填写的代理，但原有环境变量／系统代理的作用范围保持不变。
 
 澳门与海外频道检测到生效代理时，取址、澳门节目单、主清单、子清单、字幕、密钥和视频分片均经服务器转发，播放器无需另设代理，会使用服务器带宽及代理流量。没有生效代理时保留原先的播放器直连方式。更换代理后澳门会重新查询对应出口的 CDN 路由。代理只改变网络路径，频道仍受官方地区与节目授权限制。
 
@@ -165,3 +165,7 @@ node scripts/probe-modules.mjs --samples all --md 结果.md --json 明细.json
 - 在目标网络上跑。沙箱或代理环境下加 `NODE_USE_ENV_PROXY=1`。
 - `--only id1,id2` 只测部分模块，`--skip` 跳过。`--keep-urls` 把签好名的地址留进 JSON，用来交给 Globalping 换出口复核（地址带短效令牌，只留在本机）。
 - 央视频在大陆连续取票会被限速，大陆复测时用 `--skip yangshipin`，别拿作者家里的出口扫。
+
+### Xumo Play（2026-11-08）
+
+「海外」新增 Xumo Play，默认关闭，全部取址、HLS、视频、音轨和字幕走统一网络代理。原生移植，无独立实验台服务依赖。主项目临时实例导出 422 路；每天更新与每 6 小时检查的持久调度、更新失败保留、关闭中停止维护均已测试。macOS 当前网络下，未填写后台代理时沿用环境/系统代理，UFC、CBS News、Local Now 分别实播 1080p、1080p、720p；显式填写后台 HTTP 代理后 UFC 解码 15.015 秒、450 帧，WebVTT 字幕经服务器读取正常。坏代理返回 502，不退回播放器直连；恢复代理返回 200。关闭模块后主清单和旧子清单 404，M3U 移除频道。此结果不代表大陆无代理直连可用。详见 `extractors/xumo/verification.json`。

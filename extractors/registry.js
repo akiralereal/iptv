@@ -97,6 +97,7 @@
  *                                 见 ADD-CHANNELS.md「登录凭证」，测试在 test-extractors.mjs
  *
  *   async fetch(config, ctx) → { groups: [{ name, dataList }], meta }
+ *       ctx.isEnabled() 可供分批后台维护检查当前开关；关闭后停止后续出站，不发布在飞结果。
  *       必需。返回**分组树**而不是扁平频道数组——channelMerger 的合并算法是
  *       「按 group.name 找同名分组再 push dataList」，扁平数组等于把
  *       groupTitle→分组 的映射重新发明一遍。
@@ -202,6 +203,7 @@ import douyinLive from './douyin-live/index.js'
 import youtubeLive from './youtube-live/index.js'
 import asianLive from './asian-live/index.js'
 import redbull from './redbull/index.js'
+import xumo from './xumo/index.js'
 import anhui from './anhui/index.js'
 import beijing from './beijing/index.js'
 import beijingScenic from './beijing/scenic.js'
@@ -372,6 +374,7 @@ const MODULES = [
   ...guangdianyunModules,
   // 海外频道排最后：并进体育、文旅等现有分组时，跟在各台官方频道后面
   redbull,
+  xumo,
   overseas,
 ]
 

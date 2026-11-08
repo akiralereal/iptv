@@ -112,29 +112,36 @@ export function buildChannels(rows) {
   })
 }
 
-/** 两张官网页面独立抓取，任一路页面异常都只回退自己的已核验固定地址。 */
-export async function fetchChannelGroups(options = {}) {
-  const [tvResult, scenicResult] = await Promise.allSettled([
-    requestText(TV_SCRIPT_URL, options).then(parseTvScript),
-    requestText(SCENIC_PAGE_URL, options).then(parseScenicPage),
-  ])
+/**
+ * 电视（「南京」模块）与 Live 南京景观（「南京景观」模块）是两张官网页面、两个模块各抓各的；
+ * 页面异常都只回退自己的已核验固定地址。
+ */
+export async function fetchTvGroup(options = {}) {
   const warnings = []
-  const tvRows = tvResult.status === 'fulfilled' ? tvResult.value : fallbackRows(TV_CHANNELS)
-  const parsedScenicRows = scenicResult.status === 'fulfilled' ? scenicResult.value : []
-  if (tvResult.status === 'rejected') warnings.push(`南京电视页面本轮不可用，沿用已核验地址：${tvResult.reason?.message || tvResult.reason}`)
-  if (scenicResult.status === 'rejected') warnings.push(`Live 南京页面本轮不可用，沿用已核验地址：${scenicResult.reason?.message || scenicResult.reason}`)
+  let tvRows
+  try {
+    tvRows = parseTvScript(await requestText(TV_SCRIPT_URL, options))
+  } catch (error) {
+    tvRows = fallbackRows(TV_CHANNELS)
+    warnings.push(`南京电视页面本轮不可用，沿用已核验地址：${error?.message || error}`)
+  }
+  return { group: { name: '南京电视台', dataList: buildChannels(tvRows) }, warnings }
+}
+
+export async function fetchScenicGroup(options = {}) {
+  const warnings = []
+  let parsedScenicRows = []
+  try {
+    parsedScenicRows = parseScenicPage(await requestText(SCENIC_PAGE_URL, options))
+  } catch (error) {
+    warnings.push(`Live 南京页面本轮不可用，沿用已核验地址：${error?.message || error}`)
+  }
   const missing = SCENIC_CHANNELS.filter(channel => !parsedScenicRows.some(row => row.name === channel.name))
   const fallbackScenicByName = new Map(fallbackRows(missing).map(row => [row.name, row]))
   const parsedScenicByName = new Map(parsedScenicRows.map(row => [row.name, row]))
   const scenicRows = SCENIC_CHANNELS.map(channel => parsedScenicByName.get(channel.name) || fallbackScenicByName.get(channel.name))
-  if (scenicResult.status === 'fulfilled' && missing.length) {
+  if (parsedScenicRows.length && missing.length) {
     warnings.push(`Live 南京页面缺少 ${missing.map(channel => channel.name).join('、')}，已沿用已核验地址`)
   }
-  return {
-    groups: [
-      { name: '南京电视台', dataList: buildChannels(tvRows) },
-      { name: '南京景观', dataList: buildChannels(scenicRows) },
-    ],
-    warnings,
-  }
+  return { group: { name: '南京景观', dataList: buildChannels(scenicRows) }, warnings }
 }

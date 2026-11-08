@@ -10,7 +10,8 @@ import {
   resolveChannel as resolveGztvChannel,
 } from '../extractors/gztv/api.js'
 import {
-  fetchChannelGroups as fetchNjtvGroups,
+  fetchScenicGroup as fetchNjtvScenicGroup,
+  fetchTvGroup as fetchNjtvTvGroup,
   parseScenicPage,
   parseTvScript,
   SCENIC_CHANNELS,
@@ -43,7 +44,7 @@ const gztvRows = () => [
 console.log('城市直播模块测试')
 
 check('三个城市模块均已注册，只有广州短效流走延迟解析', () => {
-  for (const id of ['gztv', 'njtv', 'qtv']) {
+  for (const id of ['gztv', 'njtv', 'njtv-scenic', 'qtv']) {
     const module = getModule(id)
     assert.ok(module, `${id} 未注册`)
     assert.equal(module.capabilities.cache, 'disk')
@@ -52,6 +53,8 @@ check('三个城市模块均已注册，只有广州短效流走延迟解析', (
   }
   assert.equal(getModule('gztv').capabilities.resolve, true)
   assert.equal(getModule('njtv').capabilities.resolve, false)
+  assert.equal(getModule('njtv-scenic').capabilities.resolve, false)
+  assert.deepEqual(getModule('njtv-scenic').splitFrom, { id: 'njtv', groups: ['南京景观'] })
   assert.equal(getModule('qtv').capabilities.resolve, false)
   assert.equal(resolverFor('gztv-3001')?.id, 'gztv')
   assert.equal(resolverFor('gztv-3004'), null)
@@ -143,26 +146,34 @@ check('南京：景观页面收齐 13 路，排除 5G Live 电视重复流与非
   assert.ok(rows.every(row => new URL(row.url).hostname.endsWith('.nbs.cn')))
 })
 
-await checkAsync('南京：官网两页独立同步并输出 4 路电视 + 13 路景观', async () => {
-  const result = await fetchNjtvGroups({ fetchImpl: async url => {
+await checkAsync('南京：电视、景观两个模块各抓各的页面，输出 4 路电视 + 13 路景观', async () => {
+  const requested = []
+  const fetchImpl = async url => {
+    requested.push(String(url))
     if (String(url).includes('/js/tv.js')) return fakeTextResponse(tvScriptFixture())
     return fakeTextResponse(scenicHtmlFixture())
-  } })
-  assert.deepEqual(result.groups.map(group => [group.name, group.dataList.length]), [
-    ['南京电视台', 4],
-    ['南京景观', 13],
-  ])
-  assert.deepEqual(result.warnings, [])
+  }
+  const tv = await getModule('njtv').fetch({}, { fetchImpl })
+  assert.deepEqual(tv.groups.map(group => [group.name, group.dataList.length]), [['南京电视台', 4]])
+  assert.deepEqual(tv.meta.warnings, [])
+  assert.deepEqual(requested, ['https://www.nbs.cn/js/tv.js?v=18'], '电视模块不读 Live 南京页面')
+  const scenic = await getModule('njtv-scenic').fetch({}, { fetchImpl })
+  assert.deepEqual(scenic.groups.map(group => [group.name, group.dataList.length]), [['南京景观', 13]])
+  assert.deepEqual(scenic.meta.warnings, [])
+  assert.deepEqual(scenic.meta.skipped.map(row => row.name), ['5G Live'])
 })
 
 await checkAsync('南京：页面失败时两组各自回退已核验地址，不把频道清空', async () => {
-  const result = await fetchNjtvGroups({ fetchImpl: async () => { throw new Error('官网维护') } })
-  assert.deepEqual(result.groups.map(group => group.dataList.length), [4, 13])
-  assert.equal(result.warnings.length, 2)
-  assert.ok(result.groups.flatMap(group => group.dataList).every(channel => channel.url.startsWith('https://')))
+  const fetchImpl = async () => { throw new Error('官网维护') }
+  const tv = await fetchNjtvTvGroup({ fetchImpl })
+  const scenic = await fetchNjtvScenicGroup({ fetchImpl })
+  assert.deepEqual([tv.group.dataList.length, scenic.group.dataList.length], [4, 13])
+  assert.equal(tv.warnings.length, 1)
+  assert.equal(scenic.warnings.length, 1)
+  assert.ok([...tv.group.dataList, ...scenic.group.dataList].every(channel => channel.url.startsWith('https://')))
   // 回退时电视频道仍带台标，景观机位照旧留空
-  assert.deepEqual(result.groups[0].dataList.map(channel => channel.logo), TV_CHANNELS.map(channel => channel.logo))
-  assert.ok(result.groups[1].dataList.every(channel => channel.logo === ''))
+  assert.deepEqual(tv.group.dataList.map(channel => channel.logo), TV_CHANNELS.map(channel => channel.logo))
+  assert.ok(scenic.group.dataList.every(channel => channel.logo === ''))
 })
 
 check('青岛：页面解析只接受 video10.qtv.com.cn 的 manifest.m3u8', () => {

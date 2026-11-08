@@ -49,7 +49,8 @@
 | `douyu-live` | 斗鱼直播 | 不适用 | — | — | — | 直播间 |
 | `anhui` | 安徽 | 无官方节目单 | — | — | — | 官网频道页已改跳新闻；安徽视讯 App 1.0.174（2026-09-25 拆包）是爱加密整包壳，桩 dex 13 KB、载荷在 assets/ijiami.dat，不脱壳、到此为止；公开网页端只有微直播活动接口 |
 | `liaoning` | 辽宁 | 无官方节目单 | — | — | — | 北斗融媒省台与沈阳台；getProgram 只列已播回看、没有预告，未接入节目单；辽宁卫视由咪咕 / 央视频覆盖 |
-| `beijing` | 北京广播电视台 | 已接入 | 7/9 电视 | 2 | api.cntv.cn/epg/getEpgInfoByChannelNew?c=btv{n} | 北京时间官网没有节目单，取央视网（代号 btv1 卫视…btv9 新闻，逐个试出来的）；体育休闲 btv6 官方为空，卡酷少儿试不出代号（咪咕、央视频也没有这两台）；北京时间 App 有节目单页面，但包是 360 加固、在模拟器里启动即自杀，正式版也不信任用户证书，接口拿不到，不再往下（不绕过 App 的防护）；电视频道要部署者 Cookie 才出现，公开部分是慢直播 |
+| `beijing` | 北京广播电视台 | 已接入 | 7/9 电视 | 2 | api.cntv.cn/epg/getEpgInfoByChannelNew?c=btv{n} | 北京时间官网没有节目单，取央视网（代号 btv1 卫视…btv9 新闻，逐个试出来的）；体育休闲 btv6 官方为空，卡酷少儿试不出代号（咪咕、央视频也没有这两台）；北京时间 App 有节目单页面，但包是 360 加固、在模拟器里启动即自杀，正式版也不信任用户证书，接口拿不到，不再往下（不绕过 App 的防护）；电视频道要部署者 Cookie 才出现 |
+| `beijing-scenic` | 北京景观 | 不适用 | — | — | — | 官网免登录的活动 / 慢直播 |
 | `chongqing` | 重庆 | 无官方节目单 | — | — | — | 频道详情的 playbillid / billcontent 为空，其余路径 404 |
 | `sichuan` | 四川 | 无官方节目单 | — | — | — | 官网直播页与四川观察 App（9.11.2 拆包核对）都没有电视节目单；programs/{id}/dates 是栏目往期视频不是节目单；四川卫视由咪咕 / 央视频覆盖，康巴卫视央视网也没收 |
 | `chengdu` | 成都 | 已接入 | 2/27 | 2 | api.cntv.cn/epg/getEpgInfoByChannelNew?c=cdtv1 / cdtv5 | 新闻综合、公共取央视网今明两天节目单；其余主频道代号返回 params error；看度详情 billcontent 全空，官网 playbill 的 CDTV-1 今明两天 lists 均为空，区县暂无可用官方节目单 |
@@ -90,8 +91,10 @@
 | `ningde` | 宁德 | 无官方节目单 | — | — | — | 分享页节目单组件调的 Live/getProgram 昨今明三天全是 24 条整点「精彩节目」占位，页面自己也把节目名写死成「精彩节目」；海博地市台同样只有占位；央视网试过 ningde / ningde1 都是 params error |
 | `fjtv` | 福建 | 已接入 | 9 路 | 2 | 省级 mapi-plus.fjtv.net 云直播 program/list；厦门 mapi1.kxm.xmtv.cn/api/v1/program.php；福州 app.zohi.tv/video/player/playbill | 东南卫视、厦视三套、海博地市只有占位；福州只列自办栏目、只有今天，少儿不收 |
 | `jlntv` | 吉林 | 已接入 | 1/15 | 2 | api.cntv.cn/epg/getEpgInfoByChannelNew?c=yanbian | broadcast/programs 只维护广播，电视频道全空；延边卫视取央视网，节目名是朝鲜语（官方原样）；吉林卫视由咪咕 / 央视频覆盖，其余央视网没收 |
+| `jlntv-scenic` | 吉林风景 | 不适用 | — | — | — | 慢直播机位 |
 | `jxntv` | 江西 | 无官方节目单 | — | — | — | 官网与今视频 App 后端都没有；App 接口有阿里云 WAF；今视频 6.2.6（2026-09-25 拆包，官网只指向应用宝）是爱加密壳，桩 dex 13 KB，不脱壳、到此为止 |
-| `hebtv` | 河北 | 已接入 | 6 路电视 | 2 | api.cmc.hebrts.cn/spidercrms/api/live/liveShowSet/findNoPage | POST，公开 tenantId；频道号与取流无关；美丽河北慢直播不适用 |
+| `hebtv` | 河北 | 已接入 | 6 路电视 | 2 | api.cmc.hebrts.cn/spidercrms/api/live/liveShowSet/findNoPage | POST，公开 tenantId；频道号与取流无关 |
+| `hebtv-scenic` | 河北景观 | 不适用 | — | — | — | 美丽河北城市慢直播 |
 | `hbtv` | 湖北 | 已接入 | 6/6 | 2 | cjy-iptv.hbtv.com.cn/wxcms3/remote-wx/api/cj-cloud/play/{账号}/show | 长江云 TV 遥控页接口，固定公开 Authorization、账号段传 null（2026-09-25 确认保留） |
 | `heilongjiang` | 黑龙江 | 无官方节目单 | — | — | — | 极光新闻 H5 只有流地址；旧节目单域名已解析不到；极光新闻 8.8.3（2026-09-25 拆包，业务 dex 明文）没有任何节目单接口、数据模型或界面文案，live/getTVInfo 只给台标与流地址，按日期的只有新闻联播回看，App 里也没有 |
 | `hnntv` | 海南 | 已接入 | 7/7 | 1 | www.hnntv.cn/api/schedule/byDay | 一次给今天加过去 6 天，没有明天 |
@@ -111,7 +114,8 @@
 | `iqilu` | 山东 | 已接入 | 9/9 | 2 | sdxw.iqilu.com/v1/app/play/program/qilu | 闪电新闻后端，频道号 24–32（不是 _pdCid） |
 | `sztv` | 深圳 | 已接入 | 6/7 | 1 | hls-api.sztv.com.cn/api/getEpgs | 深圳少儿官方为空 |
 | `meizhou-hakka` | 梅州 | 无官方节目单 | — | — | — | hellohakka.cn 网页端（kan0512 融媒 App 壳）没有节目单页；接口 mzxjapi.hellohakka.cn/api/app/channel/static/list 在网页代码里只有地址、没有调用，裸请求回「必传参数不正确」，参数只在原生 App 里，不再往下拆；央视网试过 meizhou / meizhou1 都是 params error，央视频、咪咕也没收 |
-| `njtv` | 南京 | 已接入 | 4 路电视 | 2 | apigateway.nbs.cn/Liveprogram/getEPGByTaskId | 直链频道，按名对上；13 路机位不适用 |
+| `njtv` | 南京 | 已接入 | 4 路电视 | 2 | apigateway.nbs.cn/Liveprogram/getEPGByTaskId | 直链频道，按名对上 |
+| `njtv-scenic` | 南京景观 | 不适用 | — | — | — | Live 南京城市景观机位 |
 | `nmtv` | 内蒙古 | 无官方节目单 | — | — | — | broadcast/programs 只维护广播，电视频道停在 2023 年；央视网有蒙语台（代号 neimenggu2）但连日为空，内蒙古卫视由咪咕 / 央视频覆盖 |
 | `shanxi` | 山西 | 已接入 | 9/16 | 2 | apphhplushttps.sxrtv.com/epg/{key}.json | JSONP；7 个地市台官方文件为空；末档拉到次日早上的按下一档截断 |
 | `shaanxi` | 陕西 | 已接入 | 8/8 | 1 | qidian.sxtvs.com/api/v3/program/tv?channel={key} | 只给服务器当天、只有 HH:mm，按响应 Date 头认日期；同一时刻两条留后一条；末档 23:59 接到 24:00 |
@@ -123,7 +127,8 @@
 | `yunnan` | 云南 | 已接入 | 4/7 | 2 | yntv-api.yntv.cn/index/jmd/getJmd | 防火墙要浏览器 UA + yntv.cn Referer；七彩云端三路没有节目单 |
 | `qingdao` | 青岛 | 已接入 | 5/5 | 1 | video10.qtv.com.cn/api/v1/bls_adapters?channel={号}&days=1&callback=… | 官网播放页的 JSONP，channel 是播放页的频道号（QTV-1…4 为 1…4，QTV-5 为 6）；必须带官网 Referer + Origin 否则 403，连续探十来次会被按 IP 拦几分钟；days 填几都回「过去 7 天 + 今天」整天，没有明天，所以只取今天 |
 | `qtv` | 青岛景观 | 不适用 | — | — | — | 城市景观机位 |
-| `kankanews` | 上海 | 已接入 | 6/13 | 2 | kapi.kankanews.com/content/pc/tv/programs | MD5 签名头；魔都眼、新纪实官方没有；5 路景观不适用 |
+| `kankanews` | 上海 | 已接入 | 6/8 | 2 | kapi.kankanews.com/content/pc/tv/programs | MD5 签名头；魔都眼、新纪实官方没有 |
+| `kankanews-scenic` | 上海景观 | 不适用 | — | — | — | 慢直播 |
 | `songjiang` | 上海松江 | 不适用 | — | — | — | 慢直播 |
 | `livechina` | 央视直播中国 | 不适用 | — | — | — | 景观直播 |
 | `ipanda` | iPanda 官方直播 | 不适用 | — | — | — | 熊猫机位 |

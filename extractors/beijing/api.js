@@ -281,69 +281,85 @@ async function publicEventAvailable(event, options = {}) {
   return text.trimStart().startsWith('#EXTM3U')
 }
 
+/**
+ * 电视台（「北京广播电视台」模块，要 Cookie）。没配 Cookie 不联网：9 个台加不进来，目录也用不上。
+ * 免登录的活动 / 慢直播在 fetchPublicCatalog（「北京景观」模块）。
+ */
 export async function fetchCatalog(options = {}) {
   const cookie = parseCredential(options.cookie)
   const warnings = []
-  const [tvPage, livePage] = await Promise.all([
-    textResponse(BEIJING_PAGE, options).catch(error => ({ error })),
-    textResponse(BEIJING_LIVE_PAGE, options).catch(error => ({ error })),
-  ])
+  if (!cookie) {
+    warnings.push('未配置登录 Cookie，9 个电视频道暂不加入；免登录的慢直播在「北京景观」模块')
+    return { tvRows: [], warnings, credentialRejected: '' }
+  }
+  const tvPage = await textResponse(BEIJING_PAGE, options).catch(error => ({ error }))
 
-  let tvRows = []
   const channels = tvPage.error ? BEIJING_CHANNELS : parseChannels(tvPage.text)
   if (tvPage.error) warnings.push(`电视台目录获取失败，暂用内置的 9 个官方频道：${tvPage.error.message}`)
   else for (const channel of channels) tvGids.set(channel.slug, channel.gid)
+  // 配了 Cookie 就一直保留电视台：失效时频道照留、后台提醒，不让它们从播放列表里悄悄消失
+  const tvRows = channels
   let credentialRejected = ''
-  if (!cookie) warnings.push('未配置登录 Cookie，9 个电视频道暂不加入；免登录直播不受影响')
-  else {
-    // 配了 Cookie 就一直保留电视台：失效时频道照留、后台提醒，不让它们从播放列表里悄悄消失
-    tvRows = channels
-    try {
-      await verifyCredential(cookie, options)
-      if (rejectedCookieKey === credentialKey(cookie)) rejectedCookieKey = ''
-    } catch (error) {
-      if (error instanceof CookieRejectedError) {
-        rejectedCookieKey = credentialKey(cookie)
-        credentialRejected = COOKIE_REJECTED_NOTICE
-      } else {
-        const reason = error?.name === 'AbortError' || error?.name === 'TimeoutError' ? '请求超时' : (error?.message || String(error))
-        warnings.push(`北京时间 Cookie 检查没有完成：${reason}`)
-        // 没查成不下结论，后台沿用上一轮（registry.js）
-        credentialRejected = undefined
-      }
+  try {
+    await verifyCredential(cookie, options)
+    if (rejectedCookieKey === credentialKey(cookie)) rejectedCookieKey = ''
+  } catch (error) {
+    if (error instanceof CookieRejectedError) {
+      rejectedCookieKey = credentialKey(cookie)
+      credentialRejected = COOKIE_REJECTED_NOTICE
+    } else {
+      const reason = error?.name === 'AbortError' || error?.name === 'TimeoutError' ? '请求超时' : (error?.message || String(error))
+      warnings.push(`北京时间 Cookie 检查没有完成：${reason}`)
+      // 没查成不下结论，后台沿用上一轮（registry.js）
+      credentialRejected = undefined
     }
   }
 
-  let publicRows = []
-  if (livePage.error) warnings.push(`免登录直播目录获取失败：${livePage.error.message}`)
-  else {
-    const events = parseLiveEvents(livePage.text)
-    const checked = await Promise.all(events.map(async event => {
-      try { return await publicEventAvailable(event, options) ? event : null } catch { return null }
-    }))
-    publicRows = checked.filter(Boolean)
-    const skipped = events.length - publicRows.length
-    if (skipped) warnings.push(`官网目录中有 ${skipped} 个活动流已失效，已自动排除`)
-  }
-  return { tvRows, publicRows, warnings, credentialRejected }
+  return { tvRows, warnings, credentialRejected }
 }
 
-export function buildGroups({ tvRows = [], publicRows = [] }) {
-  const groups = []
-  if (tvRows.length) groups.push({
+/** 免登录的活动 / 慢直播（「北京景观」模块）：逐个试取流，失效的不收。目录取不到算这轮失败，沿用上一轮。 */
+export async function fetchPublicCatalog(options = {}) {
+  const warnings = []
+  let livePage
+  try {
+    livePage = await textResponse(BEIJING_LIVE_PAGE, options)
+  } catch (error) {
+    throw new Error(`免登录直播目录获取失败：${error?.message || error}`)
+  }
+  const events = parseLiveEvents(livePage.text)
+  const checked = await Promise.all(events.map(async event => {
+    try { return await publicEventAvailable(event, options) ? event : null } catch { return null }
+  }))
+  const publicRows = checked.filter(Boolean)
+  const skipped = events.length - publicRows.length
+  if (skipped) warnings.push(`官网目录中有 ${skipped} 个活动流已失效，已自动排除`)
+  return { publicRows, warnings }
+}
+
+export function buildGroups({ tvRows = [] }) {
+  if (!tvRows.length) return []
+  return [{
     name: '北京',
     dataList: tvRows.map(channel => ({ name: channel.name, deferredRef: `beijing-tv-${channel.slug}`, logo: '', catchup: 'none' })),
-  })
-  if (publicRows.length) groups.push({
-    name: '北京景观',
-    dataList: publicRows.map(event => ({ name: event.name, deferredRef: `beijing-live-${event.typeId}-${event.gid}`, logo: '', catchup: 'none' })),
-  })
-  return groups
+  }]
 }
 
+export function buildPublicGroups({ publicRows = [] }) {
+  if (!publicRows.length) return []
+  return [{
+    name: '北京景观',
+    dataList: publicRows.map(event => ({ name: event.name, deferredRef: `beijing-live-${event.typeId}-${event.gid}`, logo: '', catchup: 'none' })),
+  }]
+}
+
+/** 电视台（「北京广播电视台」）与免登录直播（「北京景观」）各认各的；取流共用 resolveChannel。 */
 export function claimsRef(ref) {
   return /^beijing-tv-(?:sn|wy|kj|ys|cj|ty|sh|xw|se)$/.test(String(ref || ''))
-    || /^beijing-live-\d{1,4}-[a-z0-9]{1,64}$/.test(String(ref || ''))
+}
+
+export function claimsPublicRef(ref) {
+  return /^beijing-live-\d{1,4}-[a-z0-9]{1,64}$/.test(String(ref || ''))
 }
 
 export async function resolveChannel(ref, ctx = {}) {

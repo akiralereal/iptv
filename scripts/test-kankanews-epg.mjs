@@ -199,15 +199,19 @@ await checkAsync('频道：每个登记的 ref 都是模块实际输出的频道
   assert.equal(module.epg, kankanewsEpg)
   assert.equal(module.capabilities.epg, true)
   assert.equal(kankanewsEpg.days, 2)
-  const list = await module.fetch({}, {
-    fetchImpl: async url => {
-      const { pathname } = new URL(url)
-      if (pathname === '/content/pc/tv/channels') return json({ code: '1000', result: { limit_time: 180, list: CHANNEL_ROWS } })
-      assert.equal(pathname, '/content/pc/news/detail')
-      return json({ code: '1000', result: { limit_time: 180, play_info: SCENIC_ROWS } })
-    },
-  })
-  const emitted = new Map(list.groups.flatMap(group => group.dataList).map(channel => [channel.deferredRef, channel.name]))
+  const fetchImpl = async url => {
+    const { pathname } = new URL(url)
+    if (pathname === '/content/pc/tv/channels') return json({ code: '1000', result: { limit_time: 180, list: CHANNEL_ROWS } })
+    assert.equal(pathname, '/content/pc/news/detail')
+    return json({ code: '1000', result: { limit_time: 180, play_info: SCENIC_ROWS } })
+  }
+  const list = await module.fetch({}, { fetchImpl })
+  // 景观拆成了「上海景观」模块（2026-11-08），它不挂节目单
+  const scenicModule = getModule('kankanews-scenic')
+  assert.equal(scenicModule.epg, undefined)
+  const scenicList = await scenicModule.fetch({}, { fetchImpl })
+  assert.equal(list.groups.flatMap(group => group.dataList).length, 8)
+  const emitted = new Map([...list.groups, ...scenicList.groups].flatMap(group => group.dataList).map(channel => [channel.deferredRef, channel.name]))
   assert.equal(emitted.size, 13)
   const mapped = kankanewsEpg.channels()
   for (const { ref, name, key } of mapped) {

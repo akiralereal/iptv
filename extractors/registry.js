@@ -53,6 +53,11 @@
  *                                 地区、不带 category；反过来，默认关、归省面板的免账号模块也必须声明
  *                                 （scripts/test-extractors.mjs 两头都查）
  *   preserveGroupSuffixes array   可选；命中这些后缀的特殊分组不被 outputGroupName 覆盖
+ *   splitFrom             object  可选；{ id, groups }。这张卡是从模块 id 里拆出来的，原来由它输出 groups
+ *                                 这几个分组（2026-11-08 景观从吉林、河北、南京、上海、北京拆出）。管理器据此
+ *                                 做一次性搬家：原模块缓存里的这几组挪过来；原模块被关掉的，新卡也关；
+ *                                 配置档按源停用了原模块的，也停用新卡（见 extractorManager #migrateSplitModules）。
+ *                                 分组名和播放引用都不改，用户对这些频道做过的隐藏、改名、排序照旧生效
  *   channelHlsMode        string  可选；'proxy' 或 'relay'，在输出时覆盖频道缓存中的
  *                                 HLS 路由标记，适合整个平台统一要求代理的模块
  *   channelHlsModeForConfig(config) 可选；按当前生效配置返回 'proxy'/'relay'，覆盖上面的固定模式
@@ -199,6 +204,7 @@ import asianLive from './asian-live/index.js'
 import redbull from './redbull/index.js'
 import anhui from './anhui/index.js'
 import beijing from './beijing/index.js'
+import beijingScenic from './beijing/scenic.js'
 import chongqing from './chongqing/index.js'
 import sichuan from './sichuan/index.js'
 import chengdu from './chengdu/index.js'
@@ -220,6 +226,7 @@ import gzstv from './gzstv/index.js'
 import gxtv from './gxtv/index.js'
 import qingdao from './qingdao/index.js'
 import hebtv from './hebtv/index.js'
+import hebtvScenic from './hebtv/scenic.js'
 import heilongjiang from './heilongjiang/index.js'
 import hbtv from './hbtv/index.js'
 import hkstv from './hkstv/index.js'
@@ -228,6 +235,7 @@ import hntv from './hntv/index.js'
 import huyaLive from './huya-live/index.js'
 import ipanda from './ipanda/index.js'
 import jlntv from './jlntv/index.js'
+import jlntvScenic from './jlntv/scenic.js'
 import jxntv from './jxntv/index.js'
 import jstv from './jstv/index.js'
 import jiaxing from './jiaxing/index.js'
@@ -236,6 +244,7 @@ import shaoxing from './shaoxing/index.js'
 import zhejiangLocal from './zhejiang-local/index.js'
 import iqilu from './iqilu/index.js'
 import kankanews from './kankanews/index.js'
+import kankanewsScenic from './kankanews/scenic.js'
 import livechina from './livechina/index.js'
 import lotustv from './lotustv/index.js'
 import meizhouHakka from './meizhou-hakka/index.js'
@@ -245,6 +254,7 @@ import ningbo from './ningbo/index.js'
 import ningde from './ningde/index.js'
 import ningxia from './ningxia/index.js'
 import njtv from './njtv/index.js'
+import njtvScenic from './njtv/scenic.js'
 import nmtv from './nmtv/index.js'
 import putian from './putian/index.js'
 import qtv from './qtv/index.js'
@@ -293,6 +303,7 @@ const MODULES = [
   websports,
   anhui,
   beijing,
+  beijingScenic,
   chongqing,
   sichuan,
   chengdu,
@@ -312,8 +323,10 @@ const MODULES = [
   putian,
   ningde,
   jlntv,
+  jlntvScenic,
   jxntv,
   hebtv,
+  hebtvScenic,
   hbtv,
   heilongjiang,
   hnntv,
@@ -335,6 +348,7 @@ const MODULES = [
   meizhouHakka,
   // 江门官方直播 CDN 持续 502，2026-10-27 暂时取消注册；解析模块保留供恢复。
   njtv,
+  njtvScenic,
   nmtv,
   shanxi,
   shaanxi,
@@ -347,6 +361,7 @@ const MODULES = [
   qingdao,
   qtv,
   kankanews,
+  kankanewsScenic,
   songjiang,
   livechina,
   ipanda,
@@ -388,6 +403,13 @@ export function validateModule(module) {
   }
   if (module.county && (module.defaultEnabled !== false || module.category != null)) {
     throw new Error(`抓取模块 ${module.id} 声明了 county（市县台），必须 defaultEnabled: false 且不带 category`)
+  }
+  if (module.splitFrom != null) {
+    const { id, groups } = module.splitFrom
+    if (!MODULE_ID_RE.test(id || '') || id === module.id
+      || !Array.isArray(groups) || !groups.length || groups.some(name => typeof name !== 'string' || !name.trim())) {
+      throw new Error(`抓取模块 ${module.id} 的 splitFrom 要写成 { id: '原模块 id', groups: ['原来由它输出的分组名'] }`)
+    }
   }
   if (module.catalogVersion != null
     && (!Number.isInteger(module.catalogVersion) || module.catalogVersion < 1)) {
@@ -456,6 +478,11 @@ for (const module of MODULES) {
     throw new Error(`抓取模块 id 重复: ${module.id}`)
   }
   registry.set(module.id, module)
+}
+for (const module of registry.values()) {
+  if (module.splitFrom && !registry.has(module.splitFrom.id)) {
+    throw new Error(`抓取模块 ${module.id} 的 splitFrom 指向不存在的模块 ${module.splitFrom.id}`)
+  }
 }
 
 // 后台按地区收面板用的地区名：省、自治区、直辖市和港澳台

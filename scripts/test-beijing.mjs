@@ -9,10 +9,13 @@ import {
   BEIJING_PLAY_API,
   COOKIE_REJECTED_NOTICE,
   buildGroups,
+  buildPublicGroups,
+  claimsPublicRef,
   claimsRef,
   clearCache,
   credentialRejected,
   fetchCatalog,
+  fetchPublicCatalog,
   officialMediaUrl,
   parseChannels,
   parseCredential,
@@ -22,6 +25,7 @@ import {
   signPlayRequest,
 } from '../extractors/beijing/api.js'
 import beijing from '../extractors/beijing/index.js'
+import beijingScenic from '../extractors/beijing/scenic.js'
 import { getModule, resolverFor } from '../extractors/registry.js'
 import { redactConfig, resolveConfig, validateConfig } from '../utils/extractorManager.js'
 
@@ -66,17 +70,29 @@ function fixture({ account = { code: 0, data: { nickname: '测试用户' } }, pl
   return { calls, fetchImpl }
 }
 
-test('模块注册、频道范围与全代理模式正确', () => {
+test('模块注册、频道范围与全代理模式正确：电视台要 Cookie，免登录直播拆成「北京景观」', () => {
   assert.equal(getModule('beijing'), beijing)
   assert.equal(beijing.channelHlsMode, 'proxy')
   assert.equal(beijing.capabilities.catchup, false)
   assert.equal(beijing.helper, 'beijing-cookie')
   assert.equal(BEIJING_CHANNELS.length, 9)
-  for (const ref of ['beijing-tv-sn', 'beijing-live-6-eventone']) {
-    assert.equal(claimsRef(ref), true)
-    assert.equal(resolverFor(ref), beijing)
+  assert.equal(claimsRef('beijing-tv-sn'), true)
+  assert.equal(resolverFor('beijing-tv-sn'), beijing)
+  assert.equal(claimsRef('beijing-live-6-eventone'), false)
+
+  assert.equal(getModule('beijing-scenic'), beijingScenic)
+  assert.equal(beijingScenic.name, '北京景观')
+  assert.equal(beijingScenic.category, undefined, '免账号，归「北京」面板')
+  assert.equal(beijingScenic.channelHlsMode, 'proxy')
+  assert.deepEqual(beijingScenic.configSchema, [])
+  assert.deepEqual(beijingScenic.splitFrom, { id: 'beijing', groups: ['北京景观'] })
+  assert.equal(claimsPublicRef('beijing-live-6-eventone'), true)
+  assert.equal(resolverFor('beijing-live-6-eventone'), beijingScenic)
+  assert.equal(claimsPublicRef('beijing-tv-sn'), false)
+  for (const ref of ['beijing-tv-bad', 'beijing-live-eventone', 'beijing-live-6-eventone/extra']) {
+    assert.equal(claimsRef(ref), false)
+    assert.equal(claimsPublicRef(ref), false)
   }
-  for (const ref of ['beijing-tv-bad', 'beijing-live-eventone', 'beijing-live-6-eventone/extra']) assert.equal(claimsRef(ref), false)
 })
 
 test('Cookie 支持请求头、字符串和浏览器 JSON，配置只回传掩码', () => {
@@ -109,12 +125,15 @@ test('有效登录加入 9 个电视台，公开直播自动排除失效项目',
   const f = fixture()
   const catalog = await fetchCatalog({ cookie, fetchImpl: f.fetchImpl, timeoutMs: 1000, now: 1777777777000 })
   assert.equal(catalog.tvRows.length, 9)
-  assert.deepEqual(catalog.publicRows.map(row => row.gid), ['eventone'])
-  assert.match(catalog.warnings.join('\n'), /1 个活动流已失效/)
-  const groups = buildGroups(catalog)
-  assert.deepEqual(groups.map(group => [group.name, group.dataList.length]), [['北京', 9], ['北京景观', 1]])
+  assert.deepEqual(buildGroups(catalog).map(group => [group.name, group.dataList.length]), [['北京', 9]])
   const accountCall = f.calls.find(call => call.url.href === BEIJING_ACCOUNT_API)
   assert.equal(accountCall.headers.Cookie, cookie)
+  assert.equal(f.calls.some(call => call.url.href === BEIJING_LIVE_PAGE), false, '电视台模块不再读免登录直播目录')
+
+  const publicCatalog = await fetchPublicCatalog({ fetchImpl: f.fetchImpl, timeoutMs: 1000, now: 1777777777000 })
+  assert.deepEqual(publicCatalog.publicRows.map(row => row.gid), ['eventone'])
+  assert.match(publicCatalog.warnings.join('\n'), /1 个活动流已失效/)
+  assert.deepEqual(buildPublicGroups(publicCatalog).map(group => [group.name, group.dataList.length]), [['北京景观', 1]])
   const mediaCalls = f.calls.filter(call => call.url.hostname.endsWith('.v.btime.com'))
   assert.ok(mediaCalls.length > 0)
   assert.ok(mediaCalls.every(call => !('Cookie' in call.headers) && call.headers.Origin === 'https://www.btime.com' && call.headers.Referer === BEIJING_LIVE_PAGE))
@@ -125,7 +144,6 @@ test('Cookie 过期时电视台照留并提醒，免登录直播继续输出；�
   const catalog = await fetchCatalog({ cookie, fetchImpl: fixture({ account: ACCOUNT_REJECTED }).fetchImpl, timeoutMs: 1000 })
   // 不让 9 个台从播放列表里悄悄消失：照留，靠后台提醒中心告诉用户
   assert.equal(catalog.tvRows.length, 9)
-  assert.equal(catalog.publicRows.length, 1)
   assert.equal(catalog.credentialRejected, COOKIE_REJECTED_NOTICE)
   assert.doesNotMatch(catalog.warnings.join('\n'), /Cookie/)
   assert.equal(credentialRejected({ cookie }), COOKIE_REJECTED_NOTICE)
@@ -133,11 +151,28 @@ test('Cookie 过期时电视台照留并提醒，免登录直播继续输出；�
 
   const fetched = await beijing.fetch({ cookie }, { fetchImpl: fixture({ account: ACCOUNT_REJECTED }).fetchImpl })
   assert.equal(fetched.meta.credentialRejected, COOKIE_REJECTED_NOTICE)
-  assert.deepEqual(fetched.groups.map(group => [group.name, group.dataList.length]), [['北京', 9], ['北京景观', 1]])
+  assert.deepEqual(fetched.groups.map(group => [group.name, group.dataList.length]), [['北京', 9]])
+  // 免登录直播在「北京景观」，与 Cookie 无关
+  const scenic = await beijingScenic.fetch({}, { fetchImpl: fixture({ account: ACCOUNT_REJECTED }).fetchImpl })
+  assert.deepEqual(scenic.groups.map(group => [group.name, group.dataList.length]), [['北京景观', 1]])
 
   const valid = await fetchCatalog({ cookie, fetchImpl: fixture().fetchImpl, timeoutMs: 1000 })
   assert.equal(valid.credentialRejected, '')
   assert.equal(credentialRejected({ cookie }), '')
+})
+
+test('没配 Cookie：电视台模块不联网、不出频道，说明指向「北京景观」；景观目录取不到算失败', async () => {
+  clearCache(); resetCredentialState()
+  const catalog = await fetchCatalog({ cookie: '', fetchImpl: async () => { throw new Error('没配 Cookie 不该联网') } })
+  assert.deepEqual(catalog.tvRows, [])
+  assert.equal(catalog.credentialRejected, '')
+  assert.match(catalog.warnings.join('\n'), /未配置登录 Cookie.*北京景观/)
+  const fetched = await beijing.fetch({}, { fetchImpl: async () => { throw new Error('没配 Cookie 不该联网') } })
+  assert.deepEqual(fetched.groups, [])
+  await assert.rejects(
+    () => beijingScenic.fetch({}, { fetchImpl: async () => response('busy', 503) }),
+    /免登录直播目录获取失败/,
+  )
 })
 
 test('账号接口别的错误只说检查没做完，不冤枉 Cookie，电视台照留', async () => {

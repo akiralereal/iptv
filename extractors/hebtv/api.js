@@ -50,9 +50,6 @@ const SCENIC_NAME_OVERRIDES = {
   '慢直播丨平山': '平山',
 }
 
-let channelCache = null
-let channelPending = null
-
 const md5 = value => createHash('md5').update(value).digest('hex')
 
 function movieParams(row) {
@@ -229,45 +226,70 @@ export async function fetchScenicRows(options = {}) {
   return { rows, warnings }
 }
 
-/** 两组接口相互独立；单组临时故障时保留另一组，不让整个河北模块清空。 */
-export async function fetchAllRows(options = {}) {
-  const [tvResult, scenicResult] = await Promise.allSettled([
-    fetchChannelList(options),
-    fetchScenicRows(options),
-  ])
-  const tvRows = tvResult.status === 'fulfilled' ? tvResult.value : []
-  const scenicRows = scenicResult.status === 'fulfilled' ? scenicResult.value.rows : []
-  const warnings = scenicResult.status === 'fulfilled' ? [...scenicResult.value.warnings] : []
-  if (tvResult.status === 'rejected') warnings.push(`河北电视接口不可用：${tvResult.reason?.message || tvResult.reason}`)
-  if (scenicResult.status === 'rejected') warnings.push(`美丽河北接口不可用：${scenicResult.reason?.message || scenicResult.reason}`)
-  if (!tvRows.length && !scenicRows.length) throw new Error(warnings.join('；') || '河北官方接口没有可用频道')
-  return { tvRows, scenicRows, rows: [...tvRows, ...scenicRows], warnings }
+/**
+ * 电视（「河北」模块）和美丽河北景观（「河北景观」模块）是两套接口、两份缓存：
+ * 关掉景观的人播电视时不会顺带去拉景观栏目和十几个详情。
+ */
+function createRowsCache(load) {
+  let cache = null
+  let pending = null
+  return {
+    async get(options = {}) {
+      const now = Number(options.now ?? Date.now())
+      if (cache?.expiresAt > now || cache?.retryAt > now) return cache.rows
+      if (!pending) {
+        pending = load(options)
+          .then(rows => {
+            cache = { rows, expiresAt: now + CHANNEL_TTL_MS, retryAt: 0 }
+            return rows
+          })
+          .finally(() => { pending = null })
+      }
+      try {
+        return await pending
+      } catch (error) {
+        if (!cache) throw error
+        cache.retryAt = now + CHANNEL_RETRY_MS
+        return cache.rows
+      }
+    },
+    prime(rows, now = Date.now()) {
+      if (!Array.isArray(rows) || !rows.length) return
+      cache = { rows, expiresAt: Number(now) + CHANNEL_TTL_MS, retryAt: 0 }
+    },
+    peek: () => cache?.rows || [],
+    clear() {
+      cache = null
+      pending = null
+    },
+  }
 }
 
-async function cachedChannelList(options = {}) {
-  const now = Number(options.now ?? Date.now())
-  if (channelCache?.expiresAt > now || channelCache?.retryAt > now) return channelCache.rows
-  if (!channelPending) {
-    channelPending = fetchAllRows(options)
-      .then(result => {
-        const rows = result.rows
-        channelCache = { rows, expiresAt: now + CHANNEL_TTL_MS, retryAt: 0 }
-        return rows
-      })
-      .finally(() => { channelPending = null })
-  }
-  try {
-    return await channelPending
-  } catch (error) {
-    if (!channelCache) throw error
-    channelCache.retryAt = now + CHANNEL_RETRY_MS
-    return channelCache.rows
-  }
-}
+const tvRowsCache = createRowsCache(fetchChannelList)
+const scenicRowsCache = createRowsCache(options => fetchScenicRows(options).then(result => result.rows))
 
-export function primeChannelCache(rows, now = Date.now()) {
-  if (!Array.isArray(rows) || !rows.length) return
-  channelCache = { rows, expiresAt: Number(now) + CHANNEL_TTL_MS, retryAt: 0 }
+export const primeChannelCache = (rows, now) => tvRowsCache.prime(rows, now)
+export const primeScenicCache = (rows, now) => scenicRowsCache.prime(rows, now)
+
+/**
+ * 两个模块的频道引用同一种写法（hebtv-<稿件号>），稿件号看不出是电视还是景观：
+ * 上一轮景观表里有它就先问景观，否则先问电视。一边接口挂了不耽误另一边。
+ */
+async function findRow(id, options) {
+  const order = scenicRowsCache.peek().some(row => row.id === id)
+    ? [scenicRowsCache, tvRowsCache]
+    : [tvRowsCache, scenicRowsCache]
+  let failure = null
+  for (const cache of order) {
+    try {
+      const row = (await cache.get(options)).find(item => item.id === id)
+      if (row) return row
+    } catch (error) {
+      failure ||= error
+    }
+  }
+  if (failure) throw failure
+  return null
 }
 
 export function buildChannels(rows) {
@@ -300,8 +322,7 @@ export async function resolveChannel(ref, ctx = {}) {
   try {
     const match = /^hebtv-(\d{1,12})$/.exec(String(ref || ''))
     if (!match) return { url: '', desc: '河北冀时频道引用格式错误' }
-    const rows = await cachedChannelList({ timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now })
-    const row = rows.find(item => item.id === match[1])
+    const row = await findRow(match[1], { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now })
     if (!row) return { url: '', desc: `河北冀时频道 ${match[1]} 当前不在官网列表中` }
     return {
       url: signStreamUrl(row.url, row.liveUri, row.liveKey, ctx.now ?? Date.now()),
@@ -315,6 +336,6 @@ export async function resolveChannel(ref, ctx = {}) {
 }
 
 export function clearCache() {
-  channelCache = null
-  channelPending = null
+  tvRowsCache.clear()
+  scenicRowsCache.clear()
 }

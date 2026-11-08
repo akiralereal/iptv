@@ -194,10 +194,14 @@ await checkAsync('频道对齐：四套电视频道的显示名与模块产出�
   assert.equal(module.epg, njtvEpg)
   assert.equal(module.capabilities.epg, true)
   assert.doesNotThrow(() => validateModule(module))
-  const { groups } = await module.fetch({}, {
-    fetchImpl: async url => ({ ok: true, status: 200, text: async () => (String(url).includes('tv.js') ? tvScript() : scenicHtml()) }),
-  })
-  const [tvGroup, scenicGroup] = groups
+  const fetchImpl = async url => ({ ok: true, status: 200, text: async () => (String(url).includes('tv.js') ? tvScript() : scenicHtml()) })
+  const { groups } = await module.fetch({}, { fetchImpl })
+  // 景观拆成了「南京景观」模块（2026-11-08），它不挂节目单
+  const scenicModule = getModule('njtv-scenic')
+  assert.equal(scenicModule.epg, undefined)
+  const [scenicGroup] = (await scenicModule.fetch({}, { fetchImpl })).groups
+  const [tvGroup] = groups
+  assert.equal(groups.length, 1)
   const provided = njtvEpg.channels()
   // 直链频道没有 deferredRef：按来源模块 + 显示名配对，名字必须和 fetch() 产出的一字不差
   const emittedNames = new Set(groups.flatMap(group => group.dataList).map(channel => channel.name))

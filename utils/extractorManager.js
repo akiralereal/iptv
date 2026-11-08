@@ -29,6 +29,7 @@ import { sanitizeOpts } from "./channelOpts.js"
 import { listModules, getModule, sourceIdOf, moduleRegion, REGION_NAMES } from "../extractors/registry.js"
 import { printBlue, printGreen, printRed, printYellow } from "./colorOut.js"
 import { enableExtractors } from "../config.js"
+import { listProfiles, readConfig, saveConfig } from "./playlistConfig.js"
 
 const CONFIG_FILE = 'extractors.json'
 const CACHE_FILE = 'extractor-cache.json'
@@ -346,6 +347,8 @@ class ExtractorManager {
     // 迁移的来源。做成实例字段是为了能被测试覆盖——否则测试会去读真实的
     // system-config.json（dataPath 默认是 cwd，跑测试时就是仓库根目录）。
     this.legacyConfigPath = dataPath('system-config.json')
+    // 配置档读写（拆分模块的迁移用），由 getExtractorManager() 挂上；测试直接 new 的不挂
+    this.profileStore = null
     // 配置文件损坏时置位。置位期间拒绝任何写盘——否则一次后台操作就会把
     // 损坏（被降级成空）的配置覆盖回去，用户的模块配置全没了。
     this.corrupt = null
@@ -386,6 +389,8 @@ class ExtractorManager {
       delete this.cache.modules[id]
       cacheChanged = true
     }
+    // 要在下面按 claimsRef 清缓存之前：原模块已不认领拆走的频道，先清就搬不过来了
+    if (this.#moveSplitGroups()) cacheChanged = true
     for (const module of listModules()) {
       this.configGen.set(module.id, (this.configGen.get(module.id) || 0) + 1)
       const cacheEntry = this.#cacheEntry(module.id)
@@ -428,7 +433,92 @@ class ExtractorManager {
     // 那时也必须搬一次，否则导入完就是当场降档。
     this.#migrateLegacyConfig()
     this.#migrateMasterSwitch()
+    this.#migrateSplitModules()
     return this
+  }
+
+  /**
+   * 拆出来的卡片（registry.js 的 splitFrom）：原模块缓存里归它的几组挪过来。
+   *
+   * 不靠标记、每次加载都做：挪完原模块里就没有这几组了，再跑什么也不动。原模块抓回来的
+   * 新结果本来就不带这几组；挪的是升级前那份旧缓存——不挪的话，原模块这轮抓取失败时
+   * 拿旧缓存兜底，会和新卡输出同一批频道。新卡自己没缓存才接收，免得旧数据盖掉新数据。
+   */
+  #moveSplitGroups() {
+    let changed = false
+    for (const module of listModules()) {
+      if (!module.splitFrom) continue
+      const parent = this.cache.modules[module.splitFrom.id]
+      if (!parent || !Array.isArray(parent.groups)) continue
+      const names = new Set(module.splitFrom.groups)
+      const moved = parent.groups.filter(group => names.has(group?.name))
+      if (!moved.length) continue
+      const count = groups => groups.reduce((sum, group) => sum + (group.dataList?.length || 0), 0)
+      parent.groups = parent.groups.filter(group => !names.has(group?.name))
+      if (isPlainObject(parent.health)) parent.health.channelCount = count(parent.groups)
+      const own = this.#cacheEntry(module.id)
+      if (!own.groups.length) {
+        own.groups = moved
+        own.health.channelCount = count(moved)
+      }
+      changed = true
+    }
+    return changed
+  }
+
+  /**
+   * 一次性迁移：拆出来的卡片继承原模块的开关和各配置档的按源停用。
+   *
+   * 新模块默认开（作者 10-10 定的规矩），可拆出来的不算新内容：原来把「吉林」整个关掉的人，
+   * 升级后不该冒出「吉林风景」；某个配置档按源停用了吉林的，这一档也不该冒出来。
+   * 原模块开着就什么都不写，新卡按默认开。
+   *
+   * 幂等，靠 config.migrated['split:<id>'] 标记：迁过之后用户再单独打开新卡，下次启动不会被关回去。
+   * 导入拆分前的旧备份时 extractors.json 里没有标记，reload() 会再迁一次——配置档文件那时已经写盘。
+   * 配置档的读写由 getExtractorManager() 挂上（profileStore）；测试里直接 new 的管理器没挂，
+   * 只迁开关，不碰仓库目录里真实的配置档文件。
+   */
+  #migrateSplitModules() {
+    if (this.corrupt) return
+    const migrated = isPlainObject(this.config.migrated) ? this.config.migrated : {}
+    const pending = listModules().filter(module => module.splitFrom && !migrated[`split:${module.id}`])
+    if (!pending.length) return
+    for (const module of pending) {
+      const parent = getModule(module.splitFrom.id)
+      const entry = this.#entry(module.id)
+      if (!this.isModuleEnabled(parent) && entry.enabled === undefined) {
+        entry.enabled = false
+        printYellow(`${parent.name} 模块是关着的，从它拆出来的「${module.name}」也保持关闭`)
+      }
+      if (this.profileStore) this.#inheritProfileSourceFilter(module, parent)
+      migrated[`split:${module.id}`] = true
+    }
+    this.config.migrated = migrated
+    try {
+      this.#saveConfig()
+    } catch (error) {
+      for (const module of pending) delete migrated[`split:${module.id}`]
+      printRed(`拆分模块的迁移写盘失败，下次启动重试：${error.message}`)
+    }
+  }
+
+  #inheritProfileSourceFilter(module, parent) {
+    const parentSource = parent.sourceId || sourceIdOf(parent.id)
+    const ownSource = module.sourceId || sourceIdOf(module.id)
+    const { listProfiles, readConfig, saveConfig } = this.profileStore
+    try {
+      for (const profile of listProfiles()) {
+        const config = readConfig(profile.id)
+        const disabled = Array.isArray(config.disabledSources) ? config.disabledSources : []
+        if (!disabled.includes(parentSource) || disabled.includes(ownSource)) continue
+        config.disabledSources = [...disabled, ownSource]
+        if (saveConfig(profile.id, config)?.success === false) continue
+        printYellow(`配置档「${profile.name || profile.id}」停用了${parent.name}，从它拆出来的「${module.name}」也一并停用`)
+      }
+    } catch (error) {
+      // 配置档读写失败不挡模块加载；这一档的新卡按默认可见，用户可在源管理里再关
+      printRed(`拆分模块的配置档迁移失败：${error.message}`)
+    }
   }
 
 
@@ -1329,7 +1419,12 @@ export function getModuleConfig(id) {
 let singleton = null
 
 export function getExtractorManager() {
-  if (!singleton) singleton = new ExtractorManager().load()
+  if (!singleton) {
+    singleton = new ExtractorManager()
+    // 拆分模块的迁移要改各配置档的按源停用（见 #migrateSplitModules）；只有真实运行的这一份挂上
+    singleton.profileStore = { listProfiles, readConfig, saveConfig }
+    singleton.load()
+  }
   return singleton
 }
 

@@ -47,6 +47,8 @@ export function createProvinceModule(province) {
     region: province,
     // 频道量大、只有本地少数人看的市县台：默认关闭，由用户按省自己打开（作者拍板，同山东市县）
     defaultEnabled: false,
+    // 后台「批量开关」里收进「市县台」一节（registry.js 的 county）
+    county: true,
     capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
     catalogVersion: 1,
     relayProxyCompatible: true,

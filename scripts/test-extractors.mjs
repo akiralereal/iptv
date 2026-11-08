@@ -22,7 +22,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 
-import { listModules, getModule, sourceIdOf, resolverFor, validateModule, proxyModules, MODULE_ID_RE, MODULE_CATEGORIES } from '../extractors/registry.js'
+import { listModules, getModule, sourceIdOf, resolverFor, validateModule, proxyModules, moduleRegion, REGION_NAMES, MODULE_ID_RE, MODULE_CATEGORIES } from '../extractors/registry.js'
 import { domainSuffix, hostCoveredBy } from '../utils/outboundProxy.js'
 import { proxyHostsOf } from '../extractors/overseas/index.js'
 import { clearUrlCache, channel as playbackChannel } from '../utils/appUtils.js'
@@ -381,6 +381,29 @@ check('relay 全代理兼容声明只接受布尔值', () => {
   assert.throws(() => validateModule({ ...base, relayProxyCompatible: 'yes' }), /必须是布尔值/)
   validateModule({ ...base, relayProxyCompatible: true })
   validateModule({ ...base, relayProxyCompatible: false })
+})
+
+check('市县台声明（county）：只接受布尔值，声明了就得默认关、不带分类', () => {
+  const base = { id: 'probe', name: 'probe', fetch: async () => ({ groups: [] }) }
+  assert.throws(() => validateModule({ ...base, county: 'yes', defaultEnabled: false }), /county 必须是布尔值/)
+  assert.throws(() => validateModule({ ...base, county: true }), /defaultEnabled: false/)
+  assert.throws(() => validateModule({ ...base, county: true, defaultEnabled: false, category: 'live' }), /不带 category/)
+  validateModule({ ...base, county: true, defaultEnabled: false })
+  validateModule({ ...base, county: false })
+})
+
+check('市县台模块两头对齐：声明了 county 的归省面板；默认关、归省面板的免账号模块都声明了 county', () => {
+  const county = listModules().filter(module => module.county)
+  assert.ok(county.length >= 21, `市县台模块应有山东市县 + 20 个「市县台·省」，实际 ${county.length}`)
+  for (const module of county) {
+    assert.ok(REGION_NAMES.has(moduleRegion(module)), `${module.id} 声明了 county，但面板「${moduleRegion(module)}」不是省级地区`)
+  }
+  // 新加的市县模块按 ADD-CHANNELS.md 默认关、进本省面板；忘了写 county 会漏出后台「批量开关」的「市县台」一节
+  const missing = listModules()
+    .filter(module => !module.county && (module.category || 'standard') === 'standard'
+      && module.defaultEnabled === false && REGION_NAMES.has(moduleRegion(module)))
+    .map(module => module.id)
+  assert.deepEqual(missing, [], '默认关、归省面板的免账号模块要声明 county: true（不是市县台的话，改这条检查并写明原因）')
 })
 
 check('normalizeGroups 挡住畸形返回，不让一个坏模块搞崩整轮合并', () => {

@@ -5872,14 +5872,20 @@
         /**
          * 弹窗分节：分类的标题和顺序跟卡片区用同一份（extractorCategories），最后是「内置源」。
          * 分类没登记的模块收进「其他」——卡片区看不到它们，但「全不选」不能把它们漏掉。
+         * 市县台（county，散在二十来个省面板里）从免账号里拆出来、紧跟其后单独一节，
+         * 一次全开全关不用挨个省找；只是归节，写的还是各模块自己的开关。
          * 节 id 带 __ 前缀的是弹窗自己的，不会和注册表的分类 id 撞上。
          */
         function extractorBulkSections(state) {
             const modules = (state && state.modules) || [];
             const categories = extractorCategories();
             const known = new Set(categories.map(category => category.id));
-            const categoryOf = m => known.has(m.category || 'standard') ? (m.category || 'standard') : '__other';
-            const sections = categories.concat([{ id: '__other', title: '其他' }])
+            const categoryOf = m => m.county ? '__county'
+                : known.has(m.category || 'standard') ? (m.category || 'standard') : '__other';
+            const order = categories.flatMap(category => category.id === 'standard'
+                ? [category, { id: '__county', title: '市县台' }]
+                : [category]);
+            const sections = order.concat([{ id: '__other', title: '其他' }])
                 .map(category => ({
                     id: category.id,
                     title: category.title,
@@ -6036,6 +6042,8 @@
                     </div>
                     ${section.id === '__builtin'
                         ? '<div class="extractor-bulk-note">自定义源（自己添加的直连 / 抓取 / 订阅源）不在这里，到「自定义源」标签里逐个启用或停用。</div>'
+                        : section.id === '__county'
+                        ? '<div class="extractor-bulk-note">各省的区县、地市融媒体台，频道多、默认关闭；卡片仍在「免账号」的本省面板里。</div>'
                         : ''}
                 </section>`).join('');
             paintExtractorBulk();

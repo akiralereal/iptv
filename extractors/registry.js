@@ -47,6 +47,11 @@
  *                                 是省级地区（REGION_NAMES）就用它；分组名不是地区（上海景观）、
  *                                 按地市拆组（山东市县）的显式声明。不是地区的专题面板（国际、
  *                                 直播中国、iPanda）也用它，排在各省面板前面
+ *   county                boolean 可选；true 表示市县台模块（山东市县、各省「市县台·X」）。卡片照旧在本省
+ *                                 面板里，后台「批量开关」把它们单独收成「市县台」一节，一次全开全关。
+ *                                 只是归节，不是另一层开关。声明了就必须 defaultEnabled: false、region 是省级
+ *                                 地区、不带 category；反过来，默认关、归省面板的免账号模块也必须声明
+ *                                 （scripts/test-extractors.mjs 两头都查）
  *   preserveGroupSuffixes array   可选；命中这些后缀的特殊分组不被 outputGroupName 覆盖
  *   channelHlsMode        string  可选；'proxy' 或 'relay'，在输出时覆盖频道缓存中的
  *                                 HLS 路由标记，适合整个平台统一要求代理的模块
@@ -377,6 +382,12 @@ export function validateModule(module) {
   }
   if (module.category != null && !MODULE_CATEGORIES.has(module.category)) {
     throw new Error(`抓取模块 ${module.id} 的 category 非法: ${JSON.stringify(module.category)}`)
+  }
+  if (module.county != null && typeof module.county !== 'boolean') {
+    throw new Error(`抓取模块 ${module.id} 的 county 必须是布尔值`)
+  }
+  if (module.county && (module.defaultEnabled !== false || module.category != null)) {
+    throw new Error(`抓取模块 ${module.id} 声明了 county（市县台），必须 defaultEnabled: false 且不带 category`)
   }
   if (module.catalogVersion != null
     && (!Number.isInteger(module.catalogVersion) || module.catalogVersion < 1)) {

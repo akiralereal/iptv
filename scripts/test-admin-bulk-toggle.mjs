@@ -209,6 +209,40 @@ await check('快照与分节：缺省内置源视为开，分类顺序同卡片�
   assert.deepEqual(plain(h.context.extractorBulkSections({ modules: [{ id: 'x', name: 'X', category: 'live' }] })).map(s => s.id), ['live', '__builtin'])
 })
 
+await check('市县台（county）从免账号拆出、紧跟其后单独一节；节内全开只写这些模块各自的开关', async () => {
+  const state = stateOf()
+  state.modules.push(
+    { id: 'shandong-counties', name: '山东市县', county: true, enabled: false },
+    { id: 'guangdianyun-hebei', name: '市县台·河北', county: true, enabled: true },
+    { id: 'guangdianyun-hunan', name: '市县台·湖南', county: true, enabled: false },
+  )
+  const h = bulkHarness(state)
+  const sections = plain(h.context.extractorBulkSections(state))
+  assert.deepEqual(sections.map(s => s.id), ['account', 'live', 'standard', '__county', 'overseas', '__builtin'])
+  assert.equal(sections[3].title, '市县台')
+  assert.deepEqual(sections[2].items.map(item => item.id), ['ipanda', 'gdtv', 'hbtv'], '市县台不再混在免账号里')
+  assert.deepEqual(sections[3].items.map(item => item.id), ['shandong-counties', 'guangdianyun-hebei', 'guangdianyun-hunan'])
+  // 没有市县台模块（老版本后端没回传 county）就不出这一节
+  assert.equal(plain(h.context.extractorBulkSections(stateOf())).some(s => s.id === '__county'), false)
+
+  h.context.openExtractorBulk()
+  assert.equal(h.section('__county').count.textContent, '已选 1/3')
+  assert.match(h.body.innerHTML, /卡片仍在「免账号」的本省面板里/)
+  h.context.setExtractorBulkSection(h.section('__county').buttons[0], true)
+  assert.equal(h.section('__county').count.textContent, '已选 3/3')
+  assert.equal(h.section('standard').count.textContent, '已选 3/3', '不碰免账号节')
+  assert.equal(h.summary(), '将启用 2 个')
+  await h.apply()
+  assert.deepEqual(h.posts, [{ action: 'bulkToggle', modules: { 'shandong-counties': true, 'guangdianyun-hunan': true } }])
+
+  const off = bulkHarness(state)
+  off.context.openExtractorBulk()
+  off.context.setExtractorBulkSection(off.section('__county').buttons[1], false)
+  assert.equal(off.summary(), '将关闭 1 个')
+  await off.apply()
+  assert.deepEqual(off.posts, [{ action: 'bulkToggle', modules: { 'guangdianyun-hebei': false } }])
+})
+
 await check('issue #189：全不选后只勾回央视频 / 凤凰 / 咪咕，一次请求只带真正要改的', async () => {
   const after = stateOf({ sichuan: false, 'bilibili-live': false, 'huya-live': false, ipanda: false, gdtv: false, hbtv: false },
     { enableBuiltInSources: false, enableBuiltInSubscriptions: false })

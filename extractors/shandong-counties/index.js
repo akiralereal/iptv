@@ -35,6 +35,8 @@ export default {
   name: '山东市县',
   description: '闪电新闻融媒平台上山东 16 个地市的区县融媒体中心与部分市台官方直播，按地市分组（山东-济南、山东-潍坊…），默认关闭；每轮只收正在推流的台。',
   defaultEnabled: false,
+  // 后台「批量开关」里收进「市县台」一节（registry.js 的 county）
+  county: true,
   region: '山东',
   capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   catalogVersion: 2,

@@ -744,6 +744,8 @@ class ExtractorManager {
         region: moduleRegion(module),
         // 专题面板（国际、直播中国…）排在各省面板前面，后台据此区分
         regionIsArea: REGION_NAMES.has(moduleRegion(module)),
+        // 市县台：「批量开关」里单独成一节（registry.js 的 county），卡片仍在本省面板
+        county: module.county === true,
         // 后台据此在卡片里多渲染一块辅助 UI（具体 markup 在 admin.html）
         helper: module.helper || '',
         // 助手挂在哪一段（不声明就渲染在表单最上面，咪咕就是这样）

@@ -178,12 +178,19 @@ const SOCKS_REJECT_REASONS = {
  */
 function describeError(err, proxy, status) {
   if (err?.name === 'TimeoutError' || err?.name === 'AbortError') return { stage: '', message: '超时没有响应' }
-  const cause = err?.cause || err
-  const text = [cause?.code, cause?.message].filter(Boolean).join(' ') || err?.message || '连接失败'
+  // undici 会把真正的原因包好几层：代理回 502 时是 fetch failed ← Request was cancelled. ← Proxy response (502)…，
+  // 只看第一层就只剩一句看不懂的话，所以整条 cause 链都拿来认
+  const chain = []
+  for (let e = err?.cause || err, depth = 0; e && depth < 4; e = e.cause, depth++) {
+    const part = [e.code, e.message].filter(Boolean).join(' ')
+    if (part) chain.push(part)
+  }
+  const text = chain.join(' ← ') || err?.message || '连接失败'
   status ||= text.match(/Proxy response \((\d+)\)/)?.[1]
   const code = Number(status) || 0
   const socksReject = text.match(/proxy rejected connection - (\w+)/i)?.[1]
-  const resetCode = text.match(/\b(ECONNRESET|EPIPE)\b/)?.[1]
+  // UND_ERR_SOCKET（other side closed）：Clash / mihomo 这类代理先答应隧道、再去连对方，连不上就直接断开
+  const resetCode = text.match(/\b(ECONNRESET|EPIPE|UND_ERR_SOCKET)\b/)?.[1]
   let stage = '', message = text
   if (!proxy) { /* 直连：没有代理可分段 */ }
   else if (code === 407) { stage = 'proxy'; message = '代理要求账号密码，或账号密码不对（HTTP 407）' }
@@ -207,6 +214,15 @@ function describeError(err, proxy, status) {
     } catch { /* 无效地址前面已拦 */ }
   }
   return { stage, message: message.slice(0, 300) }
+}
+
+/**
+ * 经网络代理的请求失败了，翻成能看懂的话（和「测试」按钮同一套分段与措辞）。
+ * 给自定义源的「经网络代理转发」用：报错页、日志、订阅卡片上的失败原因。
+ * @returns {{ stage: 'proxy'|'target'|'', message: string }}
+ */
+export function describeProxyFailure(err, proxy = outboundProxyUrl()) {
+  return describeError(err, proxy)
 }
 
 /**

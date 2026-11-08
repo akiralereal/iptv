@@ -271,6 +271,8 @@ function splitCredentials(rawUrl) {
  */
 function describeFetchError(error) {
   if (error?.name === 'AbortError' || error?.type === 'aborted') return '请求超时'
+  // 经网络代理拉的（customSourceFetch 挂上的）：认得出是哪一段就用翻好的话，认不出照旧给错误码
+  if (error?.proxyFailure?.stage) return error.proxyFailure.message
   return error?.code || error?.cause?.code || error?.cause?.message || error?.message || '未知错误'
 }
 

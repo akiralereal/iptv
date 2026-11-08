@@ -30,6 +30,7 @@ delete process.env.https_proxy
 
 const { reloadConfig } = await import('../config.js')
 const cp = await import('../utils/customSourceProxy.js')
+const { describeProxyFailure } = await import('../utils/outboundProxy.js')
 const { ExternalSourceManager, BUILT_IN_SUBSCRIPTIONS, fetchAndParseM3u } = await import('../utils/externalSources.js')
 const { startProbe, getProbeStatus } = await import('../utils/sourceProbe.js')
 const { registerRefResolver, resolverFor } = await import('../extractors/registry.js')
@@ -93,6 +94,14 @@ const connects = []
 const proxy = http.createServer((req, res) => { res.writeHead(405).end() })
 proxy.on('connect', (req, socket, head) => {
   connects.push(req.url)
+  // Clash / mihomo 的做法：先答应隧道、再去连对方，连不上就直接断开（用户截图里的 UND_ERR_SOCKET）
+  if (req.url.startsWith('unreachable.example:')) {
+    socket.write('HTTP/1.1 200 Connection Established\r\n\r\n')
+    setTimeout(() => socket.destroy(), 20)
+    return
+  }
+  // 规矩的代理：连不上对方回 502（undici 把它包在三层 cause 里）
+  if (req.url.startsWith('gateway.example:')) { socket.end('HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n'); return }
   const upstream = net.connect(origin.address().port, '127.0.0.1', () => {
     socket.write('HTTP/1.1 200 Connection Established\r\n\r\n')
     upstream.write(head)
@@ -249,6 +258,32 @@ try {
     assert.match(r.desc, /HTTP 403/)
     await resolver.resolve(refOf('拒绝台'), { query: {} })
     assert.equal(logs.length, 1, logs.join('\n'))
+  })
+
+  await check('经代理失败的原因翻成中文：代理接通后被断开、代理回 502；拉订阅失败同样翻', async () => {
+    const entries = [
+      { ref: 'cp-00000000000000a1', name: 'CCTV1', url: 'http://unreachable.example/live.m3u8', sourceName: '联通' },
+      { ref: 'cp-00000000000000a2', name: 'CCTV2', url: 'http://gateway.example/live.m3u8', sourceName: '联通' },
+    ]
+    const lines = []
+    const r2 = cp.createCustomProxyResolver({ getChannels: () => entries, getVersion: () => 1, proxyEnabled: () => true, log: l => lines.push(l) })
+    const cut = await r2.resolve('cp-00000000000000a1', { query: {} })
+    assert.equal(cut.status, 502)
+    assert.match(cut.desc, /^联通「CCTV1」 经网络代理取清单失败：代理已接通，往对方站点的连接被断开（UND_ERR_SOCKET）。从代理出去连不上这个地址：/)
+    assert.match(cut.desc, /不用勾「经网络代理转发」/)
+    const gw = await r2.resolve('cp-00000000000000a2', { query: {} })
+    assert.equal(gw.status, 502)
+    assert.match(gw.desc, /经网络代理取清单失败：代理已接通，但它连不上对方站点（代理回 HTTP 502）。从代理出去/)
+    assert.doesNotMatch(gw.desc, /fetch failed|Request was cancelled/)
+    assert.ok(lines.some(l => /unreachable\.example/.test(l) && /代理已接通/.test(l)), lines.join('\n'))
+    // 拉订阅经代理失败：卡片和日志上也是这句话，不是错误码
+    await assert.rejects(
+      () => fetchAndParseM3u('http://unreachable.example/sub.m3u', { fetchImpl: cp.customSourceFetch }),
+      error => /代理已接通，往对方站点的连接被断开/.test(error.message),
+    )
+    // 认不出是哪一段的（没走代理、或别的错）照旧给原始原因
+    assert.deepEqual(describeProxyFailure(new TypeError('fetch failed', { cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }) }), ''),
+      { stage: '', message: 'UND_ERR_SOCKET other side closed' })
   })
 
   await check('没有生效代理：302 回原地址（和没勾时一样），不发请求', async () => {

@@ -28,7 +28,7 @@ import { sanitizeOpts } from './channelOpts.js'
 import { printYellow } from './colorOut.js'
 import { fetchUpstreamResponse } from './hlsProxy.js'
 import { isPrivateAddress } from './logoCache.js'
-import { outboundFetch, outboundProxyUrl } from './outboundProxy.js'
+import { describeProxyFailure, outboundFetch, outboundProxyUrl } from './outboundProxy.js'
 import { stripVolatileParams } from './urlIdentity.js'
 
 export const REF_PREFIX = 'cp-'
@@ -81,9 +81,21 @@ export function proxiableUrl(raw) {
  * 开了开关的源的出站请求：局域网地址直连（代理够不着家里的机器），其余经网络代理
  * （后台填的优先，没填沿用 HTTPS_PROXY / 系统代理，见 outboundProxy.outboundFetch）。
  */
-export function customSourceFetch(url, options = {}) {
-  return isLanUrl(url) ? undiciFetch(url, options) : outboundFetch(url, options)
+export async function customSourceFetch(url, options = {}) {
+  if (isLanUrl(url)) return undiciFetch(url, options)
+  try {
+    return await outboundFetch(url, options)
+  } catch (error) {
+    // 拉订阅那边只认 error.code / cause.code，会把 UND_ERR_SOCKET 原样亮给用户；先翻好挂在错误上
+    if (error && typeof error === 'object' && !error.proxyFailure) {
+      try { error.proxyFailure = describeProxyFailure(error) } catch { /* 只读的错误对象就算了 */ }
+    }
+    throw error
+  }
 }
+
+// 代理已接通、往对方那一步失败时，报错后面跟的一句：用户最常见的是把自己网络本来就能播的源（运营商 IPTV 等）也勾上了
+const TARGET_FAILURE_HINT = '。从代理出去连不上这个地址：用自己网络能直接播的源不用勾「经网络代理转发」；代理软件用规则模式的，看看这个地址走了哪条线路'
 
 const OPT_HEADERS = { 'http-user-agent': 'User-Agent', 'http-referrer': 'Referer', 'http-origin': 'Origin' }
 
@@ -224,11 +236,11 @@ export function createCustomProxyResolver({
       const manifestUrl = response.url || url
       return { url: manifestUrl, proxyHls: true, manifestText: text, manifestUrl, upstreamHeaders, desc: `${label} 经网络代理转发` }
     } catch (error) {
-      const reason = ['AbortError', 'TimeoutError'].includes(error?.name)
-        ? '超时没有响应'
-        : (error?.cause?.code || error?.message || String(error))
+      // 和「测试」按钮同一套话：分得清是连代理就失败，还是代理接通后对方那一步失败
+      const { stage, message } = error?.proxyFailure || describeProxyFailure(error)
+      const reason = `${message}${stage === 'target' ? TARGET_FAILURE_HINT : ''}`
       // 开了代理就不悄悄绕过它直连：用户勾这个开关，多半正是因为直连不通
-      note(`fail|${entry.ref}`, `${label} 经网络代理取清单失败（${hostOf(url)}）：${reason}。代理软件用规则模式的，看看这个域名是否走了代理`)
+      note(`fail|${entry.ref}`, `${label} 经网络代理取清单失败（${hostOf(url)}）：${reason}`)
       return { url: '', status: 502, silent: true, desc: `${label} 经网络代理取清单失败：${reason}` }
     }
   }

@@ -443,9 +443,9 @@ async function updateTV(hours, options = {}) {
             ? `\${replace}/relay/${channelItem.deferredRef}.m3u8`
             : `\${replace}/${channelItem.deferredRef}`
       } else if (isExternal && claimsCustomProxyRef(channelItem.proxyRef)) {
-        // 自定义源开了「经网络代理转发」：固定写本机入口，播放时再按有没有生效代理决定由服务器转发
-        // 还是 302 回原地址（utils/customSourceProxy.js）。频道身份仍按原地址算，见下方 identity-url
-        playUrl = `\${replace}/proxy/${channelItem.proxyRef}.m3u8`
+        // 最高画质入口默认只转发主清单；是否全转发由解析器按源的 useProxy 开关决定。
+        // 仅开网络代理的源沿用 /proxy/ 入口。频道身份仍按原地址算，见下方 identity-url。
+        playUrl = `\${replace}/${channelItem.topFirst ? 'relay' : 'proxy'}/${channelItem.proxyRef}.m3u8`
       } else if (isExternal || isExtractor) {
         playUrl = channelItem.url      // 外部源 / 抓取模块使用url
       } else {

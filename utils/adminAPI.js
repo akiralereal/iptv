@@ -262,14 +262,16 @@ export async function removeLogoAPI(name) {
 export async function copyChannelToGroupsAPI({ name, url, logo, groups, catchup, catchupDays, catchupSource } = {}) {
   try {
     if (!name || !url) return { success: false, message: '缺少频道名或地址' }
-    // 开了「经网络代理转发」的自定义源频道：订阅里是本机入口，复制按原地址建副本，副本照样经代理转发
+    // 自定义源的本机入口：复制按原地址建副本，并保留网络代理 / 最高画质设置。
     let useProxy = false
-    const proxyRef = String(url).match(/^\$\{replace\}\/proxy\/(cp-[0-9a-f]{16})\.m3u8$/)?.[1]
+    let topFirst = false
+    const proxyRef = String(url).match(/^\$\{replace\}\/(?:proxy|relay)\/(cp-[0-9a-f]{16})\.m3u8$/)?.[1]
     if (proxyRef) {
       const original = externalSourceManager.proxiedChannels().find(ch => ch.ref === proxyRef)
       if (!original) return { success: false, message: '找不到这个频道的原地址，请先刷新页面' }
       url = original.url
-      useProxy = true
+      useProxy = original.useProxy === true
+      topFirst = original.topFirst === true
     }
     if (String(url).includes('${replace}')) return { success: false, message: '咪咕频道暂不支持复制（地址为服务端跳转）' }
     const targets = Array.isArray(groups) ? [...new Set(groups.map(g => String(g || '').trim()).filter(Boolean))] : []
@@ -277,7 +279,7 @@ export async function copyChannelToGroupsAPI({ name, url, logo, groups, catchup,
     const safeLogo = (typeof logo === 'string' && /^https?:\/\//.test(logo)) ? logo : ''
     let added = 0
     for (const group of targets) {
-      externalSourceManager.addSource({ name, group, m3u8Url: url, logo: safeLogo, enabled: true, autoRefresh: false, catchup, catchupDays, catchupSource, useProxy })
+      externalSourceManager.addSource({ name, group, m3u8Url: url, logo: safeLogo, enabled: true, autoRefresh: false, catchup, catchupDays, catchupSource, useProxy, topFirst })
       added++
     }
     await update(0, { regenerateOnly: true }).catch(err => console.error('复制频道后重新生成失败:', err))

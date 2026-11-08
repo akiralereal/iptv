@@ -19,22 +19,28 @@ import assert from 'node:assert/strict'
 import http from 'node:http'
 import net from 'node:net'
 import { once } from 'node:events'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fetch as directFetch } from 'undici'
 
 const DATA_DIR = mkdtempSync(join(tmpdir(), 'iptv-custom-proxy-'))
 process.env.mdataDir = DATA_DIR
+process.env.menableMigu = 'false'
+process.env.menableBuiltInSources = 'false'
+process.env.menableLogoCache = 'false'
+process.env.mexternalLogoBase = ''
+process.env.mexternalLogoIndex = ''
 delete process.env.HTTPS_PROXY
 delete process.env.https_proxy
 
 const { reloadConfig } = await import('../config.js')
 const cp = await import('../utils/customSourceProxy.js')
 const { describeProxyFailure } = await import('../utils/outboundProxy.js')
-const { ExternalSourceManager, BUILT_IN_SUBSCRIPTIONS, fetchAndParseM3u } = await import('../utils/externalSources.js')
+const { default: externalSourceManager, ExternalSourceManager, BUILT_IN_SUBSCRIPTIONS, fetchAndParseM3u, parsePlaylistContent } = await import('../utils/externalSources.js')
 const { startProbe, getProbeStatus } = await import('../utils/sourceProbe.js')
-const { registerRefResolver, resolverFor } = await import('../extractors/registry.js')
-const { channel } = await import('../utils/appUtils.js')
+const { registerRefResolver, resolverFor, listModules } = await import('../extractors/registry.js')
+const { channel, inlineResolvedManifest, firstVariantUrl } = await import('../utils/appUtils.js')
 const { buildChannelId, parseInterfaceTxt } = await import('../utils/playlistConfig.js')
 
 let passed = 0
@@ -42,6 +48,7 @@ const check = async (name, fn) => { await fn(); passed++; console.log(`  ✅ ${n
 
 // ---- 源站：按路径回清单 / 分片 / 裸流 / 403，记下每次请求带的头 ----
 const seen = []
+let topSession = 0
 const rawStreams = new Set()
 const PLAYLIST = [
   '#EXTM3U',
@@ -66,6 +73,14 @@ const origin = http.createServer((req, res) => {
   seen.push({ host: req.headers.host, url: req.url, ua: req.headers['user-agent'], referer: req.headers.referer })
   const path = req.url.split('?')[0]
   if (path === '/sub.m3u') { res.writeHead(200, { 'Content-Type': 'audio/x-mpegurl' }); res.end(PLAYLIST); return }
+  if (path === '/top/start.m3u8') { res.writeHead(302, { Location: '/top/master.m3u8' }); res.end(); return }
+  if (path === '/top/master.m3u8') {
+    topSession++
+    res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl' })
+    res.end(`#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",URI="audio.m3u8"\n` +
+      [360, 540, 720, 1080].map(height => `#EXT-X-STREAM-INF:BANDWIDTH=${height * 5000},RESOLUTION=${height * 16 / 9}x${height},AUDIO="audio"\nsession-${topSession}/${height}.m3u8\n`).join(''))
+    return
+  }
   if (path === '/live/master.m3u8') {
     res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl' })
     res.end('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=4000000\nmedia.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=800000\nlow.m3u8\n')
@@ -202,11 +217,17 @@ try {
 
   // ---- 播放解析 ----
   let proxyOn = true
+  let directCalls = 0
+  const localBase = `http://127.0.0.1:${origin.address().port}`
   const logs = []
   const resolver = cp.createCustomProxyResolver({
     getChannels: () => mgr.proxiedChannels(),
     getVersion: () => mgr.revision,
     proxyEnabled: () => proxyOn,
+    directFetchImpl: (url, options) => {
+      directCalls++
+      return directFetch(url.replace('http://cdn.example', localBase), options)
+    },
     log: line => logs.push(line),
   })
   const refOf = name => channelsByName()[name].proxyRef
@@ -262,8 +283,8 @@ try {
 
   await check('经代理失败的原因翻成中文：代理接通后被断开、代理回 502；拉订阅失败同样翻', async () => {
     const entries = [
-      { ref: 'cp-00000000000000a1', name: 'CCTV1', url: 'http://unreachable.example/live.m3u8', sourceName: '联通' },
-      { ref: 'cp-00000000000000a2', name: 'CCTV2', url: 'http://gateway.example/live.m3u8', sourceName: '联通' },
+      { ref: 'cp-00000000000000a1', name: 'CCTV1', url: 'http://unreachable.example/live.m3u8', sourceName: '联通', useProxy: true },
+      { ref: 'cp-00000000000000a2', name: 'CCTV2', url: 'http://gateway.example/live.m3u8', sourceName: '联通', useProxy: true },
     ]
     const lines = []
     const r2 = cp.createCustomProxyResolver({ getChannels: () => entries, getVersion: () => 1, proxyEnabled: () => true, log: l => lines.push(l) })
@@ -379,6 +400,131 @@ try {
     const status = getProbeStatus().data
     assert.equal(status.summary.alive, 1, JSON.stringify(status))
     assert.ok(seen.some(hit => hit.host === 'cdn.example' && hit.url === '/live/media.m3u8'))
+  })
+
+  // ---- x-top-first：真实列表 → 管理器 → 订阅写盘 → 播放解析 ----
+  const webChannels = parsePlaylistContent(readFileSync(new URL('../from-the-web/from-the-web.m3u', import.meta.url), 'utf8'))
+  const wpt = webChannels.find(ch => ch.name === 'World Poker Tour')
+  await check('WPT 只在来源于网络订阅，保留稳定主清单地址并启用最高画质', async () => {
+    assert.equal(webChannels.filter(ch => ch.name === 'World Poker Tour').length, 1)
+    assert.equal(wpt.topFirst, true)
+    assert.match(wpt.url, /\/playlist\/[^/]+\/playlist\.m3u8$/)
+    const featured = parsePlaylistContent(readFileSync(new URL('../IPTV.m3u', import.meta.url), 'utf8'))
+    const { SOURCES } = await import('../extractors/asian-live/channels.js')
+    assert.ok(!featured.some(ch => ch.name === wpt.name))
+    assert.ok(!SOURCES.some(ch => /poker|wpt/i.test(JSON.stringify(ch))))
+  })
+
+  const topSource = { id: 'top00001', name: '最高画质订阅', mode: 'subscription', enabled: true,
+    parsedChannels: parsePlaylistContent('#EXTM3U\n#EXTINF:-1 group-title="体育" x-top-first="1",最高画质台\n' +
+      '#EXTVLCOPT:http-user-agent=Quality/1.0\n#EXTVLCOPT:http-referrer=http://ref.example/\nhttp://cdn.example/top/start.m3u8\n') }
+  mgr.sources.sources.push(topSource)
+  mgr.saveSources()
+  const topResolver = resolver
+  const topRef = refOf('最高画质台')
+  const heights = text => [...text.matchAll(/RESOLUTION=\d+x(\d+)/g)].map(m => Number(m[1]))
+
+  await check('直连最高画质：1080p 在首位，保留降档 / 音轨；按重定向后的地址展开相对路径', async () => {
+    const entry = mgr.proxiedChannels().find(ch => ch.ref === topRef)
+    assert.equal(entry.topFirst, true)
+    assert.equal(entry.useProxy, false)
+    connects.length = 0
+    const r = await topResolver.resolve(topRef)
+    assert.equal(r.relayHls, true, r.desc)
+    assert.equal(r.proxyHls, undefined)
+    assert.equal(r.directRedirect, undefined)
+    assert.deepEqual(heights(r.manifestText), [1080, 720, 540, 360])
+    assert.match(r.manifestText, /#EXT-X-MEDIA:TYPE=AUDIO/)
+    const rendered = inlineResolvedManifest(r)
+    assert.match(firstVariantUrl(rendered, r.manifestUrl), /\/top\/session-\d+\/1080\.m3u8$/)
+    assert.ok(rendered.includes(`URI="${localBase}/top/audio.m3u8"`))
+    assert.equal(seen.at(-1).ua, 'Quality/1.0')
+    assert.equal(seen.at(-1).referer, 'http://ref.example/')
+    assert.equal(connects.length, 0, '最高画质标记不能擅自启用已配置的网络代理')
+  })
+
+  await check('每次播放重新取主清单，分档会话地址更新；channel 外壳保留排序结果', async () => {
+    // app.js 将 /relay/<ref>.m3u8 归一成 /<ref> 后交给 channel。
+    const a = await channel(`/${topRef}`, '', '', { key: 'top', tag: 'top' }, {})
+    const b = await channel(`/${topRef}`, '', '', { key: 'top', tag: 'top' }, {})
+    assert.equal(a.relayHls, true)
+    assert.equal(a.proxyHls, false)
+    assert.deepEqual(heights(b.manifestText), [1080, 720, 540, 360])
+    assert.notEqual(firstVariantUrl(a.manifestText, a.manifestUrl), firstVariantUrl(b.manifestText, b.manifestUrl))
+    const media = await topResolver.fetchProxyMedia(topRef, {}, 'http://cdn.example/live/media.m3u8', {})
+    assert.equal(media.status, 200)
+    await media.body.cancel()
+  })
+
+  await check('启用网络代理时同样最高档优先，子清单经代理；关闭后稳定入口仍可直连处理', async () => {
+    topSource.useProxy = true
+    mgr.saveSources()
+    const before = directCalls
+    const r = await topResolver.resolve(topRef)
+    assert.equal(r.proxyHls, true, r.desc)
+    assert.equal(r.relayHls, undefined)
+    assert.deepEqual(heights(r.manifestText), [1080, 720, 540, 360])
+    assert.equal(directCalls, before)
+    const media = await topResolver.fetchProxyMedia(topRef, {}, 'http://cdn.example/live/media.m3u8', { upstreamHeaders: r.upstreamHeaders })
+    await media.body.cancel()
+    assert.equal(seen.at(-1).host, 'cdn.example')
+    assert.equal(seen.at(-1).ua, 'Quality/1.0')
+    assert.equal(directCalls, before)
+    proxyOn = false
+    assert.equal((await topResolver.resolve(topRef)).relayHls, true)
+    proxyOn = true
+    topSource.useProxy = false
+    mgr.saveSources()
+    assert.equal(refOf('最高画质台'), topRef)
+    assert.equal((await topResolver.resolve(topRef)).relayHls, true)
+  })
+
+  await check('单档媒体清单正常转发；非 HLS 交回播放器；取清单失败返回 502', async () => {
+    const ref = 'cp-00000000000000b1'
+    const entry = { ref, name: '单档', topFirst: true, url: `${localBase}/live/media.m3u8` }
+    const r = cp.createCustomProxyResolver({ getChannels: () => [entry], proxyEnabled: () => true, log: () => {} })
+    const single = await r.resolve(ref)
+    assert.equal(single.relayHls, true, single.desc)
+    assert.match(single.manifestText, /#EXT-X-MEDIA-SEQUENCE:1/)
+    entry.url = `${localBase}/live/raw`
+    assert.equal((await r.resolve(ref)).directRedirect, 'not-hls')
+    entry.url = `${localBase}/denied`
+    const failed = await r.resolve(ref)
+    assert.equal(failed.status, 502)
+    assert.match(failed.desc, /取最高画质清单失败.*HTTP 403/)
+    assert.equal(failed.url, '')
+  })
+
+  await check('生成订阅与复制分组：WPT 用本机最高画质入口，身份 / 复制设置保留，普通频道仍直连', async () => {
+    // 关闭全部模块，真实跑写盘与复制 API，测试不拉外部频道或 EPG。
+    writeFileSync(join(DATA_DIR, 'extractors.json'), JSON.stringify({ modules: Object.fromEntries(listModules().map(m => [m.id, { enabled: false }])) }))
+    externalSourceManager.saveSources({ ...mgr.sources, sources: [
+      { id: 'web00001', name: '来源于网络', mode: 'subscription', enabled: true, parsedChannels: [wpt, webChannels.find(ch => ch.name === 'Pet Club TV')] },
+      { id: 'prx00001', name: '代理兼容', group: '测试', enabled: true, mode: 'direct', useProxy: true, m3u8Url: 'http://cdn.example/live/media.m3u8' },
+    ] })
+    const update = (await import('../utils/updateData.js')).default
+    await update(0, { regenerateOnly: true })
+    const parsed = parseInterfaceTxt().flatMap(g => g.channels)
+    const item = parsed.find(ch => ch.name === wpt.name)
+    assert.match(item.url, /^\$\{replace\}\/relay\/cp-[a-f0-9]{16}\.m3u8$/)
+    assert.equal(item.id, buildChannelId({ groupName: '体育', channelName: wpt.name, tvgName: wpt.name, url: wpt.url }))
+    assert.equal(parsed.find(ch => ch.name === 'Pet Club TV').url, webChannels.find(ch => ch.name === 'Pet Club TV').url)
+    const proxyItem = parsed.find(ch => ch.name === '代理兼容')
+    assert.match(proxyItem.url, /^\$\{replace\}\/proxy\/cp-/)
+    const { copyChannelToGroupsAPI } = await import('../utils/adminAPI.js')
+    for (const original of [item, proxyItem]) {
+      const copied = await copyChannelToGroupsAPI({ name: original.name, url: original.url, groups: ['收藏'] })
+      assert.equal(copied.success, true, copied.message)
+    }
+    const copy = externalSourceManager.sources.sources.find(s => s.name === wpt.name && s.group === '收藏')
+    assert.equal(copy.m3u8Url, wpt.url)
+    assert.equal(copy.topFirst, true)
+    assert.notEqual(copy.useProxy, true)
+    assert.equal(externalSourceManager.proxiedChannels().find(ch => ch.sourceId === `ext:${copy.id}`).topFirst, true)
+    const proxyCopy = externalSourceManager.sources.sources.find(s => s.name === '代理兼容' && s.group === '收藏')
+    assert.equal(proxyCopy.useProxy, true)
+    assert.notEqual(proxyCopy.topFirst, true)
+    assert.ok(readFileSync(join(DATA_DIR, 'interfaceTXT.txt'), 'utf8').includes(`World Poker Tour,${item.url}`))
   })
 
   console.log(`\n全部通过（${passed} 项）`)

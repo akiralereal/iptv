@@ -53,7 +53,7 @@ function parseM3uContent(content) {
     // 解析 #EXTINF 行
     const groupMatch = line.match(/group-title="([^"]*)"/)
     const logoMatch = line.match(/tvg-logo="([^"]*)"/)
-    // 仓库自己的海外频道表用它标「服务端转发主清单、最高档挪到最前」的台（extractors/overseas）
+    // 海外模块和自定义订阅共用：服务端现取主清单，把最高档挪到最前。
     const topFirst = /\sx-top-first="(?:1|true)"/i.test(line)
     const name = extractExtinfName(line)
     // 源自带的回看模板 / 天数：不收下就只能继承订阅头的咪咕模板，回看静默失效（issue #190）
@@ -561,6 +561,15 @@ function sourceUsesProxy(source) {
   return mode === 'direct'
 }
 
+// 两种处理共用稳定入口，出站是否经网络代理独立记录；普通频道仍保留原地址。
+function customPlaybackFields(source, name, url, topFirst) {
+  const mode = source.mode || (String(source.webUrl || '').trim() ? 'fetch' : 'direct')
+  if (!source.id || isBuiltInSubscriptionSource(source) || !['subscription', 'direct'].includes(mode) || !proxiableUrl(url)) return {}
+  const useProxy = sourceUsesProxy(source)
+  if (!useProxy && topFirst !== true) return {}
+  return { proxyRef: proxyRefFor(source.id, name, url), useProxy, topFirst: topFirst === true }
+}
+
 // 播种内置订阅源（精选频道）。
 // 关键改动：从「缺了就加回来」改为「只播种从未播种过的 URL」，用 config.seededBuiltInUrls 记录已播种集合。
 // 这样用户删除内置订阅后不会在重启时复活（修复 issue：默认源删不掉）。
@@ -860,7 +869,8 @@ class ExternalSourceManager {
       ...catchup,
       ...(Object.keys(catchup).length ? { catchupUrl: sourceConfig.m3u8Url || "" } : {}),
       // 从开了「经网络代理转发」的源复制出来的副本照样走代理（见 copyChannelToGroupsAPI）
-      ...(sourceConfig.useProxy === true ? { useProxy: true } : {})
+      ...(sourceConfig.useProxy === true ? { useProxy: true } : {}),
+      ...(sourceConfig.topFirst === true ? { topFirst: true } : {})
     }
     
     this.sources.sources.push(newSource)
@@ -1167,8 +1177,6 @@ class ExternalSourceManager {
         const builtInSubscription = isBuiltInSubscriptionSource(source)
         // 「播放时也带上」：在这里补而不是解析时补——开关一改、保存即生效，不必重新拉订阅（issue #170）
         const playbackUa = source.playWithUserAgent === true ? source.userAgent : ''
-        // 开了「经网络代理转发」：公网 http(s) 频道带上本机固定引用，写盘时改写成 ${replace}/proxy/<ref>.m3u8
-        const proxied = sourceUsesProxy(source) && source.id
         source.parsedChannels.forEach(ch => {
           const opts = withUserAgent(ch.opts, playbackUa, ch.url)
           const group = resolveSubscriptionGroup(ch, source)
@@ -1186,7 +1194,7 @@ class ExternalSourceManager {
             sourceId: source.id ? `ext:${source.id}` : undefined,  // 源归属（issue #29/#68）
             ...(builtInSubscription ? { builtInSubscription: true } : {}),
             ...(opts && opts.length ? { opts } : {}),
-            ...(proxied && proxiableUrl(ch.url) ? { proxyRef: proxyRefFor(source.id, ch.name, ch.url) } : {}),
+            ...customPlaybackFields(source, ch.name, ch.url, ch.topFirst),
             ...sanitizeCatchup(ch)   // 源自带的回看声明（issue #190）；没有就不带，照旧继承订阅头
           })
         })
@@ -1208,7 +1216,7 @@ class ExternalSourceManager {
           logo: source.logo || "",
           groupTitle: source.group,
           sourceId: source.id ? `ext:${source.id}` : undefined,   // 源归属（issue #29/#68）
-          ...(sourceUsesProxy(source) && source.id && proxiableUrl(source.m3u8Url) ? { proxyRef: proxyRefFor(source.id, source.name, source.m3u8Url) } : {}),
+          ...customPlaybackFields(source, source.name, source.m3u8Url, source.topFirst),
           // 复制来的副本保留原频道的回看声明（issue #190），地址改过就不再适用
           ...(source.catchupUrl && source.catchupUrl === source.m3u8Url ? sanitizeCatchup(source) : {})
         })
@@ -1219,7 +1227,7 @@ class ExternalSourceManager {
   }
 
   /**
-   * 开了「经网络代理转发」的源里改写过的频道（带 proxyRef 的那些），播放时按引用查原地址用。
+   * 经网络代理转发 / 最高画质起播改写过的频道（带 proxyRef），播放时按引用查原地址用。
    * 直接取 getValidChannels 的结果，保证与写进订阅的那份一致（含「播放时也带上这个 UA」补的请求头）。
    */
   proxiedChannels() {
@@ -1228,7 +1236,7 @@ class ExternalSourceManager {
     for (const group of this.getValidChannels()) {
       for (const ch of group.dataList) {
         if (!ch.proxyRef) continue
-        out.push({ ref: ch.proxyRef, name: ch.name, url: ch.url, opts: ch.opts, sourceId: ch.sourceId, sourceName: names.get(ch.sourceId) || '' })
+        out.push({ ref: ch.proxyRef, name: ch.name, url: ch.url, opts: ch.opts, useProxy: ch.useProxy, topFirst: ch.topFirst, sourceId: ch.sourceId, sourceName: names.get(ch.sourceId) || '' })
       }
     }
     return out

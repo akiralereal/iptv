@@ -1280,7 +1280,7 @@ async function handleRequest(req, res) {
       logProxyProbe(target.pid, req, result, Date.now() - started)
       return
     }
-    // 上游若给的是嵌套子清单（拍平失败时才会出现），同样改写成同源相对地址再下发，
+    // 上游若给的是嵌套子清单（拍平失败，或模块/自定义源直接交回了 master 原文），同样改写成同源相对地址再下发，
     // 直接透传会让播放器拿着 CDN 的相对路径去请求本机、必然 404
     if (/\.m3u8(?:\?|$)/i.test(routeUrl)) {
       const nested = await fetchNested(target.url, target.upstreamHeaders, target.upstreamFamily, fetchMedia)

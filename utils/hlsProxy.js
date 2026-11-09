@@ -165,16 +165,25 @@ function toProxyManifest(text, pid = '', transform, upstreamHeaders, upstreamUrl
       return null
     }
   }
+  // 后缀决定走哪条路由：.m3u8 进嵌套子清单分支（取回后继续改写），其余原样透传。
+  // 子清单地址常常不带后缀（issue #235：cdn.qd.je 的 master 指向 https://cdn6.cc.cd/163189/ch8），
+  // 只看地址会被当成 .ts 透传，里面的 /api/... 根路径就落到本机、撞上后台鉴权回 403。
+  // 所以按 HLS 语义补后缀：#EXT-X-STREAM-INF 下一行、EXT-X-MEDIA / I 帧 / 缩略图清单的 URI= 都是清单
+  let nextIsPlaylist = false
   return text.split('\n').map(line => {
     const t = line.trim()
     if (!t) return line
     if (t.startsWith('#')) {
+      if (t.startsWith('#EXT-X-STREAM-INF')) nextIsPlaylist = true
+      const attrFallback = /^#EXT-X-(?:MEDIA|I-FRAME-STREAM-INF|IMAGE-STREAM-INF):/.test(t) ? 'm3u8' : 'key'
       return line.replace(/URI="([^"]*)"/g, (whole, uri) => {
-        const ref = toRef(uri, 'key')
+        const ref = toRef(uri, attrFallback)
         return ref ? `URI="${ref}"` : whole
       })
     }
-    return toRef(t, 'ts') || line
+    const fallback = nextIsPlaylist ? 'm3u8' : 'ts'
+    nextIsPlaylist = false
+    return toRef(t, fallback) || line
   }).join('\n')
 }
 

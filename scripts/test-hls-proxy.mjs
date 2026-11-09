@@ -58,6 +58,42 @@ check('master 清单里的子清单保留 .m3u8 后缀（拍平失败时的回�
   assert.match(out[2], /^s[0-9a-f]{16}\.m3u8$/)
 })
 
+check('不带后缀的子清单按 HLS 语义补 .m3u8，不被当成分片透传（issue #235）', () => {
+  // cdn.qd.je 实际下发的 master：子清单地址没有后缀
+  const master = '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=5000000\nhttps://cdn6.cc.cd/163189/ch8'
+  const out = toProxyManifest(master, 'cp-issue235').split('\n')
+  assert.match(out[2], /^s[0-9a-f]{16}\.m3u8$/)
+  assert.equal(lookup(out[2].replace(/\..*$/, '')).url, 'https://cdn6.cc.cd/163189/ch8')
+
+  // 只影响紧跟 STREAM-INF 的那一行；媒体清单里无后缀的分片仍是 .ts
+  const media = '#EXTM3U\n#EXTINF:8.0,\nhttps://cdn6.cc.cd/api/ch8/5632507\n#EXTINF:8.0,\nhttps://cdn6.cc.cd/api/ch8/5632508'
+  const segs = toProxyManifest(media, 'cp-issue235').split('\n')
+  assert.match(segs[2], /^s[0-9a-f]{16}\.ts$/)
+  assert.match(segs[4], /^s[0-9a-f]{16}\.ts$/)
+
+  // master 里多条码率：每条都补 .m3u8，中间夹的其它标签不打断
+  const multi = '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2\n#EXT-X-PROGRAM-DATE-TIME:2026-01-01T00:00:00Z\nhttps://a.example/hi\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://a.example/lo'
+  const lines = toProxyManifest(multi, 'cp-issue235').split('\n')
+  assert.match(lines[3], /^s[0-9a-f]{16}\.m3u8$/)
+  assert.match(lines[5], /^s[0-9a-f]{16}\.m3u8$/)
+})
+
+check('EXT-X-MEDIA / I 帧清单的 URI 不带后缀时补 .m3u8，EXT-X-KEY 仍是 .key', () => {
+  const src = [
+    '#EXTM3U',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a",NAME="zh",URI="https://a.example/audio"',
+    '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1,URI="https://a.example/iframe"',
+    '#EXT-X-KEY:METHOD=AES-128,URI="https://a.example/key"',
+    '#EXT-X-STREAM-INF:BANDWIDTH=1,AUDIO="a"',
+    'https://a.example/video',
+  ].join('\n')
+  const out = toProxyManifest(src, 'cp-issue235').split('\n')
+  assert.match(out[1], /URI="s[0-9a-f]{16}\.m3u8"/)
+  assert.match(out[2], /URI="s[0-9a-f]{16}\.m3u8"/)
+  assert.match(out[3], /URI="s[0-9a-f]{16}\.key"/)
+  assert.match(out[5], /^s[0-9a-f]{16}\.m3u8$/)
+})
+
 check('顶层清单与嵌套子清单的分片地址落到同一条路由（同目录，无需按层区分）', () => {
   const seg = 'http://cdn.example.com/live/a-1.ts'
   const top = toProxyManifest(seg, '608807420').trim()

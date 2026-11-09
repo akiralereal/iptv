@@ -4660,7 +4660,9 @@
                                  （随程序自带、由维护者策展，不给用户改名/换序/删除），用户需要的
                                  只有「要不要它」。所以这个开关必须真的管用 —— 打开时会把它播种
                                  回来，见 extractorsAPI.setContentFlagAPI 里的 reseed 分支。 -->
-                            <div class="source-card-desc">自带的 精选频道（央视 / 港澳台 / 地方 / 国际），约 150 个频道。随程序更新，不可编辑。</div>
+                            <!-- 频道数不写死：精选列表从仓库定时拉取、改了不用发版，写死的数字迟早对不上
+                                 （曾写「约 150」，11-09 实际只剩 20）。由 renderBuiltInSubscriptionCount 按已解析的数量填。 -->
+                            <div class="source-card-desc">自带的精选频道（地方台 / 卫视 / 港台 / 国际等）<span id="cfBuiltInSubscriptionsCount"></span>。定时从仓库更新，不可编辑。</div>
                             <div class="source-card-foot">
                                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
                                     <input type="checkbox" id="cfBuiltInSubscriptions" onchange="setContentFlag('enableBuiltInSubscriptions', this.checked)">
@@ -5958,14 +5960,15 @@
         }
 
         /**
-         * 摘要下面的额外提醒：关「内置订阅源」一下少约 150 个频道，在数字里只算 1 个，得单独说；
+         * 摘要下面的额外提醒：关「内置订阅源」一下少一整份精选列表，在数字里只算 1 个，得单独说；
          * 要打开的模块里有声明 enableNotice 的（辽宁：只放行部分网络），把那句话也列出来——
          * 卡片开关会先弹确认，批量勾选不弹，至少在点「应用」之前看得到。
          */
         function extractorBulkWarning(changes) {
             const notes = [];
             if (changes.contentFlags.enableBuiltInSubscriptions === false) {
-                notes.push('含「内置订阅源」：约 150 个精选频道将不再出现在播放列表里，随时可以开回来。');
+                const count = builtInSubscriptionChannelCount();
+                notes.push(`含「内置订阅源」：${count ? `${count} 个` : ''}精选频道将不再出现在播放列表里，随时可以开回来。`);
             }
             for (const module of (extractorsState && extractorsState.modules) || []) {
                 if (changes.modules[module.id] === true && module.enableNotice) notes.push(`「${module.name}」：${module.enableNotice}`);
@@ -8404,7 +8407,23 @@
             return (builtInConfig.builtInSubscriptionUrls || []).includes(source.subscriptionUrl);
         }
 
+        /** 精选频道（内置订阅）上次解析出的频道数；还没拉到过就返回 null，调用方省掉数字而不是显示 0。 */
+        function builtInSubscriptionChannelCount() {
+            const source = (externalConfig.sources || []).find(isBuiltInSubscription);
+            const channels = source && source.parsedChannels;
+            return Array.isArray(channels) && channels.length ? channels.length : null;
+        }
+
+        // 「内置源 → 内置订阅源」卡片说明里的频道数。总开关关着也照样显示：那是打开后会回来的数量。
+        function renderBuiltInSubscriptionCount() {
+            const el = document.getElementById('cfBuiltInSubscriptionsCount');
+            if (!el) return;
+            const count = builtInSubscriptionChannelCount();
+            el.textContent = count ? `，现有 ${count} 个频道` : '';
+        }
+
         function renderExternalSources() {
+            renderBuiltInSubscriptionCount();
             const externalSourceList = document.getElementById('externalSourceList');
             const detail = document.getElementById('externalDetail');
             const wrap = document.getElementById('externalDetailWrap');

@@ -4594,7 +4594,7 @@
                                 <strong style="color: #52c41a;">自定义源配置</strong>
                                 <ol style="margin: 8px 0 0 0; padding-left: 20px; font-size: 13px; color: #666; line-height: 1.8;">
                                     <li>点击"添加自定义源"选择模式：<strong>直连模式</strong>、<strong>抓取模式</strong>或<strong>订阅模式</strong></li>
-                                    <li>想加回港澳台等网络第三方频道：点「添加「来源于网络」列表」，再点"导入并保存"</li>
+                                    <li>想加回港澳台等网络第三方频道：点「添加「网络分享」列表」，再点"导入并保存"</li>
                                     <li><strong>抓取模式</strong>：填写频道名、分组和网页地址，点击"抓取并保存"</li>
                                     <li><strong>直连模式</strong>：填写频道名、分组和m3u8链接，点击"保存"</li>
                                     <li>可编辑、删除、启用/禁用</li>
@@ -8496,13 +8496,13 @@
             addCard.innerHTML = '<span class="plus">＋</span><span>添加自定义源</span>';
             externalSourceList.insertBefore(addCard, externalSourceList.firstChild);
 
-            // 「来源于网络」快捷入口：还没订阅过才显示；订阅过（含刚填好未保存的）它就是一张普通卡片。
+            // 「网络分享」快捷入口：还没订阅过才显示；订阅过（含刚填好未保存的）它就是一张普通卡片。
             if (findFromTheWebSource() === -1) {
                 const ftwCard = document.createElement('div');
                 ftwCard.className = 'source-card-add';
                 ftwCard.title = '一键填好仓库 from-the-web 列表的订阅地址，再点「导入并保存」即可';
                 ftwCard.onclick = () => addFromTheWebSource();
-                ftwCard.innerHTML = '<span class="plus"></span><span>添加「来源于网络」列表</span><small>港澳台、新马、影视等网络第三方频道</small>';
+                ftwCard.innerHTML = '<span class="plus"></span><span>添加「网络分享」列表</span><small>港澳台、新马、影视等网络第三方频道</small>';
                 addCard.after(ftwCard);
             }
 
@@ -8984,7 +8984,7 @@
                             <div style="margin-top:8px;padding:8px 10px;background:#fffbe6;border:1px solid #ffe58f;border-radius:4px;font-size:12px;color:#8c6d1f;line-height:1.6;">
                                 这是仓库 from-the-web 里的<strong>网络源订阅</strong>，包含第三方转发源、平台分发源及来源待确认的 CDN。第三方转发站国内直连大多播不了，其他线路按各自情况判断；需要代理时，可使用海外网络、路由器全局代理，或填好「设置 → 网络代理」后勾下方「经网络代理转发」；本项目不维护，失效不作为 bug 处理。不想要了删掉这条订阅即可。<a href="${FROM_THE_WEB_README}" target="_blank" rel="noopener">收录范围 ↗</a>
                             </div>` : (!isSaved && findFromTheWebSource(index) === -1 ? `
-                            <div class="form-hint">想加回以前精选列表里的港澳台、新马、影视等网络第三方频道？<a href="javascript:void(0)" onclick="fillFromTheWeb(${index})">一键填入「来源于网络」列表</a></div>` : '')}
+                            <div class="form-hint">想加回以前精选列表里的港澳台、新马、影视等网络第三方频道？<a href="javascript:void(0)" onclick="fillFromTheWeb(${index})">一键填入「网络分享」列表</a></div>` : '')}
                             ` : `
                             <input type="file" accept=".m3u,.m3u8,.txt,text/plain" onchange="onLocalFilePicked(${index}, this)" style="margin-bottom: 8px;">
                             <textarea oninput="updateExternalField(${index}, 'subscriptionContent', this.value)" placeholder="选择本地 .m3u/.m3u8/.txt 文件，或直接把播放列表内容粘贴到这里（支持 m3u/m3u8 与 txt「频道名,地址」格式，自动识别 GBK/UTF-8 编码）" style="width: 100%; min-height: 120px; font-family: monospace; font-size: 12px; box-sizing: border-box;">${(source.subscriptionContent || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</textarea>
@@ -9178,7 +9178,7 @@
             renderExternalSources();
         }
 
-        // 「来源于网络」列表（issue #121）：清出精选列表的第三方转发源放在仓库 from-the-web/，
+        // 「网络分享」列表（issue #121）：清出精选列表的第三方转发源放在仓库 from-the-web/，
         // 镜像不带这个目录，只能订阅 GitHub 直链。公告里的教程是视频，地址没法复制，这里给一键填入。
         const FROM_THE_WEB_URL = 'https://raw.githubusercontent.com/akiralereal/iptv/main/from-the-web/from-the-web.m3u';
         const FROM_THE_WEB_README = 'https://github.com/akiralereal/iptv/tree/main/from-the-web';
@@ -9199,7 +9199,7 @@
                 return;
             }
             externalConfig.sources.unshift({
-                name: '来源于网络',
+                name: '网络分享',
                 group: '未分组',
                 enabled: true,
                 mode: 'subscription',
@@ -9222,11 +9222,11 @@
             const source = externalConfig.sources[index];
             if (!source) return;
             if (findFromTheWebSource(index) !== -1) {
-                showStatus('已经添加过「来源于网络」列表，不用再加一次', 'info');
+                showStatus('已经添加过「网络分享」列表，不用再加一次', 'info');
                 return;
             }
             source.subscriptionUrl = FROM_THE_WEB_URL;
-            if (!source.name || !source.name.trim()) source.name = '来源于网络';
+            if (!source.name || !source.name.trim()) source.name = '网络分享';
             setSaveDirty('ext');
             renderExternalSources();
         }
@@ -10641,7 +10641,7 @@ if(success){
         let searchSelectedKeys = new Set();    // 搜索结果里勾选的频道，按 searchResultKey 记（同一 ID 可能出现在两个原始分组）
         let lastSearchMoveTarget = '';         // 上次从搜索结果移到的分组，连搜几个关键字时不用每次重选
         const SYSTEM_ANNOUNCEMENT_ID = 'iptv-announcement';
-        // 系统频道：公告 + 央视频登录教程 + 「来源于网络」添加教程，都在「公告」分组、可逐条隐藏、不能删/移/改名/改序。
+        // 系统频道：公告 + 央视频登录教程 + 「网络分享」添加教程，都在「公告」分组、可逐条隐藏、不能删/移/改名/改序。
         // 与服务端 utils/announcement.js 的 SYSTEM_CHANNELS 对应。
         const SYSTEM_CHANNEL_IDS = new Set([SYSTEM_ANNOUNCEMENT_ID, 'iptv-ysp-login-guide', 'iptv-from-the-web-guide']);
         const SYSTEM_CHANNEL_NOTES = {

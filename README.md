@@ -11,7 +11,6 @@
 [![License](https://img.shields.io/github/license/akiralereal/iptv?style=for-the-badge&color=22C55E)](LICENSE)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?logo=githubsponsors&logoColor=white&style=for-the-badge)](https://github.com/sponsors/akiralereal)
 
-[![Telegram 公告频道](https://img.shields.io/badge/Telegram-Channel-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/iFansClub)
 [![Telegram 用户交流群](https://img.shields.io/badge/Telegram-Group-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/iFansClubChat)
 
 ### [🐳 Docker 部署教程](#-快速开始) · [前往 Docker Hub →](https://hub.docker.com/r/akiralereal/iptv)
@@ -24,7 +23,7 @@
 
 iPTV 是一个面向家庭影音与 NAS 用户的**模块化 IPTV 直播源管理与分发系统**。它内置央视频、咪咕、B站、抖音、虎牙、斗鱼及多地区广电等抓取模块，也能接入需要网页解析的内置源、维护者筛选的公开独立源、自定义直连地址和 M3U/TXT 订阅；所有来源统一完成聚合、去重、编排，再输出干净的播放列表与 EPG 节目单。
 
-项目更新和社区公告请订阅 [Telegram 公告频道（@iFansClub）](https://t.me/iFansClub)；使用问题、反馈和心得交流，欢迎加入 [Telegram 用户交流群（@iFansClubChat）](https://t.me/iFansClubChat)。Bug 反馈和功能建议也可以提交 [GitHub Issue](https://github.com/akiralereal/iptv/issues)。
+使用问题、反馈和心得交流，欢迎加入 [Telegram 用户交流群（@iFansClubChat）](https://t.me/iFansClubChat)。Bug 反馈和功能建议也可以提交 [GitHub Issue](https://github.com/akiralereal/iptv/issues)。
 
 > [!IMPORTANT]
 > 本项目是自托管的软件工具。除项目自制的使用公告短片外，不托管第三方音视频节目；仓库及运行时可能整理互联网上公开可访问的播放地址与频道元数据，但“公开可访问”**不代表内容属于公有领域，也不代表已获得复制、转播或商业使用授权**。请仅在获得合法授权的范围内使用；如你是权利人并认为相关条目侵权，请按[版权与侵权处理](#-版权与侵权处理)提交下架通知。

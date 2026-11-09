@@ -504,7 +504,7 @@ const DEFAULT_CUSTOM_SUBSCRIPTIONS = [
   {
     match: /\/from-the-web\/from-the-web\.m3u(\?|#|$)/,
     source: {
-      name: '来源于网络',
+      name: '网络分享',
       group: '未分组',
       enabled: true,
       mode: 'subscription',
@@ -519,6 +519,19 @@ const DEFAULT_CUSTOM_SUBSCRIPTIONS = [
     },
   },
 ]
+
+// 只迁移这份仓库订阅的两个旧名称；一次性执行，之后仍允许用户自行改名。
+function migrateNetworkShareName(config) {
+  if (!config || !Array.isArray(config.sources) || config.networkShareNameV1) return false
+  for (const source of config.sources) {
+    if (source?.mode !== 'subscription') continue
+    const url = String(source.subscriptionUrl || '').trim()
+    if (!/\/akiralereal\/iptv\/(?:refs\/heads\/)?main\/from-the-web\/from-the-web\.m3u(?:[?#]|$)/.test(url)) continue
+    if (['海外', '来源于网络'].includes(String(source.name || '').trim())) source.name = '网络分享'
+  }
+  config.networkShareNameV1 = true
+  return true
+}
 
 /**
  * 播种默认自定义订阅（只播一次，尊重删除）。已有同一份列表（任何写法）就只记账不加。
@@ -654,8 +667,8 @@ function inheritExistingSourceIds(incoming, current) {
 // 于是这两个账本每次保存都被静默抹掉。
 //
 // 实测：删掉「精选频道」→ 后台随便保存一次 → 重启，它就回来了。
-// seededDefaultSubscriptions 同理：「哪些默认自定义订阅已经播种过」，丢了删掉的「来源于网络」会复活
-const SERVER_OWNED_KEYS = ['seededBuiltInUrls', 'retiredBuiltInsV1', 'seededDefaultSubscriptions']
+// seededDefaultSubscriptions 同理：「哪些默认自定义订阅已经播种过」，丢了删掉的「网络分享」会复活
+const SERVER_OWNED_KEYS = ['seededBuiltInUrls', 'retiredBuiltInsV1', 'seededDefaultSubscriptions', 'networkShareNameV1']
 
 /**
  * 把内置订阅源**重新**播种回来（用户在「内置源」那一段主动打开开关时调用）。
@@ -741,6 +754,7 @@ class ExternalSourceManager {
         lastGlobalUpdate: null
       }
       ensureDefaultCustomSubscriptions(defaultConfig)
+      migrateNetworkShareName(defaultConfig)
       ensureSourceIds(defaultConfig)
 
       this.saveSources(defaultConfig)
@@ -763,8 +777,9 @@ class ExternalSourceManager {
         const retired = retireBuiltInSubscriptions(config)
         const mutated = ensureBuiltInSubscriptions(config)
         const defaultsAdded = ensureDefaultCustomSubscriptions(config)
+        const renamed = migrateNetworkShareName(config)
         const idsAdded = ensureSourceIds(config)   // 存量源补稳定 id（issue #29/#68）
-        if (retired || mutated || defaultsAdded || idsAdded) this.saveSources(config)
+        if (retired || mutated || defaultsAdded || renamed || idsAdded) this.saveSources(config)
         return config
       }
       if (typeof parsed === 'object' && parsed !== null) {
@@ -785,9 +800,10 @@ class ExternalSourceManager {
         // 播种内置订阅源（只播种从未播种过的；尊重用户删除）
         const retired = retireBuiltInSubscriptions(parsed)
         const mutated = ensureBuiltInSubscriptions(parsed)
-        const defaultsAdded = ensureDefaultCustomSubscriptions(parsed)   // 「来源于网络」等，只播一次
+        const defaultsAdded = ensureDefaultCustomSubscriptions(parsed)   // 「网络分享」等，只播一次
+        const renamed = migrateNetworkShareName(parsed)
         const idsAdded = ensureSourceIds(parsed)   // 存量源补稳定 id（issue #29/#68）
-        if (retired || mutated || defaultsAdded || idsAdded) this.saveSources(parsed)
+        if (retired || mutated || defaultsAdded || renamed || idsAdded) this.saveSources(parsed)
         return parsed
       }
       return { enabled: false, includeInPlaylists: true, updateOnStartup: true, sources: [] }

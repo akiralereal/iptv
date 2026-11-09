@@ -8,7 +8,9 @@ export { AUTH_URL, buildAuthRequest, encodeTimestamp } from './auth.js'
 export const CHANNEL_LIST_URL = 'https://publish-lizhi.jstv.com/nav/8385'
 
 // 官网网页包公开携带的取流签名参数，属于易变的平台实现细节。
-const STREAM_SECRET = 'wrf2yJaCwC8HX3cfJz8P'
+// 2026-11-09 核对：https://live.jstv.com/assets/js/311.ea166a1e.js
+// encodeLiveUrl 使用的新参数；旧参数会令全部频道的 HLS 返回 403。
+const STREAM_SECRET = 'enxG6z6eEWFWKHeTFNQ8'
 const STREAM_HOST = 'litchi-play-encrypted-site.jstv.com'
 const CHANNEL_TTL_MS = 4 * 60 * 60 * 1000
 const CHANNEL_RETRY_MS = 60 * 1000

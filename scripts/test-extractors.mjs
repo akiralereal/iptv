@@ -3890,14 +3890,14 @@ check('江苏：Web 鉴权签名与官网算法固定样本一致', () => {
   assert.match(request.url, /Sign=d66d6d8c6ab4cec57f79653449c88013/)
 })
 
-check('江苏：短效 HLS 签名切换到网页播放域名并保留路径', () => {
+check('江苏：短效 HLS 签名与 2026-11-09 官网样本一致，切换网页域名并保留路径', () => {
   const signed = signJstvStreamUrl(
     'https://litchi-play-encrypted.jstv.com/applive/jswspro.m3u8',
     1720000000000,
   )
   assert.equal(
     signed,
-    'https://litchi-play-encrypted-site.jstv.com/applive/jswspro.m3u8?txSecret=7f4e425e5f26c7a18c8679e376d746c5&txTime=66851eb4',
+    'https://litchi-play-encrypted-site.jstv.com/applive/jswspro.m3u8?txSecret=35db8bdc7c1b91f9afa6ee73f424a584&txTime=66851eb4',
   )
 })
 

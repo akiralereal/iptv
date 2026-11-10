@@ -5695,6 +5695,21 @@
             return `<span style="color:${color};">● ${escapeHtml(text)}</span>`;
         }
 
+        /**
+         * 视频经服务器转发的模块在卡片底部标「占上行」（服务端 extractorManager 的 mediaForwardingOf，只读缓存）。
+         * 放底部那行、跟「N 频道」同样的浅灰字，不放标题行：三列布局下标题行再多一个角标，
+         * 「凤凰卫视」「北京广播电视台」就被挤成省略号。/relay/、直链和 302 的模块不标。
+         */
+        function extractorUplinkNote(m) {
+            const f = m.mediaForwarding || {};
+            if (f.kind !== 'all' && f.kind !== 'some') return '';
+            const effect = '外网观看时占服务器所在网络（如家里宽带）的上行带宽，每多一位观众多占一份；局域网内观看不受影响';
+            const title = f.kind === 'all'
+                ? `视频经服务器转发：${effect}`
+                : `${f.total} 个频道里有 ${f.forwarded} 个的视频经服务器转发，其余由播放器直连官方。转发的频道${effect}`;
+            return ` · <span title="${escapeHtml(title)}">${f.kind === 'all' ? '占上行' : '部分占上行'}</span>`;
+        }
+
         /** 失败时 channelCount 是上次成功缓存的数量，不是本轮抓到的数量。 */
         function extractorChannelSummary(h) {
             const count = h.channelCount || 0;
@@ -6425,8 +6440,8 @@
                         ${m.enabled
                             ? `<span title="上次成功抓取：${escapeHtml(when)}">${h.credentialRejected
                                 ? `<span class="credential-flag" title="${escapeHtml(h.credentialRejected)}">⚠️ 登录凭证已失效</span>`
-                                : extractorCardStatus(h)} · ${extractorChannelSummary(h)}</span>`
-                            : '<span class="module-off-label">○ 已关闭</span>'}
+                                : extractorCardStatus(h)} · ${extractorChannelSummary(h)}${extractorUplinkNote(m)}</span>`
+                            : `<span><span class="module-off-label">○ 已关闭</span>${extractorUplinkNote(m)}</span>`}
                         <span class="card-open-hint">${hasEditableConfig ? '配置 ›' : '详情 ›'}</span>
                     </div>
                 </div>`;

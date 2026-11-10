@@ -60,6 +60,8 @@ export default {
   category: 'live',
   capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   streamType: 'flv',
+  // 选 HLS 时本机只刷新清单、分片由播放器直连，卡片上就不标「占上行」
+  streamTypeForConfig: config => config?.format === 'hls' ? 'hls' : 'flv',
   defaultRefreshMinutes: 30,
   minRefreshMinutes: 15,
   maxRefreshMinutes: 120,

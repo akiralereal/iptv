@@ -83,6 +83,8 @@
  *                                 说明和「测试」里断在代理之后的失败项按它告诉用户往代理规则里加什么
  *   streamType            string  可选；默认 hls，flv 由本机流式代理且不转码。
  *                                 FLV resolve 须返回 validateMediaUrl 校验官方调度跳转。
+ *   streamTypeForConfig(config) 可选；格式由用户选的模块（抖音）按生效配置返回 'hls'/'flv'。
+ *                                 只给后台卡片的「占上行」判断用；播放时仍以 resolve 返回的 streamType 为准
  *   capabilities.catchup boolean 可选；false 表示纯直播，不透传回看查询参数。
  *   configSchema          array   字段描述，后台据此渲染表单、后端据此校验。值会进请求头的
  *                                 文本字段声明 headerValue: true，保存时去首尾空白、拦下非法字符。
@@ -449,6 +451,9 @@ export function validateModule(module) {
   }
   if (module.streamType != null && !['hls', 'flv'].includes(module.streamType)) {
     throw new Error(`抓取模块 ${module.id} 的 streamType 非法`)
+  }
+  if (module.streamTypeForConfig != null && typeof module.streamTypeForConfig !== 'function') {
+    throw new Error(`抓取模块 ${module.id} 的 streamTypeForConfig 必须是函数`)
   }
   if (module.outbound != null && module.outbound !== 'proxy') {
     throw new Error(`抓取模块 ${module.id} 的 outbound 非法: ${JSON.stringify(module.outbound)}（只有 'proxy'）`)

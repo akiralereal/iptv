@@ -340,6 +340,43 @@ export function redactConfig(module, config) {
   return { config: safe, secretsSet }
 }
 
+// 平台级 HLS 路由（registry.js 的 channelHlsMode / channelHlsModeForConfig）：
+// 输出播放列表和卡片的「占上行」共用这一处，两边不会各算各的
+function channelHlsModeOf(module, config) {
+  return typeof module.channelHlsModeForConfig === 'function'
+    ? module.channelHlsModeForConfig(config)
+    : module.channelHlsMode
+}
+
+/**
+ * 缓存里有多少个频道的视频经服务器转发（后台卡片的「占上行」）：外网观看时占服务器所在网络的上行，
+ * 每多一位观众多一份。判定照写盘与播放：有 deferredRef 的频道才会写成本机地址，其中 FLV 由本机整条转发，
+ * HLS 按平台路由或频道自己的 proxyHls 写成 /proxy/（清单与分片全转发）；/relay/ 只转清单、直链与 302 不经过服务器。
+ * 只读缓存、不打上游。播放时才定的少数情况（抖音拿不到 FLV 改 HLS）不在这里。
+ * 还没抓到过频道的（关着、没开过）只能看模块级声明：FLV 或平台路由是 proxy 的算全部转发，
+ * 按频道各自声明 proxyHls 的要等抓过一轮才知道。
+ * 返回 { kind: 'all' | 'some' | '', forwarded, total }
+ */
+function mediaForwardingOf(module, config, groups) {
+  const hlsMode = channelHlsModeOf(module, config)
+  const streamType = typeof module.streamTypeForConfig === 'function'
+    ? module.streamTypeForConfig(config)
+    : module.streamType
+  const flv = streamType === 'flv'
+  let total = 0
+  let forwarded = 0
+  for (const group of groups || []) {
+    for (const channel of group?.dataList || []) {
+      if (!channel?.name) continue
+      total++
+      if (channel.deferredRef == null) continue
+      if (flv || hlsMode === 'proxy' || (hlsMode !== 'relay' && channel.proxyHls === true)) forwarded++
+    }
+  }
+  if (!total) return { kind: flv || hlsMode === 'proxy' ? 'all' : '', forwarded, total }
+  return { kind: forwarded === 0 ? '' : forwarded === total ? 'all' : 'some', forwarded, total }
+}
+
 class ExtractorManager {
   constructor() {
     this.configPath = dataPath(CONFIG_FILE)
@@ -853,6 +890,8 @@ class ExtractorManager {
         enableNotice: module.enableNotice || '',
         // 'proxy' = 这个模块的出站都走后台「网络代理」（registry.js 的 outbound），卡片上标「走代理」
         outbound: module.outbound || '',
+        // 卡片上的「占上行」：缓存里多少个频道的视频经服务器转发（见 mediaForwardingOf）
+        mediaForwarding: mediaForwardingOf(module, effective, cacheEntry.groups),
         configSavedNotice: module.configSavedNotice || '',
         configSchema: module.configSchema || [],
         config,
@@ -1286,9 +1325,7 @@ class ExtractorManager {
           if (!channel?.name) continue
           // 平台级 HLS 模式在输出时覆盖频道缓存，既避免每条频道重复声明，
           // 也让平台防盗链规则变化后能立即修正旧磁盘缓存，无需等待下一轮抓取。
-          const hlsMode = typeof module.channelHlsModeForConfig === 'function'
-            ? module.channelHlsModeForConfig(this.effectiveConfig(module))
-            : module.channelHlsMode
+          const hlsMode = channelHlsModeOf(module, this.effectiveConfig(module))
           const hlsRouting = hlsMode === 'proxy'
             ? { proxyHls: true, relayHls: false }
             : hlsMode === 'relay'

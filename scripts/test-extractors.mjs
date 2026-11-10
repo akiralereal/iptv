@@ -993,6 +993,59 @@ try {
     assert.equal(typeof getModule('yangshipin').browserLoginFlow?.start, 'function')
   })
 
+  check('★ 卡片「占上行」按写盘路由数：/proxy/ 与 FLV 算转发，/relay/、直链不算；没抓过的只看模块级声明', () => {
+    const ok = { status: 'ok', lastSuccessAt: Date.now(), consecutiveFailures: 0 }
+    const manager = newManager(undefined, {
+      enabled: true,
+      modules: {
+        'bestv-fj': { config: { networkMode: 'ipv6' }, enabled: true },
+        'douyin-live': { config: { format: 'hls' }, enabled: true },
+      },
+      masterSwitchRetired: true,
+    }, {
+      modules: {
+        // 频道自己声明：厦门台全转发、其余只转清单
+        fjtv: { groups: [{ name: '福建', dataList: [
+          { name: '厦视一套', deferredRef: 'fjtv-xiamen-16', proxyHls: true },
+          { name: '福建综合', deferredRef: 'fjtv-province-665248990102917120', relayHls: true },
+          { name: '东南卫视', deferredRef: 'fjtv-province-665248966136664064', relayHls: true },
+        ] }], health: ok },
+        // 平台声明 proxy，但直链频道（没有 deferredRef）照样由播放器直连
+        jlntv: { groups: [{ name: '吉林', dataList: [
+          { name: '吉林卫视', deferredRef: 'jlntv-satellite' },
+          { name: '吉林直链', url: 'https://example.com/a.m3u8' },
+        ] }], health: ok },
+        // 直链模块：一个都不转发
+        'bilibili-live': { groups: oneGroup, health: ok },
+        // 平台路由按配置：选了 IPv6 转发就整条经服务器，频道上的旧标记不算数
+        'bestv-fj': { groups: [{ name: '百视通', dataList: [{ name: 'CCTV1', deferredRef: 'bestv-fj-165', relayHls: true }] }], health: ok },
+        // 抖音选了 HLS：本机只刷新清单
+        'douyin-live': { groups: [{ name: '抖音', dataList: [{ name: '主播', deferredRef: 'douyin-661585694546' }] }], health: ok },
+      },
+    })
+    const state = Object.fromEntries(manager.getState().modules.map(m => [m.id, m.mediaForwarding]))
+    assert.deepEqual(state.fjtv, { kind: 'some', forwarded: 1, total: 3 })
+    assert.deepEqual(state.jlntv, { kind: 'some', forwarded: 1, total: 2 })
+    assert.deepEqual(state['bilibili-live'], { kind: '', forwarded: 0, total: 1 })
+    assert.deepEqual(state['bestv-fj'], { kind: 'all', forwarded: 1, total: 1 })
+    assert.deepEqual(state['douyin-live'], { kind: '', forwarded: 0, total: 1 }, '选 HLS 不标')
+    // 没抓过：FLV 或平台路由 proxy 的按全部转发标；按频道各自声明的要抓过才知道
+    assert.equal(state.fengshows.kind, 'all', '凤凰是 FLV')
+    assert.equal(state.chongqing.kind, 'all', '重庆平台路由 proxy')
+    assert.equal(state.yangshipin.kind, '', '央视频只转清单')
+    assert.equal(state.dalian.kind, '', '大连按频道声明，没抓过不下结论')
+    // 与输出同源：标了转发的频道，写盘拿到的正是 proxyHls
+    const out = manager.getValidChannels().flatMap(group => group.dataList)
+    assert.equal(out.find(c => c.name === '吉林卫视').proxyHls, true)
+    assert.equal(out.find(c => c.name === 'CCTV1').proxyHls, true)
+    assert.equal(out.find(c => c.name === '东南卫视').proxyHls, undefined)
+
+    const flvDefault = newManager(undefined, { enabled: true, modules: {}, masterSwitchRetired: true }, {
+      modules: { 'douyin-live': { groups: [{ name: '抖音', dataList: [{ name: '主播', deferredRef: 'douyin-661585694546' }] }], health: ok } },
+    })
+    assert.equal(flvDefault.getState().modules.find(m => m.id === 'douyin-live').mediaForwarding.kind, 'all', '抖音默认 FLV 由本机转发')
+  })
+
   check('★ 要登录的模块都声明凭证失效怎么办，并能让后台提醒中心知道（ADD-CHANNELS.md「登录凭证」）', () => {
     // 凭证一定会过期：能降级就降级接着播，播不了的频道照留，两种都必须让后台提醒中心知道。
     // 新加的模块只要有 secret 字段或浏览器登录，就会被这里拦下来要求补齐。

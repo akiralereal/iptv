@@ -4270,6 +4270,7 @@ await checkAsync('深圳：模块取七套官网频道，播放时换 Key 并提
   clearSztvCache()
   let catalogCalls = 0
   let keyCalls = 0
+  const calls = []
   const fetchImpl = async (requestUrl, options = {}) => {
     const url = new URL(String(requestUrl))
     if (url.hostname === 'apix.scms.sztv.com.cn') {
@@ -4278,6 +4279,12 @@ await checkAsync('深圳：模块取七套官网频道，播放时换 Key 并提
       assert.match(options.headers.Nonce, /^[0-9a-f-]{36}$/)
       return fakeResponse({ returnCode: '0000', returnDesc: '成功', returnData: sztvRows() })
     }
+    if (url.href === 'https://sztv-live.sztv.com.cn/favicon.ico') {
+      calls.push('report')
+      assert.equal(options.headers.Origin, 'https://www.sztv.com.cn')
+      return fakeResponse('')
+    }
+    calls.push('key')
     keyCalls++
     assert.equal(url.hostname, 'hls-api.sztv.com.cn')
     assert.equal(url.searchParams.get('id'), 'R77mK1v')
@@ -4304,6 +4311,27 @@ await checkAsync('深圳：模块取七套官网频道，播放时换 Key 并提
   assert.match(cached.url, /783Rs70\.m3u8/)
   assert.equal(catalogCalls, 1)
   assert.equal(keyCalls, 1)
+  // 照官网 getReport：冷起先报到再给地址，5 分钟内不重复报，播放中每满 5 分钟续报一次
+  assert.deepEqual(calls, ['key', 'report'])
+  await resolveSztvChannel('sztv-24725', { fetchImpl, now: 1720000000000 + 4 * 60 * 1000 })
+  assert.deepEqual(calls, ['key', 'report'])
+  await resolveSztvChannel('sztv-24725', { fetchImpl, now: 1720000000000 + 5 * 60 * 1000 })
+  await resolveSztvChannel('sztv-24725', { fetchImpl, now: 1720000000000 + 6 * 60 * 1000 })
+  assert.deepEqual(calls, ['key', 'report', 'report'])
+})
+
+await checkAsync('深圳：报到失败或超时不影响出地址', async () => {
+  clearSztvCache()
+  const fetchImpl = async (requestUrl) => {
+    const url = new URL(String(requestUrl))
+    if (url.hostname === 'apix.scms.sztv.com.cn') {
+      return fakeResponse({ returnCode: '0000', returnDesc: '成功', returnData: sztvRows() })
+    }
+    if (url.pathname === '/favicon.ico') throw new Error('connect ECONNRESET')
+    return fakeResponse('"nUzgzN==AM3M"')
+  }
+  const result = await resolveSztvChannel('sztv-24725', { fetchImpl, now: 1720000000000 })
+  assert.match(result.url, /^https:\/\/sztv-live\.sztv\.com\.cn\/R77mK1v\/500\/783Rs70\.m3u8\?sign=/)
 })
 
 // ---- 芒果 TV ----

@@ -17,6 +17,15 @@ const CHANNEL_TTL_MS = 4 * 60 * 60 * 1000
 const CHANNEL_RETRY_MS = 60 * 1000
 const LIVE_KEY_TTL_MS = 30 * 60 * 1000
 const LIVE_KEY_RETRY_MS = 60 * 1000
+// 官网播放页 getReport：打开时请求一次 favicon.ico，之后 setInterval 每 5 分钟一次。
+// CDN 把这个请求交给远程鉴权（响应头 x-error-info: auth_remote），相当于向鉴权服务器报到。
+// 2026-11-10 实测：模块原先不报到，同一出口播 2～3 分钟后所有直播路径都回空 200（auth_remote），
+// 整个出口被拒两小时以上。补报到是照官网对齐，是否就是触发条件尚未做对照验证。
+export const REPORT_URL = `https://${STREAM_HOST}/favicon.ico`
+const REPORT_INTERVAL_MS = 5 * 60 * 1000
+// 超过两个周期没人播，下次起播按「刚打开页面」处理：先报到再取清单
+const REPORT_SESSION_GAP_MS = 2 * REPORT_INTERVAL_MS
+const REPORT_TIMEOUT_MS = 5000
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
@@ -39,6 +48,8 @@ let channelCache = null
 let channelPending = null
 const liveKeyCache = new Map()
 const liveKeyPending = new Map()
+let lastReportAt = 0
+let reportPending = null
 
 const md5 = value => createHash('md5').update(value).digest('hex')
 
@@ -213,6 +224,28 @@ async function cachedLiveKey(row, options = {}) {
   }
 }
 
+/**
+ * 照官网播放页向 CDN 报到。resolve 随播放器每次刷新清单被调用，所以有人在播就按 5 分钟一次续报，
+ * 没人播自然停。冷起（长时间没人播）先等报到完成再取清单，与官网「先 getReport 再起播」的顺序一致；
+ * 播放中的续报不阻塞清单。报到失败不影响播放，下个周期再报。
+ */
+export async function reportViewer(options = {}) {
+  const now = Number(options.now ?? Date.now())
+  const sinceLast = now - lastReportAt
+  if (sinceLast < REPORT_INTERVAL_MS) return
+  if (!reportPending) {
+    lastReportAt = now
+    reportPending = requestWithTimeout(REPORT_URL, {
+      fetchImpl: options.fetchImpl || fetch,
+      init: { headers: { ...requestHeaders(options.liveId), Accept: '*/*' } },
+    }, REPORT_TIMEOUT_MS)
+      .then(response => response.arrayBuffer?.())
+      .catch(() => {})
+      .finally(() => { reportPending = null })
+  }
+  if (sinceLast >= REPORT_SESSION_GAP_MS) await reportPending
+}
+
 /** 官网 CDN 对每一条 m3u8、TS 和 Key 路径分别签名，不能把顶层查询串复用到分片。 */
 export function signStreamUrl(rawUrl, now = Date.now()) {
   const url = new URL(rawUrl)
@@ -233,6 +266,7 @@ export async function resolveChannel(ref, ctx = {}) {
     const row = rows.find(item => item.id === match[1])
     if (!row) return { url: '', desc: `深圳广电频道 ${match[1]} 当前不在官网列表中` }
     const playKey = await cachedLiveKey(row, { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now })
+    await reportViewer({ fetchImpl: ctx.fetchImpl, now: ctx.now, liveId: row.liveId })
     const unsigned = `https://${STREAM_HOST}/${row.liveId}/${row.rate}/${playKey}.m3u8`
     return {
       url: signStreamUrl(unsigned, ctx.now ?? Date.now()),
@@ -251,4 +285,6 @@ export function clearCache() {
   channelPending = null
   liveKeyCache.clear()
   liveKeyPending.clear()
+  lastReportAt = 0
+  reportPending = null
 }

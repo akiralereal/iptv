@@ -4834,7 +4834,7 @@
                         <div style="font-weight:600; color:#333; margin-bottom:4px;">怎么用</div>
                         <div>① 点「＋ 新增用户」，给每个人起个名（如「客厅电视」「老王」）；</div>
                         <div>② 用每行的「复制 m3u」把各自的源地址发给对应的人；</div>
-                        <div>③ 谁的链接泄露 / 不想给了 → 关掉那一行的开关（或「重置令牌」），<strong>只影响他一个</strong>，其他人照常。</div>
+                        <div>③ 每行底部「访问来源」列出用过这条链接的 IP 和播放器；冒出不认识的，或者不想给了 → 关掉那一行的开关（或「重置令牌」），<strong>只影响这一个人</strong>，其他人照常。</div>
                         <div style="font-weight:600; color:#333; margin:8px 0 4px;">注意</div>
                         <div>• 这是「<strong>可追溯 + 可单独吊销</strong>」，不是「漏了也用不了」——发现异常停掉即可；</div>
                         <div>• 你自己的<strong>站长密码不要外发</strong>（它能进后台）；发出去的只该是 <code>/u/&lt;令牌&gt;/…</code>；</div>
@@ -7231,6 +7231,40 @@
             return window.location.origin + '/u/' + token + '/' + kind;
         }
 
+        // 用户卡片底部的「访问来源」：按最近访问排，近 24 小时出现过的 IP 数单独数出来，一眼看出有没有被转给别人
+        function isLanIpText(ip) {
+            return /^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1$|f[cd][0-9a-f]{2}:|fe80:)/i.test(String(ip || ''));
+        }
+
+        function userClientsHtml(u) {
+            const clients = (Array.isArray(u.recentClients) ? u.recentClients : [])
+                .filter(c => c && c.ip)
+                .sort((a, b) => String(b.lastSeenAt || '').localeCompare(String(a.lastSeenAt || '')));
+            if (!clients.length) return { summary: '', details: '' };
+            const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+            const recent = clients.filter(c => Date.parse(c.lastSeenAt) > dayAgo).length;
+            const rows = clients.map(c => {
+                const uas = (Array.isArray(c.uas) ? c.uas : []).map(ua => ua || '未带 UA');
+                const when = c.lastSeenAt ? new Date(c.lastSeenAt).toLocaleString() : '';
+                return `<div style="padding:4px 0;border-top:1px dashed #eee;">
+                    <span style="font-family:monospace;color:#555;">${escapeHtml(c.ip)}</span>
+                    · ${c.count || 0} 次 · 最近 ${escapeHtml(when)}
+                    <div style="color:#aaa;word-break:break-all;">${uas.map(ua => escapeHtml(ua)).join('<br>')}</div>
+                </div>`;
+            }).join('');
+            const lanHint = clients.every(c => isLanIpText(c.ip))
+                ? '<div style="color:#b58105;margin-top:4px;">全是内网地址：要么都在局域网里看，要么经过了反向代理或 Docker 网关，要在反代上转发 X-Forwarded-For 才看得到真实来源。</div>'
+                : '';
+            return {
+                summary: ` · 近 24 小时 ${recent} 个 IP`,
+                details: `<details style="font-size:12px;color:#999;margin-top:4px;">
+                    <summary style="cursor:pointer;">访问来源（最近 ${clients.length} 个 IP，下面是各自用过的播放器）</summary>
+                    <div style="margin-top:4px;">同一时段冒出不认识的 IP 或播放器，可能是链接被转给了别人，点「重置令牌」后把新链接重新发给对方；重置后这里会清空重新记。</div>
+                    ${rows}${lanHint}
+                </details>`
+            };
+        }
+
         function renderUsers() {
             renderAlerts();   // 用户增删会改变「没设访问密码」那条提醒
             const box = document.getElementById('userList');
@@ -7246,6 +7280,7 @@
                 const pb = userLink(u.token, 'playback.xml');
                 const txt = userLink(u.token, 'txt');
                 const last = u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString() : '从未';
+                const clients = userClientsHtml(u);
                 const profOpts = userProfileOptionList()
                     .map(o => `<option value="${escapeHtml(o.value)}"${o.value === (u.profile || '') ? ' selected' : ''}>${escapeHtml(o.name)}</option>`).join('');
                 return `
@@ -7269,7 +7304,8 @@
                         <button class="btn btn-sm" onclick="copyToClipboard('${txt.replace(/'/g, "\\'")}', 'txt 地址')">复制 txt</button>
                         <span style="font-size:12px;color:#888;">绑定档 <select onchange="updateUserProfile('${u.id}', this.value)" style="font-size:12px;">${profOpts}</select></span>
                     </div>
-                    <div style="font-size:12px;color:#999;margin-top:6px;">最近访问：${escapeHtml(last)} · 请求数 ${u.reqCount || 0}</div>
+                    <div style="font-size:12px;color:#999;margin-top:6px;">最近访问：${escapeHtml(last)} · 请求数 ${u.reqCount || 0}${clients.summary}</div>
+                    ${clients.details}
                 </div>`;
             }).join('');
         }
@@ -7636,7 +7672,7 @@
         }
 
         async function regenUserToken(id) {
-            const confirmed = await showConfirm('重置令牌后，该用户旧的源地址会立即失效，需要把新地址重新发给他。继续？');
+            const confirmed = await showConfirm('重置令牌后，该用户旧的源地址会立即失效，需要把新地址重新发给对方；访问来源记录也会清空重新记。继续？');
             if (!confirmed) return;
             const r = await usersPost({ action: 'regenToken', id });
             if (r.success) { usersConfig = r.data; renderUsers(); showStatus('已重置令牌，请把新地址重新发给对方', 'success'); }

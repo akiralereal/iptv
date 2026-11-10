@@ -26,7 +26,7 @@ import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
          uploadLogoAPI, removeLogoAPI, copyChannelToGroupsAPI, getBuiltInSourcesAPI } from "./utils/adminAPI.js";
 import { getEpgSourcesAPI, setEpgEnabledAPI, addEpgSourceAPI, updateEpgSourceAPI,
          removeEpgSourceAPI, expireEpgSourcesAPI } from "./utils/epgSourcesAPI.js";
-import { userManager } from "./utils/userManager.js";
+import { userManager, viewerIp } from "./utils/userManager.js";
 import { getUsersAPI, addUserAPI, updateUserAPI, removeUserAPI, regenUserTokenAPI } from "./utils/usersAPI.js";
 import { getAlertsAPI, getAlertTracker, postAlertsAPI } from "./utils/alerts.js";
 import { getNotifyAPI, postNotifyAPI, getNotifier } from "./utils/notify.js";
@@ -291,7 +291,7 @@ async function handleRequest(req, res) {
         currentUser = u
         accessPrefix = `/u/${tm[1]}`
         routePath = "/" + (tm[2] || "")
-        userManager.recordUsage(u)
+        userManager.recordUsage(u, { ip: viewerIp(req.socket?.remoteAddress, req.headers['x-forwarded-for']), ua: req.headers['user-agent'] })
       } else {
         // 令牌无效 / 已停用 / 已过期 → 直接拒绝，使吊销立即生效
         res.writeHead(403, { 'Content-Type': 'text/plain;charset=UTF-8' })

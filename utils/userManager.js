@@ -11,8 +11,26 @@ import { existsSync, readFileSync } from 'node:fs'
 import { writeJsonFileSync } from './fileUtil.js'
 import { dataPath } from './paths.js'
 import { printRed } from './colorOut.js'
+import { isPrivateAddress } from './logoCache.js'
 
 const USERS_PATH = dataPath('users.json')
+
+// 「最近访问来源」：每个用户按来源 IP 记最近 20 个，每个 IP 记最近 3 种播放器（UA）。
+// 用来看令牌有没有被转给别人：同一时段冒出多个陌生 IP、或者不认识的播放器，就该重置令牌了。
+const RECENT_CLIENTS_MAX = 20
+const RECENT_UAS_MAX = 3
+const UA_MAX_LENGTH = 160
+
+/**
+ * 记给站长看的来源 IP。直连时只认 TCP 对端：X-Forwarded-For 客户端自己就能写，拿来查泄露会被糊弄过去。
+ * 对端是本机或内网地址（反代、内网穿透、Docker 网关）时，才取 X-Forwarded-For 的第一段。
+ */
+export function viewerIp(socketAddress, forwardedFor) {
+  const socketIp = String(socketAddress || '').replace(/^::ffff:/, '')
+  const forwarded = String(forwardedFor || '').split(',')[0].trim().replace(/^::ffff:/, '')
+  if (forwarded && (!socketIp || isPrivateAddress(socketIp))) return forwarded.slice(0, 64)
+  return socketIp || '未知'
+}
 
 // 令牌字符集需与 app.js 路由正则 [A-Za-z0-9_-]{8,64} 一致；base64url 正好只含这些字符
 function genToken() {
@@ -89,11 +107,32 @@ class UserManager {
     return !!u && u.enabled !== false && !this.isExpired(u)
   }
 
-  // 轻量记录用量：内存累加 + 标脏，由上层定时 flush，避免每个请求都落盘
-  recordUsage(u) {
+  // 轻量记录用量：内存累加 + 标脏，由上层定时 flush，避免每个请求都落盘。
+  // client = { ip, ua }：按 IP 归并进 recentClients，超出上限挤掉最久没来的那个。
+  recordUsage(u, client = null) {
     if (!u) return
+    const now = new Date().toISOString()
     u.reqCount = (u.reqCount || 0) + 1
-    u.lastSeenAt = new Date().toISOString()
+    u.lastSeenAt = now
+    const ip = String(client?.ip || '').trim().slice(0, 64)
+    if (ip) {
+      const ua = String(client.ua || '').replace(/[\r\n]/g, ' ').trim().slice(0, UA_MAX_LENGTH)
+      if (!Array.isArray(u.recentClients)) u.recentClients = []
+      const list = u.recentClients
+      let entry = list.find(c => c && c.ip === ip)
+      if (!entry) {
+        entry = { ip, uas: [], count: 0, firstSeenAt: now, lastSeenAt: now }
+        list.push(entry)
+        if (list.length > RECENT_CLIENTS_MAX) {
+          list.sort((a, b) => String(b.lastSeenAt).localeCompare(String(a.lastSeenAt)))
+          list.length = RECENT_CLIENTS_MAX
+        }
+      }
+      entry.count = (entry.count || 0) + 1
+      entry.lastSeenAt = now
+      const uas = Array.isArray(entry.uas) ? entry.uas.filter(x => x !== ua) : []
+      entry.uas = [ua, ...uas].slice(0, RECENT_UAS_MAX)
+    }
     this._dirty = true
   }
 
@@ -118,7 +157,8 @@ class UserManager {
       note: typeof note === 'string' ? note : '',
       createdAt: new Date().toISOString(),
       lastSeenAt: null,
-      reqCount: 0
+      reqCount: 0,
+      recentClients: []
     }
     this.config.users.push(user)
     const r = this.save()
@@ -149,13 +189,14 @@ class UserManager {
     return r.success ? { success: true, data: this.config } : r
   }
 
-  // 重置令牌：旧链接立即失效
+  // 重置令牌：旧链接立即失效；访问来源一并清空，之后列出的只会是拿到新链接的设备
   regenToken(id) {
     const u = this.config.users.find(x => x.id === id)
     if (!u) return { success: false, message: '用户不存在' }
     let token = genToken()
     while (this.index.has(token)) token = genToken()
     u.token = token
+    u.recentClients = []
     const r = this.save()
     return r.success ? { success: true, data: this.config, token } : r
   }

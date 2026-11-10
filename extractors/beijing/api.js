@@ -5,6 +5,10 @@ export const BEIJING_PAGE = 'https://www.btime.com/btv/btvsy_index'
 export const BEIJING_LIVE_PAGE = 'https://www.btime.com/live'
 export const BEIJING_ACCOUNT_API = 'https://user.btime.com/getUserInfo'
 export const BEIJING_PLAY_API = 'https://pc.api.btime.com/video/play'
+// 免登录活动 / 慢直播的取流接口：官网活动页（item.btime.com/<gid>）用的就是它，只带 id、不签名、不要 Cookie。
+// 2026-11-10 起 pc.api 对未登录请求一律回 errno 401「用户未登录」（错签名也是这句），景观因此全被判失效；
+// 改走这个接口后 7 个活动 6 个能播（第 7 个官网自己也连不上）。电视台在这里回 data:[]，仍走 pc.api + Cookie。
+export const BEIJING_PUBLIC_PLAY_API = 'https://app.api.btime.com/video/play'
 
 const PLAY_TYPE_ID = '151'
 const PLAY_SIGN_SECRET = 'TtJSg@2g*$K4PjUH'
@@ -18,7 +22,8 @@ const DEFAULT_HEADERS = Object.freeze({
 // `https://www.btime.com/btv/btvsy_index` 回 200，带根路径 `https://www.btime.com/`、
 // `/live`、`/btv/` 或任意别的路径一律 403 且空正文；分片则两种都放行。独立验证台当时能播
 // 正是因为它的服务端代理写的是完整页面路径，移植时收成根路径就全军覆没。
-// 公开活动流（hls.playlive.360.v.btime.com）实测不查 Referer / Origin，按来源页给即可。
+// 公开活动流（2026-11-10 起在 qcloud-play.v.btime.com，之前是 hls.playlive.360.v.btime.com）实测不查
+// Referer / Origin（乱填 Referer 清单、分片照样 200），按来源页给即可。
 const TV_MEDIA_HEADERS = Object.freeze({
   Referer: BEIJING_PAGE,
   Origin: 'https://www.btime.com',
@@ -265,20 +270,58 @@ async function requestPlayUrl(gid, cookie = '', options = {}) {
   return url
 }
 
-async function publicEventAvailable(event, options = {}) {
-  const url = await requestPlayUrl(event.gid, '', {
-    ...options,
-    typeId: event.typeId,
-    referer: BEIJING_LIVE_PAGE,
-  })
-  const response = await request(url, {
+// 活动取流接口的 live_status（2026-11-10 对 /live 页全部条目实测）：3 直播中（给直播清单）、
+// 1 未开始（data 里没有地址）、4 已结束（给 record / playback 回放清单，带 ENDLIST）。
+const PUBLIC_NOT_LIVE = new Map([[1, '活动尚未开始'], [4, '活动已结束']])
+
+/** 免登录活动取流：错误不归 Cookie（这里根本没有 Cookie），按接口原话或状态说明。 */
+export function extractPublicStream(payload) {
+  if (payload?.errno !== 0) throw new Error(`北京时间活动取流接口返回 ${payload?.errno} ${payload?.errmsg || ''}`.trim())
+  const data = payload?.data
+  const status = Number(data?.live_status)
+  if (PUBLIC_NOT_LIVE.has(status)) throw new Error(PUBLIC_NOT_LIVE.get(status))
+  const candidates = data && !Array.isArray(data) ? streamCandidates(data) : []
+  if (!candidates.length) throw new Error('北京时间活动取流接口没有返回 HLS 地址')
+  return officialMediaUrl(candidates[0])
+}
+
+async function requestPublicPlayUrl(gid, options = {}) {
+  const cacheKey = `public:${gid}`
+  const now = options.now ?? Date.now()
+  const cached = signedCache.get(cacheKey)
+  if (cached && now - cached.createdAt < PLAY_URL_TTL_MS) return cached.url
+  const endpoint = new URL(BEIJING_PUBLIC_PLAY_API)
+  endpoint.searchParams.set('id', gid)
+  const { text } = await textResponse(endpoint, {
     timeoutMs: options.timeoutMs,
-    fetchImpl: options.mediaFetchImpl || options.fetchImpl,
-    headers: LIVE_MEDIA_HEADERS,
+    fetchImpl: options.fetchImpl,
+    headers: { Referer: BEIJING_LIVE_PAGE },
   })
-  if (!response.ok) return false
-  const text = await response.text()
-  return text.trimStart().startsWith('#EXTM3U')
+  const url = extractPublicStream(JSON.parse(text))
+  signedCache.set(cacheKey, { url, createdAt: now })
+  return url
+}
+
+/** 'ok' 能播；'media' 取到地址但清单不通（活动下线）；'api' 取流接口这一步就失败了。 */
+async function publicEventState(event, options = {}) {
+  let url
+  try {
+    url = await requestPublicPlayUrl(event.gid, options)
+  } catch (error) {
+    return { state: 'api', error }
+  }
+  try {
+    const response = await request(url, {
+      timeoutMs: options.timeoutMs,
+      fetchImpl: options.mediaFetchImpl || options.fetchImpl,
+      headers: LIVE_MEDIA_HEADERS,
+    })
+    if (!response.ok) return { state: 'media' }
+    const text = await response.text()
+    return { state: text.trimStart().startsWith('#EXTM3U') && !text.includes('#EXT-X-ENDLIST') ? 'ok' : 'media' }
+  } catch {
+    return { state: 'media' }
+  }
 }
 
 /**
@@ -328,10 +371,14 @@ export async function fetchPublicCatalog(options = {}) {
     throw new Error(`免登录直播目录获取失败：${error?.message || error}`)
   }
   const events = parseLiveEvents(livePage.text)
-  const checked = await Promise.all(events.map(async event => {
-    try { return await publicEventAvailable(event, options) ? event : null } catch { return null }
-  }))
-  const publicRows = checked.filter(Boolean)
+  const checked = await Promise.all(events.map(event => publicEventState(event, options)))
+  // 取流接口对每个活动都报错 = 接口变了（2026-11-10 pc.api 改要登录就是这样），不是活动全下线：
+  // 算这轮失败，沿用上一轮并进提醒中心，别悄悄变成 0 个台
+  const apiFailures = checked.filter(item => item.state === 'api')
+  if (events.length && apiFailures.length === events.length) {
+    throw new Error(`官网 ${events.length} 个活动取流全部失败：${apiFailures[0].error?.message || apiFailures[0].error}`)
+  }
+  const publicRows = events.filter((_, index) => checked[index].state === 'ok')
   const skipped = events.length - publicRows.length
   if (skipped) warnings.push(`官网目录中有 ${skipped} 个活动流已失效，已自动排除`)
   return { publicRows, warnings }
@@ -379,7 +426,8 @@ export async function resolveChannel(ref, ctx = {}) {
     }
     const event = value.match(/^beijing-live-(\d{1,4})-([a-z0-9]{1,64})$/)
     if (!event) return { url: '', desc: '北京时间频道地址格式错误' }
-    const url = await requestPlayUrl(event[2], '', { ...ctx, typeId: event[1], referer: BEIJING_LIVE_PAGE })
+    // 引用里的 type_id 是旧接口要的，留着让已存的频道地址不变；新接口只看 id
+    const url = await requestPublicPlayUrl(event[2], ctx)
     return { url, upstreamHeaders: LIVE_MEDIA_HEADERS }
   } catch (error) {
     const message = String(error?.message || error).replace(/(?:Cookie|cookie)\s*[:=]\s*[^\s,;]+/g, 'Cookie=<已隐藏>')

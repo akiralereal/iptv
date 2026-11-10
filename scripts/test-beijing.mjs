@@ -7,13 +7,16 @@ import {
   BEIJING_LIVE_PAGE,
   BEIJING_PAGE,
   BEIJING_PLAY_API,
+  BEIJING_PUBLIC_PLAY_API,
   COOKIE_REJECTED_NOTICE,
+  CookieRejectedError,
   buildGroups,
   buildPublicGroups,
   claimsPublicRef,
   claimsRef,
   clearCache,
   credentialRejected,
+  extractPublicStream,
   fetchCatalog,
   fetchPublicCatalog,
   officialMediaUrl,
@@ -31,12 +34,15 @@ import { redactConfig, resolveConfig, validateConfig } from '../utils/extractorM
 
 const cookie = 'lf=1; usid=user-1; btv_key=secret-token'
 const liveUrl = gid => `https://hls.playlive.360.v.btime.com/live/${gid}/index.m3u8?token=signed`
+const eventUrl = gid => `https://qcloud-play.v.btime.com/live/${gid}.m3u8`
 const response = (body, status = 200) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status })
 const tvHtml = BEIJING_CHANNELS.map(channel => `{"gid":"${channel.gid}","data":{"title":"${channel.name}"}}`).join('')
 const liveHtml = `before{"template":"live_module","news":[
   {"gid":"eventone","type":6,"data":{"title":"慢直播｜北京一号"}},
   {"gid":"eventtwo","type":6,"data":{"title":"已经下线的活动"}}
 ]}after`
+// 活动取流接口（app.api）的真实回应形态（2026-11-10 实测）：直播中 live_status 3
+const eventPayload = (gid, status = 3) => ({ errno: 0, data: { play_status: 1, live_status: status, video_stream: [{ stream_url: eventUrl(gid), stream_vbt: '标清' }], gid } })
 
 function playPayload(url, encoded = false) {
   let stream = url
@@ -47,7 +53,7 @@ function playPayload(url, encoded = false) {
 // 官网不认 Cookie 时的真实回应（2026-10-06 用乱填的 Cookie 实测）：账号接口 code 1016，取流接口 errno 401
 const ACCOUNT_REJECTED = { code: 1016, message: '用户未登录', data: [] }
 
-function fixture({ account = { code: 0, data: { nickname: '测试用户' } }, playRejected = false } = {}) {
+function fixture({ account = { code: 0, data: { nickname: '测试用户' } }, playRejected = false, publicPayload = eventPayload } = {}) {
   const calls = []
   const fetchImpl = async (raw, options = {}) => {
     const url = new URL(raw)
@@ -60,11 +66,16 @@ function fixture({ account = { code: 0, data: { nickname: '测试用户' } }, pl
       const typeId = url.searchParams.get('type_id')
       const timestamp = url.searchParams.get('timestamp')
       assert.equal(url.searchParams.get('sign'), signPlayRequest(gid, timestamp, typeId))
-      if (playRejected && typeId === '151') return response({ errno: 401, errmsg: '用户未登录' })
-      return response(playPayload(liveUrl(gid), typeId === '151'))
+      assert.equal(typeId, '151', '免登录活动不再走 pc.api（2026-11-10 起它对未登录一律 401）')
+      if (playRejected) return response({ errno: 401, errmsg: '用户未登录' })
+      return response(playPayload(liveUrl(gid), true))
     }
-    if (url.href === liveUrl('eventone')) return response('#EXTM3U\n#EXTINF:6,\nsegment.ts\n')
-    if (url.href === liveUrl('eventtwo')) return response('gone', 404)
+    if (url.origin + url.pathname === BEIJING_PUBLIC_PLAY_API) {
+      assert.deepEqual([...url.searchParams.keys()], ['id'], '活动取流只带 id、不签名')
+      return response(publicPayload(url.searchParams.get('id')))
+    }
+    if (url.href === eventUrl('eventone')) return response('#EXTM3U\n#EXTINF:6,\nsegment.ts\n')
+    if (url.href === eventUrl('eventtwo')) return response('gone', 404)
     throw new Error(`unexpected URL: ${url.href}`)
   }
   return { calls, fetchImpl }
@@ -204,11 +215,12 @@ test('电视台与公开活动按需取址，登录 Cookie 不传给媒体 CDN',
   assert.equal(tvApi.headers.Cookie, cookie)
 
   clearCache()
-  const publicResult = await resolveChannel('beijing-live-6-eventone', { fetchImpl: f.fetchImpl, now: 1777777777000 })
-  assert.equal(publicResult.url, liveUrl('eventone'))
+  const publicResult = await resolveChannel('beijing-live-6-eventone', { config: { cookie }, fetchImpl: f.fetchImpl, now: 1777777777000 })
+  assert.equal(publicResult.url, eventUrl('eventone'))
   assert.deepEqual(publicResult.upstreamHeaders, { Referer: BEIJING_LIVE_PAGE, Origin: 'https://www.btime.com' })
-  const publicApi = f.calls.filter(call => call.url.searchParams.get('type_id') === '6').at(-1)
-  assert.equal(publicApi.headers.Cookie, undefined)
+  const publicApi = f.calls.filter(call => call.url.origin + call.url.pathname === BEIJING_PUBLIC_PLAY_API).at(-1)
+  assert.equal(publicApi.url.searchParams.get('id'), 'eventone')
+  assert.equal(publicApi.headers.Cookie, undefined, '配了 Cookie 也不带给活动接口')
   assert.equal((await resolveChannel('beijing-tv-sn', { config: {} })).url, '')
 })
 
@@ -220,4 +232,44 @@ test('只接受北京时间官方 HTTPS HLS 地址', () => {
     'https://hls.playlive.360.v.btime.com/live/x/file.mp4',
     'https://127.0.0.1/private.m3u8',
   ]) assert.throws(() => officialMediaUrl(bad))
+})
+
+test('活动取流接口全部报错 = 接口变了：算失败沿用上一轮，不悄悄变成 0 个台', async () => {
+  clearCache()
+  const rejected = fixture({ publicPayload: () => ({ errno: 401, errmsg: '用户未登录' }) })
+  await assert.rejects(
+    () => fetchPublicCatalog({ fetchImpl: rejected.fetchImpl, timeoutMs: 1000 }),
+    /官网 2 个活动取流全部失败：北京时间活动取流接口返回 401 用户未登录/,
+  )
+  await assert.rejects(() => beijingScenic.fetch({}, { fetchImpl: rejected.fetchImpl }), /取流全部失败/)
+
+  // 只有部分活动在接口这步失败（未开始 / 已结束）：照常输出能播的，其余算失效
+  clearCache()
+  const mixed = fixture({ publicPayload: gid => gid === 'eventtwo' ? eventPayload(gid, 1) : eventPayload(gid) })
+  const catalog = await fetchPublicCatalog({ fetchImpl: mixed.fetchImpl, timeoutMs: 1000 })
+  assert.deepEqual(catalog.publicRows.map(row => row.gid), ['eventone'])
+  assert.match(catalog.warnings.join('\n'), /1 个活动流已失效/)
+})
+
+test('活动清单带 ENDLIST（回放）不当直播收录；live_status 1/4 直接说明原因', async () => {
+  clearCache()
+  const vod = fixture()
+  const fetchImpl = async (raw, options) => String(raw) === eventUrl('eventone')
+    ? response('#EXTM3U\n#EXTINF:6,\nsegment.ts\n#EXT-X-ENDLIST\n')
+    : vod.fetchImpl(raw, options)
+  const catalog = await fetchPublicCatalog({ fetchImpl, timeoutMs: 1000 })
+  assert.deepEqual(catalog.publicRows, [])
+
+  assert.throws(() => extractPublicStream(eventPayload('x', 4)), /活动已结束/)
+  assert.throws(() => extractPublicStream(eventPayload('x', 1)), /活动尚未开始/)
+  assert.throws(() => extractPublicStream({ errno: 0, data: [] }), /没有返回 HLS 地址/)
+  assert.throws(() => extractPublicStream({ errno: 0, data: { live_status: 3, video_stream: [{ stream_url: 'https://evil.test/x.m3u8' }] } }), /非官方 HLS 地址/)
+  // 活动接口回 401 不是 Cookie 的事，不能触发「Cookie 已失效」提醒
+  assert.throws(() => extractPublicStream({ errno: 401, errmsg: '用户未登录' }), error => !(error instanceof CookieRejectedError))
+  assert.equal(extractPublicStream(eventPayload('ok')), eventUrl('ok'))
+
+  clearCache()
+  const ended = await resolveChannel('beijing-live-6-eventone', { fetchImpl: fixture({ publicPayload: gid => eventPayload(gid, 4) }).fetchImpl })
+  assert.equal(ended.url, '')
+  assert.match(ended.desc, /活动已结束/)
 })

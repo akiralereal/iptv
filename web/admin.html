@@ -10774,14 +10774,34 @@ if(success){
             return null;
         }
 
-        /** 「已隐藏」区的完整列表：整组隐藏的在前，含隐藏频道的分组在后。所有调用点必须用这一份。 */
+        /** 频道被单独移去的分组（显示名），没移动过返回空串。key 同样带原始分组名。 */
+        function channelMovedTo(groupName, channel) {
+            return (myPlaylistConfig.channelGroupMap || {})[`${groupName}::${channel.id}`] || '';
+        }
+
+        /** 「已隐藏」频道行上的「→ 目标分组」：条目按原分组列，标出它隐藏前被移去哪、恢复后回哪。 */
+        function hiddenMovedTag(groupName, channel) {
+            const target = channelMovedTo(groupName, channel);
+            return target
+                ? `<span class="channel-group-tag in-hidden" title="隐藏前移到了「${escapeHtml(target)}」，恢复后回到那里">→ ${escapeHtml(target)}</span>`
+                : '';
+        }
+
+        /**
+         * 「已隐藏」区的完整列表：整组隐藏的在前，含隐藏频道的分组在后。所有调用点必须用这一份。
+         * 移出去的频道不受原分组的整组隐藏约束（服务端 movedTo 优先），所以整组条目里不列它们：
+         * 没单独隐藏的正显示在目标分组；单独隐藏了的归到「原分组 (隐藏频道)」，那里才有恢复按钮。
+         * 以前它们混在整组条目里，移动后再隐藏的台既没有单独一条、也恢复不出来。
+         */
         function hiddenAreaGroups() {
             const wholeGroups = (myPlaylistOriginalData || []).filter(g =>
                 !isSystemAnnouncementGroup(g) && isGroupHiddenByConfig(g.name)
-            );
+            ).map(g => ({ ...g, channels: g.channels.filter(ch => !channelMovedTo(g.name, ch)) }));
             const partialGroups = (myPlaylistOriginalData || []).map(g => {
-                if (isGroupHiddenByConfig(g.name)) return null;   // 整组已隐藏，不再重复列频道
-                const channels = g.channels.filter(ch => isChannelHiddenById(g.name, ch));
+                const wholeHidden = isGroupHiddenByConfig(g.name);   // 整组已隐藏：没移走的已在整组条目里，不再重复列
+                const channels = g.channels.filter(ch =>
+                    isChannelHiddenById(g.name, ch) && (!wholeHidden || channelMovedTo(g.name, ch))
+                );
                 return channels.length > 0 ? { ...g, channels, isPartialDelete: true } : null;
             }).filter(Boolean);
             return [...wholeGroups, ...partialGroups];
@@ -11340,7 +11360,7 @@ if(success){
             });
             hiddenAreaGroups().forEach((group, groupIndex) => {
                 (group.channels || []).forEach(channel => {
-                    // 整组隐藏的分组里，被单独移到可见分组的频道已经在上面列过，不再重复
+                    // 兜底去重：hiddenAreaGroups 已不在整组条目里列移走的频道，正常走不到这里
                     if (visibleKeys.has(`${group.name}::${channel.id}`)) return;
                     if (channelSearchKey(channel.name).includes(key)) {
                         results.push({ groupIndex, hidden: true, partial: !!group.isPartialDelete, groupName: group.name, channel });
@@ -11682,6 +11702,7 @@ if(success){
                                 <div class="my-playlist-channel-name" title="点击查看详情：${channel.name}" onclick="showChannelDetail('${channel.id}', true)" style="cursor: pointer;">
                                     <span class="channel-detail-hint" aria-hidden="true">ⓘ</span>${channel.name}
                                 </div>
+                                ${hiddenMovedTag(group.name, channel)}
                                 ${group.isPartialDelete && !isBatchMode ? `
                                     <div class="my-playlist-channel-actions" style="opacity: 1 !important;">
                                         <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); restoreChannel('${channel.id}', '${group.name}')">恢复</button>
@@ -13001,9 +13022,12 @@ if(success){
 
             if (!myPlaylistConfig.channelGroupMap) myPlaylistConfig.channelGroupMap = {};
             const n = selectedChannels.size;
-            selectedChannels.forEach(channelId => {
-                myPlaylistConfig.channelGroupMap[`${currentGroup.name}::${channelId}`] = target;
-            });
+            const keys = [...selectedChannels].map(channelId => `${currentGroup.name}::${channelId}`);
+            // 整组隐藏之前就单独隐藏过的频道，只改归类的话移过去仍是隐藏的（服务端先判 hiddenChannels），
+            // 一并取消隐藏——与搜索结果批量移动同一口径
+            const unhidden = keys.filter(k => myPlaylistConfig.hiddenChannels.includes(k)).length;
+            myPlaylistConfig.hiddenChannels = myPlaylistConfig.hiddenChannels.filter(k => !keys.includes(k));
+            keys.forEach(k => { myPlaylistConfig.channelGroupMap[k] = target; });
             try {
                 const response = await fetch(mpConfigUrl(), {
                     method: 'POST',
@@ -13015,7 +13039,7 @@ if(success){
                     selectedChannels.clear();
                     isBatchMode = false;
                     await loadMyPlaylist(false);
-                    showStatus(`已移动 ${n} 个频道到「${target}」`, 'success');
+                    showStatus(`已移动 ${n} 个频道到「${target}」${unhidden ? `，其中 ${unhidden} 个原本被单独隐藏，已一并恢复` : ''}`, 'success');
                 } else {
                     showStatus('移动失败', 'error');
                 }

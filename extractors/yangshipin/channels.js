@@ -102,6 +102,9 @@ export const AUTH_CHANNELS = [
  * capi.yangshipin.cn/api/oms/pc/page/PG00000004（protobuf，TvChannelListData.tvLogo），按 livePid 对应。
  * 图片是内容寻址的 PNG（144×72 / 144×100），换图会换地址、旧图不会原地变样；要更新就重新解一遍那页。
  * 国学频道不在官网电视页上，官网没有它的图标，留空。
+ * CCTV 那 34 张是透明底黑字（只有一个 C 是红的），深色界面的播放器上看不见：这里照样给官方地址，
+ * 内置台标里有铺了白底的同一张图，服务端给这些频道用内置那张（LOGO.md、utils/logoPack.js 的 packBackedLogoUrl）。
+ * 以后新加的 CCTV 频道同样处理：刷新内置台标后跑一次 build-logo-pack.mjs --backdrop。
  */
 const LOGO_BASE = 'https://resources.yangshipin.cn/assets/oms/image/'
 const LOGOS = Object.freeze({

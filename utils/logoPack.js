@@ -5,6 +5,8 @@
 // 服务端本地直接提供，不联网、不依赖别人的库。
 //
 // 优先级：本地上传 > 频道自带（模块官方 / 咪咕 / m3u，实时下发、能跟上改版）> 内置 > 用户自配的台标库。
+// 例外：模块官方图是透明底纯黑字 / 纯白字、在内置包里铺过底色的（index.json 里记着 bg，央视频的 CCTV 台标），
+// 该模块的频道优先用内置这张——官网原图在深色（或浅色）界面的播放器上看不见。见 packBackedLogoUrl。
 // 查找：模块频道先按「模块/频道编号」精确对应（index.json 的 refs），再按台标名匹配——规则与台标库
 // 相同（utils/logoLibrary.js：原名、台标匹配名、补分组前缀……），所以「新闻综合」这类通用名在包里
 // 一律带地名存（内蒙古新闻综合），外部 m3u 里裸的「新闻综合」不会被随手贴上别家的图。
@@ -64,6 +66,20 @@ export function packLogoUrl(channelItem, groupName) {
   }
   const hit = match(name, groupName)
   return hit ? urlFor(logos[hit]) : ''
+}
+
+/**
+ * 这个模块频道的官方图在内置包里铺过底色的那张，没有返回 ''。
+ * 只认「模块/频道编号」对上、且内置那张就是用这个模块的官方图做的：按名字碰上的别家频道
+ * （咪咕的 CCTV1综合、订阅里自带台标的同名频道）不换，它们自己的图没有这个问题。
+ * @param {{name: string, sourceId?: string, deferredRef?: string}} channelItem
+ */
+export function packBackedLogoUrl(channelItem) {
+  const moduleId = /^xt:(.+)$/.exec(channelItem?.sourceId || '')?.[1]
+  if (!moduleId || !channelItem.name) return ''
+  const { logos, refs } = loadPack()
+  const entry = logos[refs[`${moduleId}/${channelItem.deferredRef ?? `#${channelItem.name}`}`]]
+  return entry?.bg && entry.origin === moduleId ? urlFor(entry) : ''
 }
 
 /** /logo-pack/ 路由用：只认 index.json 里登记过的文件名，否则 null。 */

@@ -13,10 +13,15 @@
  *       手工收一张：官方没有、模块取不到的频道（精选频道这类 m3u、官方确实没图的台）。
  *       --trim 裁掉四周与角落同色（透明或纯色底）的空白，图里留白太多时用。
  *       --bg <#颜色> 铺一层底色：官方只有纯白字台标时用，否则浅色界面上整个看不见。
+ *       --pad 铺底色时四周留一圈边：原图贴着边画的，不留边字会顶到色块边上。
  *   node scripts/build-logo-pack.mjs --import <目录>
  *       批量手工收：目录里 <台标名>.<扩展名> 加一份 sources.json
  *       （{ "<台标名>": { "url": "...", "page": "...", "kind": "official|platform|library", "note": "...",
- *          "file": "可选，文件名与台标名不同时写", "trim": 可选 true, "bg": "可选，#颜色" } }）。
+ *          "file": "可选，文件名与台标名不同时写", "trim": 可选 true, "bg": "可选，#颜色", "pad": 可选 true } }）。
+ *   node scripts/build-logo-pack.mjs --backdrop <#颜色> <台标名> [<台标名>…]
+ *       给已经收进来的图铺底色、四周留边：透明底纯黑字（深色界面上看不见）或纯白字（浅色界面上看不见）
+ *       的图用。模块 / 咪咕的图按记下的地址重新取原图，手工图用包里现有这张。底色记在 index.json（bg），
+ *       以后刷新照样铺；模块自己的图铺过底色后，服务端给这个模块的频道优先用内置这张，不用官网原图。
  *   node scripts/build-logo-pack.mjs --remove <台标名>
  *
  * 所有图统一缩到长边不超过 256px 的 PNG（不放大位图），用本机 Chrome 的画布转码，不引入图片库依赖。
@@ -33,6 +38,8 @@ const PACK_DIR = process.env.mlogoPackDir || path.join(ROOT, 'logo-pack')
 const INDEX_PATH = path.join(PACK_DIR, 'index.json')
 const MAX_SIDE = 256
 const MAX_SOURCE_BYTES = 8 * 1024 * 1024
+// 铺底色时四周留的边，占长边的比例。透明底的官方图常贴着边画（央视频的 CCTV 台标左右只留 2px）
+const BACKDROP_PAD = 0.06
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
 // 这些不是电视台：直播平台的主播间、景观 / 熊猫 / 慢直播机位的封面、活动直播间，不进内置台标
@@ -132,7 +139,7 @@ export function sizeSvg(text) {
 
 let browser = null
 let page = null
-async function toPng(buf, { trim = false, bg = '' } = {}) {
+async function toPng(buf, { trim = false, bg = '', pad = 0 } = {}) {
   let mime = detectMime(buf)
   if (!mime) throw new Error('不是图片')
   if (mime === 'image/svg+xml') buf = Buffer.from(sizeSvg(buf.toString('utf8')))
@@ -141,7 +148,7 @@ async function toPng(buf, { trim = false, bg = '' } = {}) {
     browser = await launchWithFallback({})
     page = await browser.newPage()
   }
-  const out = await page.evaluate(async (src, max, vector, trim, bg) => {
+  const out = await page.evaluate(async (src, max, vector, trim, bg, pad) => {
     const img = new Image()
     img.src = src
     await img.decode()
@@ -175,10 +182,13 @@ async function toPng(buf, { trim = false, bg = '' } = {}) {
       }
     }
     const [cropW, cropH] = [x1 - x0, y1 - y0]
-    // 位图不放大；矢量图按长边铺满
-    const scale = vector && !trim ? max / Math.max(cropW, cropH) : Math.min(1, max / Math.max(cropW, cropH))
-    const cw = Math.max(1, Math.round(cropW * scale))
-    const ch = Math.max(1, Math.round(cropH * scale))
+    // 位图不放大；矢量图按长边铺满。要留边的，连边一起不超过上限
+    const room = max / (1 + 2 * pad)
+    const scale = vector && !trim ? room / Math.max(cropW, cropH) : Math.min(1, room / Math.max(cropW, cropH))
+    const dw = Math.max(1, Math.round(cropW * scale))
+    const dh = Math.max(1, Math.round(cropH * scale))
+    const edge = pad ? Math.min(Math.round(Math.max(dw, dh) * pad), Math.floor((max - Math.max(dw, dh)) / 2)) : 0
+    const [cw, ch] = [dw + 2 * edge, dh + 2 * edge]
     const canvas = document.createElement('canvas')
     canvas.width = cw
     canvas.height = ch
@@ -188,17 +198,18 @@ async function toPng(buf, { trim = false, bg = '' } = {}) {
       ctx.fillStyle = bg
       ctx.fillRect(0, 0, cw, ch)
     }
-    ctx.drawImage(full, x0, y0, cropW, cropH, 0, 0, cw, ch)
+    ctx.drawImage(full, x0, y0, cropW, cropH, edge, edge, dw, dh)
     return { data: canvas.toDataURL('image/png'), width: cw, height: ch }
-  }, `data:${mime};base64,${buf.toString('base64')}`, MAX_SIDE, mime === 'image/svg+xml', trim, /^#[0-9a-f]{3,8}$/i.test(bg) ? bg : '')
+  }, `data:${mime};base64,${buf.toString('base64')}`, MAX_SIDE, mime === 'image/svg+xml', trim, bg, bg ? pad : 0)
   return { png: Buffer.from(out.data.split(',')[1], 'base64'), width: out.width, height: out.height }
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
+const validColor = value => (/^#[0-9a-f]{3,8}$/i.test(value || '') ? value : '')
 
 /** 写入一张台标；图没变只更新出处，返回 'added' | 'updated' | 'same' */
-async function putLogo(index, name, buf, meta, { trim = false, bg = '' } = {}) {
-  const { png, width, height } = await toPng(buf, { trim, bg })
+async function putLogo(index, name, buf, meta, { trim = false, bg = '', pad = 0 } = {}) {
+  const { png, width, height } = await toPng(buf, { trim, bg: validColor(bg), pad })
   const hash = createHash('sha1').update(png).digest('hex').slice(0, 10)
   const existing = index.logos[name]
   const taken = new Set(Object.values(index.logos).filter(e => e !== existing).map(e => e.file.toLowerCase().replace(/\.png$/, '')))
@@ -275,7 +286,9 @@ async function refresh(dataDir, { update = false } = {}) {
       const buf = item.file ? readFileSync(item.file) : await download(item.url)
       const before = index.logos[item.name]
       if (before?.origin === 'manual') stats.replacedManual.push(item.name)
-      const result = await putLogo(index, item.name, buf, { origin: item.origin, source: item.url || '' })
+      // 这张官方图铺过底色（--backdrop）：重取时照样铺，不然一次 --update 就变回透明底
+      const bg = before?.origin === item.origin ? validColor(before.bg) : ''
+      const result = await putLogo(index, item.name, buf, { origin: item.origin, source: item.url || '', ...(bg ? { bg } : {}) }, { bg, pad: bg ? BACKDROP_PAD : 0 })
       stats[result]++
       seen.set(item.name, item.origin)
     } catch (e) {
@@ -288,13 +301,29 @@ async function refresh(dataDir, { update = false } = {}) {
   if (stats.failed.length) console.log(`取不到的：\n  ${stats.failed.join('\n  ')}`)
 }
 
-async function addManual(index, name, src, { source, kind, note, trim, bg }) {
+async function addManual(index, name, src, { source, kind, note, trim, bg, pad }) {
   if (index.logos[name] && index.logos[name].origin !== 'manual') {
     return `跳过 ${name}：已有官方来源（${index.logos[name].origin}）的图`
   }
   const buf = await readSource(src)
-  const result = await putLogo(index, name, buf, { origin: 'manual', source, kind: kind || 'official', ...(note ? { note } : {}) }, { trim, bg })
+  bg = validColor(bg)
+  const meta = { origin: 'manual', source, kind: kind || 'official', ...(note ? { note } : {}), ...(bg ? { bg } : {}) }
+  const result = await putLogo(index, name, buf, meta, { trim, bg, pad: pad ? BACKDROP_PAD : 0 })
   return `${result === 'same' ? '未变' : result === 'added' ? '新增' : '更新'} ${name}`
+}
+
+/** 给已收进来的一张图铺底色、四周留边，底色记在这张图上。 */
+async function setBackdrop(index, name, bg) {
+  const entry = index.logos[name]
+  if (!entry) return `没有 ${name}`
+  const manual = entry.origin === 'manual'
+  // 手工图的出处多半是页面不是图片，只能拿包里现有这张铺；铺过的再铺一次会多留一圈边
+  if (manual && entry.bg) return `跳过 ${name}：已经铺过底色（${entry.bg}），要换颜色请用 --add 重新收原图`
+  if (!manual && !/^https?:\/\//i.test(entry.source || '')) return `跳过 ${name}：没记原图地址，取不到原图`
+  const buf = manual ? readFileSync(path.join(PACK_DIR, entry.file)) : await download(entry.source)
+  const { file, hash, width, height, updated, ...meta } = entry
+  const result = await putLogo(index, name, buf, { ...meta, bg }, { bg, pad: BACKDROP_PAD })
+  return `${result === 'same' ? '未变' : '已铺底色'} ${name}`
 }
 
 function parseArgs(argv) {
@@ -317,7 +346,18 @@ async function main() {
     if (args.add) {
       const index = loadIndex()
       if (!args._[0] || !args.source) throw new Error('用法：--add <台标名> <图片文件或地址> --source <出处> [--kind official|platform|library]')
-      console.log(await addManual(index, args.add, args._[0], { source: args.source, kind: args.kind, trim: args.trim === true, bg: args.bg }))
+      console.log(await addManual(index, args.add, args._[0], { source: args.source, kind: args.kind, trim: args.trim === true, bg: args.bg, pad: args.pad === true }))
+      saveIndex(index)
+    } else if (args.backdrop) {
+      const index = loadIndex()
+      if (!validColor(args.backdrop) || !args._.length) throw new Error("用法：--backdrop '<#颜色>' <台标名> [<台标名>…]")
+      for (const name of args._) {
+        try {
+          console.log(await setBackdrop(index, name, args.backdrop))
+        } catch (e) {
+          console.log(`失败 ${name}：${e.message}`)
+        }
+      }
       saveIndex(index)
     } else if (args.import) {
       const index = loadIndex()
@@ -329,7 +369,7 @@ async function main() {
         if (!file) { console.log(`缺文件：${name}`); continue }
         try {
           console.log(await addManual(index, name, path.join(args.import, file), {
-            source: info.page || info.url, kind: info.kind, note: info.note, trim: info.trim === true, bg: info.bg,
+            source: info.page || info.url, kind: info.kind, note: info.note, trim: info.trim === true, bg: info.bg, pad: info.pad === true,
           }))
         } catch (e) {
           console.log(`失败 ${name}：${e.message}`)

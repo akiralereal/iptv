@@ -12,7 +12,7 @@ import { hasReplaceToken } from "./replaceToken.js"
 import { catchupForProxyEntry, claimsRef as claimsCustomProxyRef } from "./customSourceProxy.js"
 import { refreshToken as enableTokenRefresh, host, pass, enableMigu, externalLogoBase, enableLogoCache } from "../config.js"
 import { finishLogoCache, hostedLogoUrl, prefetchLogos } from "./logoCache.js"
-import { packLogoUrl } from "./logoPack.js"
+import { packBackedLogoUrl, packLogoUrl } from "./logoPack.js"
 import refreshToken from "./refreshToken.js"
 import { printGreen, printRed, printYellow, printBlue } from "./colorOut.js"
 import { getDateString } from "./time.js"
@@ -90,11 +90,15 @@ function localLogo(name) {
  * 本地上传的不在这里：它最优先，也不需要托管。内置台标本机直接提供、不经托管：自带的确认坏了，
  * 或还没下载成功（比如海外服务器连不上大陆图床）时就用它。库兜底只给外部 / 内置 / 抓取模块频道。
  */
-function logoCandidates(channelItem, groupName, libraryAllowed) {
+export function logoCandidates(channelItem, groupName, libraryAllowed, { hosting = enableLogoCache } = {}) {
   const candidates = []
-  const own = channelItem.pics?.highResolutionH || channelItem.logo || ''
+  // 模块官方图是透明底纯黑字 / 纯白字、内置包里铺过底色的（央视频的 CCTV 台标，深色界面上只剩一个红 C）：
+  // 用内置这张、不再要官网原图。关了托管（menableLogoCache=false）的是要订阅里写官方原地址，照旧给原图。
+  const backed = hosting ? packBackedLogoUrl(channelItem) : ''
+  if (backed) candidates.push({ url: backed, from: 'pack' })
+  const own = backed ? '' : (channelItem.pics?.highResolutionH || channelItem.logo || '')
   if (own) candidates.push({ url: own, from: 'source' })
-  const packed = packLogoUrl(channelItem, groupName)
+  const packed = backed ? '' : packLogoUrl(channelItem, groupName)
   if (packed) candidates.push({ url: packed, from: 'pack' })
   if (libraryAllowed && externalLogoBase) {
     // 有索引就只写库里真实存在的图（issue #124）：查不到就不给这个候选，让播放器出自己的占位图，

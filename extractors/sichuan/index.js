@@ -46,7 +46,7 @@ export default {
     let liveRows = []
     if (!accessToken) warnings.push('尚未配置四川官网登录 Token，9 个电视频道暂不加入；公开活动直播不受影响')
     else {
-      const options = { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now }
+      const options = { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now, retryDelayMs: ctx.retryDelayMs }
       try {
         rows = await fetchChannelList(options)
       } catch (error) {

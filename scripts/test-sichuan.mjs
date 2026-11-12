@@ -282,9 +282,78 @@ await checkAsync('签名被提前作废时重签一次；官网不认 Token 时�
 
   clearCache()
   expired = true
-  const denied = await resolveChannel('sichuan-1016553', { config: { accessToken }, fetchImpl, now: 1788666000000 })
+  const before = signs
+  const denied = await resolveChannel('sichuan-1016553', { config: { accessToken }, fetchImpl, now: 1788666000000, retryDelayMs: 0 })
   assert.equal(denied.url, '')
   assert.match(denied.desc, /官网不认当前 Token（已过期或已在别处失效）/)
+  assert.equal(signs, before, '不认 Token 不重试')
+})
+
+await checkAsync('换签偶尔回「服务繁忙」：隔一会儿重试一次；清单失败又换不到新签名时退回旧签名', async () => {
+  const accessToken = 'account-token'
+  const page = Array.from({ length: 8 }, (_, index) => ({
+    id: String(1016553 + index),
+    name: `四川频道${index + 1}`,
+    playAddress: `https://sub-tvshowf.scgczm.com/live/sctv${index + 1}.m3u8`,
+  })).map(JSON.stringify).join('')
+  const busy = () => response({ trace_id: 'x', rs: 500, error: '服务繁忙，请稍后重试', message: '服务繁忙，请稍后重试', data: {} })
+  let authQueue = []
+  let signs = 0
+  let cdnFailures = 0
+  const fetchImpl = async raw => {
+    const url = new URL(String(raw))
+    if (url.href === SICHUAN_PAGE) return response(page)
+    if (url.origin + url.pathname === SICHUAN_AUTH_API) {
+      signs++
+      return (authQueue.shift() || (() => response({ rs: 200, data: { auth_key: `k${signs}`, expiresIn: 1800 } })))()
+    }
+    if (url.pathname === '/live/sctv1.m3u8') {
+      if (cdnFailures > 0) { cdnFailures--; return response('busy', 503) }
+      return response(`#EXTM3U\n#EXTINF:6,\n${url.searchParams.get('auth_key')}.ts\n`)
+    }
+    throw new Error(`unexpected URL: ${url.href}`)
+  }
+  const play = now => resolveChannel('sichuan-1016553', { config: { accessToken }, fetchImpl, now, retryDelayMs: 0 })
+
+  // 第一次播：没有旧签名可退，换签繁忙一次后重试成功
+  clearCache()
+  authQueue = [busy]
+  let resolved = await play(1788666000000)
+  assert.equal(signs, 2)
+  assert.match(resolved.url, /auth_key=k2/)
+
+  // 连续两次繁忙只重试一次，报官网原话
+  clearCache()
+  signs = 0
+  authQueue = [busy, busy]
+  resolved = await play(1788666000000)
+  assert.equal(resolved.url, '')
+  assert.match(resolved.desc, /四川广电链接请求失败：服务繁忙，请稍后重试/)
+  assert.equal(signs, 2)
+
+  // 已在播：清单偶尔失败、重签又碰上繁忙，拿还在有效期内的旧签名再取一次清单
+  clearCache()
+  signs = 0
+  authQueue = []
+  resolved = await play(1788666000000)
+  assert.match(resolved.url, /auth_key=k1/)
+  cdnFailures = 1
+  authQueue = [busy, busy]
+  resolved = await play(1788666060000)
+  assert.match(resolved.url, /auth_key=k1/)
+  assert.match(resolved.manifestText, /k1\.ts/)
+  assert.equal(signs, 3)
+  // 旧签名留在缓存里，下一次轮询照常用，不额外换签
+  resolved = await play(1788666066000)
+  assert.match(resolved.url, /auth_key=k1/)
+  assert.equal(signs, 3)
+
+  // 旧签名也取不到清单时，报换签的错，比清单 503 更能说明问题
+  cdnFailures = 2
+  authQueue = [busy, busy]
+  resolved = await play(1788666072000)
+  assert.equal(resolved.url, '')
+  assert.match(resolved.desc, /服务繁忙/)
 })
 
 await checkAsync('刷新时试换签检验 Token：不认就记为凭证失效但频道照留，网关 HTTP 401 同样处理', async () => {
@@ -339,7 +408,7 @@ await checkAsync('刷新时试换签检验 Token：不认就记为凭证失效�
   // 别的失败只说检查没做完，不冤枉 Token
   clearCache()
   auth = () => response('bad gateway', 502)
-  fetched = await sichuan.fetch({ accessToken }, { fetchImpl, now: 1788666000000 })
+  fetched = await sichuan.fetch({ accessToken }, { fetchImpl, now: 1788666000000, retryDelayMs: 0 })
   assert.deepEqual(tokenWarnings(fetched), ['四川 Token 检查没有完成：HTTP 502'])
   assert.equal(fetched.meta.credentialRejected, undefined, '没查成不下结论，后台沿用上一轮')
   assert.equal(fetched.groups[0].dataList.length, 8)

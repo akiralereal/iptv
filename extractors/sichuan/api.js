@@ -31,6 +31,8 @@ const CATALOG_TTL_MS = 4 * 60 * 60 * 1000
 const SIGNED_REFRESH_MS = 45 * 1000
 const SIGNED_HARD_TTL_MS = 4 * 60 * 1000
 const RETRY_MS = 10 * 1000
+// 换签接口偶尔回 rs≠200「服务繁忙，请稍后重试」，隔一会儿再换通常就过了；不认 Token 和超时不重试
+const SIGN_RETRY_DELAY_MS = 1000
 const DEFAULT_HEADERS = Object.freeze({
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
     + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -325,6 +327,16 @@ export async function fetchLiveEvents(options = {}) {
 }
 
 async function requestSigned(row, accessToken, options = {}) {
+  try {
+    return await requestSignedOnce(row, accessToken, options)
+  } catch (error) {
+    if (error instanceof TokenRejectedError || error?.name === 'AbortError') throw error
+    await new Promise(resolve => setTimeout(resolve, options.retryDelayMs ?? SIGN_RETRY_DELAY_MS))
+    return requestSignedOnce(row, accessToken, options)
+  }
+}
+
+async function requestSignedOnce(row, accessToken, options = {}) {
   const raw = new URL(row.rawUrl)
   const endpoint = new URL(SICHUAN_AUTH_API)
   endpoint.searchParams.set('streamName', raw.pathname)
@@ -364,11 +376,15 @@ function credentialKey(accessToken) {
   return createHash('sha256').update(accessToken).digest('base64url').slice(0, 16)
 }
 
-async function cachedSigned(row, accessToken, options = {}) {
+/**
+ * renew：不管缓存是否还新鲜都去换一把新签名，换失败时直接抛出、缓存里的旧签名原样留着，
+ * 由调用方决定要不要退回旧签名。
+ */
+async function cachedSigned(row, accessToken, options = {}, { renew = false } = {}) {
   const now = Number(options.now ?? Date.now())
   const key = `${credentialKey(accessToken)}:${row.id}`
   const cached = signedCache.get(key)
-  if (cached?.refreshAt > now || (cached?.retryAt > now && cached?.hardExpiresAt > now)) return cached
+  if (!renew && (cached?.refreshAt > now || (cached?.retryAt > now && cached?.hardExpiresAt > now))) return cached
 
   let pending = signedPending.get(key)
   if (!pending) {
@@ -386,14 +402,10 @@ async function cachedSigned(row, accessToken, options = {}) {
   try {
     return await pending
   } catch (error) {
-    if (!cached || cached.hardExpiresAt <= now) throw error
+    if (renew || !cached || cached.hardExpiresAt <= now) throw error
     cached.retryAt = now + RETRY_MS
     return cached
   }
-}
-
-function forgetSigned(row, accessToken) {
-  signedCache.delete(`${credentialKey(accessToken)}:${row.id}`)
 }
 
 function firstVariantUrl(text, base) {
@@ -473,17 +485,27 @@ export async function resolveChannel(ref, ctx = {}) {
     })
     const row = rows.find(item => item.id === match[1])
     if (!row) return { url: '', desc: `四川频道 ${match[1]} 当前不在官网公开列表中` }
-    const options = { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now }
+    const options = { timeoutMs: ctx.timeoutMs, fetchImpl: ctx.fetchImpl, now: ctx.now, retryDelayMs: ctx.retryDelayMs }
     let signed = await cachedSigned(row, accessToken, options)
     let manifest
     try {
       manifest = await requestTvManifest(signed, options)
     } catch (error) {
-      // 签名被提前作废时丢掉缓存重签一次，再失败才放弃
+      // 签名可能被提前作废：换一把新的再取一次清单。换签没成（官网偶尔回「服务繁忙」）就拿原签名再试，
+      // 不先把还在有效期内的签名丢掉；两头都不行时报换签的错（服务繁忙、不认 Token），比清单 403 更能说明问题
       if (error?.name === 'AbortError') throw error
-      forgetSigned(row, accessToken)
-      signed = await cachedSigned(row, accessToken, options)
-      manifest = await requestTvManifest(signed, options)
+      let renewError = null
+      try {
+        signed = await cachedSigned(row, accessToken, options, { renew: true })
+      } catch (failed) {
+        if (failed?.name === 'AbortError') throw failed
+        renewError = failed
+      }
+      try {
+        manifest = await requestTvManifest(signed, options)
+      } catch (retryError) {
+        throw renewError || retryError
+      }
     }
     return {
       url: signed.url,

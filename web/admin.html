@@ -4744,6 +4744,15 @@
                                 <li>规则兜不住的写法，到「频道别名」标签里加规则。</li>
                             </ol></div>
                         </div>
+                        <div class="system-config-item">
+                            <label for="sysCctvLogoStyle">CCTV 台标样式</label>
+                            <select id="sysCctvLogoStyle" onchange="setSaveDirty('sysconfig')">
+                                <option value="dark">深色卡片（默认）</option>
+                                <option value="light">浅色卡片</option>
+                                <option value="blue">央视蓝卡片</option>
+                            </select>
+                            <div class="system-config-hint">「央视频」分组里 CCTV 频道的台标样式，三套都是统一大小的圆角卡片。保存后播放列表即刻更新，播放器里刷新一次订阅才换上（有的播放器会缓存台标，要清缓存）。「央视」分组用的是咪咕自己的台标，不受这里影响；关了台标托管（<code>menableLogoCache=false</code>）的照旧用官网原图。</div>
+                        </div>
                     </div>
                 </section>
                 <div class="system-config-hint" style="margin:0 0 10px;">标了「需重启」的项保存后要重启服务才生效；其余项保存即生效。</div>
@@ -10009,6 +10018,7 @@
             document.getElementById('sysAdminPath').value = systemConfig.adminPath || 'admin';
             document.getElementById('sysProgramInterval').value = systemConfig.programInfoUpdateInterval || '8';
             document.getElementById('sysEnableDisplayNameUnify').checked = systemConfig.enableDisplayNameUnify === true;
+            document.getElementById('sysCctvLogoStyle').value = ['dark', 'light', 'blue'].includes(systemConfig.cctvLogoStyle) ? systemConfig.cctvLogoStyle : 'dark';
             document.getElementById('sysProxy').value = systemConfig.proxy || '';
             document.getElementById('sysProxyEnvHint').hidden = !systemConfig.proxyEnvFallback;
             // 走代理的模块名单来自各模块的声明（registry.js 的 outbound: 'proxy'），不在页面里写死
@@ -10208,7 +10218,8 @@ if(success){
                     pass: passInput,
                     adminPath: adminPathInput,
                     programInfoUpdateInterval: document.getElementById('sysProgramInterval').value || '8',
-                    enableDisplayNameUnify: document.getElementById('sysEnableDisplayNameUnify').checked
+                    enableDisplayNameUnify: document.getElementById('sysEnableDisplayNameUnify').checked,
+                    cctvLogoStyle: document.getElementById('sysCctvLogoStyle').value
                 };
 
                 const response = await fetch(API_PREFIX + '/api/system-config', {

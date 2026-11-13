@@ -9,8 +9,9 @@
  * 4. /logo-pack/ 只认 index.json 登记过的文件；后台把内置台标标成「内置」，
  *    别人引用仓库 logos 目录的公网地址不会被误当成本地上传；
  * 5. 仓库里的 logo-pack/ 与 index.json 一一对应：文件都在、哈希对得上、都是 ≤256px 的 PNG、没有漏登记的文件。
- * 6. 模块官方图是透明底纯黑字 / 纯白字、内置包里铺过底色的（央视频的 CCTV 台标）：开着托管时这个模块的频道
- *    用内置那张、不要官网原图；别的模块、按名字碰上的咪咕 / 订阅频道、关了托管的都不换。
+ * 6. 模块官方图是透明底纯黑字 / 纯白字、内置包里做成卡片或铺过底色的（央视频的 CCTV 台标）：开着托管时这个模块的
+ *    频道用内置那张、不要官网原图；别的模块、按名字碰上的咪咕 / 订阅频道、关了托管的都不换；
+ * 7. 卡片有三套样式，按 cctvLogoStyle 给对应文件，默认那套文件名不变；样式文件也只认登记过的。
  *
  * 运行： node scripts/test-logo-pack.mjs   （或 npm test）
  */
@@ -35,9 +36,14 @@ for (const [name, tag] of [['内蒙古新闻综合', 'a'], ['凤凰中文', 'b']
   writeFileSync(join(PACK_DIR, `${name}.png`), png(tag))
   logos[name] = { file: `${name}.png`, hash: `h${tag}`, origin: 'manual' }
 }
-// 央视频的 CCTV1综合：官方图铺过底色（bg）；百视通的 CCTV1 按「一个名字一张图」也对到这张，但不是它自己的图
+// 央视频的 CCTV1综合：官方图做成了三套卡片；百视通的 CCTV1 按「一个名字一张图」也对到这张，但不是它自己的图
 writeFileSync(join(PACK_DIR, 'CCTV1综合.png'), png('e'))
-logos['CCTV1综合'] = { file: 'CCTV1综合.png', hash: 'he', origin: 'yangshipin', bg: '#ffffff' }
+writeFileSync(join(PACK_DIR, 'CCTV1综合@light.png'), png('f'))
+writeFileSync(join(PACK_DIR, 'CCTV1综合@blue.png'), png('g'))
+logos['CCTV1综合'] = {
+  file: 'CCTV1综合.png', hash: 'he', origin: 'yangshipin', card: true,
+  styles: { light: { file: 'CCTV1综合@light.png', hash: 'hf' }, blue: { file: 'CCTV1综合@blue.png', hash: 'hg' } },
+}
 writeFileSync(join(PACK_DIR, 'index.json'), JSON.stringify({
   version: 1,
   logos,
@@ -95,21 +101,34 @@ await checkAsync('自带的托管好了用自带；自带确认坏了或还没�
   assert.match(hostedLogoUrl(candidates), /\/logo-cache\/[0-9a-f]{20}\.png\?v=\d+&from=source$/)
 })
 
-check('官方图铺过底色的模块频道用内置那张；别的模块、按名字碰上的、关了托管的不换', () => {
+check('官方图做成卡片的模块频道用内置那张；别的模块、按名字碰上的、关了托管的不换', () => {
   const backed = packUrl('CCTV1综合')
   const ysp = { name: 'CCTV1综合', sourceId: 'xt:yangshipin', deferredRef: 'ysp-cctv1', logo: 'https://resources.yangshipin.cn/assets/oms/image/a.png' }
   assert.equal(packBackedLogoUrl(ysp), backed)
-  assert.deepEqual(logoCandidates(ysp, '央视频', false, { hosting: true }), [{ url: backed, from: 'pack' }], '官网原图不再进候选，也就不再下载')
-  assert.equal(hostedLogoUrl(logoCandidates(ysp, '央视频', false, { hosting: true })), backed)
-  assert.deepEqual(logoCandidates(ysp, '央视频', false, { hosting: false }), [{ url: ysp.logo, from: 'source' }, { url: backed, from: 'pack' }], '关了托管要的是官方原地址')
+  assert.deepEqual(logoCandidates(ysp, '央视频', false, { hosting: true, style: 'dark' }), [{ url: backed, from: 'pack' }], '官网原图不再进候选，也就不再下载')
+  assert.equal(hostedLogoUrl(logoCandidates(ysp, '央视频', false, { hosting: true, style: 'dark' })), backed)
+  assert.deepEqual(logoCandidates(ysp, '央视频', false, { hosting: false, style: 'dark' }), [{ url: ysp.logo, from: 'source' }, { url: backed, from: 'pack' }], '关了托管要的是官方原地址')
   const bestv = { name: 'CCTV1', sourceId: 'xt:bestv-fj', deferredRef: 'bestv-cctv1', logo: 'https://tvappstatic.bestv.com.cn/a.png' }
   assert.equal(packBackedLogoUrl(bestv), '', '内置那张不是百视通自己的图')
-  assert.deepEqual(logoCandidates(bestv, '百视通', false, { hosting: true }).map(c => c.from), ['source', 'pack'])
+  assert.deepEqual(logoCandidates(bestv, '百视通', false, { hosting: true, style: 'dark' }).map(c => c.from), ['source', 'pack'])
   const migu = { name: 'CCTV1综合', pics: { highResolutionH: 'http://wapx.cmvideo.cn:8080/a.webp' } }
   assert.equal(packBackedLogoUrl(migu), '', '咪咕的频道按名字碰上')
-  assert.deepEqual(logoCandidates(migu, '央视', false, { hosting: true }), [{ url: migu.pics.highResolutionH, from: 'source' }, { url: backed, from: 'pack' }])
+  assert.deepEqual(logoCandidates(migu, '央视', false, { hosting: true, style: 'dark' }), [{ url: migu.pics.highResolutionH, from: 'source' }, { url: backed, from: 'pack' }])
   assert.equal(packBackedLogoUrl({ name: '新闻综合', sourceId: 'xt:nmtv', deferredRef: 'nmtv-news' }), '', '没铺底色的照旧')
   assert.equal(packBackedLogoUrl({ name: '' }), '')
+})
+
+check('卡片按设置给对应样式的文件，样式文件也能取到', () => {
+  const ysp = { name: 'CCTV1综合', sourceId: 'xt:yangshipin', deferredRef: 'ysp-cctv1', logo: 'https://resources.yangshipin.cn/a.png' }
+  const style = (file, hash) => `\${replace}/logo-pack/${encodeURIComponent(file)}?v=${hash}`
+  assert.equal(packBackedLogoUrl(ysp, 'light'), style('CCTV1综合@light.png', 'hf'))
+  assert.equal(packBackedLogoUrl(ysp, 'blue'), style('CCTV1综合@blue.png', 'hg'))
+  assert.equal(packBackedLogoUrl(ysp, 'dark'), packUrl('CCTV1综合'), '默认样式就是不带后缀的那张')
+  assert.equal(packBackedLogoUrl(ysp, 'nope'), packUrl('CCTV1综合'), '不认识的样式按默认')
+  assert.deepEqual(logoCandidates(ysp, '央视频', false, { hosting: true, style: 'blue' }), [{ url: style('CCTV1综合@blue.png', 'hg'), from: 'pack' }])
+  assert.equal(packLogoUrl({ name: 'CCTV1综合' }, '央视', 'light'), style('CCTV1综合@light.png', 'hf'), '按名字兜底也用同一套样式')
+  assert.equal(packLogoFile('CCTV1综合@blue.png').path, join(PACK_DIR, 'CCTV1综合@blue.png'))
+  assert.equal(packLogoFile('CCTV1综合@red.png'), null)
 })
 
 check('/logo-pack/ 只认登记过的文件；后台标「内置」，公网 logos 地址不算本地上传', () => {
@@ -141,12 +160,23 @@ check('仓库 logo-pack/ 与 index.json 一一对应，全是 ≤256px 的 PNG',
     assert.ok(entry.origin, `${name} 没记来源`)
     if (entry.origin === 'manual') assert.ok(entry.source && entry.kind, `${name} 手工图要写出处与类别`)
     if (entry.bg !== undefined) assert.match(entry.bg, /^#[0-9a-f]{3,8}$/i, `${name} 底色写法不对`)
+    if (entry.card) {
+      assert.deepEqual(Object.keys(entry.styles || {}).sort(), ['blue', 'light'], `${name} 卡片要有浅色、央视蓝两套`)
+      for (const [style, variant] of Object.entries(entry.styles)) {
+        assert.equal(variant.file, entry.file.replace(/\.png$/, `@${style}.png`), `${name} ${style} 文件名`)
+        assert.ok(!files.has(key(variant.file)), `${variant.file} 重复`)
+        files.add(key(variant.file))
+        const vbuf = readFileSync(join(dir, variant.file))
+        assert.equal(createHash('sha1').update(vbuf).digest('hex').slice(0, 10), variant.hash, `${variant.file} 哈希对不上`)
+        assert.ok(vbuf.readUInt32BE(16) === variant.width && vbuf.readUInt32BE(20) === variant.height, `${variant.file} 尺寸`)
+      }
+    }
   }
-  // 央视频的 CCTV 台标是透明底黑字，深色界面的播放器上只剩一个红 C：内置这张必须铺着底色
-  // （build-logo-pack.mjs --backdrop），央视频的频道才会换用它
+  // 央视频的 CCTV 台标是透明底黑字，深色界面的播放器上只剩一个红 C：内置这张必须做成卡片
+  // （build-logo-pack.mjs --card），央视频的频道才会换用它
   const yspCctv = Object.entries(index.refs).filter(([ref, name]) => ref.startsWith('yangshipin/') && /^CCTV/.test(name))
   assert.ok(yspCctv.length >= 34, `央视频的 CCTV 频道只对上 ${yspCctv.length} 个`)
-  for (const [, name] of yspCctv) assert.ok(index.logos[name]?.bg && index.logos[name].origin === 'yangshipin', `${name} 没铺底色`)
+  for (const [, name] of yspCctv) assert.ok(index.logos[name]?.card && index.logos[name].origin === 'yangshipin', `${name} 没做成卡片`)
   for (const file of readdirSync(dir)) {
     if (file === 'index.json') continue
     assert.ok(files.has(key(file)), `${file} 没登记在 index.json`)

@@ -4241,124 +4241,292 @@
    "width": 150
   },
   "CCTV10科教": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV10科教.png",
-   "hash": "69c8aed7c3",
-   "height": 90,
+   "hash": "a68dc27343",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/aa6157ec65188cd41826e5a2f088c3d6d153205f5f6428258d12c59999e221aa.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV10科教@light.png",
+     "hash": "663f927f40",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV10科教@blue.png",
+     "hash": "f22675f6c7",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV11戏曲": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV11戏曲.png",
-   "hash": "bfdf0e41d7",
-   "height": 90,
+   "hash": "4feb0f2d55",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/ed12ed7c7a1034dae4350011fe039284c5d5a836506b28c9e32e3c75299625c0.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV11戏曲@light.png",
+     "hash": "7e12b8662b",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV11戏曲@blue.png",
+     "hash": "0d97671437",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV12社会与法": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV12社会与法.png",
-   "hash": "de3c0d6580",
-   "height": 90,
+   "hash": "84f6431425",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/484083cffaa40df7e659565e8cb4d1cc740158a185512114167aa21fa0c59240.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV12社会与法@light.png",
+     "hash": "46487a7fc7",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV12社会与法@blue.png",
+     "hash": "0070c4d921",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV13新闻": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV13新闻.png",
-   "hash": "3faa9ea179",
-   "height": 90,
+   "hash": "a7a294cc3f",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/266da7b43c03e2312186b4a999e0f060e8f15b10d2cc2c9aa32171819254cf1a.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV13新闻@light.png",
+     "hash": "9e05e32213",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV13新闻@blue.png",
+     "hash": "607ead1e6f",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV14少儿": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV14少儿.png",
-   "hash": "374b2151da",
-   "height": 90,
+   "hash": "8acc074b74",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/af6b603896938dc346fbb16abfc63c12cba54b0ec9d18770a15d347d115f12d5.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV14少儿@light.png",
+     "hash": "f60c42a4cf",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV14少儿@blue.png",
+     "hash": "6db39938c0",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV15音乐": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV15音乐.png",
-   "hash": "fa5223ecfb",
-   "height": 90,
+   "hash": "a59322eb53",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/2ceee92188ef684efe0d8b90839c4f3ad450d179dc64d59beff417059453af47.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV15音乐@light.png",
+     "hash": "dba54304cc",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV15音乐@blue.png",
+     "hash": "98e4dcbd07",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV16 4K": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV16 4K.png",
-   "hash": "0bc6ea2ee5",
-   "height": 90,
+   "hash": "506e6e8ae8",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/53793fa7bacd3a93ff6dc5d2758418985e1f952a316c335d663b572d8bdcd74d.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV16 4K@light.png",
+     "hash": "6f466adc5f",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV16 4K@blue.png",
+     "hash": "799d318bb0",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV16奥林匹克": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV16奥林匹克.png",
-   "hash": "0bc6ea2ee5",
-   "height": 90,
+   "hash": "506e6e8ae8",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/53793fa7bacd3a93ff6dc5d2758418985e1f952a316c335d663b572d8bdcd74d.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV16奥林匹克@light.png",
+     "hash": "6f466adc5f",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV16奥林匹克@blue.png",
+     "hash": "799d318bb0",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV17农业农村": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV17农业农村.png",
-   "hash": "62b300e201",
-   "height": 90,
+   "hash": "a4d373a06b",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/ddef563072f8bad2bea5b9e52674cb7b4ed50efb20c26e61994dfbdf05c1e3c0.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV17农业农村@light.png",
+     "hash": "ebc4ef5297",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV17农业农村@blue.png",
+     "hash": "7d5c0cab1a",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV1综合": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV1综合.png",
-   "hash": "56c8eb89e7",
-   "height": 90,
+   "hash": "32485d091d",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/d57905b93540bd15f0c48230dbbbff7ee0d645ff539e38866e2d15c8b9f7dfcd.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV1综合@light.png",
+     "hash": "030e921834",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV1综合@blue.png",
+     "hash": "191bc4a43a",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV2财经": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV2财经.png",
-   "hash": "2ed4469971",
-   "height": 90,
+   "hash": "8c8b17ea91",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/20115388de0207131af17eac86c33049b95d69eaff064e55653a1b941810a006.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV2财经@light.png",
+     "hash": "406928ad31",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV2财经@blue.png",
+     "hash": "f5269d0f10",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV3综艺": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV3综艺.png",
-   "hash": "2ae786ac6e",
-   "height": 90,
+   "hash": "fba6818909",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/7b7a65c712450da3deb6ca66fbacf4f9aee00d3f20bd80eafb5ada01ec63eb3a.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV3综艺@light.png",
+     "hash": "984be66071",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV3综艺@blue.png",
+     "hash": "2445b0130d",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV4美洲": {
    "file": "CCTV4美洲.png",
@@ -4379,224 +4547,532 @@
    "width": 256
   },
   "CCTV4中文国际": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV4中文国际.png",
-   "hash": "12cf9f2e05",
-   "height": 90,
+   "hash": "c4eac3d6a7",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/f357e58fdbcc076a3d65e1f958c942b2e14f14342c60736ceed98b092d35356a.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV4中文国际@light.png",
+     "hash": "d23f779e36",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV4中文国际@blue.png",
+     "hash": "248beb5948",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV4K超高清": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV4K超高清.png",
-   "hash": "a9504359c3",
-   "height": 90,
+   "hash": "92cd6d9e73",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/3e9d06fd7244d950df5838750f1c6ac3456e172b51caca2c16d2282125b111e8.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV4K超高清@light.png",
+     "hash": "e972d336ce",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV4K超高清@blue.png",
+     "hash": "5108a31a63",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV5+体育赛事": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV5+体育赛事.png",
-   "hash": "3cf59799e4",
-   "height": 90,
+   "hash": "2674d0e247",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/649ad76a90bfef55b05db9fe52e006487280f619089099d5dc971e387fc6eff0.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV5+体育赛事@light.png",
+     "hash": "b162898fc0",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV5+体育赛事@blue.png",
+     "hash": "eef6b72da5",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV5体育": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV5体育.png",
-   "hash": "55f4c0f568",
-   "height": 90,
+   "hash": "e4a833e047",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/0a6a7138952675983a3d854df7688557b286d59aa06166edae51506f9204d655.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV5体育@light.png",
+     "hash": "13ecb63ea5",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV5体育@blue.png",
+     "hash": "5defeca217",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV6电影": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV6电影.png",
-   "hash": "d5724bf48b",
-   "height": 90,
+   "hash": "ae4d67aaeb",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/741515efda91f03f455df8a7da4ee11fa9329139c276435cf0a9e2af398d5bf2.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV6电影@light.png",
+     "hash": "20f8d23a56",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV6电影@blue.png",
+     "hash": "fda0af725a",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV7国防军事": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV7国防军事.png",
-   "hash": "04bd93ffd5",
-   "height": 90,
+   "hash": "577e754a49",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/b29af94e295ebdf646cefb68122c429b9cd921f498ca20d2d8070252536f9ff9.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV7国防军事@light.png",
+     "hash": "410e7daf81",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV7国防军事@blue.png",
+     "hash": "0643e5201a",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV8电视剧": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV8电视剧.png",
-   "hash": "e167f74df9",
-   "height": 90,
+   "hash": "4d109bb569",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/ad51de94426a0ba039e6dd6a8534ea98ecc813a6176bde87b4f18cc34d6d7590.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV8电视剧@light.png",
+     "hash": "528e5c4f9e",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV8电视剧@blue.png",
+     "hash": "7487d3e1df",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV8K超高清": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV8K超高清.png",
-   "hash": "b858efee51",
-   "height": 90,
+   "hash": "2cc908436c",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202503/df543dd2e337be8bf6aa06342d8d790992f7ae47b89403606253436e40409031.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV8K超高清@light.png",
+     "hash": "ff22fb4a7d",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV8K超高清@blue.png",
+     "hash": "68ea4325fa",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV9纪录": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV9纪录.png",
-   "hash": "b5aaf10b28",
-   "height": 90,
+   "hash": "b81956f393",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/2ed1b4deeca179d5db806bb941790f82eb92a1b7299c1c38fe027f95a5caee5e.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV9纪录@light.png",
+     "hash": "6320050dc2",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV9纪录@blue.png",
+     "hash": "724540ec86",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV兵器科技": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV兵器科技.png",
-   "hash": "d52b4d24c0",
-   "height": 90,
+   "hash": "906052a495",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/4c6b6a6d3839889f34d33db3c2f80233b26b74d3489b393487635f8704e70796.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV兵器科技@light.png",
+     "hash": "b7039e79db",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV兵器科技@blue.png",
+     "hash": "994c6ffa7d",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV第一剧场": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV第一剧场.png",
-   "hash": "30798e04e3",
-   "height": 90,
+   "hash": "4bc0fbd35c",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/a556bd7d93ce65e18f243a8892b5604f4faa994a4897315914216a710a706208.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV第一剧场@light.png",
+     "hash": "3dd993f528",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV第一剧场@blue.png",
+     "hash": "9c9978120a",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV电视指南": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV电视指南.png",
-   "hash": "405358e236",
-   "height": 90,
+   "hash": "39baaca390",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/244d72c0eb1615ed7d51c2f5db5a67f306aa3f58c05bc2d34de3aa7e956dc8c9.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV电视指南@light.png",
+     "hash": "fb309292b8",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV电视指南@blue.png",
+     "hash": "4a55369b25",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV风云剧场": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV风云剧场.png",
-   "hash": "f925fb0a32",
-   "height": 90,
+   "hash": "3ae27e88fa",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/4d549e53e6d0f632d5a633d1945280797b153e588f919221a07faa869812cc89.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV风云剧场@light.png",
+     "hash": "46a44f376b",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV风云剧场@blue.png",
+     "hash": "8ae95d9e92",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV风云音乐": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV风云音乐.png",
-   "hash": "b8da28d3ee",
-   "height": 90,
+   "hash": "9f08645719",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/bbf1d024c5228b8dd128b0e3cb1717d173fab4ee84c3a4c8a57b1a215362ca3b.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV风云音乐@light.png",
+     "hash": "1b1efc2b39",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV风云音乐@blue.png",
+     "hash": "a47450e391",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV风云足球": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV风云足球.png",
-   "hash": "4e93dd2233",
-   "height": 90,
+   "hash": "b6f65e1699",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/cd1e2bb52b06a991de168733e5ff0f1d85adc8042d40c8f393f723543e5dd08a.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV风云足球@light.png",
+     "hash": "7f758420a9",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV风云足球@blue.png",
+     "hash": "ff85f3762d",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV高尔夫·网球": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV高尔夫·网球.png",
-   "hash": "5d2d0205a0",
-   "height": 90,
+   "hash": "e14b96952c",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/cdd1b31ede7a5ad049ed53d9a072422f829e72dd062ed2c19e077fdd01699071.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV高尔夫·网球@light.png",
+     "hash": "56eb77360c",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV高尔夫·网球@blue.png",
+     "hash": "e5e12e2907",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV怀旧剧场": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV怀旧剧场.png",
-   "hash": "db3cc8511a",
-   "height": 90,
+   "hash": "a0f225f180",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/5661bd04fecdb6e899f801147a22ab5d3a475bf2b62e30aec2c0023190ebc9b1.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV怀旧剧场@light.png",
+     "hash": "00a360fbc1",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV怀旧剧场@blue.png",
+     "hash": "15fb2b1740",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV女性时尚": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV女性时尚.png",
-   "hash": "eaad208749",
-   "height": 90,
+   "hash": "0fb9425f0f",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/fa28955ce8b2539d728bf4c6a13a46ff57ad76eae46627f7bcfb1ed8a613d3fc.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV女性时尚@light.png",
+     "hash": "b14e26b1eb",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV女性时尚@blue.png",
+     "hash": "d759bb5e9c",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV世界地理": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV世界地理.png",
-   "hash": "07d145c6a3",
-   "height": 90,
+   "hash": "75a64e80af",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/bb3c6c9e145d698137f5bb64a582021a01b51344b929003630eb769ea65832a9.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV世界地理@light.png",
+     "hash": "e4acd57e67",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV世界地理@blue.png",
+     "hash": "463f6fc1ce",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV卫生健康": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV卫生健康.png",
-   "hash": "bc7631f59a",
-   "height": 90,
+   "hash": "c8a7deb013",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/54a6863656fdfd8f803be193ddf22441c5000a108833889816fd2d8911715ce8.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV卫生健康@light.png",
+     "hash": "2639be65d8",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV卫生健康@blue.png",
+     "hash": "45940df9ba",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV央视台球": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV央视台球.png",
-   "hash": "002befd5da",
-   "height": 90,
+   "hash": "572a50a47d",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/10e14a92478011aa6c3c8562e62127f3b1908e29fcd78e4b2b24b9e6d3ec2fbc.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV央视台球@light.png",
+     "hash": "7c9bc9b4bb",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV央视台球@blue.png",
+     "hash": "436a43db76",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CCTV央视文化精品": {
-   "bg": "#ffffff",
+   "card": true,
    "file": "CCTV央视文化精品.png",
-   "hash": "40284c6cef",
-   "height": 90,
+   "hash": "0496290b9c",
+   "height": 144,
    "origin": "yangshipin",
    "source": "https://resources.yangshipin.cn/assets/oms/image/202306/14ac5ce40482cacd3d4b37435222bfe86af2b452a2f04ecbfc1d13d76edd7c57.png",
-   "updated": "2026-11-12",
-   "width": 162
+   "styles": {
+    "light": {
+     "file": "CCTV央视文化精品@light.png",
+     "hash": "29252d94bc",
+     "width": 256,
+     "height": 144
+    },
+    "blue": {
+     "file": "CCTV央视文化精品@blue.png",
+     "hash": "5e97ac8ab4",
+     "width": 256,
+     "height": 144
+    }
+   },
+   "updated": "2026-11-13",
+   "width": 256
   },
   "CETV1": {
    "file": "CETV1.png",

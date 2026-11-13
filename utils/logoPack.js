@@ -5,8 +5,9 @@
 // 服务端本地直接提供，不联网、不依赖别人的库。
 //
 // 优先级：本地上传 > 频道自带（模块官方 / 咪咕 / m3u，实时下发、能跟上改版）> 内置 > 用户自配的台标库。
-// 例外：模块官方图是透明底纯黑字 / 纯白字、在内置包里铺过底色的（index.json 里记着 bg，央视频的 CCTV 台标），
-// 该模块的频道优先用内置这张——官网原图在深色（或浅色）界面的播放器上看不见。见 packBackedLogoUrl。
+// 例外：模块官方图是透明底纯黑字 / 纯白字、在内置包里做成卡片或铺过底色的（index.json 里记着 card / bg，
+// 央视频的 CCTV 台标），该模块的频道优先用内置这张——官网原图在深色（或浅色）界面的播放器上看不见。
+// 做成卡片的有三套样式（深色 / 浅色 / 央视蓝），用哪套按后台设置 cctvLogoStyle。见 packBackedLogoUrl。
 // 查找：模块频道先按「模块/频道编号」精确对应（index.json 的 refs），再按台标名匹配——规则与台标库
 // 相同（utils/logoLibrary.js：原名、台标匹配名、补分组前缀……），所以「新闻综合」这类通用名在包里
 // 一律带地名存（内蒙古新闻综合），外部 m3u 里裸的「新闻综合」不会被随手贴上别家的图。
@@ -37,7 +38,10 @@ function loadPack() {
     const logos = parsed && typeof parsed.logos === 'object' && parsed.logos ? parsed.logos : {}
     const refs = parsed && typeof parsed.refs === 'object' && parsed.refs ? parsed.refs : {}
     const files = new Map()
-    for (const entry of Object.values(logos)) if (entry?.file) files.set(entry.file, entry)
+    for (const entry of Object.values(logos)) {
+      if (entry?.file) files.set(entry.file, entry)
+      for (const style of Object.values(entry?.styles || {})) if (style?.file) files.set(style.file, style)
+    }
     pack = { logos, refs, files, match: createLogoNameMatcher(Object.keys(logos)) }
   } catch (e) {
     printYellow(`内置台标索引读取失败，本轮不用内置台标: ${e.message}`)
@@ -46,40 +50,44 @@ function loadPack() {
   return pack
 }
 
-function urlFor(entry) {
-  return `\${replace}/logo-pack/${encodeURIComponent(entry.file)}?v=${entry.hash || ''}`
+// 卡片的其它样式（@light / @blue）；没有这套就用默认那张
+function urlFor(entry, style) {
+  const chosen = (style && entry.styles?.[style]) || entry
+  return `\${replace}/logo-pack/${encodeURIComponent(chosen.file)}?v=${chosen.hash || ''}`
 }
 
 /**
  * 这个频道的内置台标地址，没有返回 ''。
  * @param {{name: string, sourceId?: string, deferredRef?: string}} channelItem
  * @param {string} groupName 播放列表里的分组名，用于「新闻综合」→「内蒙古新闻综合」这类补前缀匹配
+ * @param {string} [style] 卡片样式（dark / light / blue），只对做成卡片的图起作用
  */
-export function packLogoUrl(channelItem, groupName) {
+export function packLogoUrl(channelItem, groupName, style) {
   const { logos, refs, match } = loadPack()
   const name = channelItem?.name
   if (!name) return ''
   const moduleId = /^xt:(.+)$/.exec(channelItem.sourceId || '')?.[1]
   if (moduleId) {
     const byRef = refs[`${moduleId}/${channelItem.deferredRef ?? `#${name}`}`]
-    if (byRef && logos[byRef]) return urlFor(logos[byRef])
+    if (byRef && logos[byRef]) return urlFor(logos[byRef], style)
   }
   const hit = match(name, groupName)
-  return hit ? urlFor(logos[hit]) : ''
+  return hit ? urlFor(logos[hit], style) : ''
 }
 
 /**
- * 这个模块频道的官方图在内置包里铺过底色的那张，没有返回 ''。
+ * 这个模块频道的官方图在内置包里做成卡片 / 铺过底色的那张，没有返回 ''。
  * 只认「模块/频道编号」对上、且内置那张就是用这个模块的官方图做的：按名字碰上的别家频道
  * （咪咕的 CCTV1综合、订阅里自带台标的同名频道）不换，它们自己的图没有这个问题。
  * @param {{name: string, sourceId?: string, deferredRef?: string}} channelItem
+ * @param {string} [style] 卡片样式（dark / light / blue）
  */
-export function packBackedLogoUrl(channelItem) {
+export function packBackedLogoUrl(channelItem, style) {
   const moduleId = /^xt:(.+)$/.exec(channelItem?.sourceId || '')?.[1]
   if (!moduleId || !channelItem.name) return ''
   const { logos, refs } = loadPack()
   const entry = logos[refs[`${moduleId}/${channelItem.deferredRef ?? `#${channelItem.name}`}`]]
-  return entry?.bg && entry.origin === moduleId ? urlFor(entry) : ''
+  return (entry?.card || entry?.bg) && entry.origin === moduleId ? urlFor(entry, style) : ''
 }
 
 /** /logo-pack/ 路由用：只认 index.json 里登记过的文件名，否则 null。 */

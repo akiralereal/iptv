@@ -11,7 +11,7 @@ import {
   port, host, rateType, pass,
   enableHDR, enableH265, programInfoUpdateInterval, refreshToken, adminPath,
   enableMigu, enableBuiltInSources, enableBuiltInSubscriptions, enableDisplayNameUnify, enableClientDispatch,
-  enableExtractors
+  enableExtractors, cctvLogoStyle, CCTV_LOGO_STYLES
 } from "../config.js"
 
 const SYSTEM_CONFIG_PATH = dataPath('system-config.json')
@@ -35,7 +35,8 @@ const ENV_KEY_MAP = {
   enableBuiltInSubscriptions: 'menableBuiltInSubscriptions',
   enableExtractors: 'menableExtractors',
   enableDisplayNameUnify: 'menableDisplayNameUnify',
-  enableClientDispatch: 'menableClientDispatch'
+  enableClientDispatch: 'menableClientDispatch',
+  cctvLogoStyle: 'mcctvLogoStyle'
 }
 
 export function getSystemConfigAPI() {
@@ -74,6 +75,7 @@ export function getSystemConfigAPI() {
         enableExtractors,
         enableDisplayNameUnify,
         enableClientDispatch,
+        cctvLogoStyle,
         // 网络代理：密码打码回显（没设访问密码时这个接口谁都能读）；保存时占位符换回原密码
         proxy: maskProxyUrl(settingProxyUrl()),
         // 留空时 所支持模块 是否会沿用 HTTPS_PROXY（只回有没有，不回地址）
@@ -192,6 +194,11 @@ export function mergeSystemConfig(existing, config) {
   // 客户端就近取流（issue #82）：默认关，显式提交才写入；保存后 clearUrlCache 会清掉旧解析结果，开关即时生效
   if (config.enableClientDispatch !== undefined) {
     validated.enableClientDispatch = config.enableClientDispatch === true
+  }
+  // 央视频 CCTV 台标样式：显式提交才写，只认三种取值；保存后重生成播放列表即换上
+  if (config.cctvLogoStyle !== undefined) {
+    if (!CCTV_LOGO_STYLES.includes(config.cctvLogoStyle)) throw new Error(`CCTV 台标样式只能是 ${CCTV_LOGO_STYLES.join(' / ')}`)
+    validated.cctvLogoStyle = config.cctvLogoStyle
   }
   // 网络代理（只给声明了 outbound: 'proxy' 的模块和 Telegram 用）：显式提交才写；格式不对整次保存失败，不写半截
   if (config.proxy !== undefined) {

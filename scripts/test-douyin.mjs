@@ -128,6 +128,17 @@ assert.deepEqual(hlsOnly.meta.warnings, [])
   const brokenCtx = { ...ctx, fetchImpl: async url => new URL(url).pathname.startsWith('/categorynew/')
     ? { ok: false, status: 503, text: async () => '' } : fetchImpl(url) }
   await assert.rejects(douyin.fetch({ order: 'balanced', count: 5, rooms: '777', categories: '聊天', format: 'flv', quality: 'HD1' }, brokenCtx), /HTTP 503/)
+  // 未开播且官网不给上一场房间记录（没有 room、roomId 为空，只剩主播信息）：同样按未开播列出
+  pages.set('/666', flight({ state: { roomStore: { roomInfo: {
+    roomId: '', web_rid: '666', web_stream_url: null,
+    anchor: { sec_uid: 'sec-666', nickname: '主播666', avatar_thumb: { url_list: ['https://example.com/666.jpg'] } },
+  } } } }, 'd:'))
+  const idle = await douyin.fetch({ order: 'native', count: 0, rooms: '666', format: 'hls', quality: 'HD1' }, ctx)
+  assert.deepEqual(idle.groups[0].dataList.map(c => [c.deferredRef, c.name, c.logo]), [['douyin-666', '主播666 · 未开播', 'https://example.com/666.jpg']])
+  assert.deepEqual(idle.meta.warnings, [])
+  // 房间号不存在的页面没有主播信息，仍然算出错
+  pages.set('/555', flight({ state: { roomStore: { roomInfo: { web_rid: '555', web_stream_url: null } } } }, 'd:'))
+  await assert.rejects(fetchRoom('555', ctx), /缺少播放数据/)
 }
 
 const balanced = await douyin.fetch({ order: 'balanced', count: 9, rooms: '999', format: 'hls', quality: 'HD1', minViewers: 0, categories: Object.values(CATEGORIES).join('\n') }, ctx)
@@ -179,6 +190,14 @@ assert.deepEqual(new Set(channels.slice(1, 9).map(channel => channel.deferredRef
   setFilmRoom({ title: '服装甄选', has_commerce_goods: true })
   assert.ok((await resolveRoom('douyin-' + filmId, { ...ctx, config, now: 60000 })).url)
   assert.equal((await resolveRoom(ref, { ...ctx, config, now: 60000 })).url, '', '普通房间的缓存不能放行旧影视订阅')
+  // 电影频道云影院没开播、官网也不给上一场房间记录：安静地 0 路，不算抓取出错
+  pages.set('/' + filmId, flight({ state: { roomStore: { roomInfo: {
+    roomId: '', web_rid: filmId, web_stream_url: null, anchor: { sec_uid: accountId, nickname: '电影频道云影院' },
+  } } } }))
+  const idleFilm = await douyin.fetch(config, ctx)
+  assert.deepEqual([idleFilm.groups, idleFilm.meta.warnings], [[], []])
+  clearResolveCache()
+  assert.match((await resolveRoom(ref, { ...ctx, config, now: 120000 })).desc, /未开播/)
   pages.set('/' + filmId, '<html></html>')
   await assert.rejects(douyin.fetch(config, ctx), /缺少播放数据/)
   clearResolveCache()

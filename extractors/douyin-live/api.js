@@ -148,10 +148,15 @@ function offlineRow(info, requestedId) {
 }
 
 export function parseRoomPage(page, requestedId) {
+  let idle = null
   for (const data of flightData(page)) {
     const info = data?.[3]?.state?.roomStore?.roomInfo
     const room = info?.room
-    if (!room) continue
+    if (!room) {
+      // 未开播且官网连上一场的房间记录都不给：只剩主播信息、roomId 为空。房间号不存在时连 anchor 也没有
+      if (info?.anchor?.sec_uid && !info.roomId) idle = info
+      continue
+    }
     if (room.status != null && Number(room.status) !== 2) {
       throw new RoomOfflineError(`房间 ${requestedId} 未开播`, offlineRow(info, requestedId))
     }
@@ -159,6 +164,7 @@ export function parseRoomPage(page, requestedId) {
     const row = roomRow({ room, web_rid: info.web_rid || requestedId }, '手动')
     if (row) return row
   }
+  if (idle) throw new RoomOfflineError(`房间 ${requestedId} 未开播`, offlineRow(idle, requestedId))
   throw new Error(`房间 ${requestedId} 网页缺少播放数据`)
 }
 

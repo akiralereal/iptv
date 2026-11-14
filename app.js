@@ -1340,6 +1340,8 @@ async function handleRequest(req, res) {
       method,
       headers,
       accessPrefix,
+      config: getModuleConfig(localMediaModule.id),
+      selfBase: `${originOf(req)}${accessPrefix}`,
       // 客户端身份：模块在「要启动高成本本地会话」前过批量探测防护用，见 utils/clientScanGuard.js
       client: clientOf(req),
     })

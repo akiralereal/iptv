@@ -147,12 +147,14 @@
  *       capabilities.resolve 为真时必需。判断某个 ref 是不是自己的，
  *       播放请求靠它路由到模块。
  *
- *   clearResolveCache()
+ *   clearResolveCache(context?)
  *       可选。画质等参数变更后由 utils/appUtils.js 的 clearUrlCache 统一触发。
+ *       后台保存配置时传 { reason:'config', previousConfig, config }；只选择下次播放来源的模块
+ *       可据此保留在播会话。手动清缓存不传参数。未使用 context 的模块继续清理全部缓存。
  *
  *   claimsLocalPath(path) → boolean + async handleLocalRequest(ctx) → response
  *       可选成对实现。供需要把进程内媒体 Buffer 作为 HLS 输出的模块使用；普通
- *       上游 HLS 不要走这里。ctx: { path, method, headers, accessPrefix, client }，response:
+ *       上游 HLS 不要走这里。ctx: { path, method, headers, accessPrefix, client, config, selfBase }，response:
  *       { status, headers, body, dispose? }。body 支持 Buffer、字符串和 Web/Node
  *       Readable；流式媒体由 app.js 维持背压，HEAD/断连/结束时调用 dispose。
  *       app.js 仍统一负责访问鉴权与 HTTP 写出。

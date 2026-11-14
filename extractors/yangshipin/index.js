@@ -2,7 +2,10 @@
 import { buildChannels, claimsRef } from './channels.js'
 import epg from './epg.js'
 import { clearCache, resolveChannel } from './resolver.js'
-import { browserLoginFlow, claimsLocalPath, credentialRejected, handleLocalRequest, shutdown } from './runtime.js'
+import { browserLoginFlow, claimsLocalPath as claimsVipPath, credentialRejected, handleLocalRequest as handleVipRequest, shutdown as shutdownVip } from './runtime.js'
+import { createCastGateway } from './cast/gateway.js'
+
+const castGateway = createCastGateway({ resolveMain: resolveChannel })
 
 export default {
   id: 'yangshipin',
@@ -18,7 +21,7 @@ export default {
   // v4：频道带上官网电视页的官方台标（默认不再有台标库兜底）。
   catalogVersion: 4,
   outputGroupName: '央视频',
-  // 公开频道分片必须由播放器直连 CDN，不能经本机转发：实测同一路频道，全代理下本机去拉分片被
+  // 原方案的公开频道分片由播放器直连 CDN：实测同一路频道，全代理下本机去拉分片被
   // 平台回 403，而清单直出（分片直连）与纯 302 两种方式都能稳定播放。差别只在「谁去拉分片」——
   // 播放器直连带着 TLS 会话复用与 keep-alive，本机代理则是每片一次裸请求，后者会被判成异常流量。
   // 用 relay 而非 302：清单仍由本机下发，不跟随跳转的播放器（issue #98 的极影视）照样能播。
@@ -33,11 +36,14 @@ export default {
   resolveBurstGuard: true,
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,
-  refreshDescription: '自动管理：公开频道播放时刷新短效地址并让分片直连 CDN；VIP 频道由本机官网浏览器持续解扰并输出兼容 HLS。',
+  refreshDescription: '自动管理：三台超高清按所选来源播放，其他公开台刷新短效地址并让分片直连 CDN；VIP 保持官网播放桥。',
   helper: 'yangshipin-login',
   // 刷新（每天一次）不查；登录态由 6 小时保活、会员台播放、后台检查读账号时发现，经 credentialRejected 上报
   credentialCheck: { refresh: false, playback: true, degrade: '10 个会员频道照留但播不了（没有游客版），63 个公开频道不受影响' },
-  configSchema: [],
+  configSchema: [{ key: 'uhdSource', label: '超高清频道播放来源', type: 'select', default: 'cast',
+    options: [{ value: 'cast', label: '投屏方案（默认）' }, { value: 'main', label: '原方案' }],
+    hint: '仅影响 CCTV4K、CCTV16 4K、CCTV8K；其他频道和会员登录保持原方案。投屏流经服务器转发，会占用媒体带宽，首次启播可能稍慢。CCTV8K 当前实测为 4K。保存后停止播放、重新打开频道生效。' }],
+  configSavedNotice: '超高清来源已保存，重新打开频道后生效；当前播放不自动切源。',
   // 官网节目单，按频道表里的 livePid 取；与取流链路互不依赖（见 epg.js）
   epg,
 
@@ -49,9 +55,11 @@ export default {
   // 登录态失效由保活 / 会员台播放 / 后台检查读账号时发现（runtime.js 的失效记录），这里交给提醒中心
   credentialRejected,
   resolve: resolveChannel,
-  clearResolveCache: clearCache,
+  // This setting only selects the next master. Keep active original-source history,
+  // tickets and refreshers intact when saving it; manual cache clears still work.
+  clearResolveCache(context) { if (context?.reason !== 'config') clearCache() },
   browserLoginFlow,
-  claimsLocalPath,
-  handleLocalRequest,
-  shutdown,
+  claimsLocalPath: path => castGateway.claims(path) || claimsVipPath(path),
+  handleLocalRequest: ctx => castGateway.claims(ctx.path) ? castGateway.handle(ctx) : handleVipRequest(ctx),
+  async shutdown() { await Promise.allSettled([castGateway.close(), shutdownVip()]) },
 }

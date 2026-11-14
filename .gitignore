@@ -52,3 +52,6 @@ probe-report.md
 
 # 本地 YouTube 解析环境
 /.runtime/youtube/
+
+# Python helper bytecode
+**/__pycache__/

@@ -1081,7 +1081,7 @@ class ExtractorManager {
     // 配置可能影响播放地址的解析结果（画质、编码等），不清缓存的话三小时内
     // 继续下发旧参数的流——issue #60 就是这么来的。后台「源模块」页保存走的
     // 正是这条路，而 clearUrlCache 的另外两个调用点都覆盖不到它。
-    if (typeof module.clearResolveCache === 'function') module.clearResolveCache()
+    if (typeof module.clearResolveCache === 'function') module.clearResolveCache({ reason: 'config', previousConfig: prevConfig, config })
     // 配置变了，上一轮的结果不再代表当前配置——清掉「已成功过」的时间戳，
     // 让下一轮 tick 立刻重抓，而不是等到原定的刷新点。
     const cacheEntry = this.#cacheEntry(id)

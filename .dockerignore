@@ -13,3 +13,6 @@ iqiyi-vod
 iqiyi-sports
 data
 **/.runtime
+# Python bytecode and local device/browser state are runtime data.
+**/__pycache__
+yangshipin

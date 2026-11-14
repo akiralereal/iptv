@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/waastudios/ysptp-docker",
+  "commit": "b7c0fb3e6cc372c362ddf10caae39bf641ea81c2",
+  "version": "9.5.0",
+  "file": "ysp-live.py",
+  "sha256": "ca9fd3efb912c9dd45163acb17945aac242f1e4aac2cd0d26314271f5a4aa0fd",
+  "sourceUnmodified": true
+}

@@ -1,0 +1,3 @@
+
+# Keep the pinned upstream snapshot byte-identical (SHA256 verified by worker.py).
+extractors/yangshipin/cast/vendor/ysp-live.py -whitespace

@@ -149,6 +149,28 @@ try {
   await import('../app.js')
   await waitForApp()
 
+  await check('三台超高清沿用鉴权和订阅入口，切换配置后只改变新主清单', async () => {
+    const { getExtractorManager } = await import('../utils/extractorManager.js')
+    const manager = getExtractorManager()
+    for (const ref of ['ysp-cctv4k', 'ysp-cctv164k', 'ysp-cctv8k']) {
+      const head = await request('/' + PASS + '/relay/' + ref + '.m3u8', { method: 'HEAD' })
+      assert.equal(head.status, 200)
+      const cast = await request('/' + PASS + '/relay/' + ref + '.m3u8')
+      assert.match(cast.body.toString(), new RegExp('/' + PASS + '/ysp-cast/cast/' + ref + '\\.m3u8'))
+      const user = await request('/u/' + USER_TOKEN + '/proxy/' + ref + '.m3u8')
+      assert(user.body.toString().includes('/u/' + USER_TOKEN + '/ysp-cast/cast/' + ref + '.m3u8'))
+    }
+    manager.updateModuleConfig('yangshipin', { uhdSource: 'main' })
+    const main = await request('/' + PASS + '/relay/ysp-cctv8k.m3u8')
+    assert(main.body.toString().includes('/' + PASS + '/ysp-cast/main/ysp-cctv8k.m3u8'))
+    assert.throws(() => manager.updateModuleConfig('yangshipin', { uhdSource: 'invalid' }))
+    assert.equal(manager.effectiveConfig((await import('../extractors/yangshipin/index.js')).default).uhdSource, 'main')
+    manager.updateModuleConfig('yangshipin', { uhdSource: 'cast' })
+    assert.equal(existsSync(join(DATA_DIR, 'yangshipin/cast-device')), false, '主清单、HEAD和设置不启动取票服务')
+    assert.notEqual((await request('/ysp-cast/cast/ysp-cctv8k.m3u8')).status, 200, '固定来源路径也要鉴权')
+    assert.equal(chromiumStarts, 0)
+  })
+
   await check('mpass + relay/proxy master 保留密码前缀，并指向本机音视频子清单', async () => {
     const response = await request(`/${PASS}/relay/ysp-vip-cctvfyzq.m3u8?session=pass`)
     assert.equal(response.status, 200)
@@ -212,6 +234,16 @@ try {
       const proxied = await request(`/${PASS}/proxy/ysp-cctv2.m3u8`, { headers: vlc })
       assert.equal(proxied.status, 200)
       assert.equal(proxied.body.toString().includes('ysp-pad'), false, '全代理不换视图')
+      const { getExtractorManager } = await import('../utils/extractorManager.js')
+      const manager = getExtractorManager()
+      const fetchBeforeSave = globalThis.fetch
+      let newRequests = 0
+      globalThis.fetch = (...args) => { newRequests++; return fetchBeforeSave(...args) }
+      manager.updateModuleConfig('yangshipin', { uhdSource: 'main' })
+      const continued = await request(`/${PASS}/relay/ysp-cctv2.m3u8`, { headers: vlc })
+      assert.equal(continued.status, 200)
+      assert.equal(newRequests, 0, '仅保存超高清来源不能清空普通频道在播票据/清单缓存')
+      manager.updateModuleConfig('yangshipin', { uhdSource: 'cast' })
     } finally {
       globalThis.fetch = realFetch
     }

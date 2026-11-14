@@ -305,6 +305,12 @@ const cdn = http.createServer((req, res) => {
     res.end(SEG_BODY)
     return
   }
+  if (path === '/live/interrupted.ts') {
+    res.writeHead(200, { 'Content-Type': 'video/mp2t' })
+    res.write(SEG_BODY.subarray(0, 8))
+    setTimeout(() => res.destroy(), 30)
+    return
+  }
   res.writeHead(404); res.end()
 })
 
@@ -553,6 +559,13 @@ await checkAsync('上游分片 4xx 原样透传状态码，pipeUpstream 报告�
   const key = register(`http://127.0.0.1:${cdn.address().port}/live/missing.ts`, 'fail-test')
   const resp = await fetch(`${nasBase}/proxy/${key}.ts`)
   assert.equal(resp.status, 404)
+})
+
+await checkAsync('上游在 chunked 200 中途断开，播放器必须收到下载失败而非完整残片', async () => {
+  const key = register(`http://127.0.0.1:${cdn.address().port}/live/interrupted.ts`, 'interrupted-test')
+  const resp = await fetch(`${nasBase}/proxy/${key}.ts`)
+  assert.equal(resp.status, 200)
+  await assert.rejects(resp.arrayBuffer())
 })
 
 // 放在所有会 lookup 既有 key 的用例之后：本用例灌入 5000+ 条登记，会把早前的测试 key 挤掉

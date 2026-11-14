@@ -381,7 +381,9 @@ async function pipeUpstream(url, req, res, transform, upstreamHeaders = {}, upst
     if (!res.headersSent) {
       try { res.writeHead(502, { 'Content-Type': 'text/plain;charset=UTF-8' }); res.end('上游分片获取失败') } catch { /* 连接可能已断 */ }
     } else {
-      try { res.end() } catch { /* 连接可能已断 */ }
+      // 已经转发了部分正文，不能再正常结束 chunked 200：播放器会把半个 TS 当成完整
+      // 分片交给解码器，可能报不可恢复的媒体错误。中断连接，让它按下载失败重试。
+      try { res.destroy(error) } catch { /* 连接可能已断 */ }
     }
     return { ok: false, status: upstreamStatus || (res.headersSent ? res.statusCode : 502), bytes, complete: false, error: error?.message || String(error) }
   } finally {

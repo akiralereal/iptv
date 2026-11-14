@@ -4303,6 +4303,7 @@ await checkAsync('深圳：模块取七套官网频道，播放时换 Key 并提
   const cached = await resolveSztvChannel('sztv-24725', { fetchImpl, now: 1720000001000 })
   assert.match(first.url, /^https:\/\/sztv-live\.sztv\.com\.cn\/R77mK1v\/500\/783Rs70\.m3u8\?sign=/)
   assert.equal(first.upstreamHeaders.Origin, 'https://www.sztv.com.cn')
+  assert.equal(first.proxyHls, true, '解析结果也必须强制代理，起播超时不能跳转 CDN 绕过缓存保护')
   assert.equal(typeof first.upstreamUrlTransform, 'function')
   assert.match(
     first.upstreamUrlTransform('https://sztv-live.sztv.com.cn/R77mK1v/500/123/456.ts'),

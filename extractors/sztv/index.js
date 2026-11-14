@@ -1,6 +1,7 @@
 /** 深圳广电「第一现场」：官网匿名鉴权取频道，播放时换 Key 并逐路径签名。 */
 import { buildChannels, clearCache, fetchChannelList, primeChannelCache, resolveChannel } from './api.js'
 import epg from './epg.js'
+import { liveRelay } from './live.js'
 
 export default {
   id: 'sztv',
@@ -29,5 +30,7 @@ export default {
 
   claimsRef: ref => /^sztv-\d{1,10}$/.test(String(ref || '')),
   resolve: resolveChannel,
+  fetchProxyMedia: (ref, _config, url, options) => liveRelay.fetch(ref, url, options),
+  shutdown: () => liveRelay.close(),
   clearResolveCache: clearCache,
 }

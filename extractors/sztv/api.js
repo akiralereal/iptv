@@ -270,6 +270,8 @@ export async function resolveChannel(ref, ctx = {}) {
     const unsigned = `https://${STREAM_HOST}/${row.liveId}/${row.rate}/${playKey}.m3u8`
     return {
       url: signStreamUrl(unsigned, ctx.now ?? Date.now()),
+      // 缓存清单未就绪时也不能 302 到 CDN，否则会绕过坏片保护和逐路径签名。
+      proxyHls: true,
       desc: `${row.name}短效播放地址生成成功`,
       upstreamHeaders: requestHeaders(row.liveId),
       // 全代理在登记媒体清单里的每条绝对路径前调用；嵌套清单也沿用同一个函数。

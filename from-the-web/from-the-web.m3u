@@ -46,7 +46,7 @@ https://cdn.qd.je/163189/rthk32
 https://cdn3.indevs.in/stream/tvb/fct/
 #EXTINF:-1 group-title="香港",翡翠台4K
 https://cdn3.indevs.in/stream/tvb/fct4k/
-#EXTINF:-1 group-title="香港",华丽翡翠台
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/%E5%8D%8E%E4%B8%BD%E7%BF%A1%E7%BF%A0%E5%8F%B0.png" group-title="香港",华丽翡翠台
 https://cdn3.indevs.in/stream/live/jade/
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/CH8.png" group-title="新加坡",CH8
 https://cdn.qd.je/163189/ch8
@@ -81,18 +81,18 @@ http://211.72.174.95:8116/0.ts
 http://211.72.174.95:8115/0.ts
 #EXTINF:-1 group-title="台湾",台視
 http://211.72.174.95:8112/0.ts
-#EXTINF:-1 group-title="马来西亚",Astro AOD
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/Astro%20AOD.png" group-title="马来西亚",Astro AOD
 https://cdn3.indevs.in/stream/live/aod/
-#EXTINF:-1 group-title="马来西亚",Astro AEC
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/Astro%20AEC.png" group-title="马来西亚",Astro AEC
 https://cdn3.indevs.in/stream/live/aec/
-#EXTINF:-1 group-title="马来西亚",Astro 爱奇艺
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/Astro%20%E7%88%B1%E5%A5%87%E8%89%BA.png" group-title="马来西亚",Astro 爱奇艺
 https://cdn3.indevs.in/stream/live/iqiyi/
-#EXTINF:-1 group-title="马来西亚",Astro 欢喜台
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/Astro%20%E6%AC%A2%E5%96%9C%E5%8F%B0.png" group-title="马来西亚",Astro 欢喜台
 https://cdn3.indevs.in/stream/live/hxt/
 # 用户补充的 RTMP 线路；沿用提供的原始地址，本次未重新验证播放。
-#EXTINF:-1 group-title="台湾",纬来日本
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/%E7%BA%AC%E6%9D%A5%E6%97%A5%E6%9C%AC.png" group-title="台湾",纬来日本
 rtmp://f13h.mine.nu/sat/tv771
-#EXTINF:-1 group-title="台湾",纬来育乐
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/%E7%BA%AC%E6%9D%A5%E8%82%B2%E4%B9%90.png" group-title="台湾",纬来育乐
 rtmp://f13h.mine.nu/sat/tv701
 # === END 网络第三方转发源 ===
 
@@ -120,29 +120,29 @@ https://pb-ehs1glsha1juy.akamaized.net/v1/manifest/3722c60a815c199d9c0ef36c5b73d
 # 2026-11-09 补充：以下 35 路来自用户指定的 GNTV 列表，均有本机短时解码记录；
 # 未逐条完成此具体 URL 的官方取址核验，因此保留在来源待确认区块，不以 CDN 域名认定授权。
 # 部分线路需要网络代理；原列表的会话型 HLS 地址可能失效。
-#EXTINF:-1 group-title="国际",CNN
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/CNN.png" group-title="国际",CNN
 https://turnerlive.warnermediacdn.com/hls/live/586495/cnngo/cnn_slate/VIDEO_0_3564000.m3u8
-#EXTINF:-1 group-title="国际",GB News
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/GB%20News.png" group-title="国际",GB News
 https://rakutenaa-lightning-gbnews-rakuten-ccoa9.amagi.tv/playlist/rakutenAA-lightning-gbnews-rakuten/playlist.m3u8
-#EXTINF:-1 group-title="国际",RT News
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/RT%20News.png" group-title="国际",RT News
 https://rt-glb.rttv.com/dvr/rtnews/playlist_4500Kb.m3u8
-#EXTINF:-1 group-title="国际",TV Brics
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/TV%20Brics.png" group-title="国际",TV Brics
 https://chibrics.mediacdn.ru/cdn/brics/chinese/tracks-v1a1/mono.m3u8
-#EXTINF:-1 group-title="国际",Global News
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/Global%20News.png" group-title="国际",Global News
 https://live.corusdigitaldev.com/groupb/live/3062d0e3-ed4c-4f47-8482-95648250f4b8/live.isml/.m3u8
-#EXTINF:-1 group-title="国际",WION
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/WION.png" group-title="国际",WION
 https://d7x8z4yuq42qn.cloudfront.net/index_7.m3u8
-#EXTINF:-1 group-title="文旅",RT Documentary
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/RT%20Documentary.png" group-title="文旅",RT Documentary
 https://rt-rtd.rttv.com/live/rtdoc/playlist_4500Kb.m3u8
 #EXTINF:-1 group-title="影视",Action Hollywood
 https://cdn-apse1-prod.tsv2.amagi.tv/linear/amg01076-lightningintern-actionhollywood-samsungau/playlist.m3u8
 #EXTINF:-1 group-title="影视",Mytime Movie
 https://appletree-mytimeau-samsung.amagi.tv/playlist.m3u8
-#EXTINF:-1 group-title="国际",The First
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/The%20First.png" group-title="国际",The First
 https://thefirst-oando.amagi.tv/playlist.m3u8
-#EXTINF:-1 group-title="少儿",Kartoon Channel
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/Kartoon%20Channel.png" group-title="少儿",Kartoon Channel
 https://lightning-fnf-samsungaus.amagi.tv/playlist.m3u8
-#EXTINF:-1 group-title="体育",Outdoor Channel
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/Outdoor%20Channel.png" group-title="体育",Outdoor Channel
 https://cdn-apse1-prod.tsv2.amagi.tv/linear/amg00718-outdoorchannela-outdoortvnz-samsungnz/playlist.m3u8
 #EXTINF:-1 tvg-id="US25000063S" tvg-name="CW Gold" tvg-logo="https://provider-static.plex.tv/epg/cms/production/e03763f1-e83b-46f1-aaaa-8052d316bbc9/PLEX_CWGOLD_UPDATEDLOGO_RDX.png" group-title="影视",CW Gold
 https://d1d726ny1vain2.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-femoe55fvrdvc/3bef8470-bcb1-49b1-a816-0737fa4c27cd/0.m3u8
@@ -174,7 +174,7 @@ https://stream.ads.ottera.tv/playlist.m3u8?network_id=15465&avod=1&coppa=0&td=6&
 https://stream.ads.ottera.tv/playlist.m3u8?network_id=13959&avod=1&coppa=0&td=6&is_lat=[LMT]&dnt=[DNS]&us_privacy=[US_PRIVACY]&did=[DEVICE_ID]&ip=[IP]&ua=[UA]&ifa_type=[IFA_TYPE]&app_bundle=[APP_BUNDLE]&app_store_url=[APP_STOREURL]&app_name=[APP_NAME]&custom_targeting=html5&custom_4=lg_channels_uk&player_height=720&player_width=1280&content_channel=lg_channels&content_dist_name=lg_channels&device_make=[DEVICE_MAKE]&device_model=[DEVICE_MODEL]&device_os=html5&consent=[GDPR_CONSENT]&gdpr=[GDPR]&gender=not_specified&yob=0&livestream=1&custom_param_0=[DEVICE_MODEL]&custom_param_1=tv&custom_param_2=[DEVICE_MAKE]&custom_param_3=[DEVICE_ID]&custom_param_4=lg_channels&custom_param_5=html5&fck=[FCK]&viewsize=[VIEWSIZE]
 #EXTINF:-1 group-title="影视",LG 1
 https://stream.ads.ottera.tv/playlist.m3u8?network_id=10957&avod=1&coppa=0&td=6&is_lat=[LMT]&dnt=[DNS]&us_privacy=[US_PRIVACY]&did=[DEVICE_ID]&ip=[IP]&ua=[UA]&ifa_type=[IFA_TYPE]&app_bundle=[APP_BUNDLE]&app_store_url=[APP_STOREURL]&app_name=[APP_NAME]&custom_targeting=html5&custom_4=lg_channels_uk&player_height=720&player_width=1280&content_channel=lg_channels&content_dist_name=lg_channels&device_make=[DEVICE_MAKE]&device_model=[DEVICE_MODEL]&device_os=html5&consent=[GDPR_CONSENT]&gdpr=[GDPR]&gender=not_specified&yob=0&livestream=1&custom_param_0=[DEVICE_MODEL]&custom_param_1=tv&custom_param_2=[DEVICE_MAKE]&custom_param_3=[DEVICE_ID]&custom_param_4=lg_channels&custom_param_5=html5&fck=[FCK]&viewsize=[VIEWSIZE]
-#EXTINF:-1 group-title="文旅",Inside Outside
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/Inside%20Outside.png" group-title="文旅",Inside Outside
 https://52405cd167dc41c68edcaa842b916ccd.mediatailor.us-east-1.amazonaws.com/v1/master/44f73ba4d03e9607dcd9bebdcb8494d86964f1d8/LG-au_InsideOutside/playlist.m3u8
 #EXTINF:-1 group-title="影视",SBS Drama
 https://ads.its-newid.net/api/manifest.m3u8?tp=lg_channels&channel_name=sbsk-drama&channel_id=newid_008&mpf=c064f5f4-39af1962-7c36be2c&apikey=48230e6b-1cea0097-15975f93-39af1962&auth=474ab4cb-5d47aa0a-84d0cbca-2a3730a6&ads.live=[CONTENT_LIVE]&ads.deviceid=[DEVICE_ID]&ads.ifa=[IFA]&ads.ifatype=[IFA_TYPE]&ads.lat=[LMT]&ads.donotsell=[DNS]&ads.ua=[UA]&ads.ip=[IP]&ads.gdpr=[GDPR]&ads.gdpr_consent=[GDPR_CONSENT]&ads.country=[COUNTRY]&ads.us_privacy=[US_PRIVACY]&ads.appstoreurl=[APP_STOREURL]&ads.bundleid=[APP_BUNDLE]&ads.appname=[APP_NAME]&ads.appversion=[APP_VERSION]&ads.devicetype=[DEVICE_TYPE]&ads.devicemake=[DEVICE_MAKE]&ads.devicemodel=[DEVICE_MODEL]&ads.targetad=[TARGETAD_ALLOWED]&ads.fck=[FCK]&ads.viewsize=[VIEWSIZE]&ads.givn=[NONCE]

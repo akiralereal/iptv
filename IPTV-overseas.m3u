@@ -15,7 +15,7 @@
 #       10-06 用 Globalping 大陆、德国、日本探针取同一份子清单都通，播放设备换了 IP 也能用。另外标了的：Thai PBS、
 #       DW English、TRT World、NASA+、Gusto TV、Arirang。不是多档主清单的地址别标——播放器每次刷新清单都会打到本机；只有单档地址、要由模块拼主清单的
 #       （France 24 Español）得先在 extractors/overseas 的 LADDERS 里登记。
-# 台标：留空时按台名用内置台标库 logo-pack（规则见 LOGO.md）；beIN Sports Xtra 用 Xumo 频道卡，Tennis Channel International 暂无。
+# 台标：留空时按台名用内置台标库 logo-pack；新加的台收进仓库 logo-remote/，这里写 jsDelivr 地址（规则见 LOGO.md「内置还是远程」）；beIN Sports Xtra 用 Xumo 频道卡。
 # 实验台备注：澳大利亚赛马直播频道，720p
 #EXTINF:-1 group-title="体育",Sky Racing 1
 https://636ffd31f0e12.streamlock.net/RacingStream1/RacingStream1/playlist.m3u8
@@ -50,7 +50,7 @@ https://bein-xtra-bein.amagi.tv/playlistR1080p.m3u8
 #EXTINF:-1 x-top-first="1" group-title="体育",FIFA+
 https://d2w9q46ikgrcwx.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-of5cbk3sav3w5/v1/sysdata_s_p_a_fifa_7/samsungheadend_us/latest/main/hls/playlist.m3u8
 # 实验台备注：Tennis Channel 官方国际版 FAST 频道，LG Channels 英国区讯源
-#EXTINF:-1 group-title="体育",Tennis Channel International
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/Tennis%20Channel%20International.png" group-title="体育",Tennis Channel International
 https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01444-tennischannelth-tennischnlintl-lggb/playlist.m3u8
 # 实验台备注：Krave Media 官方 24/7 赛车频道，Samsung TV Plus 澳大利亚区讯源，最高 1080p
 #EXTINF:-1 x-top-first="1" group-title="体育",MTRSPT1

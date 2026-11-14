@@ -12,6 +12,8 @@
  * 6. 模块官方图是透明底纯黑字 / 纯白字、内置包里做成卡片或铺过底色的（央视频的 CCTV 台标）：开着托管时这个模块的
  *    频道用内置那张、不要官网原图；别的模块、按名字碰上的咪咕 / 订阅频道、关了托管的都不换；
  * 7. 卡片有三套样式，按 cctvLogoStyle 给对应文件，默认那套文件名不变；样式文件也只认登记过的。
+ * 8. 仓库远程台标 logo-remote/（不进镜像，经 jsDelivr 引用）同样一一对应、写清出处；不进镜像（.dockerignore）；
+ *    订阅文件里指向它的台标地址都有对应的图。
  *
  * 运行： node scripts/test-logo-pack.mjs   （或 npm test）
  */
@@ -141,9 +143,9 @@ check('/logo-pack/ 只认登记过的文件；后台标「内置」，公网 log
   assert.equal(classifyLogo('https://example.com/logos/x.png'), 'source')
 })
 
-check('仓库 logo-pack/ 与 index.json 一一对应，全是 ≤256px 的 PNG', () => {
-  const dir = join(ROOT, 'logo-pack')
-  assert.ok(existsSync(join(dir, 'index.json')), 'logo-pack/index.json 不存在')
+// 台标目录与 index.json 一一对应：文件都在、哈希对得上、都是 ≤256px 的 PNG、手工图写清出处、没有漏登记的文件
+function checkLogoDir(dir) {
+  assert.ok(existsSync(join(dir, 'index.json')), `${dir}/index.json 不存在`)
   const index = JSON.parse(readFileSync(join(dir, 'index.json'), 'utf-8'))
   // macOS 列目录返回的是分解写法（ñ = n + 波浪符），索引和 git 里是合成写法，看着一样但逐字符不相等；
   // 两边都先统一成合成写法再比，否则 France 24 Español / Français 在 Mac 上会被判成「没登记」
@@ -172,16 +174,43 @@ check('仓库 logo-pack/ 与 index.json 一一对应，全是 ≤256px 的 PNG',
       }
     }
   }
-  // 央视频的 CCTV 台标是透明底黑字，深色界面的播放器上只剩一个红 C：内置这张必须做成卡片
-  // （build-logo-pack.mjs --card），央视频的频道才会换用它
-  const yspCctv = Object.entries(index.refs).filter(([ref, name]) => ref.startsWith('yangshipin/') && /^CCTV/.test(name))
-  assert.ok(yspCctv.length >= 34, `央视频的 CCTV 频道只对上 ${yspCctv.length} 个`)
-  for (const [, name] of yspCctv) assert.ok(index.logos[name]?.card && index.logos[name].origin === 'yangshipin', `${name} 没做成卡片`)
   for (const file of readdirSync(dir)) {
     if (file === 'index.json') continue
     assert.ok(files.has(key(file)), `${file} 没登记在 index.json`)
   }
   for (const [ref, name] of Object.entries(index.refs)) assert.ok(/^[\w-]+\/.+/.test(ref) && typeof name === 'string', ref)
+  return index
+}
+
+check('仓库 logo-pack/ 与 index.json 一一对应，全是 ≤256px 的 PNG', () => {
+  const index = checkLogoDir(join(ROOT, 'logo-pack'))
+  // 央视频的 CCTV 台标是透明底黑字，深色界面的播放器上只剩一个红 C：内置这张必须做成卡片
+  // （build-logo-pack.mjs --card），央视频的频道才会换用它
+  const yspCctv = Object.entries(index.refs).filter(([ref, name]) => ref.startsWith('yangshipin/') && /^CCTV/.test(name))
+  assert.ok(yspCctv.length >= 34, `央视频的 CCTV 频道只对上 ${yspCctv.length} 个`)
+  for (const [, name] of yspCctv) assert.ok(index.logos[name]?.card && index.logos[name].origin === 'yangshipin', `${name} 没做成卡片`)
+})
+
+check('仓库远程台标 logo-remote/：一一对应、不进镜像，订阅里引用的图都在', () => {
+  const dir = join(ROOT, 'logo-remote')
+  const index = checkLogoDir(dir)
+  for (const [name, entry] of Object.entries(index.logos)) assert.equal(entry.origin, 'manual', `${name} 远程台标都是手工收的`)
+  const ignore = readFileSync(join(ROOT, '.dockerignore'), 'utf-8').split('\n').map(line => line.trim())
+  assert.ok(ignore.includes('logo-remote'), '.dockerignore 要排除 logo-remote，远程台标不进镜像')
+  const base = 'https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/'
+  const files = new Set(Object.values(index.logos).map(entry => entry.file.normalize('NFC')))
+  let referenced = 0
+  for (const list of ['from-the-web/from-the-web.m3u', 'IPTV.m3u', 'IPTV-overseas.m3u']) {
+    if (!existsSync(join(ROOT, list))) continue
+    for (const [, url] of readFileSync(join(ROOT, list), 'utf-8').matchAll(/tvg-logo="([^"]*)"/g)) {
+      if (!url.includes('/logo-remote/')) continue
+      assert.ok(url.startsWith(base), `${list} 里的远程台标要用 jsDelivr gcore 地址：${url}`)
+      const file = decodeURIComponent(url.slice(base.length)).normalize('NFC')
+      assert.ok(files.has(file), `${list} 引用的 ${file} 不在 logo-remote/`)
+      referenced++
+    }
+  }
+  assert.ok(referenced > 0, '订阅里没有引用远程台标')
 })
 
 rmSync(DATA_DIR, { recursive: true, force: true })

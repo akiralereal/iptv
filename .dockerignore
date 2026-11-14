@@ -7,6 +7,8 @@ node_modules
 README.md
 EXTERNAL_SOURCES.md
 from-the-web
+# 远程台标（经 jsDelivr 引用，见 LOGO.md「内置还是远程」），不进镜像
+logo-remote
 
 # Private runtime profiles/cookies must never enter an image build context
 iqiyi-vod

@@ -3,7 +3,7 @@
  * 「海外频道」模块（extractors/overseas）与它的频道表 IPTV-overseas.m3u：
  *   - 频道表完整：42 台、台名不重复、只进约定的现有分组、地址都是 https 的固定 HLS；
  *   - 不和精选列表 IPTV.m3u 重复收台；
- *   - 台标：除了暂无出处的 Tennis Channel International，要么写了 tvg-logo，要么内置台标库按台名有图；
+ *   - 台标：每台要么写了 tvg-logo（新加的台指向仓库 logo-remote/），要么内置台标库按台名有图；
  *   - 模块：默认关闭（defaultEnabled: false）、排在注册表最后；先从仓库拉，拉不到用镜像自带的那份；频道排到组尾；
  *   - 全量本机入口保留频道身份；代理模式覆盖所有媒体，无代理时保留最高档前置与 302 回退。
  */
@@ -63,10 +63,10 @@ check('不和精选列表重复收台（在大陆也顺的留在 IPTV.m3u）', (
   }
 })
 
-check('台标：写了 tvg-logo 或内置台标库按台名有图（Tennis Channel International 暂无）', () => {
+check('台标：写了 tvg-logo 或内置台标库按台名有图', () => {
   const pack = JSON.parse(read('../logo-pack/index.json')).logos
   const missing = CHANNELS.filter(channel => !channel.logo && !pack[channel.name]).map(channel => channel.name)
-  assert.deepEqual(missing, ['Tennis Channel International'])
+  assert.deepEqual(missing, [])
 })
 
 await checkAsync('fetch 按分组输出，频道排到组尾、不透传回看参数', async () => {

@@ -14,10 +14,11 @@
  *       --trim 裁掉四周与角落同色（透明或纯色底）的空白，图里留白太多时用。
  *       --bg <#颜色> 铺一层底色：官方只有纯白字台标时用，否则浅色界面上整个看不见。
  *       --pad 铺底色时四周留一圈边：原图贴着边画的，不留边字会顶到色块边上。
+ *       --round 铺的底色做成圆角（和 CCTV 卡片一样的圆角比例），四角透明。
  *   node scripts/build-logo-pack.mjs --import <目录>
  *       批量手工收：目录里 <台标名>.<扩展名> 加一份 sources.json
  *       （{ "<台标名>": { "url": "...", "page": "...", "kind": "official|platform|library", "note": "...",
- *          "file": "可选，文件名与台标名不同时写", "trim": 可选 true, "bg": "可选，#颜色", "pad": 可选 true } }）。
+ *          "file": "可选，文件名与台标名不同时写", "trim": 可选 true, "bg": "可选，#颜色", "pad": 可选 true, "round": 可选 true } }）。
  *   node scripts/build-logo-pack.mjs --backdrop <#颜色> <台标名> [<台标名>…]
  *       给已经收进来的图铺底色、四周留边：透明底纯黑字（深色界面上看不见）或纯白字（浅色界面上看不见）
  *       的图用。模块 / 咪咕的图按记下的地址重新取原图，手工图用包里现有这张。底色记在 index.json（bg），
@@ -144,7 +145,7 @@ export function sizeSvg(text) {
 
 let browser = null
 let page = null
-async function toPng(buf, { trim = false, bg = '', pad = 0 } = {}) {
+async function toPng(buf, { trim = false, bg = '', pad = 0, round = false } = {}) {
   let mime = detectMime(buf)
   if (!mime) throw new Error('不是图片')
   if (mime === 'image/svg+xml') buf = Buffer.from(sizeSvg(buf.toString('utf8')))
@@ -153,7 +154,7 @@ async function toPng(buf, { trim = false, bg = '', pad = 0 } = {}) {
     browser = await launchWithFallback({})
     page = await browser.newPage()
   }
-  const out = await page.evaluate(async (src, max, vector, trim, bg, pad) => {
+  const out = await page.evaluate(async (src, max, vector, trim, bg, pad, round) => {
     const img = new Image()
     img.src = src
     await img.decode()
@@ -201,11 +202,14 @@ async function toPng(buf, { trim = false, bg = '', pad = 0 } = {}) {
     ctx.imageSmoothingQuality = 'high'
     if (bg) {
       ctx.fillStyle = bg
-      ctx.fillRect(0, 0, cw, ch)
+      ctx.beginPath()
+      // 圆角和 CCTV 卡片同一比例（短边的 13%）
+      ctx.roundRect(0, 0, cw, ch, round ? Math.round(Math.min(cw, ch) * 0.13) : 0)
+      ctx.fill()
     }
     ctx.drawImage(full, x0, y0, cropW, cropH, edge, edge, dw, dh)
     return { data: canvas.toDataURL('image/png'), width: cw, height: ch }
-  }, `data:${mime};base64,${buf.toString('base64')}`, MAX_SIDE, mime === 'image/svg+xml', trim, bg, bg ? pad : 0)
+  }, `data:${mime};base64,${buf.toString('base64')}`, MAX_SIDE, mime === 'image/svg+xml', trim, bg, bg ? pad : 0, Boolean(bg && round))
   return { png: Buffer.from(out.data.split(',')[1], 'base64'), width: out.width, height: out.height }
 }
 
@@ -332,8 +336,8 @@ const today = () => new Date().toISOString().slice(0, 10)
 const validColor = value => (/^#[0-9a-f]{3,8}$/i.test(value || '') ? value : '')
 
 /** 写入一张台标；图没变只更新出处，返回 'added' | 'updated' | 'same' */
-async function putLogo(index, name, buf, meta, { trim = false, bg = '', pad = 0 } = {}) {
-  const { png, width, height } = await toPng(buf, { trim, bg: validColor(bg), pad })
+async function putLogo(index, name, buf, meta, { trim = false, bg = '', pad = 0, round = false } = {}) {
+  const { png, width, height } = await toPng(buf, { trim, bg: validColor(bg), pad, round })
   const hash = createHash('sha1').update(png).digest('hex').slice(0, 10)
   const existing = index.logos[name]
   const taken = new Set(Object.values(index.logos).filter(e => e !== existing).map(e => e.file.toLowerCase().replace(/\.png$/, '')))
@@ -432,14 +436,14 @@ async function refresh(dataDir, { update = false } = {}) {
   if (stats.failed.length) console.log(`取不到的：\n  ${stats.failed.join('\n  ')}`)
 }
 
-async function addManual(index, name, src, { source, kind, note, trim, bg, pad }) {
+async function addManual(index, name, src, { source, kind, note, trim, bg, pad, round }) {
   if (index.logos[name] && index.logos[name].origin !== 'manual') {
     return `跳过 ${name}：已有官方来源（${index.logos[name].origin}）的图`
   }
   const buf = await readSource(src)
   bg = validColor(bg)
-  const meta = { origin: 'manual', source, kind: kind || 'official', ...(note ? { note } : {}), ...(bg ? { bg } : {}) }
-  const result = await putLogo(index, name, buf, meta, { trim, bg, pad: pad ? BACKDROP_PAD : 0 })
+  const meta = { origin: 'manual', source, kind: kind || 'official', ...(note ? { note } : {}), ...(bg ? { bg } : {}), ...(bg && round ? { round: true } : {}) }
+  const result = await putLogo(index, name, buf, meta, { trim, bg, pad: pad ? BACKDROP_PAD : 0, round })
   return `${result === 'same' ? '未变' : result === 'added' ? '新增' : '更新'} ${name}`
 }
 
@@ -477,7 +481,7 @@ async function main() {
     if (args.add) {
       const index = loadIndex()
       if (!args._[0] || !args.source) throw new Error('用法：--add <台标名> <图片文件或地址> --source <出处> [--kind official|platform|library]')
-      console.log(await addManual(index, args.add, args._[0], { source: args.source, kind: args.kind, trim: args.trim === true, bg: args.bg, pad: args.pad === true }))
+      console.log(await addManual(index, args.add, args._[0], { source: args.source, kind: args.kind, trim: args.trim === true, bg: args.bg, pad: args.pad === true, round: args.round === true }))
       saveIndex(index)
     } else if (args.card) {
       const index = loadIndex()
@@ -512,7 +516,7 @@ async function main() {
         if (!file) { console.log(`缺文件：${name}`); continue }
         try {
           console.log(await addManual(index, name, path.join(args.import, file), {
-            source: info.page || info.url, kind: info.kind, note: info.note, trim: info.trim === true, bg: info.bg, pad: info.pad === true,
+            source: info.page || info.url, kind: info.kind, note: info.note, trim: info.trim === true, bg: info.bg, pad: info.pad === true, round: info.round === true,
           }))
         } catch (e) {
           console.log(`失败 ${name}：${e.message}`)

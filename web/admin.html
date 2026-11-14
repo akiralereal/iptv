@@ -590,6 +590,30 @@
             color: #1890ff;
         }
 
+        /* 标题行：左标题、右上角换序箭头（与抓取模块卡片右上角的启用开关同位）。
+           「编辑 ›」固定在右下角，与抓取模块的「配置 ›」同位；只有一张卡片时不出箭头，
+           放在这里不会让「编辑」跟着挪。min-height 按箭头高度留足，有无箭头标题行都一样高。
+           .external-nav-title 里只放标题文字：改名时会直接改它的 textContent。 */
+        .external-nav-head {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+            min-height: 24px;
+        }
+
+        .external-nav-head .external-nav-title {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .external-order {
+            margin-left: auto;
+            display: inline-flex;
+            gap: 2px;
+            flex-shrink: 0;
+        }
+
         /* 抓取模块 / 内置源的卡片。与自定义源卡片同尺寸同间距，只是内容不同。 */
         .source-card {
             padding: 12px 14px;
@@ -8525,7 +8549,13 @@
                     : (source.group || '未分组');
 
                 navItem.innerHTML = `
-                    <div class="external-nav-title">${escapeHtml(source.name || '未命名源')}</div>
+                    <div class="external-nav-head">
+                        <div class="external-nav-title">${escapeHtml(source.name || '未命名源')}</div>
+                        ${visible.length > 1 ? `<span class="external-order">
+                            <button class="external-order-btn" onclick="event.stopPropagation(); moveExternalSource(${index}, -1)" ${visiblePos === 0 || updatingSourceIndex !== null ? 'disabled' : ''} title="前移：卡片顺序 = 播放列表输出顺序 = 播放器同名频道「源1/源2」顺序，偏好的源往前排">◀</button>
+                            <button class="external-order-btn" onclick="event.stopPropagation(); moveExternalSource(${index}, 1)" ${visiblePos === visible.length - 1 || updatingSourceIndex !== null ? 'disabled' : ''} title="后移">▶</button>
+                        </span>` : ''}
+                    </div>
                     <div class="external-nav-meta">
                         <span class="external-mode-badge ${modeClass}">${modeText}</span>
                         ${isBuiltInSubscription(source) ? '<span class="source-badge builtin">内置</span>' : ''}
@@ -8536,10 +8566,6 @@
                     <div class="source-card-foot">
                         <span>${escapeHtml(metaInfo)}</span>
                         <span class="card-open-hint">${selectedExternalIndex === index ? '收起 ⌃' : '✎ 编辑 ›'}</span>
-                        <span style="display:inline-flex; gap:2px;">
-                            <button class="external-order-btn" onclick="event.stopPropagation(); moveExternalSource(${index}, -1)" ${visiblePos === 0 || updatingSourceIndex !== null ? 'disabled' : ''} title="前移：卡片顺序 = 播放列表输出顺序 = 播放器同名频道「源1/源2」顺序，偏好的源往前排">◀</button>
-                            <button class="external-order-btn" onclick="event.stopPropagation(); moveExternalSource(${index}, 1)" ${visiblePos === visible.length - 1 || updatingSourceIndex !== null ? 'disabled' : ''} title="后移">▶</button>
-                        </span>
                     </div>
                 `;
                 navItem.onclick = () => toggleExternalSource(index);

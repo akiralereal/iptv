@@ -3287,6 +3287,9 @@
         .extractor-channel-group-name { margin-bottom: 6px; color: var(--ui-text-secondary); font-size: 12px; }
         .extractor-channel-chips { display: flex; flex-wrap: wrap; gap: 5px; }
         .extractor-channel-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 8px; border: 1px solid var(--ui-line); border-radius: 5px; background: #fff; color: var(--ui-text-secondary); font-size: 12px; }
+        button.extractor-channel-chip { margin: 0; font: inherit; font-size: 12px; line-height: inherit; cursor: pointer; }
+        button.extractor-channel-chip:hover,
+        button.extractor-channel-chip:focus-visible { border-color: var(--ui-accent); color: var(--ui-accent); }
         .extractor-channels-empty { color: var(--ui-muted); font-size: 12px; }
         #extractorNotice > div[style] { padding: 12px 14px !important; border-color: var(--ui-danger-line) !important; border-radius: 9px !important; background: var(--ui-danger-soft) !important; color: var(--ui-danger) !important; }
 
@@ -3815,6 +3818,10 @@
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
         }
+
+        /* 从源管理的模块名单点开时叠在模块详情上面（两者同为 .modal，模块详情在 DOM 里靠后会盖住它）；
+           下面已经有一层遮罩，这层减半，免得背景黑成一片 */
+        #channelDetailModal.is-stacked { z-index: 1001; background: rgba(0,0,0,0.25); }
 
         /* 频道详情与列表共用白灰表面，所有编辑行共用一套尺寸与对齐。 */
         #channelDetailModal .modal-content {
@@ -5771,19 +5778,68 @@
             const note = m.enabled && (m.health || {}).usingCachedChannels ? '本轮抓取失败，这是上次成功的结果' : '';
             // 只有一个分组时组名多半就是模块名，不再重复
             const showGroupName = groups.length > 1;
+            // 开着的模块：在播放列表里找得到的频道可点开看只读详情。关着的模块名单只是缓存，
+            // 播放列表里已经没有这些频道，没有地址可看，保持纯文字。
+            // 开着却找不到的，多是同名台改用了别的源（如咪咕的嘉佳卡通让位给广东模块），或列表还没刷新
+            let clickable = 0;
+            const chip = (group, name) => {
+                const found = m.enabled ? findModuleChannel(m.sourceId, group.name, name) : null;
+                if (!found) {
+                    const tip = m.enabled && m.sourceId ? `${name}：播放列表里没有这一路，不能查看详情` : name;
+                    return `<span class="extractor-channel-chip" title="${escapeHtml(tip)}">${escapeHtml(name)}</span>`;
+                }
+                clickable++;
+                const args = [m.sourceId, group.name, name].map(v => escapeHtml(JSON.stringify(v))).join(', ');
+                return `<button type="button" class="extractor-channel-chip" title="查看详情：${escapeHtml(name)}" onclick="openModuleChannelDetail(${args})">${escapeHtml(name)}</button>`;
+            };
+            const body = groups.map(group => `<div class="extractor-channel-group">
+                        ${showGroupName ? `<div class="extractor-channel-group-name">${escapeHtml(group.name)}（${group.channels.length}）</div>` : ''}
+                        <div class="extractor-channel-chips">${group.channels.map(name => chip(group, name)).join('')}</div>
+                    </div>`).join('');
+            const notes = [note, clickable ? '点频道名查看详情' : ''].filter(Boolean).join('；');
             return `<div class="extractor-channels">
                 <div class="extractor-channels-head">
                     <span>${title} · ${total} 个</span>
-                    ${note ? `<span class="extractor-channels-note">${note}</span>` : ''}
+                    ${notes ? `<span class="extractor-channels-note">${notes}</span>` : ''}
                 </div>
                 <div class="extractor-channels-body">
-                    ${groups.map(group => `<div class="extractor-channel-group">
-                        ${showGroupName ? `<div class="extractor-channel-group-name">${escapeHtml(group.name)}（${group.channels.length}）</div>` : ''}
-                        <div class="extractor-channel-chips">${group.channels.map(name =>
-                            `<span class="extractor-channel-chip" title="${escapeHtml(name)}">${escapeHtml(name)}</span>`).join('')}</div>
-                    </div>`).join('')}
+                    ${body}
                 </div>
             </div>`;
+        }
+
+        /**
+         * 模块名单里的频道名 → 播放列表里的同一个频道。myPlaylistOriginalData 是未按档过滤的全集，
+         * 名字和分组都是原始值（改名、移动只是配置档上的覆盖），所以按「来源标记 + 原始频道名」找。
+         * 同一模块不同分组里可能有同名台（如各市的「新闻综合」），优先取原始分组同名的那个。
+         */
+        function findModuleChannel(sourceId, groupName, channelName) {
+            if (!sourceId || !channelName) return null;
+            let fallback = null;
+            for (const group of myPlaylistOriginalData || []) {
+                for (const channel of group.channels || []) {
+                    if (channel.name !== channelName) continue;
+                    if (!Array.isArray(channel.sourceIds) || !channel.sourceIds.includes(sourceId)) continue;
+                    if ((channel.originalGroup || group.name) === groupName) return channel;
+                    if (!fallback) fallback = channel;
+                }
+            }
+            return fallback;
+        }
+
+        /**
+         * 源管理里点频道名：只读详情，叠在模块详情上面，关掉回到名单。
+         * 改名、移动、台标、隐藏都按配置档生效，统一留在「我的频道」里改。
+         */
+        function openModuleChannelDetail(sourceId, groupName, channelName) {
+            const channel = findModuleChannel(sourceId, groupName, channelName);
+            if (!channel) {
+                showStatus('播放列表里暂时找不到这个频道，等这一轮刷新完再试', 'error');
+                return;
+            }
+            // 当前档的列表里没有它（隐藏、整组隐藏、按档禁用了这个源等）就标「当前档未显示」
+            const shown = (myPlaylistData || []).some(group => (group.channels || []).some(ch => ch.id === channel.id));
+            showChannelDetail(channel.id, !shown, { readOnly: true });
         }
 
         /** 有表单字段或可编辑刷新间隔时才存在“配置”；否则展开区只是运行详情。 */
@@ -13165,7 +13221,9 @@ if(success){
             `;
         }
 
-        function showChannelDetail(channelId, isDeleted) {
+        // readOnly：从源管理的模块名单点进来，只看不改（见 openModuleChannelDetail），弹窗叠在模块详情上面
+        function showChannelDetail(channelId, isDeleted, { readOnly = false } = {}) {
+            document.getElementById('channelDetailModal').classList.toggle('is-stacked', readOnly);
             // 从原始数据中查找频道
             let channel = null;
             let groupName = null;
@@ -13208,7 +13266,7 @@ if(success){
             const isProtectedAnnouncement = isSystemAnnouncementChannel(channel);
             if (isProtectedAnnouncement) sourceType = 'system';
             const isExternal = sourceType === 'external';
-            currentChannelDetail = { ...channel, groupName, isExternal, isDeleted };
+            currentChannelDetail = { ...channel, groupName, isExternal, isDeleted, readOnly };
 
             // 系统频道仅提供播放预览和隐藏 / 恢复，保留原有保护规则（issue #119）。
             if (isProtectedAnnouncement) {
@@ -13258,7 +13316,7 @@ if(success){
                     <h4>基本信息</h4>
                     <dl class="channel-detail-facts">
                         <div class="channel-detail-fact"><dt>频道名称</dt><dd>${escapeHtml(channel.name || '未知')}</dd></div>
-                        <div class="channel-detail-fact"><dt>所属分组</dt><dd>${escapeHtml(groupName || '未知')}${isDeleted ? ' <span class="channel-detail-badge is-muted">已隐藏</span>' : ''}</dd></div>
+                        <div class="channel-detail-fact"><dt>所属分组</dt><dd>${escapeHtml(groupName || '未知')}${isDeleted ? ` <span class="channel-detail-badge is-muted">${readOnly ? '当前档未显示' : '已隐藏'}</span>` : ''}</dd></div>
                         <div class="channel-detail-fact channel-detail-fact-wide"><dt>频道 ID</dt><dd><code>${escapeHtml(channel.id || '未知')}</code></dd></div>
                         <div class="channel-detail-fact channel-detail-fact-wide">
                             <dt>配对状态</dt>
@@ -13271,7 +13329,7 @@ if(success){
                             </dd>
                         </div>
                     </dl>
-                    ${!channel.epgMatched ? `
+                    ${!channel.epgMatched && !readOnly ? `
                         <div class="channel-detail-note">
                             <p>节目单未匹配时，可以设置别名归一到正确的频道名。使用外部 EPG 源时，保存后请到「设置 → EPG 聚合」点击「立即刷新并应用」。</p>
                             <div class="channel-detail-field">
@@ -13291,7 +13349,19 @@ if(success){
             `;
 
             // 隐藏频道不提供移动、重命名、复制或台标编辑；系统频道已在上方提前返回。
-            if (!isDeleted) {
+            // 只读详情只给预览，台标也只看不传
+            if (readOnly) {
+                const logoBaseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]+$/, '');
+                const logoSrc = channel.logo ? String(channel.logo).replace(/\$\{replace\}/g, logoBaseUrl) : '';
+                detailHTML += `
+                    <section class="channel-detail-section">
+                        <h4>频道台标</h4>
+                        <div class="channel-detail-logo-preview">
+                            ${logoSrc ? `<img src="${escapeHtml(logoSrc)}" alt="当前频道台标" onerror="this.replaceWith(Object.assign(document.createElement('span'), { textContent: '暂无台标' }))">` : '<span>暂无台标</span>'}
+                        </div>
+                    </section>
+                `;
+            } else if (!isDeleted) {
                 const moveKey = `${groupName}::${channelId}`;
                 const renamedOriginal = (myPlaylistConfig.groupRenameMap && myPlaylistConfig.groupRenameMap[groupName]) || groupName;
                 const currentTarget = (myPlaylistConfig.channelGroupMap && myPlaylistConfig.channelGroupMap[moveKey]) || renamedOriginal;
@@ -13386,11 +13456,14 @@ if(success){
             const sourceNames = sourceNamesFor(channel);
             const sourceText = sourceNames.length > 0 ? sourceNames.join('、') : sourceLabels[sourceType];
             detailHTML += `<p class="channel-detail-source">此频道来自：${escapeHtml(sourceText)}</p>`;
+            if (readOnly) {
+                detailHTML += `<p class="channel-detail-source">这里只供查看。改名、移动分组、换台标、隐藏都按配置档生效，请到「我的频道」里修改。</p>`;
+            }
 
             document.getElementById('channelDetailTitle').textContent = `频道详情 · ${channel.name}`;
             document.getElementById('channelDetailContent').innerHTML = detailHTML;
             document.getElementById('channelDetailContent').scrollTop = 0;
-            document.getElementById('channelDetailEditBtn').style.display = sourceType === 'external' ? '' : 'none';
+            document.getElementById('channelDetailEditBtn').style.display = sourceType === 'external' && !readOnly ? '' : 'none';
             document.getElementById('channelDetailModal').style.display = 'block';
         }
 
@@ -13908,6 +13981,12 @@ if(success){
             if (event.key !== 'Escape') return;
             const extractorModal = document.getElementById('extractorDetailModal');
             if (!extractorModal || extractorModal.style.display !== 'block') return;
+            // 从模块名单点开的只读频道详情叠在上面：Esc 先关它，回到名单
+            const channelModal = document.getElementById('channelDetailModal');
+            if (channelModal && channelModal.style.display === 'block' && channelModal.classList.contains('is-stacked')) {
+                closeChannelDetail();
+                return;
+            }
             const hasModalAbove = Array.from(document.querySelectorAll('.modal')).some(modal =>
                 modal !== extractorModal && modal.style.display === 'block'
             );

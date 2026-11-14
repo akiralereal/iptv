@@ -62,7 +62,7 @@ const television = { id: 'fixed-tv', name: 'CCTV5体育', sourceIds: ['migu'], u
 const groups = [{ name: '体育-昨天', channels: [miguEvent] }, { name: '央视', channels: [television] }]
 const sandbox = {
   URL, window: { location: { origin, href: pageUrl, pathname: '/admin' } },
-  document: { getElementById(id) { if (!nodes.has(id)) nodes.set(id, { style: {}, innerHTML: '', textContent: '', scrollTop: 0 }); return nodes.get(id) } },
+  document: { getElementById(id) { if (!nodes.has(id)) nodes.set(id, { style: {}, innerHTML: '', textContent: '', scrollTop: 0, classes: new Set(), classList: { toggle(name, on) { const set = nodes.get(id).classes; on ? set.add(name) : set.delete(name) }, contains(name) { return nodes.get(id).classes.has(name) } } }); return nodes.get(id) } },
   builtInConfig: {}, externalConfig: {}, myPlaylistOriginalData: groups, myPlaylistData: groups,
   myPlaylistConfig: { hiddenChannels: [] }, PLAYERS_BY_PLATFORM: {}, getClientPlatform: () => 'test',
   sourceNamesFor: () => ['咪咕'], isSystemAnnouncementChannel: () => false, isSystemAnnouncementGroup: () => false,
@@ -94,6 +94,15 @@ ui.showChannelDetail(television.id, false)
 const tvHtml = nodes.get('channelDetailContent').innerHTML
 for (const control of ['channelMoveSelect', 'channelRenameInput', 'channelLogoPreview', 'detailAliasCanonical']) assert.ok(tvHtml.includes(control), `fixed TV retains ${control}`)
 assert.deepEqual(Array.from(ui.channelsMissingLogo(), item => item.id), ['fixed-tv'])
+// 源管理模块名单点进来的只读详情：同一个固定电视频道，编辑项全不出现，叠在模块详情上面
+ui.showChannelDetail(television.id, true, { readOnly: true })
+const readOnlyHtml = nodes.get('channelDetailContent').innerHTML
+for (const control of ['channelMoveSelect', 'channelRenameInput', 'channelCopySelect', 'detailAliasCanonical', 'type="file"', 'removeCurrentChannelLogo']) assert.ok(!readOnlyHtml.includes(control), `read-only detail hides ${control}`)
+assert.match(readOnlyHtml, /播放地址/); assert.match(readOnlyHtml, /频道台标/); assert.match(readOnlyHtml, /当前档未显示/); assert.match(readOnlyHtml, /请到「我的频道」里修改/)
+assert.equal(nodes.get('channelDetailEditBtn').style.display, 'none')
+assert.ok(nodes.get('channelDetailModal').classList.contains('is-stacked'))
+ui.showChannelDetail(television.id, false)
+assert.ok(!nodes.get('channelDetailModal').classList.contains('is-stacked'), 'group view detail is not stacked')
 assert.doesNotMatch(ui.dynamicSportsDetail({ ...miguEvent, name: '<script>bad</script>' }, '咪咕'), /<script>/)
 console.log('动态赛事详情测试通过：咪咕赛事精简，固定电视频道保留原有编辑功能（纯静态样例）')
 

@@ -36,6 +36,21 @@ test('版权屏蔽：保留咪咕原话，后面补上原因与出路', () => {
   assert.match(desc, /其他源/)
 })
 
+test('游客被要求登录：保留咪咕原话，后面指到后台填账号的地方', () => {
+  const desc = failDesc(PID, { code: '409', rid: 'TIPS_NEED_LOGIN', message: '由于版权原因，请登录后观看' })
+  assert.equal(desc, `${PID} 由于版权原因，请登录后观看（游客看不了这个频道：到后台「源管理 → 咪咕视频」填上咪咕账号）`)
+})
+
+test('游客被要求登录且咪咕标着 VIP（CHC家庭影院）：补一句会员账号可看', () => {
+  const desc = failDesc(PID, {
+    code: '409', rid: 'TIPS_NEED_LOGIN', message: '由于版权原因，请登录后观看',
+    body: { content: { tip: { code: 'VIP', msg: 'VIP' }, fee: '1' } },
+  })
+  assert.ok(desc.startsWith(`${PID} 由于版权原因，请登录后观看`), desc)
+  assert.match(desc, /源管理 → 咪咕视频/)
+  assert.match(desc, /VIP 频道，会员账号可看/)
+})
+
 test('其他 rid：原样透传，不加任何后缀', () => {
   assert.equal(failDesc(PID, { rid: 'TIPS_NEED_MEMBER', message: '该内容需开通电视会员' }), `${PID} 该内容需开通电视会员`)
 })

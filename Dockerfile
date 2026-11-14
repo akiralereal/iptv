@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+# ↑ 必须是第一行：下面「复制代码」那步用到 COPY --exclude（Dockerfile 1.19 起的稳定语法），靠它拉新版语法前端。
 # 基础镜像锁到具体版本（当前 Node 22.23.4 / Alpine 3.24.4）。基础镜像一换，下面每一层都要重建，
 # 用户升级就得重下整个镜像（约 400 MB）；锁住后只在主动换的那一版整包下载。
 # 有新版时 bump-version.js 发版会提醒；换用 node bump-version.js update-base，并在更新日志写明这一版要整包下载。
@@ -43,6 +45,10 @@ RUN apk add --no-cache python3 \
 # Xumo 只在新增频道/更换入口时解码已通过网络代理下载的本地样本；播放不转码。
 RUN apk add --no-cache ffmpeg
 
+# 内置台标（logo-pack/，约 18 MB）单独一层，放在 package.json 前面：每次发版版本号都变，它之后的层必然重建；
+# 台标没变时这一层原样复用，用户升级不用重下。台标改了才重下这一层。最后复制代码时把它排除掉，免得同一份文件在两层各存一份。
+COPY logo-pack ./logo-pack
+
 # 跳过 Puppeteer 自动下载 Chromium，使用系统的（更快更稳定）
 # 注意变量名是 PUPPETEER_SKIP_DOWNLOAD，不是 ..._SKIP_CHROMIUM_DOWNLOAD（后者 puppeteer 不认，是空操作）
 ENV PUPPETEER_SKIP_DOWNLOAD=true \
@@ -59,8 +65,8 @@ RUN if [ -f package-lock.json ]; then \
       npm install --production; \
     fi
 
-# 再复制其他文件
-COPY . .
+# 再复制其他文件（内置台标已在上面单独一层）
+COPY --exclude=logo-pack . .
 
 # 默认把运行时配置/数据写到 /iptv/data，并声明为数据卷。
 # 这样即使用户不在 compose 里挂卷，常规 `docker compose pull && up -d` 升级也会

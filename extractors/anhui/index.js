@@ -17,7 +17,7 @@ export default {
   channelHlsMode: 'proxy',
   defaultRefreshMinutes: 1440,
   refreshConfigurable: false,
-  refreshDescription: '自动管理：频道引用保持不变；播放时从「安徽视讯」App 看电视栏目获取当前直播地址，失效后自动重新获取。每次轮询都拉取实时清单，清单与分片全代理。seclive 证书主机名不匹配时仅对该域名兼容 HTTP。',
+  refreshDescription: '自动管理：频道引用保持不变；播放时从「安徽视讯」App 看电视栏目获取当前直播地址，失效后自动重新获取，主配置接口异常时自动尝试官方备用接口。每次轮询都拉取实时清单，清单与分片全代理。seclive 证书主机名不匹配时仅对该域名兼容 HTTP。',
 
   configSchema: [],
 

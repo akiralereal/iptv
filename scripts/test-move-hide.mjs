@@ -10,7 +10,7 @@
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { applyConfig } from '../utils/playlistConfig.js'
+import { applyConfig, collectGroupConflicts } from '../utils/playlistConfig.js'
 
 for (const k of ['log', 'info', 'warn']) {
   const orig = console[k]
@@ -78,12 +78,21 @@ const extract = name => {
   assert.ok(m, `web/admin.html 里找不到 ${name}`)
   return m[0]
 }
-const hiddenArea = new Function(`
-  let myPlaylistConfig, myPlaylistOriginalData
+const adminFns = new Function(`
+  let myPlaylistConfig, myPlaylistOriginalData, myPlaylistHiddenCustomGroups
   const isSystemAnnouncementGroup = () => false
-  ${['isGroupHiddenByConfig', 'isChannelHiddenById', 'channelMovedTo', 'hiddenAreaGroups'].map(extract).join('\n')}
-  return (cfg, data) => { myPlaylistConfig = cfg; myPlaylistOriginalData = data; return hiddenAreaGroups() }
+  ${['isGroupHiddenByConfig', 'isChannelHiddenById', 'channelMovedTo', 'hiddenCustomGroupNames',
+     'setCustomGroupHidden', 'hiddenAreaChannelKey', 'hiddenAreaGroups'].map(extract).join('\n')}
+  return {
+    hiddenArea: (cfg, data, served = []) => {
+      myPlaylistConfig = cfg; myPlaylistOriginalData = data; myPlaylistHiddenCustomGroups = served
+      return hiddenAreaGroups()
+    },
+    setCustomGroupHidden,
+    hiddenAreaChannelKey,
+  }
 `)()
+const { hiddenArea, setCustomGroupHidden, hiddenAreaChannelKey } = adminFns
 const groups3 = () => ([
   { name: 'A', channels: [{ id: 'x1', name: 'X1' }, { id: 'x2', name: 'X2' }, { id: 'x3', name: 'X3' }] },
   { name: 'C', channels: [{ id: 'y1', name: 'Y' }] },
@@ -123,4 +132,100 @@ check('整组隐藏的分组被全部移空 → 整组条目仍在（还能恢�
   assert.deepEqual(area(cfg), [['A', []]])
 })
 
-console.log(`\n全部通过：${passed}/12 ✅`)
+// ---- 自定义分组整组隐藏：customGroups[].hidden，按「最终落到哪个分组」判 ----
+// 服务端 applyConfig 和前端 setCustomGroupHidden / hiddenAreaGroups 串起来跑：前端写配置、服务端出列表、前端用服务端给的那份列「已隐藏」
+const groups4 = () => ([
+  { name: 'A', channels: [{ id: 'x1', name: 'X1' }, { id: 'x2', name: 'X2' }] },
+  { name: 'C', channels: [{ id: 'y1', name: 'Y' }] },
+  // 自定义源直接把分组写成自定义分组名时，interface.txt 里就有一个同名的源分组
+  { name: '收藏', channels: [{ id: 'z1', name: 'Z' }] },
+])
+const withServed = cfg => {
+  const served = []
+  const shown = applyConfig(groups4(), cfg, { hiddenCustomGroups: served })
+  return { shown: Object.fromEntries(shown.map(g => [g.name, g.channels.map(c => c.name)])), order: shown.map(g => g.name), served }
+}
+const favCfg = () => {
+  const cfg = base()
+  cfg.customGroups = [{ name: '收藏' }, { name: '空组' }]
+  cfg.groupOrder = ['收藏', 'A', '空组', 'C']
+  cfg.channelGroupMap = { 'A::x1': '收藏' }
+  return cfg
+}
+
+check('隐藏自定义分组：移进来的、源里同名分组的频道都不输出，空分组也不补；别的分组不受影响', () => {
+  const cfg = favCfg()
+  setCustomGroupHidden(cfg, '收藏', true)
+  setCustomGroupHidden(cfg, '空组', true)
+  const { shown, served } = withServed(cfg)
+  assert.deepEqual(shown, { A: ['X2'], C: ['Y'] })
+  assert.deepEqual(served.map(g => [g.name, g.channels.map(c => c.name).sort()]), [['收藏', ['X1', 'Z']], ['空组', []]])
+  // 服务端给的频道带着原始分组，前端按它拼 key，拿条目名「收藏」拼会写成 收藏::x1 这种孤儿键
+  assert.equal(hiddenAreaChannelKey(served[0], 'x1'), 'A::x1')
+  assert.equal(hiddenAreaChannelKey(served[0], 'z1'), '收藏::z1')
+})
+
+check('「已隐藏」区：自定义分组排在整组隐藏的源分组之后、单独隐藏的频道之前；单独隐藏过的不重复列', () => {
+  const cfg = favCfg()
+  cfg.channelGroupMap['C::y1'] = '收藏'
+  cfg.hiddenChannels = ['C::y1']
+  cfg.deletedGroups = ['A']
+  setCustomGroupHidden(cfg, '收藏', true)
+  setCustomGroupHidden(cfg, '空组', true)
+  const { served } = withServed(cfg)
+  const view = hiddenArea(cfg, groups4(), served)
+    .map(g => [g.name + (g.isPartialDelete ? ' (隐藏频道)' : g.isCustomHidden ? ' (自定义)' : ''), g.channels.map(c => c.name).sort()])
+  assert.deepEqual(view, [['A', ['X2']], ['收藏 (自定义)', ['X1', 'Z']], ['空组 (自定义)', []], ['C (隐藏频道)', ['Y']]])
+})
+
+check('恢复自定义分组：频道和位置原样回来，配置里不留 hidden 字段', () => {
+  const cfg = favCfg()
+  const before = withServed(cfg)
+  setCustomGroupHidden(cfg, '收藏', true)
+  setCustomGroupHidden(cfg, '收藏', false)
+  assert.deepEqual(cfg.customGroups, [{ name: '收藏' }, { name: '空组' }])
+  assert.deepEqual(withServed(cfg).shown, before.shown)
+  assert.deepEqual(withServed(cfg).order, before.order)
+})
+
+check('从隐藏的自定义分组里移出频道（按原始分组写 channelGroupMap）→ 出现在目标分组', () => {
+  const cfg = favCfg()
+  setCustomGroupHidden(cfg, '收藏', true)
+  const { served } = withServed(cfg)
+  cfg.channelGroupMap[hiddenAreaChannelKey(served[0], 'x1')] = 'C'
+  cfg.channelGroupMap[hiddenAreaChannelKey(served[0], 'z1')] = 'C'
+  assert.deepEqual(withServed(cfg).shown.C.sort(), ['X1', 'Y', 'Z'])
+  assert.deepEqual(withServed(cfg).served[0].channels, [])
+})
+
+check('老格式字符串条目：隐藏时转成对象，恢复后不带 hidden', () => {
+  const cfg = base(); cfg.customGroups = ['收藏', '其它']; cfg.channelGroupMap = { 'A::x1': '收藏' }
+  setCustomGroupHidden(cfg, '收藏', true)
+  assert.deepEqual(cfg.customGroups, [{ name: '收藏', hidden: true }, '其它'])
+  assert.equal('收藏' in withServed(cfg).shown, false)
+  setCustomGroupHidden(cfg, '收藏', false)
+  assert.deepEqual(cfg.customGroups, [{ name: '收藏' }, '其它'])
+  assert.deepEqual(withServed(cfg).shown['收藏'].sort(), ['X1', 'Z'])
+})
+
+check('隐藏的自定义分组仍占着名字：再建同名分组会被服务端拦下', () => {
+  const cfg = favCfg()
+  setCustomGroupHidden(cfg, '空组', true)
+  // 和保存接口一样只看「这次新引入」的重名（样例里「收藏」本来就和源分组同名，是旧冲突）
+  const existing = new Set(collectGroupConflicts(groups4(), cfg).map(c => c.name))
+  cfg.customGroups.push({ name: '空组' })
+  assert.deepEqual(collectGroupConflicts(groups4(), cfg).map(c => c.name).filter(n => !existing.has(n)), ['空组'])
+})
+
+check('源分组的通配隐藏（体育-*）管不到同前缀的自定义分组，自定义分组的隐藏也不写进 deletedGroups', () => {
+  const cfg = base()
+  cfg.customGroups = [{ name: '体育-收藏' }]
+  cfg.channelGroupMap = { 'A::x1': '体育-收藏' }
+  cfg.deletedGroups = ['体育-*']
+  assert.deepEqual(withServed(cfg).shown['体育-收藏'], ['X1'])
+  setCustomGroupHidden(cfg, '体育-收藏', true)
+  assert.deepEqual(cfg.deletedGroups, ['体育-*'])
+  assert.equal('体育-收藏' in withServed(cfg).shown, false)
+})
+
+console.log(`\n全部通过：${passed}/19 ✅`)

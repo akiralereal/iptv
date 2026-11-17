@@ -240,6 +240,7 @@ function callerHarness(answer, overrides = {}) {
     loadMyPlaylist: async () => reloads.push('playlist'),
     resetChannelSearch: () => {}, renderMyPlaylist: () => {}, revealActiveGroupItem: () => {},
     groupNameExists: name => name === '已存在',
+    groupNameTakenMessage: name => `分组 "${name}" 已存在`,
     isSystemAnnouncementGroup: group => group.name === '系统公告',
     isCustomGroupName: name => name === '收藏',
     remapManualGroupInExternalSources: async (...args) => saves.push(['remap', ...args]),

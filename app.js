@@ -938,13 +938,15 @@ async function handleRequest(req, res) {
       try {
         const groups = parseInterfaceTxt()
         const config = readConfig(profileParam)
-        const result = applyConfig(groups, config)
+        const hiddenCustomGroups = []
+        const result = applyConfig(groups, config, { hiddenCustomGroups })
         res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
         // 同时返回原始数据和应用配置后的数据
         res.end(JSON.stringify({
           success: true,
           data: result,
-          originalData: groups  // 原始未过滤的数据
+          originalData: groups,  // 原始未过滤的数据
+          hiddenCustomGroups     // 整组隐藏的自定义分组及其频道（后台「已隐藏」区用）
         }));
         printGreen(`API: 返回 ${result.length} 个分组（原始: ${groups.length} 个）`)
       } catch (error) {

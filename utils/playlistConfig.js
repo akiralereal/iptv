@@ -128,7 +128,7 @@ const DEFAULT_CONFIG = {
   channelRenameMap: {},     // 单频道重命名： "原始分组::频道ID" → 新显示名
   channelOrder: {},         // 组内频道顺序： 显示分组名 → ["原始分组::频道ID", ...]
   hiddenChannels: [],       // 隐藏的频道ID列表
-  customGroups: [],         // 自定义分组 [{name, order}]
+  customGroups: [],         // 自定义分组 [{name, order, hidden?}]；hidden=true 为整组隐藏，见 getHiddenCustomGroupNames
   groupOrder: [],           // 分组显示顺序
   deletedGroups: [],        // 删除的分组名列表
   groupRenameMap: {},       // 分组重命名映射 { 原始名: 新名 }
@@ -348,6 +348,21 @@ function getCustomGroupNames(config) {
 }
 
 /**
+ * 整组隐藏的自定义分组名（customGroups 里带 hidden: true 的；老格式的字符串条目没有隐藏状态）。
+ *
+ * 不写进 deletedGroups：那边按「源分组原名」判、支持 `前缀*` 通配，管不到移进来的频道；
+ * 自定义分组的隐藏状态记在分组自己身上，删除 / 改名分组时跟着走，不会留下孤儿条目，
+ * 把以后源里真出现的同名分组悄悄藏掉。
+ */
+export function getHiddenCustomGroupNames(config) {
+  if (!Array.isArray(config?.customGroups)) return []
+  return config.customGroups
+    .filter(group => group && typeof group === 'object' && group.hidden === true && typeof group.name === 'string')
+    .map(group => group.name.trim())
+    .filter(Boolean)
+}
+
+/**
  * 列出分组配置里**所有**的重名冲突（[{ name, message }]，无冲突则为空数组）。
  *
  * 与 validateGroupConfig 的区别：后者只回报第一条。调用方拿到全量冲突后，可以和「盘上现有配置」
@@ -427,12 +442,19 @@ export function validateGroupConfig(groups, config) {
 
 /**
  * 应用配置到频道列表
+ *
+ * options.hiddenCustomGroups：传入一个空数组时，整组隐藏的自定义分组会按 customGroups 顺序
+ * 填进去（[{ name, channels }]，没有频道的也列出），供后台「已隐藏」区展示和恢复；不传则直接丢弃。
  */
-export function applyConfig(groups, config) {
+export function applyConfig(groups, config, { hiddenCustomGroups = null } = {}) {
   try {
     printBlue("应用播放列表配置...")
     config = protectAnnouncementConfig(config)
-    
+    // 整组隐藏的自定义分组：按「最终落到哪个分组」判——移进来的、自定义源直接写进来的、
+    // 按关键字规则归进来的频道都一起隐藏，和用户在列表里看到的这个分组一一对应。
+    const hiddenCustom = new Set(getHiddenCustomGroupNames(config))
+    const hiddenCustomChannels = {}
+
     // 1. 构建频道映射（使用 分组名+频道ID 作为key，允许同一频道出现在不同分组中）
     const channelMap = new Map()
     groups.forEach(group => {
@@ -509,10 +531,6 @@ export function applyConfig(groups, config) {
         }
       }
 
-      if (!resultGroups[targetGroup]) {
-        resultGroups[targetGroup] = []
-      }
-
       // EPG 名称规整（issue #39）：把 tvg-id / tvg-name 归一到规范名（= EPG/playback.xml 里的频道名），
       // 让异构外部源频道也能匹配上节目单。
       // 统一显示名（issue #56）：开关开启且未手动重命名时，把显示名也归一到规范名，
@@ -530,12 +548,21 @@ export function applyConfig(groups, config) {
         }
       }
 
+      // 放在名称规整之后：「已隐藏」区里显示的名字要和隐藏前一样
+      if (!protectedAnnouncement && hiddenCustom.has(targetGroup)) {
+        (hiddenCustomChannels[targetGroup] ||= []).push(channel)
+        return
+      }
+
+      if (!resultGroups[targetGroup]) {
+        resultGroups[targetGroup] = []
+      }
       resultGroups[targetGroup].push(channel)
     })
-    
-    // 3. 补齐自定义空分组
+
+    // 3. 补齐自定义空分组（整组隐藏的不补）
     getCustomGroupNames(config).forEach(groupName => {
-      if (!resultGroups[groupName]) {
+      if (!resultGroups[groupName] && !hiddenCustom.has(groupName)) {
         resultGroups[groupName] = []
       }
     })
@@ -614,7 +641,10 @@ export function applyConfig(groups, config) {
     //    依赖 Node full-ICU），否则按手动拖拽顺序 channelOrder（显示分组名 → ["原始分组::频道ID"]）。
     const channelOrder = config.channelOrder || {}
     const groupSortMode = config.groupSortMode || {}
-    result.forEach(group => {
+    const hiddenResult = Array.isArray(hiddenCustomGroups)
+      ? [...hiddenCustom].map(name => ({ name, channels: hiddenCustomChannels[name] || [] }))
+      : []
+    ;[...result, ...hiddenResult].forEach(group => {
       if (groupSortMode[group.name] === 'name') {
         group.channels.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh', { numeric: true }))
         return
@@ -632,9 +662,11 @@ export function applyConfig(groups, config) {
       }
     })
 
+    if (Array.isArray(hiddenCustomGroups)) hiddenCustomGroups.push(...hiddenResult)
+
     const totalChannels = result.reduce((sum, g) => sum + g.channels.length, 0)
     printGreen(`配置应用完成: ${result.length} 个分组, ${totalChannels} 个频道`)
-    
+
     return result
     
   } catch (error) {
@@ -773,6 +805,7 @@ export default {
   parseInterfaceTxt,
   validateGroupConfig,
   collectGroupConflicts,
+  getHiddenCustomGroupNames,
   applyConfig,
   generateM3u8,
   generateTxt,

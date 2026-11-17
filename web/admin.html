@@ -10756,6 +10756,7 @@ if(success){
         // ========== 我的频道管理 ==========
         let myPlaylistData = [];
         let myPlaylistOriginalData = []; // 原始完整数据（用于显示被删除的频道）
+        let myPlaylistHiddenCustomGroups = []; // 整组隐藏的自定义分组 [{name, channels}]，服务端按最终归属算好的
         let myPlaylistConfigLoaded = false; // 当前档配置是否已从服务端成功加载（防止把默认空骨架整份 POST 覆盖真实配置）
         let myPlaylistConfig = {
             channelGroupMap: {},
@@ -10841,6 +10842,40 @@ if(success){
                 .map(g => g.name);
         }
 
+        /** 整组隐藏的自定义分组名（customGroups 里 hidden: true 的）。与服务端 getHiddenCustomGroupNames 同语义。 */
+        function hiddenCustomGroupNames() {
+            return (Array.isArray(myPlaylistConfig.customGroups) ? myPlaylistConfig.customGroups : [])
+                .filter(group => group && typeof group === 'object' && group.hidden === true && typeof group.name === 'string')
+                .map(group => group.name.trim())
+                .filter(Boolean);
+        }
+
+        function isHiddenCustomGroupName(groupName) {
+            return hiddenCustomGroupNames().includes(groupName);
+        }
+
+        /**
+         * 改写一个自定义分组的隐藏状态（纯函数，scripts/test-move-hide.mjs 直接抽出来测）。
+         * 自定义分组不走 deletedGroups：那边按源分组原名判、管不到移进来的频道，分组删掉后还会留下孤儿条目。
+         * 恢复时去掉 hidden 字段，和从没隐藏过的分组一样；老格式的字符串条目隐藏时转成对象。
+         */
+        function setCustomGroupHidden(config, groupName, hidden) {
+            config.customGroups = (Array.isArray(config.customGroups) ? config.customGroups : []).map(group => {
+                const name = typeof group === 'string' ? group : group?.name;
+                if (typeof name !== 'string' || name.trim() !== groupName) return group;
+                if (typeof group === 'string') return hidden ? { name: group, hidden: true } : group;
+                const next = { ...group };
+                if (hidden) next.hidden = true; else delete next.hidden;
+                return next;
+            });
+        }
+
+        /** 「已隐藏」区某条目里频道的配置 key：自定义分组条目里的频道来自不同的原始分组，不能拿条目名拼。 */
+        function hiddenAreaChannelKey(group, channelId) {
+            const channel = (group?.channels || []).find(ch => ch.id === channelId);
+            return `${channel?.originalGroup || group?.name}::${channelId}`;
+        }
+
         /** 频道是否被逐条隐藏。key 必须带原始分组名——裸 ch.id 匹配不到任何东西（旧 bug）。 */
         function isChannelHiddenById(groupName, channel) {
             return (myPlaylistConfig.hiddenChannels || []).includes(`${groupName}::${channel.id}`);
@@ -10897,7 +10932,13 @@ if(success){
                 );
                 return channels.length > 0 ? { ...g, channels, isPartialDelete: true } : null;
             }).filter(Boolean);
-            return [...wholeGroups, ...partialGroups];
+            // 整组隐藏的自定义分组：名单跟配置走，频道用服务端按「最终落到哪个分组」算好的那份
+            // （移进来的、自定义源直接写进来的、按关键字规则归进来的都在里面）。空的也列出来，否则恢复不回来。
+            const customGroups = [...new Set(hiddenCustomGroupNames())].map(name => {
+                const served = (myPlaylistHiddenCustomGroups || []).find(g => g.name === name);
+                return { name, channels: served ? served.channels : [], isCustomHidden: true };
+            });
+            return [...wholeGroups, ...customGroups, ...partialGroups];
         }
 
         function escapeHtml(s) {
@@ -11159,7 +11200,8 @@ if(success){
                 
                 if (result.success) {
                     myPlaylistData = result.data;
-                    
+                    myPlaylistHiddenCustomGroups = Array.isArray(result.hiddenCustomGroups) ? result.hiddenCustomGroups : [];
+
                     // 使用API返回的原始数据
                     if (result.originalData && result.originalData.length > 0) {
                         myPlaylistOriginalData = result.originalData;
@@ -11334,7 +11376,7 @@ if(success){
                 deletedList.innerHTML = allDeletedGroups.map((group, index) => {
                     // 被通配规则盖住的分组标出来源，否则用户看到一个自己没手动隐藏过的分组
                     // 出现在这里，完全无从判断是谁干的（新装的源冒出同前缀分组时尤其如此）。
-                    const pattern = group.isPartialDelete ? null : groupHiddenByPattern(group.name);
+                    const pattern = group.isPartialDelete || group.isCustomHidden ? null : groupHiddenByPattern(group.name);
                     const badge = pattern && pattern.endsWith('*')
                         ? `<span title="被规则 ${escapeHtml(pattern)} 自动隐藏" style="font-size:11px;color:#fa8c16;border:1px solid #ffd591;border-radius:3px;padding:0 3px;margin-left:5px;">${escapeHtml(pattern)}</span>`
                         : '';
@@ -11454,7 +11496,7 @@ if(success){
             hiddenAreaGroups().forEach((group, groupIndex) => {
                 (group.channels || []).forEach(channel => {
                     // 兜底去重：hiddenAreaGroups 已不在整组条目里列移走的频道，正常走不到这里
-                    if (visibleKeys.has(`${group.name}::${channel.id}`)) return;
+                    if (visibleKeys.has(`${channel.originalGroup || group.name}::${channel.id}`)) return;
                     if (channelSearchKey(channel.name).includes(key)) {
                         results.push({ groupIndex, hidden: true, partial: !!group.isPartialDelete, groupName: group.name, channel });
                     }
@@ -11529,9 +11571,12 @@ if(success){
         // ---- 搜索结果批量移动（issue #176）----
         // 给儿童 / 老人电视单独配一档时，「搜少儿 → 全选 → 移到「少儿」组」一步到位，不用一组组点进去挑。
 
-        /** 结果频道的原始分组：整组隐藏 / 单独隐藏的结果，groupName 就是原始分组名；可见结果按 channel.originalGroup。 */
+        /**
+         * 结果频道的原始分组：整组隐藏 / 单独隐藏的源分组结果，groupName 就是原始分组名；
+         * 隐藏的自定义分组里的频道来自别的分组，和可见结果一样按 channel.originalGroup。
+         */
         function searchResultOriginalGroup(result) {
-            return result.hidden ? result.groupName : channelOriginalGroupName(result.channel, result.groupName);
+            return result.hidden ? (result.channel.originalGroup || result.groupName) : channelOriginalGroupName(result.channel, result.groupName);
         }
 
         function searchResultKey(result) {
@@ -11654,7 +11699,7 @@ if(success){
                         <button class="btn btn-sm" onclick="moveGroup(${groupIndex}, 'up')" ${atTop ? 'disabled' : ''} title="把这个分组往前挪一位"><svg class="group-action-icon" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M6 10V2M3 5l3-3 3 3"/></svg>上移</button>
                         <button class="btn btn-sm" onclick="moveGroup(${groupIndex}, 'down')" ${atBottom ? 'disabled' : ''} title="把这个分组往后挪一位"><svg class="group-action-icon" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M6 2v8M3 7l3 3 3-3"/></svg>下移</button>
                         <button class="btn btn-sm" onclick="moveGroup(${groupIndex}, 'bottom')" ${atBottom ? 'disabled' : ''} title="把这个分组移到所有分组最后"><svg class="group-action-icon" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 10h8M6 2v6M3 5l3 3 3-3"/></svg>置底</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})" ${isUngrouped || isCustomGroup ? 'disabled' : ''} title="${isCustomGroup ? '自定义分组无需隐藏：「删除分组」即彻底移除；想隐藏其中的频道请用「批量管理 → 隐藏」' : isUngrouped ? '「未分组」不可隐藏' : '隐藏整个分组，可在右侧「已隐藏」里恢复'}">隐藏分组</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})" ${isUngrouped ? 'disabled' : ''} title="${isUngrouped ? '「未分组」不可隐藏' : isCustomGroup ? '隐藏整个分组（连同移进来的频道），可在右侧「已隐藏」里原样恢复' : '隐藏整个分组，可在右侧「已隐藏」里恢复'}">隐藏分组</button>
                         <button class="btn btn-danger btn-sm" onclick="keepOnlyGroup(${groupIndex})" title="隐藏当前配置档的其他分组，只留下这一个；隐藏的分组可在「已隐藏」里恢复">只保留此分组</button>
                     </div>
                     <span class="group-action-label">组内频道</span>
@@ -11795,7 +11840,7 @@ if(success){
                                 <div class="my-playlist-channel-name" title="点击查看详情：${channel.name}" onclick="showChannelDetail('${channel.id}', true)" style="cursor: pointer;">
                                     <span class="channel-detail-hint" aria-hidden="true">ⓘ</span>${channel.name}
                                 </div>
-                                ${hiddenMovedTag(group.name, channel)}
+                                ${group.isCustomHidden ? '' : hiddenMovedTag(group.name, channel)}
                                 ${group.isPartialDelete && !isBatchMode ? `
                                     <div class="my-playlist-channel-actions" style="opacity: 1 !important;">
                                         <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); restoreChannel('${channel.id}', '${group.name}')">恢复</button>
@@ -12048,8 +12093,14 @@ if(success){
             // 只按「当前可见分组」(myPlaylistData) 判重：被移空 / 隐藏 / 删除而在列表里看不到的分组，
             // 不再占用其分组名，避免「提示分组已存在，但左侧列表里根本找不到它」的矛盾（issue #35）。
             // myPlaylistData 已含自定义空分组，故无需再单独对照 customGroups。
+            // 例外是整组隐藏的自定义分组：它还在 customGroups 里，服务端照样算它占名，这里也得拦。
             // 仍会拦截改名 / 新建到一个当前可见的同名分组；excludeDisplayName 用于排除正在改名的自身。
+            if (isHiddenCustomGroupName(trimmedName)) return true;
             return myPlaylistData.some(group => group.name !== excludeDisplayName && group.name === trimmedName);
+        }
+
+        function groupNameTakenMessage(name) {
+            return `分组 "${name}" 已存在` + (isHiddenCustomGroupName(name) ? '（在右侧「已隐藏」里，恢复后就能看到）' : '');
         }
 
         async function fetchExternalConfigSnapshot() {
@@ -12116,7 +12167,7 @@ if(success){
             if (!trimmed) return;
 
             if (groupNameExists(trimmed)) {
-                showStatus(`分组 "${trimmed}" 已存在`, 'error');
+                showStatus(groupNameTakenMessage(trimmed), 'error');
                 return;
             }
 
@@ -12265,7 +12316,7 @@ if(success){
             if (trimmed === currentName) return;
 
             if (groupNameExists(trimmed, { excludeDisplayName: currentName })) {
-                showStatus(`分组 "${trimmed}" 已存在`, 'error');
+                showStatus(groupNameTakenMessage(trimmed), 'error');
                 return;
             }
 
@@ -12354,7 +12405,7 @@ if(success){
                 return;
             }
             if (isCustomGroupName(group.name)) {
-                showStatus('自定义空分组不支持隐藏，请直接删除分组', 'error');
+                await hideCustomGroup(group);
                 return;
             }
             // 同前缀的兄弟分组（体育-昨天 / 今天 / 明天）：这类分组每天重建，只隐藏眼前这一个，
@@ -12425,6 +12476,43 @@ if(success){
             }
         }
 
+        // 自定义分组整组隐藏：记在分组自己身上（customGroups[].hidden），不写 deletedGroups，也不动 groupOrder——
+        // 恢复后位置、组内顺序、移进来的频道都原样回来。删除分组则是把频道打回「未分组」，两者不是一回事。
+        async function hideCustomGroup(group) {
+            const name = group.name;
+            const confirmed = await showConfirm(
+                `确定隐藏分组 "${name}" 吗？\n组里的 ${group.channels.length} 个频道会一起移到"已隐藏"区域，恢复分组后原样回来`
+            );
+            if (!confirmed) return;
+            const config = myPlaylistConfig;
+            const before = JSON.parse(JSON.stringify(config.customGroups || []));
+            setCustomGroupHidden(config, name, true);
+            try {
+                const response = await fetch(mpConfigUrl(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    await loadMyPlaylist(false);
+                    if (myPlaylistConfig !== config) return;   // 保存期间切了档
+                    if (!isViewingDeleted && selectedGroupIndex >= myPlaylistData.length) {
+                        selectedGroupIndex = Math.max(0, myPlaylistData.length - 1);
+                        renderMyPlaylist();
+                    }
+                    showStatus(`已隐藏分组 "${name}"`, 'success');
+                } else {
+                    // 没存上就别留着隐藏的内存状态，免得下次随手一存全带出去
+                    if (myPlaylistConfig === config) config.customGroups = before;
+                    showStatus('隐藏失败' + (result.message ? ': ' + result.message : ''), 'error');
+                }
+            } catch (error) {
+                if (myPlaylistConfig === config) config.customGroups = before;
+                showStatus('隐藏失败: ' + error.message, 'error');
+            }
+        }
+
         /** 把一个显示分组写进 deletedGroups：被改名成这个名字的原始分组都要写（并去掉改名），名称本身也可能是原始分组名。 */
         function markGroupHidden(currentName, { includeSelf = true } = {}) {
             if (myPlaylistConfig.groupRenameMap) {
@@ -12444,7 +12532,8 @@ if(success){
 
         // 只保留此分组（issue #176）：给儿童 / 老人电视单配一档时，先把要的频道归到一个分组，再一键隐藏其余分组。
         // 只写当前档的 deletedGroups（按原始分组名，改名留着），「已隐藏」里有「恢复全部分组」可一键撤回。
-        // 自定义分组和「未分组」不能整组隐藏（与「隐藏分组」按钮同一限制），公告固定保留；
+        // 自定义分组打上 hidden 标记（customGroups[].hidden，连同移进去的频道一起隐藏）；
+        // 「未分组」不能整组隐藏（与「隐藏分组」按钮同一限制），公告固定保留；
         // 只由关键字规则 / 源默认分组 / 手动移入凑出来的分组（issue #69/#110）也跳过：它背后没有源分组，
         // 写进 deletedGroups 隐藏不了它，反而会把以后源里真出现的同名分组悄悄藏掉。
         async function keepOnlyGroup(index) {
@@ -12457,10 +12546,11 @@ if(success){
                 .map(g => g.name)
                 .filter(original => (renameMap[original] || original) === name);
             const others = myPlaylistData.filter((g, i) => i !== index && !isSystemAnnouncementGroup(g));
-            const plan = [];      // [{ name, originals: 还没被隐藏规则盖住的原始分组 }]
+            const plan = [];      // [{ name, originals: 还没被隐藏规则盖住的原始分组 }] 或 [{ name, custom: true }]
             const skipped = [];
             others.forEach(g => {
-                if (g.name === '未分组' || isCustomGroupName(g.name)) { skipped.push(g.name); return; }
+                if (g.name === '未分组') { skipped.push(g.name); return; }
+                if (isCustomGroupName(g.name)) { plan.push({ name: g.name, custom: true }); return; }
                 const originals = originalsOf(g.name);
                 if (originals.length === 0) { skipped.push(g.name); return; }
                 // 已被规则（含 `前缀*`）盖住、只因有移入频道还显示的：不再补精确条目，免得「解除规则」后残留
@@ -12474,15 +12564,24 @@ if(success){
             const confirmed = await showConfirm(
                 `只保留「${keep.name}」，隐藏「${currentProfileName()}」档的其余 ${plan.length} 个分组吗？\n`
                 + `隐藏的分组都在「已隐藏」里，可以逐个恢复或一键恢复全部。公告固定保留，不需要可在频道行逐条隐藏。`
-                + (skipped.length ? `\n\n${skipped.join('、')} 不能整组隐藏，会保留；自定义分组可以删除，其他可在组内批量隐藏频道。` : '')
+                + (skipped.length ? `\n\n${skipped.join('、')} 不能整组隐藏，会保留，可在组内批量隐藏频道。` : '')
             );
             if (!confirmed) return;
 
             const config = myPlaylistConfig;
             const before = config.deletedGroups.slice();
-            plan.forEach(item => item.originals.forEach(original => {
-                if (!config.deletedGroups.includes(original)) config.deletedGroups.push(original);
-            }));
+            const beforeCustom = JSON.parse(JSON.stringify(config.customGroups || []));
+            const rollback = () => {
+                if (myPlaylistConfig !== config) return;
+                config.deletedGroups = before;
+                config.customGroups = beforeCustom;
+            };
+            plan.forEach(item => {
+                if (item.custom) { setCustomGroupHidden(config, item.name, true); return; }
+                item.originals.forEach(original => {
+                    if (!config.deletedGroups.includes(original)) config.deletedGroups.push(original);
+                });
+            });
             // 不动 groupOrder：留着这些分组的位置，紧接着「恢复全部分组」时顺序还是原来的样子
             try {
                 const response = await fetch(mpConfigUrl(), {
@@ -12509,11 +12608,11 @@ if(success){
                         'success', left.length ? 6000 : 3000);
                 } else {
                     // 没存上就别留着隐藏的内存状态，免得下次随手一存全带出去
-                    if (myPlaylistConfig === config) config.deletedGroups = before;
+                    rollback();
                     showStatus('隐藏失败' + (result.message ? ': ' + result.message : ''), 'error');
                 }
             } catch (error) {
-                if (myPlaylistConfig === config) config.deletedGroups = before;
+                rollback();
                 showStatus('隐藏失败: ' + error.message, 'error');
             }
         }
@@ -12525,9 +12624,18 @@ if(success){
             if (!isViewingDeleted) return;
             const whole = hiddenAreaGroups().filter(g => !g.isPartialDelete);
             if (whole.length === 0) return;
-            const covers = pattern => whole.some(g => pattern.endsWith('*') ? g.name.startsWith(pattern.slice(0, -1)) : pattern === g.name);
+            // 自定义分组的隐藏记在 customGroups 上，规则匹配只看源分组，免得「体育-*」因为一个叫「体育-收藏」的自定义分组被顺手解除
+            const sourceWhole = whole.filter(g => !g.isCustomHidden);
+            const customWhole = whole.filter(g => g.isCustomHidden);
+            const covers = pattern => sourceWhole.some(g => pattern.endsWith('*') ? g.name.startsWith(pattern.slice(0, -1)) : pattern === g.name);
             const config = myPlaylistConfig;
             const before = config.deletedGroups || [];
+            const beforeCustom = JSON.parse(JSON.stringify(config.customGroups || []));
+            const rollback = () => {
+                if (myPlaylistConfig !== config) return;
+                config.deletedGroups = before;
+                config.customGroups = beforeCustom;
+            };
             const patterns = before.filter(p => p.endsWith('*') && covers(p));
             // 列出名字：里面可能有很早以前特意隐藏的分组，不只是刚才「只保留此分组」藏的
             const names = whole.map(g => g.name);
@@ -12539,6 +12647,7 @@ if(success){
             );
             if (!confirmed) return;
             config.deletedGroups = before.filter(p => !covers(p));
+            customWhole.forEach(g => setCustomGroupHidden(config, g.name, false));
             try {
                 const response = await fetch(mpConfigUrl(), {
                     method: 'POST',
@@ -12558,11 +12667,11 @@ if(success){
                     showStatus(`已恢复 ${whole.length} 个分组`, 'success');
                 } else {
                     // 没存上就别留着「已恢复」的内存状态，免得下次随手一存全带出去
-                    if (myPlaylistConfig === config) config.deletedGroups = before;
+                    rollback();
                     showStatus('恢复失败' + (result.message ? ': ' + result.message : ''), 'error');
                 }
             } catch (error) {
-                if (myPlaylistConfig === config) config.deletedGroups = before;
+                rollback();
                 showStatus('恢复失败: ' + error.message, 'error');
             }
         }
@@ -12610,6 +12719,10 @@ if(success){
 
             const group = hiddenAreaGroups()[selectedGroupIndex];
             if (!group || group.isPartialDelete) return;
+            if (group.isCustomHidden) {
+                await restoreCustomGroup(group.name);
+                return;
+            }
             let restoreMessage = '';
 
             // 这个分组可能是被某条通配规则（`体育-*`）盖住的，而不是自己被精确隐藏的。
@@ -12665,6 +12778,30 @@ if(success){
                 }
             } catch (error) {
                 console.error('恢复分组失败:', error);
+                showStatus('恢复失败: ' + error.message, 'error');
+            }
+        }
+
+        async function restoreCustomGroup(name) {
+            const config = myPlaylistConfig;
+            const before = JSON.parse(JSON.stringify(config.customGroups || []));
+            setCustomGroupHidden(config, name, false);
+            try {
+                const response = await fetch(mpConfigUrl(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    await loadMyPlaylist(false);
+                    showStatus(`已恢复分组 "${name}"`, 'success');
+                } else {
+                    if (myPlaylistConfig === config) config.customGroups = before;
+                    showStatus('恢复失败' + (result.message ? ': ' + result.message : ''), 'error');
+                }
+            } catch (error) {
+                if (myPlaylistConfig === config) config.customGroups = before;
                 showStatus('恢复失败: ' + error.message, 'error');
             }
         }
@@ -12824,6 +12961,7 @@ if(success){
             if (resetHidden) {
                 myPlaylistConfig.hiddenChannels = [];
                 myPlaylistConfig.deletedGroups = [];
+                hiddenCustomGroupNames().forEach(name => setCustomGroupHidden(myPlaylistConfig, name, false));
                 parts.push('隐藏');
             }
             // 屏蔽规则（issue #123）单独一项：它是用户特意配的、重建成本高，
@@ -12845,7 +12983,9 @@ if(success){
 
         // 批量管理相关函数
         function toggleBatchMode() {
-            if (!isBatchMode && isSystemAnnouncementGroup(myPlaylistData[selectedGroupIndex])) {
+            // 只在「我的频道」区判公告：「已隐藏」区的下标对的是 hiddenAreaGroups，拿它去查 myPlaylistData
+            // 会撞上置顶的公告，排第一的隐藏分组就永远进不了「批量移动频道」
+            if (!isBatchMode && !isViewingDeleted && isSystemAnnouncementGroup(myPlaylistData[selectedGroupIndex])) {
                 showStatus('系统公告频道不支持批量操作', 'error');
                 return;
             }
@@ -13115,7 +13255,7 @@ if(success){
 
             if (!myPlaylistConfig.channelGroupMap) myPlaylistConfig.channelGroupMap = {};
             const n = selectedChannels.size;
-            const keys = [...selectedChannels].map(channelId => `${currentGroup.name}::${channelId}`);
+            const keys = [...selectedChannels].map(channelId => hiddenAreaChannelKey(currentGroup, channelId));
             // 整组隐藏之前就单独隐藏过的频道，只改归类的话移过去仍是隐藏的（服务端先判 hiddenChannels），
             // 一并取消隐藏——与搜索结果批量移动同一口径
             const unhidden = keys.filter(k => myPlaylistConfig.hiddenChannels.includes(k)).length;

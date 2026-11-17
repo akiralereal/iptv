@@ -5,6 +5,7 @@ import anhui from '../extractors/anhui/index.js'
 import {
   ANHUI_CONFIG_API,
   ANHUI_TV_CATALOG_API,
+  ANHUI_API_CDN_BASE,
   APP_TOKEN_LIFETIME_MS,
   AUTH_KEY_TTL_MS,
   CHANNELS,
@@ -16,11 +17,14 @@ import {
   officialHlsUrl,
   officialMediaUrl,
   parseConfig,
+  apiCdnUrl,
+  configUrl,
   parseTvCatalog,
   channelConfigFromCatalog,
   tvCatalogUrl,
   TV_CATALOG_TTL_MS,
   requestManifest,
+  requestAuthKey,
   signedStreamUrl,
   upstreamHeadersFor,
   validateHls,
@@ -58,14 +62,20 @@ const channelPayload = (channel, movie = {}, meta = {}) => catalogPayload([chann
 const readChannel = (text, channel) => channelConfigFromCatalog(parseTvCatalog(text), channel)
 
 /** 记录每次请求的地址与请求头，按路径回放配置接口、电视栏目与清单。 */
-function fakeUpstream({ manifestStatuses = [], configPayload = CONFIG_PAYLOAD, channelConfig = () => ({}), channelMeta = () => ({}) } = {}) {
+function fakeUpstream({ manifestStatuses = [], configPayload = CONFIG_PAYLOAD, channelConfig = () => ({}), channelMeta = () => ({}), apiStatuses = {}, cdnStatuses = {} } = {}) {
   const calls = []
   let sequence = 100
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url: String(url), headers: options.headers || {} })
-    if (String(url).startsWith(ANHUI_CONFIG_API)) return response(configPayload, 200, { 'content-type': 'application/json' })
-    if (String(url).startsWith(ANHUI_TV_CATALOG_API)) {
-      return response(catalogPayload(CHANNELS.map(channel => channelRecord(channel, channelConfig(channel), channelMeta(channel)))))
+    const cdn = String(url).startsWith(ANHUI_API_CDN_BASE)
+    const api = String(url).startsWith(ANHUI_CONFIG_API) || String(url) === apiCdnUrl(configUrl()) ? 'key'
+      : String(url).startsWith(ANHUI_TV_CATALOG_API) || String(url) === apiCdnUrl(tvCatalogUrl()) ? 'catalog' : ''
+    if (api) {
+      const status = (cdn ? cdnStatuses : apiStatuses)[api] ?? 200
+      if (status !== 200) return response('configuration unavailable', status)
+      return response(api === 'key' ? configPayload
+        : catalogPayload(CHANNELS.map(channel => channelRecord(channel, channelConfig(channel), channelMeta(channel)))),
+      200, { 'content-type': 'application/json' })
     }
     if (/\/live\/\/[a-z\d]+\.m3u8\?txSecret=/.test(String(url))) {
       // 三个 CDN 的标识不能混用；卫视新源拒绝 ijkplayer，须用 App 内置 FFmpeg 的 Lavf。
@@ -84,7 +94,7 @@ function fakeUpstream({ manifestStatuses = [], configPayload = CONFIG_PAYLOAD, c
     }
     throw new Error(`unexpected fetch ${url}`)
   }
-  return { calls, fetchImpl, configCalls: () => calls.filter(call => call.url.startsWith(ANHUI_CONFIG_API)), catalogCalls: () => calls.filter(call => call.url.startsWith(ANHUI_TV_CATALOG_API)), manifestCalls: () => calls.filter(call => call.url.includes('.m3u8')) }
+  return { calls, fetchImpl, configCalls: () => calls.filter(call => call.url.startsWith(ANHUI_CONFIG_API)), catalogCalls: () => calls.filter(call => call.url.startsWith(ANHUI_TV_CATALOG_API)), cdnCalls: () => calls.filter(call => call.url.startsWith(ANHUI_API_CDN_BASE)), manifestCalls: () => calls.filter(call => call.url.includes('.m3u8')) }
 }
 
 console.log('安徽广电模块测试')
@@ -140,6 +150,81 @@ check('解码官方 App 加密配置，并兼容明文配置', () => {
   assert.throws(() => parseConfig(JSON.stringify({ state: true, data: { is_encrypt: 1, key: 'bad' } })), /无法解码/)
   assert.throws(() => parseConfig(JSON.stringify({ state: true, data: { is_encrypt: 0, key: { tx_auth_key: 'short' } } })), /鉴权密钥/)
   assert.throws(() => parseConfig(JSON.stringify({ state: true, data: { is_encrypt: 0, key: '[]' } })), /密钥配置/)
+})
+
+check('官方 CDN 地址与实测配置一致，参数顺序与 App 临时签名不改变缓存文件名', () => {
+  assert.equal(apiCdnUrl(configUrl()), ANHUI_API_CDN_BASE + 'api/config-other-encrypt/a480736a9da0921dd8f3dec438c65d29.json')
+  assert.equal(apiCdnUrl(tvCatalogUrl()), ANHUI_API_CDN_BASE + 'api/content/list/15/234762e5cc4430e235d7c89cabb993b8.json')
+  const reordered = new URL(configUrl())
+  reordered.search = new URLSearchParams([...reordered.searchParams].reverse()).toString()
+  for (const key of ['t', 'sign-timestamp', 'sign-guid', 'sign-re']) reordered.searchParams.set(key, 'temporary')
+  assert.equal(apiCdnUrl(reordered.href), apiCdnUrl(configUrl()))
+  for (const url of ['https://evil.example/api/appapi/api/config-other-encrypt',
+    'https://console.ahsx.ahtv.cn/api/appapi/api/other', configUrl() + '#fragment',
+    configUrl().replace('https://', 'https://user:pw@')]) assert.throws(() => apiCdnUrl(url), /备用接口引用无效/)
+  assert.throws(() => officialMediaUrl(apiCdnUrl(configUrl())), /非官方/)
+})
+
+await checkAsync('主接口 403/503 时七路共享官方 CDN 备用配置，媒体仍按原链路解析', async () => {
+  const upstream = fakeUpstream({ apiStatuses: { key: 403, catalog: 503 } })
+  const resolver = createResolver({ fetchImpl: upstream.fetchImpl })
+  const results = await Promise.all(CHANNELS.map(channel => resolver.resolve(channel.ref)))
+  assert.ok(results.every(result => result.url), results.map(result => result.desc).join('\n'))
+  assert.equal(upstream.configCalls().length, 1)
+  assert.equal(upstream.catalogCalls().length, 1)
+  assert.equal(upstream.cdnCalls().length, 2)
+  assert.equal(upstream.manifestCalls().length, 7)
+  assert.ok(upstream.cdnCalls().every(call => !new URL(call.url).search && call.headers.Accept === 'application/json'))
+  for (const apiStatuses of [{ key: 403 }, { catalog: 403 }]) {
+    const single = fakeUpstream({ apiStatuses })
+    assert.ok((await createResolver({ fetchImpl: single.fetchImpl }).resolve(CHANNELS[0].ref)).url)
+    assert.equal(single.cdnCalls().length, 1, '正常的另一接口不应额外请求 CDN')
+  }
+})
+
+await checkAsync('主备都失败时保留两段错误，不循环重试或返回固定直播地址', async () => {
+  const upstream = fakeUpstream({ apiStatuses: { key: 403 }, cdnStatuses: { key: 502 } })
+  const result = await createResolver({ fetchImpl: upstream.fetchImpl }).resolve(CHANNELS[0].ref)
+  assert.equal(result.url, '')
+  assert.match(result.desc, /配置接口 HTTP 403.*官方 CDN 备用接口 HTTP 502/)
+  assert.equal(upstream.configCalls().length, 1)
+  assert.equal(upstream.cdnCalls().length, 1)
+  assert.equal(upstream.manifestCalls().length, 0)
+})
+
+await checkAsync('配置入口 TLS 错误、逻辑失败与主备外域跳转都明确失败', async () => {
+  for (const initial of [() => { throw new Error('TLS certificate failure') }, () => response('{}'),
+    () => response('', 302, { location: 'https://evil.example/config' })]) {
+    const calls = []
+    await assert.rejects(requestAuthKey({ fetchImpl: async url => { calls.push(url); return initial() } }))
+    assert.equal(calls.length, 1, '非 4xx/5xx 不应启用 CDN 备用')
+  }
+  const calls = []
+  await assert.rejects(requestAuthKey({ fetchImpl: async (url, options) => {
+    calls.push(url)
+    assert.equal(options.redirect, 'manual')
+    return String(url).startsWith(ANHUI_API_CDN_BASE)
+      ? response('', 302, { location: 'https://evil.example/config' }) : response('', 403)
+  } }), /不安全的重定向/)
+  assert.equal(calls.length, 2)
+  assert.ok(calls.every(url => new URL(url).hostname !== 'evil.example'))
+})
+
+await checkAsync('主备共享同一超时预算，CDN 结果仍受密钥配置大小和结构校验约束', async () => {
+  const signals = []
+  await assert.rejects(requestAuthKey({ timeoutMs: 20, fetchImpl: async (url, options) => {
+    signals.push(options.signal)
+    if (!String(url).startsWith(ANHUI_API_CDN_BASE)) return response('', 403)
+    return new Promise((resolve, reject) => options.signal.addEventListener('abort', () =>
+      reject(Object.assign(new Error('aborted'), { name: 'AbortError' })), { once: true }))
+  } }), error => error.name === 'AbortError')
+  assert.equal(signals.length, 2)
+  assert.equal(signals[0], signals[1])
+  for (const [body, headers, pattern] of [['{}', {}, /没有返回配置/],
+    ['too large', { 'content-length': String(512 * 1024 + 1) }, /响应过大/]]) {
+    await assert.rejects(requestAuthKey({ fetchImpl: async url => String(url).startsWith(ANHUI_API_CDN_BASE)
+      ? response(body, 200, headers) : response('', 403) }), pattern)
+  }
 })
 
 check('逐频道生成与 App 运行时完全一致的腾讯云签名', () => {
@@ -382,11 +467,9 @@ await checkAsync('正常 HTTPS、HTTP 403 与其他 TLS 错误不会触发 HTTP 
   assert.equal(calls.length, 1)
 })
 
-await checkAsync('官方栏目失败不回退到旧域名或固定流 ID', async () => {
-  const upstream = fakeUpstream()
-  const fetchImpl = async (url, options) => String(url).startsWith(ANHUI_TV_CATALOG_API)
-    ? response('', 503) : upstream.fetchImpl(url, options)
-  const result = await createResolver({ fetchImpl }).resolve('anhui-ahwssx')
+await checkAsync('官方主备栏目均失败时不回退到旧域名或固定流 ID', async () => {
+  const upstream = fakeUpstream({ apiStatuses: { catalog: 503 }, cdnStatuses: { catalog: 503 } })
+  const result = await createResolver({ fetchImpl: upstream.fetchImpl }).resolve('anhui-ahwssx')
   assert.equal(result.url, '')
   assert.match(result.desc, /电视栏目 HTTP 503/)
   assert.equal(upstream.manifestCalls().length, 0)
@@ -448,9 +531,8 @@ await checkAsync('签名被拒时丢弃密钥重签一次，连续失败给出�
 })
 
 await checkAsync('配置接口异常与非法引用都返回可读失败，绝不抛出', async () => {
-  const upstream = fakeUpstream()
-  const broken = await createResolver({ fetchImpl: async (url, options) => String(url).startsWith(ANHUI_CONFIG_API)
-    ? response('oops', 500) : upstream.fetchImpl(url, options) }).resolve('anhui-jjshtv')
+  const upstream = fakeUpstream({ apiStatuses: { key: 500 }, cdnStatuses: { key: 500 } })
+  const broken = await createResolver({ fetchImpl: upstream.fetchImpl }).resolve('anhui-jjshtv')
   assert.equal(broken.url, '')
   assert.match(broken.desc, /配置接口 HTTP 500/)
 

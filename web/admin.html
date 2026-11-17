@@ -4432,10 +4432,11 @@
     <div class="modal" id="biliSessdataGuideModal">
         <div class="modal-content" style="width: 560px; max-width: 92%;">
             <h3 style="margin-bottom: 14px;">手动获取 SESSDATA</h3>
-            <div style="background:#e6f7ff; border:1px solid #91d5ff; padding:12px 14px; border-radius:6px; margin-bottom:14px; font-size:13px; color:#003a8c; line-height:1.8;">
+            <!-- 配色跟后台现行色板走，与咪咕说明弹窗一致 -->
+            <div style="background:var(--ui-surface-soft); border:1px solid var(--ui-line); padding:12px 16px; border-radius:12px; margin-bottom:14px; font-size:13px; color:var(--ui-text-secondary); line-height:1.8;">
                 推荐直接用「📱 扫码登录」，这一页是给<strong>不想扫码、或手机不在身边</strong>的情况准备的。
             </div>
-            <ol style="margin:0; padding-left:22px; font-size:14px; color:#333; line-height:2;">
+            <ol style="margin:0; padding-left:22px; font-size:14px; color:var(--ui-text); line-height:2;">
                 <li>用电脑浏览器打开 <code>bilibili.com</code> 并<strong>登录</strong></li>
                 <li>按 <code>F12</code> 打开开发者工具（Mac 上是 <code>⌥⌘I</code>）</li>
                 <li>切到 <strong>Application</strong> 标签（Firefox 里叫「存储」）</li>
@@ -4443,7 +4444,7 @@
                 <li>在列表里找到名为 <code>SESSDATA</code> 的那一行</li>
                 <li>双击它的 <strong>Value</strong> 列，全选复制，粘贴到左边的输入框</li>
             </ol>
-            <div style="background:#fff7e6; border:1px solid #ffd591; padding:10px 14px; border-radius:6px; margin-top:14px; font-size:13px; color:#874d00; line-height:1.8;">
+            <div style="background:var(--ui-warning-soft); border:1px solid var(--ui-warning-line); padding:10px 16px; border-radius:12px; margin-top:14px; font-size:13px; color:var(--ui-warning); line-height:1.8;">
                 ⚠️ SESSDATA <strong>等同登录态</strong>，拿到它就能以你的身份操作账号，别外传、别截图发人。<br>
                 不填也能用，只是画质封顶在「超清」；填了才有「原画」。
             </div>
@@ -4458,20 +4459,21 @@
         <div class="modal-content" style="width: 700px; max-width: 90%;">
             <h3 style="margin-bottom: 20px;">如何添加咪咕账号获取工具</h3>
             
-            <div style="background: #e6f7ff; border: 1px solid #91d5ff; padding: 16px; border-radius: 6px; margin-bottom: 20px;">
-                <h4 style="color: #1890ff; margin-bottom: 12px;">方法一：拖拽添加（推荐）</h4>
+            <!-- 配色跟后台现行色板走（按钮已是墨黑），文案不写按钮颜色，免得改色后对不上 -->
+            <div style="background: var(--ui-surface-soft); border: 1px solid var(--ui-line); padding: 16px; border-radius: 12px; margin-bottom: 14px; color: var(--ui-text-secondary);">
+                <h4 style="color: var(--ui-text); margin-bottom: 12px;">方法一：拖拽添加（推荐）</h4>
                 <ol style="line-height: 1.8; padding-left: 20px;">
-                    <li>鼠标<strong>按住</strong>蓝色按钮不松开</li>
+                    <li>鼠标<strong>按住</strong>「获取咪咕账号」按钮不松开</li>
                     <li><strong>拖拽</strong>到浏览器顶部的书签栏</li>
                     <li>松开鼠标，书签添加完成</li>
                 </ol>
             </div>
-            
-            <div style="background: #fff7e6; border: 1px solid #ffd591; padding: 16px; border-radius: 6px; margin-bottom: 20px;">
-                <h4 style="color: #fa8c16; margin-bottom: 12px;">方法二：手动创建书签</h4>
+
+            <div style="background: var(--ui-surface-soft); border: 1px solid var(--ui-line); padding: 16px; border-radius: 12px; margin-bottom: 14px; color: var(--ui-text-secondary);">
+                <h4 style="color: var(--ui-text); margin-bottom: 12px;">方法二：手动创建书签</h4>
                 <ol style="line-height: 1.8; padding-left: 20px;">
                     <li>在浏览器书签栏<strong>右键</strong> → 选择"添加网页"或"新建书签"</li>
-                    <li>名称填写：<code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">获取咪咕账号</code></li>
+                    <li>名称填写：<code style="background: var(--ui-surface-strong); padding: 2px 6px; border-radius: 5px;">获取咪咕账号</code></li>
                     <li>网址/URL 填写下方的代码（点击按钮自动复制）</li>
                 </ol>
                 <div style="margin-top: 12px;">
@@ -4480,8 +4482,8 @@
                     </button>
                 </div>
             </div>
-            
-            <div style="background: #f6ffed; border: 1px solid #b7eb8f; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #52c41a;">
+
+            <div style="background: var(--ui-success-soft); border: 1px solid var(--ui-success-line); padding: 12px 16px; border-radius: 12px; margin-bottom: 20px; font-size: 13px; color: var(--ui-success);">
                 <strong>✓ 添加成功后：</strong>在咪咕视频网站点击书签，即可自动提取并复制账号信息
             </div>
             

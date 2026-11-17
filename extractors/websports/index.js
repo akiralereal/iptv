@@ -11,7 +11,7 @@ function providerFor(ctx) {
 
 export default {
   id: 'websports', name: 'WebSports', category: 'live',
-  description: '来自第三方赛事网站的足球、篮球等比赛，每场一个频道，未开赛或已结束的场次播不了。入口页只放行大陆和香港网络，部署在其他地区的实例取不到地址。本机只中继清单，视频由播放器直连。',
+  description: '来自第三方赛事网站的足球、篮球等比赛，每场一个频道，未开赛的场次播不了，已结束的不列出（按开赛时间推算）。入口页只放行大陆和香港网络，部署在其他地区的实例取不到地址。本机只中继清单，视频由播放器直连。',
   // 第三方网站、不是官方来源，不进默认内容，由用户自己打开
   defaultEnabled: false,
   capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },

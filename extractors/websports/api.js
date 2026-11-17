@@ -40,6 +40,12 @@ const AVOID_MS = 5 * 60 * 1000
 const FAILURE_TTL_MS = 30 * 1000
 const EXPIRY_MARGIN_MS = 2 * 60 * 1000
 const DEFAULT_TTL_MS = 60 * 60 * 1000
+// 列表里每场 data-lid 的第二段是项目：1 足球、2 篮球（11-17 实测 122 场，对联赛名全吻合）
+const SPORTS = { 1: 'football', 2: 'basketball' }
+// 开赛后过了这么久算已结束、不进列表。来源站没有开赛、结束状态，自己要留到开赛后五小时左右，只能按时间推。
+// 宁可晚删：足球留到加时、点球打完，篮球含加时，不知道是什么项目的按长的算
+const MATCH_MINUTES = { football: 165, basketball: 180, other: 180 }
+const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000
 
 /** 与广东体育赛事同一处理：比赛名会写进 EXTINF 属性，引号、逗号不能原样留着 */
 function cleanTitle(value) {
@@ -68,9 +74,27 @@ export function parseMatches(script) {
     const league = block.match(/lab_events"[^>]*><span class="name">([^<]*)/)?.[1]
     const home = block.match(/lab_team_home"><strong class="name">([^<]*)/)?.[1]
     const away = block.match(/lab_team_away"><strong class="name">([^<]*)/)?.[1]
-    if (id && time && home && away && !matches.has(id)) matches.set(id, { id, time, league: cleanTitle(league), home: cleanTitle(home), away: cleanTitle(away) })
+    const sport = SPORTS[block.match(/data-lid="\d+,(\d+)/)?.[1]] || 'other'
+    if (id && time && home && away && !matches.has(id)) matches.set(id, { id, time, sport, league: cleanTitle(league), home: cleanTitle(home), away: cleanTitle(away) })
   }
   return [...matches.values()]
+}
+
+/** 「MM-DD HH:MM」是北京时间、不带年份：按离现在最近的那一年算，跨年前后不会差出一年；格式不对返回 NaN */
+export function kickoffOf(time, now) {
+  const m = String(time).match(/^(\d{2})-(\d{2}) (\d{2}):(\d{2})$/)
+  if (!m) return NaN
+  const [month, day, hour, minute] = m.slice(1).map(Number)
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) return NaN
+  const year = new Date(now + BEIJING_OFFSET_MS).getUTCFullYear()
+  return [year - 1, year, year + 1].map(y => Date.UTC(y, month - 1, day, hour, minute) - BEIJING_OFFSET_MS)
+    .reduce((best, at) => (Math.abs(at - now) < Math.abs(best - now) ? at : best))
+}
+
+/** 开赛时间加上这个项目的比赛时长已经过了；时间读不出来的留着 */
+export function hasEnded(match, now) {
+  const kickoff = kickoffOf(match.time, now)
+  return Number.isFinite(kickoff) && now > kickoff + (MATCH_MINUTES[match.sport] ?? MATCH_MINUTES.other) * 60 * 1000
 }
 
 // 线路都是并行查、按实际分辨率选，顺序只决定分辨率相同时选谁，以及 MAX_LINES 截掉哪些。
@@ -335,7 +359,8 @@ export function createProvider({ fetchImpl = fetch, now = Date.now, decode = dec
     const { listUrl, home } = await loadSite()
     const matches = parseMatches(await read(listUrl, { referer: home, timeout: 15000 }))
     if (!matches.length) throw new Error('赛事列表为空或页面已改版')
-    return matches
+    // 已结束的播不了，又按时间排在最前面，不列出来；还没开赛的照样列，播放器不常重拉列表，砍掉会漏后面的比赛
+    return matches.filter(match => !hasEnded(match, now()))
   }
 
   return { discover, resolve }

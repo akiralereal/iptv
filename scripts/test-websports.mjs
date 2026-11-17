@@ -10,7 +10,7 @@ process.env.mdataDir = dataDir
 process.env.mbuiltInSourcesUrl = ''
 process.env.mblank = 'true'
 after(() => rmSync(dataDir, { recursive: true, force: true }))
-const { createProvider, expiryOf, isLiveManifest, isPublicUrl, linePaths, normalizeSiteConfig, parseMatches, parseSite, wrappedPlayerUrl } = await import('../extractors/websports/api.js')
+const { createProvider, expiryOf, hasEnded, isLiveManifest, isPublicUrl, kickoffOf, linePaths, normalizeSiteConfig, parseMatches, parseSite, wrappedPlayerUrl } = await import('../extractors/websports/api.js')
 const { default: builtInSourceManager } = await import('../utils/builtInSources.js')
 const { default: extractor } = await import('../extractors/websports/index.js')
 const { declaredHeight, firstUri, heightOfSegment, spsHeight } = await import('../extractors/websports/resolution.js')
@@ -23,7 +23,7 @@ const homeHtml = `<script>window.PLAY_HOSTS = {
 };
 function getPlayUrl(line, id) { var host = window.PLAY_HOSTS[line]; return host + "/play/steam" + id + ".html"; }</script>
 <script src="//cdn.example.com/index.js?t_5" type="text/javascript"></script>`
-const row = (id, time, league, home, away) => `document.write('<ul class="item play d-touch active " data-lid="1,1,1" data-stype="zqlq">');
+const row = (id, time, league, home, away, sport = 1) => `document.write('<ul class="item play d-touch active " data-lid="${id},${sport},${id}" data-stype="zqlq">');
 document.write('  <li class="lab_events" style="background-color:#F57070"><span class="name">${league}</span></li>');
 document.write('  <li class="lab_time">${time}</li>');
 document.write('  <li class="lab_team_home"><strong class="name">${home}</strong><em class="bf" title="2"></em></li>');
@@ -33,7 +33,7 @@ document.write('    <a class="item ok type1 me" href="' + getPlayUrl("line1", "$
 document.write('    <a class="item ok type1 me" href="' + getPlayUrl("line2", "${id}") + '" data-play=""><strong>直播②</strong></a>');
 document.write('</ul>');
 `
-const listScript = row('825411', '10-31 22:00', '意甲', '博洛尼亚', '蒙扎') + row('825412', '11-01 03:00', 'NBA', 'A,队', 'B"队') + row('825411', '10-31 22:00', '意甲', '重复', '重复')
+const listScript = row('825411', '10-31 22:00', '意甲', '博洛尼亚', '蒙扎') + row('825412', '11-01 03:00', 'NBA', 'A,队', 'B"队', 2) + row('825411', '10-31 22:00', '意甲', '重复', '重复')
 const entryHtml = `<iframe src="/play/sm.html?id=100&id2="></iframe>
 <a data-play="/play/sm.html?id=928&amp;id2="></a>
 <a data-play="/play/dead/?id=1&id2="></a>
@@ -44,6 +44,8 @@ const linePage = param => `<script>window.playerConfig = { playerUrlBase64: "${b
 var encodedStr = "${param}";</script>`
 const liveManifest = '#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:5.4,\na.ts?auth_key=1\n'
 const stream = 'https://cdn.example.com/rrty/hd-1_gqzm.m3u8?auth_key=1793458862-0-0-abc'
+// 列表里的场次都还没结束的时刻（北京时间 10-31 21:00）；比赛表要按时间筛，看条数的测试都用它
+const beforeMatches = () => Date.parse('2026-10-31T21:00:00+08:00')
 
 function mockSite(state = {}) {
   const calls = state.calls = []
@@ -86,9 +88,45 @@ test('首页解析出播放域名、路径规则和列表脚本，结构变了�
 test('比赛表按场去重，名字里的引号和逗号不进 EXTINF', () => {
   const matches = parseMatches(listScript)
   assert.equal(matches.length, 2)
-  assert.deepEqual(matches[0], { id: '825411', time: '10-31 22:00', league: '意甲', home: '博洛尼亚', away: '蒙扎' })
+  assert.deepEqual(matches[0], { id: '825411', time: '10-31 22:00', sport: 'football', league: '意甲', home: '博洛尼亚', away: '蒙扎' })
+  assert.equal(matches[1].sport, 'basketball')
   assert.equal(matches[1].home, 'A，队')
   assert.equal(matches[1].away, "B'队")
+})
+
+test('开赛时间按北京时间算，不带年份时取离现在最近的一年', () => {
+  const at = text => Date.parse(text)
+  assert.equal(kickoffOf('11-17 21:00', at('2026-11-17T13:59:00Z')), at('2026-11-17T21:00:00+08:00'))
+  // 服务器时区是 UTC 时，北京时间已过零点也要认成同一天
+  assert.equal(kickoffOf('11-18 00:30', at('2026-11-17T16:10:00Z')), at('2026-11-18T00:30:00+08:00'))
+  // 跨年：元旦凌晨看到的昨晚场次是去年的，年底看到的元旦场次是明年的
+  assert.equal(kickoffOf('12-31 23:00', at('2027-01-01T00:30:00+08:00')), at('2026-12-31T23:00:00+08:00'))
+  assert.equal(kickoffOf('01-01 03:00', at('2026-12-31T22:00:00+08:00')), at('2027-01-01T03:00:00+08:00'))
+  for (const bad of ['', '11-17', '13-01 20:00', '11-17 25:00', '1-7 2:00']) assert.ok(Number.isNaN(kickoffOf(bad, Date.now())), bad)
+})
+
+test('按项目时长判断已结束：足球 165 分钟、篮球 180 分钟、其它按 180 分钟，跨零点的场次照样留着', () => {
+  const at = text => Date.parse(`${text}+08:00`)
+  const football = { time: '11-17 21:00', sport: 'football' }
+  assert.equal(hasEnded(football, at('2026-11-17T23:45:00')), false)
+  assert.equal(hasEnded(football, at('2026-11-17T23:46:00')), true)
+  const basketball = { time: '11-17 22:00', sport: 'basketball' }
+  assert.equal(hasEnded(basketball, at('2026-11-18T00:59:00')), false, '昨晚十点的篮球过零点还在打')
+  assert.equal(hasEnded(basketball, at('2026-11-18T01:01:00')), true)
+  assert.equal(hasEnded({ time: '11-17 21:00', sport: 'other' }, at('2026-11-18T00:00:00')), false)
+  assert.equal(hasEnded({ time: '11-17 21:00', sport: 'other' }, at('2026-11-18T00:01:00')), true)
+  assert.equal(hasEnded({ time: '11-18 08:30', sport: 'basketball' }, at('2026-11-17T23:00:00')), false, '还没开赛的不算')
+  assert.equal(hasEnded({ time: '看不懂', sport: 'football' }, at('2026-11-17T23:00:00')), false, '时间读不出来的留着')
+})
+
+test('刷新时去掉已结束的场次，还没开赛的照样列出', async () => {
+  const fetchImpl = async raw => new URL(raw).pathname === '/index.js' ? new Response(listScript) : new Response('', { status: 502 })
+  const at = text => () => Date.parse(`${text}+08:00`)
+  const ids = async now => (await createProvider({ fetchImpl, now }).discover()).map(match => match.id)
+  assert.deepEqual(await ids(at('2026-10-31T23:00:00')), ['825411', '825412'])
+  // 22:00 的足球 00:45 后算结束，03:00 的篮球还没开赛
+  assert.deepEqual(await ids(at('2026-11-01T00:46:00')), ['825412'])
+  assert.deepEqual(await ids(at('2026-11-01T06:01:00')), [])
 })
 
 test('线路 1080p 的 pao 优先，其余按站点顺序，sm.html 放最后，注释掉的和空线路不算', () => {
@@ -166,13 +204,13 @@ test('首页全挂时用配置里的播放域名和列表地址，读配置失�
   }
   const decode = async url => ({ links: url.endsWith('dead') ? [] : [stream] })
   const config = { homeUrls: ['https://dead.example.com/'], playHosts: ['http://new-play.example.com'], listUrl: 'https://list.example.com/matches.js' }
-  const provider = createProvider({ fetchImpl, decode, siteConfig: async () => config })
+  const provider = createProvider({ fetchImpl, decode, siteConfig: async () => config, now: beforeMatches })
   assert.equal((await provider.discover()).length, 2)
   assert.ok(calls.includes(config.listUrl))
   await provider.resolve('825411').catch(() => {})
   assert.ok(calls.includes('http://new-play.example.com/play/steam825411.html'))
 
-  const broken = createProvider({ fetchImpl, decode, siteConfig: async () => { throw new Error('boom') } })
+  const broken = createProvider({ fetchImpl, decode, siteConfig: async () => { throw new Error('boom') }, now: beforeMatches })
   assert.equal((await broken.discover()).length, 2, '读配置出错不影响刷新')
 })
 
@@ -385,7 +423,7 @@ test('入口全部 403 时说明要换网络，首页打不开时用兜底结构
   await assert.rejects(blocked.resolve('825411'), /大陆或香港/)
 
   const fetchImpl = async raw => new URL(raw).pathname === '/index.js' ? new Response(listScript) : new Response('', { status: 502 })
-  assert.equal((await createProvider({ fetchImpl }).discover()).length, 2)
+  assert.equal((await createProvider({ fetchImpl, now: beforeMatches }).discover()).length, 2)
 })
 
 test('模块登记：默认关闭、频道走清单中继，resolve 出错不抛异常', async () => {
@@ -393,7 +431,7 @@ test('模块登记：默认关闭、频道走清单中继，resolve 出错不抛
   assert.equal(extractor.defaultEnabled, false)
   assert.equal(resolverFor('websports-825411')?.id, 'websports')
   assert.equal(resolverFor('websports-abc'), null)
-  const { groups } = await extractor.fetch({}, { fetchImpl: mockSite(), decode: decodeMock })
+  const { groups } = await extractor.fetch({}, { fetchImpl: mockSite(), decode: decodeMock, now: beforeMatches })
   assert.equal(groups[0].name, '赛事直播')
   assert.deepEqual(groups[0].dataList[0], {
     name: '10-31 22:00 意甲 博洛尼亚 vs 蒙扎', deferredRef: 'websports-825411', relayHls: true,

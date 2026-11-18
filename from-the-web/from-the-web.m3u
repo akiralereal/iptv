@@ -15,6 +15,11 @@
 # 2026-11-09：从用户指定的 YueChan/Live/GNTV.m3u 补入 42 个已通过短时视频解码的频道，另按用户提供的地址恢复纬来日本、纬来育乐。
 #       已排除主项目已有频道与 5 个名称/版本待核对条目；本次检测不代表长期稳定性。
 
+# 2026-11-18：翡翠台、翡翠台4K（cdn3.indevs.in 超时）和华丽翡翠台旧线路（404）失效，删除；
+#       改收用户提供的 php.jdshipin.com 两条：翡翠北美台（j1）、华丽翡翠台（huali2）。
+#       两条都 302 到 cdn.qd.je/163189/{j1,hlt}；本机实测清单推进、ffmpeg 连拉 40 秒正常，均 1080p H.264。
+#       翡翠北美台与原 TVBJ1（cdn6.cc.cd/163189/j1）是同一路信号（29.97fps），TVBJ1 一并删除；华丽翡翠台实际落到 Astro 的 hlt 路径。
+
 # === BEGIN 网络第三方转发源 ===
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB%E6%96%B0%E9%97%BB.png" group-title="香港",TVB新闻
 https://cdn6.cc.cd/163189/wxxw
@@ -24,8 +29,6 @@ https://cdn.qd.je/163189/mzt
 https://cdn6.cc.cd/163189/ylxw
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVB1.png" group-title="香港",TVB1
 https://cdn6.cc.cd/163189/tvb1
-#EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBJ1.png" group-title="香港",TVBJ1
-https://cdn6.cc.cd/163189/j1
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/%E6%97%A0%E7%BA%BF%E6%96%B0%E9%97%BB%E5%8F%B0.png" group-title="香港",无线新闻台
 https://cdn6.cc.cd/163189/wxxwt
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/TVBPlus.png" group-title="香港",TVBPlus
@@ -42,12 +45,10 @@ https://cdn.qd.je/163189/now
 https://cdn.qd.je/163189/rthk31
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/RTHK32.png" group-title="香港",RTHK32
 https://cdn.qd.je/163189/rthk32
-#EXTINF:-1 group-title="香港",翡翠台
-https://cdn3.indevs.in/stream/tvb/fct/
-#EXTINF:-1 group-title="香港",翡翠台4K
-https://cdn3.indevs.in/stream/tvb/fct4k/
+#EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/%E5%8D%8E%E4%B8%BD%E7%BF%A1%E7%BF%A0%E5%8F%B0.png" group-title="香港",翡翠北美台
+http://php.jdshipin.com:8880/TVOD/iptv.php?id=j1
 #EXTINF:-1 tvg-logo="https://gcore.jsdelivr.net/gh/akiralereal/iptv@main/logo-remote/%E5%8D%8E%E4%B8%BD%E7%BF%A1%E7%BF%A0%E5%8F%B0.png" group-title="香港",华丽翡翠台
-https://cdn3.indevs.in/stream/live/jade/
+http://php.jdshipin.com/TVOD/iptv.php?id=huali2
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/CH8.png" group-title="新加坡",CH8
 https://cdn.qd.je/163189/ch8
 #EXTINF:-1 tvg-logo="https://epg.112114.xyz/logo/CHU.png" group-title="新加坡",CHU

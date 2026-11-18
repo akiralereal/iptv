@@ -1,12 +1,12 @@
 # 网络分享（from-the-web）
 
-[from-the-web.m3u](from-the-web.m3u) 是「网络分享」自定义订阅，当前包含 **38 个第三方转发频道、4 个正规平台分发频道、36 个具体来源待确认的 CDN 频道**，在文件中分区标注。第三方转发源大部分原本在内置精选列表 `IPTV.m3u` 里，v4.7.0 逐条复核后移出（翡翠台与三条凤凰线路 2026-10-22 移出）；2026-10-26 又按 [issue #202](https://github.com/akiralereal/iptv/issues/202) 收了网友提供的一批 `cdn3.indevs.in` 地址。2026-11-08 从 `IPTV.m3u` 移入 Pet Club TV、WildEarth、World Poker Tour、NHL FAST、Love Nature 4K，保留原播放地址、分组和台标，并删除纬来日本、纬来育乐。World Poker Tour 同日移除「亚洲与国际直播」模块入口，仅由本订阅提供。放在这里只是方便有需要的用户自己添加，**本项目不维护、不保证可用，失效条目不作为 bug 受理**。
+[from-the-web.m3u](from-the-web.m3u) 是「网络分享」自定义订阅，当前包含 **36 个第三方转发频道、4 个正规平台分发频道、36 个具体来源待确认的 CDN 频道**，在文件中分区标注。第三方转发源大部分原本在内置精选列表 `IPTV.m3u` 里，v4.7.0 逐条复核后移出（翡翠台与三条凤凰线路 2026-10-22 移出）；2026-10-26 又按 [issue #202](https://github.com/akiralereal/iptv/issues/202) 收了网友提供的一批 `cdn3.indevs.in` 地址。2026-11-08 从 `IPTV.m3u` 移入 Pet Club TV、WildEarth、World Poker Tour、NHL FAST、Love Nature 4K，保留原播放地址、分组和台标，并删除纬来日本、纬来育乐。World Poker Tour 同日移除「亚洲与国际直播」模块入口，仅由本订阅提供。放在这里只是方便有需要的用户自己添加，**本项目不维护、不保证可用，失效条目不作为 bug 受理**。
 
-## 收录内容（78 个频道）
+## 收录内容（76 个频道）
 
 | 分组 | 内容 |
 |---|---|
-| 香港 | 翡翠台、翡翠台 4K、华丽翡翠台、TVB 新闻、明珠台、TVB 娱乐新闻台、TVB1、TVBJ1、无线新闻台、TVBPlus、HOY 三台、NOW 新闻台、港台电视 31 / 32 |
+| 香港 | 翡翠北美台、华丽翡翠台、TVB 新闻、明珠台、TVB 娱乐新闻台、TVB1、无线新闻台、TVBPlus、HOY 三台、NOW 新闻台、港台电视 31 / 32 |
 | 新加坡 | CH8、CHU |
 | 台湾 | 公視、民視、台視、纬来日本、纬来育乐 |
 | 马来西亚 | Astro AOD、Astro AEC、Astro 爱奇艺、Astro 欢喜台 |
@@ -17,6 +17,8 @@
 | 宠物 | Pet Club TV（Samsung TV Plus 澳大利亚分发） |
 | 文旅 | WildEarth（Plex 分发）、Love Nature 4K（具体 CDN 地址来源待确认）、RT Documentary、Inside Outside |
 | 体育 | World Poker Tour（Samsung TV Plus 英国分发）、NHL FAST（Fire TV 分发）、Outdoor Channel |
+
+2026-11-18 翡翠台、翡翠台 4K 和华丽翡翠台旧线路失效（`cdn3.indevs.in` 超时或 404），删除；改收用户提供的 `php.jdshipin.com` 地址：翡翠北美台、华丽翡翠台。两条都跳转到 `cdn.qd.je` 转发，维护者本机实测连续拉流 40 秒正常，均为 1080p H.264。翡翠北美台和原来的 TVBJ1 是同一路信号，TVBJ1 一并删除；华丽翡翠台实际落到 Astro 的 `hlt` 路径（下文旧记录里按路径名记作「华丽台」的那一路）。
 
 2026-11-09 补入 GNTV 列表中此前未收录、已通过短时视频解码的 42 个频道，并按用户提供的原始 RTMP 地址恢复纬来日本、纬来育乐，合计新增 44 个。保留已有 34 个频道及地址。ABC News、NEWSMAX、Reuters、One American News、Newsy 的名称或版本尚待核对，本次未加入。
 
@@ -40,7 +42,6 @@ World Poker Tour 已标记 `x-top-first="1"`：经本项目生成的订阅播放
 - 2026-09-07 海外视角逐条拉取了清单与首个媒体分片，均能取到数据；MOMO 亲子台复核时已失效，未收录。
 - 2026-10-26 在 GitHub Actions 美国东部 runner 上用 `scripts/probe-m3u.mjs` 深度探活（拉主清单、子清单，再下一段分片）：全部 HLS 条目都能取到数据，包括 10-22 移入的翡翠台、凤凰三条线路和 14 条 `cdn3.indevs.in` 地址。只测了这一个海外地点，不代表亚洲线路的速度。
 - 已于 2026-11-08 删除的纬来日本、纬来育乐曾使用 RTMP；2026-10-26 从美国 runner 探测时 connect 没有回应，维护者当时实测可以播放。
-- 翡翠台 4K 是 HEVC（H.265）编码，播放器不支持 HEVC 就播不了。
 - issue 里 `live/hlt/` 和 `live/jade/` 两条都叫「华丽翡翠台」，但不是同一路信号：`hlt` 的编码参数和其他 Astro 频道一致，按路径名记作「华丽台」归马来西亚；`jade` 是另一路 720p 信号，沿用「华丽翡翠台」。没有看画面核对。
 - 频道名、台标沿用原列表（台标为第三方地址）；2026-10-22 以后加入的条目没写台标。
 

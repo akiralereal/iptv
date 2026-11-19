@@ -44,8 +44,8 @@ export default {
   configSchema: [{ key: 'uhdSource', label: '投屏方案用于哪些频道', type: 'select', default: 'cast',
     options: [{ value: 'cast', label: '仅超高清三台（默认）' }, { value: 'all', label: 'CCTV、CGTN 共 26 台' },
       { value: 'main', label: '不用投屏（全部原方案）' }],
-    hint: '投屏方案用央视频投屏到电视的来源播放。默认只有 CCTV4K、CCTV16 4K、CCTV8K 使用（CCTV8K 当前实测为 4K）。选「CCTV、CGTN 共 26 台」后，CCTV1～17（CCTV6 除外）、CCTV5+ 和 6 个 CGTN 台也改走投屏：画面 1080i、约 9～12 Mbps；CCTV6、卫视等其他台和会员频道仍用原方案。投屏流经服务器转发，会占用服务器带宽，首次启播可能稍慢；同时在播的投屏频道最多 6 个，再多的打不开。保存后停止播放、重新打开频道生效。' }],
-  configSavedNotice: '投屏设置已保存，重新打开频道后生效；当前播放不自动切源。',
+    hint: '投屏方案用央视频投屏到电视的来源播放。默认只有 CCTV4K、CCTV16 4K、CCTV8K 使用（CCTV8K 当前实测为 4K）。选「CCTV、CGTN 共 26 台」后，CCTV1～17（CCTV6 除外）、CCTV5+ 和 6 个 CGTN 台也改走投屏：画面 1080i、约 9～12 Mbps；CCTV6、卫视等其他台和会员频道仍用原方案。投屏流经服务器转发，会占用服务器带宽，首次启播可能稍慢；同时在播的投屏频道最多 6 个，再多的打不开。保存后停止播放，过半分钟再打开频道生效。' }],
+  configSavedNotice: '投屏设置已保存，停止播放后过半分钟再打开频道生效；当前播放不自动切源。',
   // 官网节目单，按频道表里的 livePid 取；与取流链路互不依赖（见 epg.js）
   epg,
 

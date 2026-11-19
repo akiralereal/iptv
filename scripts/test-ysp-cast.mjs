@@ -162,6 +162,29 @@ test('all mode: 26 castable channels, ids match the engine table, others untouch
   } finally { await f.close() }
 })
 
+test('switching to all does not hand a master playlist to an original-route playback already reloading', async () => {
+  // On the original route the entry itself is the media playlist the player keeps reloading.
+  const f = await fixture()
+  const tv = { key: '10.0.0.2|TV' }, phone = { key: '10.0.0.3|Phone' }
+  const entry = (client, config, method) => f.gateway.handle({ path: '/ysp-cctv1.m3u8', config, client, method })
+  try {
+    assert.equal(await entry(tv, { uhdSource: 'cast' }), null)
+    f.advance(8000)
+    assert.equal(await entry(tv, { uhdSource: 'all' }), null, 'still reloading: stays on the original route')
+    const fresh = await entry(phone, { uhdSource: 'all' })
+    assert(fresh.body.includes('/ysp-cast/cast/ysp-cctv1.m3u8'), 'a new playback follows the setting')
+    // Each reload extends it; HEAD neither extends nor breaks it.
+    for (let i = 0; i < 5; i++) { f.advance(20000); assert.equal(await entry(tv, { uhdSource: 'all' }), null) }
+    assert.equal(await entry(tv, { uhdSource: 'all' }, 'HEAD'), null)
+    f.advance(31000)
+    const reopened = await entry(tv, { uhdSource: 'all' })
+    assert(reopened.body.includes('/ysp-cast/cast/ysp-cctv1.m3u8'), 'after half a minute idle it is a new playback')
+    // Other channels from the same client are tracked separately.
+    assert.equal(await f.gateway.handle({ path: '/ysp-cctv2.m3u8', config: { uhdSource: 'all' }, client: tv }).then(r => r.status), 200)
+    assert.deepEqual(f.counts(), { starts: 0, originals: 0, calls: 0, closed: 0 })
+  } finally { await f.close() }
+})
+
 test('cast auth prefixes, credentials stripped, concurrent ticket deduplication, bytes and Range', async () => {
   const f = await fixture()
   try {

@@ -22,6 +22,8 @@ export const routesRef = (ref, config = {}) => UHD_REFS.includes(ref) || (castab
 const HEADERS = new Set(['accept', 'range', 'if-none-match', 'if-modified-since', 'user-agent'])
 const RESPONSE_HEADERS = new Set(['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified'])
 const MIME = 'application/vnd.apple.mpegurl'
+// 原方案的普通台停止取清单多久后，才算停播、下次开按新设置走投屏（播放器重取间隔是几秒到十来秒）
+const ORIGINAL_GRACE_MS = 30000
 const reply = (status, body = '', type = MIME) => ({ status, body,
   headers: { 'Content-Type': type, 'Cache-Control': 'no-store', 'Content-Length': Buffer.byteLength(body) } })
 const failure = (status, body) => reply(status, body, 'text/plain;charset=utf-8')
@@ -33,6 +35,28 @@ export function createCastGateway({ worker = new CastProcess(), resolveMain,
   const assets = new Map(), pending = new Map()
   // 只按路径认领（注册表拿不到设置）；普通台没开「全部走投屏」时 handle 回 null，交回原方案的通用流程。
   const claims = path => path.startsWith('/ysp-cast/') || castable(topRef(path))
+  // 普通台走原方案时，入口地址本身就是媒体清单（relay / proxy 直出），播放器每隔几秒原地重取。
+  // 正播着改成「全部走投屏」，下一次重取要是拿到下面的单行主清单，播放器会因清单类型变了直接报错。
+  // 所以按「客户端｜频道」记下原方案最近一次取清单，半分钟内接着来的照旧交回原方案；停播半分钟以上再开才走投屏
+  const originalLive = new Map()
+  const liveKey = (ref, client) => `${client?.key ?? ''}|${ref}`
+  function noteOriginal(ref, method, client) {
+    if (method !== 'GET') return
+    const key = liveKey(ref, client), at = now()
+    originalLive.delete(key); originalLive.set(key, at)
+    // 按最近一次排序（先删再放到末尾），从头清掉过期的；再多也只留 4096 条
+    for (const [k, seen] of originalLive) {
+      if (at - seen <= ORIGINAL_GRACE_MS && originalLive.size <= 4096) break
+      originalLive.delete(k)
+    }
+  }
+  function stillOnOriginal(ref, method, client) {
+    const key = liveKey(ref, client), seen = originalLive.get(key)
+    if (seen == null) return false
+    if (now() - seen > ORIGINAL_GRACE_MS) { originalLive.delete(key); return false }
+    noteOriginal(ref, method, client)
+    return true
+  }
   async function open(base, path, headers, method = 'GET') {
     const target = new URL(base)
     if (target.protocol !== 'http:' || target.hostname !== '127.0.0.1') throw new Error('投屏服务地址无效')
@@ -94,7 +118,11 @@ export function createCastGateway({ worker = new CastProcess(), resolveMain,
     const token = path.match(/^\/ysp-cast\/media\/([a-f0-9]{32})$/)?.[1]
     const ref = route?.[2] || topRef(path)
     // 入口按当前设置分流；已开播的子清单/分片不看设置，保存后正在播的不中途换源。
-    if (!path.startsWith('/ysp-cast/') && !routesRef(ref, config)) return null
+    // 原方案下正在播的普通台（入口就是媒体清单）同样不换，见 originalLive
+    if (!path.startsWith('/ysp-cast/')) {
+      if (!routesRef(ref, config)) { noteOriginal(ref, method, client); return null }
+      if (stillOnOriginal(ref, method, client)) return null
+    }
     if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) return failure(405, '只支持 GET/HEAD/OPTIONS')
     if (method === 'OPTIONS') return reply(204)
     if (path.startsWith('/ysp-cast/') && !route && !token) return failure(404, '没有此媒体入口')

@@ -228,4 +228,79 @@ check('源分组的通配隐藏（体育-*）管不到同前缀的自定义分�
   assert.equal('体育-收藏' in withServed(cfg).shown, false)
 })
 
-console.log(`\n全部通过：${passed}/19 ✅`)
+// ---- 批量整组隐藏（「只保留此分组」和左栏多选共用 groupHidePlanItem + writeGroupHidePlan）----
+// 前端拿服务端出的显示列表逐组算计划、写配置，再交给服务端 applyConfig 看这些分组是不是真的不见了
+const planFns = new Function(`
+  let myPlaylistConfig, myPlaylistOriginalData
+  const isSystemAnnouncementGroup = g => g?.name === '公告'
+  ${['isGroupHiddenByConfig', 'getCustomGroupNames', 'isCustomGroupName', 'setCustomGroupHidden',
+     'groupHidePlanItem', 'writeGroupHidePlan'].map(extract).join('\n')}
+  return {
+    planFor: (cfg, data, names) => {
+      myPlaylistConfig = cfg; myPlaylistOriginalData = data
+      return names.map(name => groupHidePlanItem({ name, channels: [] }))
+    },
+    writeGroupHidePlan,
+  }
+`)()
+const groups5 = () => ([
+  { name: '央视', channels: [{ id: 'a1', name: 'CCTV1' }] },
+  { name: '卫视', channels: [{ id: 'b1', name: '湖南' }] },
+  { name: '体育-今天', channels: [{ id: 'c1', name: '赛事' }] },
+  { name: '电影', channels: [{ id: 'd1', name: '片' }] },
+])
+const base5 = () => ({ ...base(), customGroups: [] })   // base() 带的空自定义分组 B 会出现在列表里
+const shown5 = cfg => Object.fromEntries(applyConfig(groups5(), cfg).map(g => [g.name, g.channels.map(c => c.name)]))
+const hideBatch = (cfg, names) => {
+  const plan = planFns.planFor(cfg, groups5(), names)
+  planFns.writeGroupHidePlan(cfg, plan.filter(item => !item.skip))
+  return plan
+}
+
+check('批量隐藏两个源分组：按原始分组名写 deletedGroups，改名和 groupOrder 不动，恢复后原样回来', () => {
+  const cfg = base5()
+  cfg.groupRenameMap = { 卫视: '地方台' }
+  cfg.groupOrder = ['电影', '地方台', '央视', '体育-今天']
+  const before = applyConfig(groups5(), cfg).map(g => g.name)
+  hideBatch(cfg, ['地方台', '电影'])
+  assert.deepEqual(cfg.deletedGroups, ['卫视', '电影'])
+  assert.deepEqual(Object.keys(shown5(cfg)).sort(), ['体育-今天', '央视'].sort())
+  assert.deepEqual(cfg.groupRenameMap, { 卫视: '地方台' })
+  assert.deepEqual(cfg.groupOrder, ['电影', '地方台', '央视', '体育-今天'])
+  cfg.deletedGroups = []
+  assert.deepEqual(applyConfig(groups5(), cfg).map(g => g.name), before)
+})
+
+check('改名套改名（央视→卫视、卫视→省台）：隐藏显示名「卫视」只藏原来的央视，「省台」留着', () => {
+  const cfg = base5()
+  cfg.groupRenameMap = { 央视: '卫视', 卫视: '省台' }
+  const plan = hideBatch(cfg, ['卫视'])
+  assert.deepEqual(plan, [{ name: '卫视', originals: ['央视'] }])
+  assert.equal('卫视' in shown5(cfg), false)
+  assert.deepEqual(shown5(cfg)['省台'], ['湖南'])
+})
+
+check('不能整组隐藏的跳过：未分组、公告、只由移入频道凑成的分组、原分组已被规则盖住的', () => {
+  const cfg = base5()
+  cfg.deletedGroups = ['体育-*']
+  cfg.channelGroupMap = { '央视::a1': '体育-今天', '电影::d1': '新组' }
+  const plan = hideBatch(cfg, ['未分组', '公告', '新组', '体育-今天'])
+  assert.deepEqual(plan.map(item => [item.name, item.skip]),
+    [['未分组', 'ungrouped'], ['公告', 'announcement'], ['新组', 'synthetic'], ['体育-今天', 'covered']])
+  // 规则已经盖住的不补「体育-今天」精确条目，凑出来的「新组」也不写（免得以后源里真出现同名分组被悄悄藏掉）
+  assert.deepEqual(cfg.deletedGroups, ['体育-*'])
+})
+
+check('批量里带自定义分组：打 hidden 标记、不写 deletedGroups；重复隐藏不留重复条目', () => {
+  const cfg = base5()
+  cfg.customGroups = [{ name: '收藏' }]
+  cfg.channelGroupMap = { '央视::a1': '收藏' }
+  cfg.deletedGroups = ['电影']
+  hideBatch(cfg, ['收藏', '卫视'])
+  hideBatch(cfg, ['卫视'])
+  assert.deepEqual(cfg.customGroups, [{ name: '收藏', hidden: true }])
+  assert.deepEqual(cfg.deletedGroups, ['电影', '卫视'])
+  assert.deepEqual(Object.keys(shown5(cfg)), ['体育-今天'])
+})
+
+console.log(`\n全部通过：${passed}/23 ✅`)

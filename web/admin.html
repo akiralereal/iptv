@@ -2801,6 +2801,26 @@
         }
         .my-playlist-search button:hover { color: var(--ui-text); }
         .my-playlist-search button[hidden] { display: none; }
+        /* 左栏标题右侧「多选」「+ 添加分组」：栏宽 220px 时和标题同一行；窄屏（200 / 176px）放不下，
+           按钮整体换到第二行靠右，标题不被挤成半截 */
+        .my-playlist-left .my-playlist-section-title { flex-wrap: wrap; gap: 6px 8px; }
+        .my-playlist-left .my-playlist-section-title > span { flex: 0 0 auto; white-space: nowrap; }
+        .group-list-title-actions { display: flex; flex-shrink: 0; gap: 5px; margin-left: auto; }
+        .group-list-title-actions button { white-space: nowrap; }
+        .group-list-title-actions button[hidden] { display: none; }
+        .group-list-title-actions button[aria-pressed="true"] { color: var(--ui-text); border-color: var(--ui-line-strong); }
+        /* 多选时搜索框下的一条：全选 + 隐藏选中，两颗按钮平分整行 */
+        .group-select-bar { display: flex; flex: 0 0 auto; gap: 6px; padding: 0 10px 6px; }
+        .group-select-bar[hidden] { display: none; }
+        .group-select-bar .btn { flex: 1 1 0; min-width: 0; min-height: 30px; padding: 5px 6px; white-space: nowrap; }
+        .my-playlist-group-item.selecting { cursor: pointer; }
+        .my-playlist-group-item.selecting .group-select-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .my-playlist-group-item.selecting .group-select-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .my-playlist-group-item.selecting input[type="checkbox"] { flex-shrink: 0; margin: 0; cursor: pointer; }
+        .my-playlist-group-item.selecting.checked { color: var(--ui-text); background: var(--ui-surface-strong); }
+        /* 不能整组隐藏的（未分组、公告、规则凑出来的）：照样列出，免得用户以为分组丢了；点一下说明原因 */
+        .my-playlist-group-item.selecting.locked { opacity: .5; cursor: help; }
+        .my-playlist-group-item.selecting.locked input[type="checkbox"] { cursor: help; }
         .my-playlist-group-list { padding: 6px 10px 10px; scrollbar-width: thin; scrollbar-color: var(--ui-line-strong) transparent; }
         .my-playlist-group-item {
             min-height: 38px;
@@ -4561,13 +4581,19 @@
                         <div class="my-playlist-section">
                             <div class="my-playlist-section-title">
                                 <span>频道分组</span>
-                                <button onclick="addGroup()">+ 添加分组</button>
+                                <!-- 多选（批量隐藏分组）：进入后左栏每个分组前出现勾选框，点分组是勾选、不是打开；
+                                     「全选 / 隐藏选中」在搜索框下面那一条，由 renderGroupSelectControls 填 -->
+                                <div class="group-list-title-actions">
+                                    <button type="button" id="groupSelectToggle" onclick="toggleGroupSelectMode()" title="勾选多个分组，一次隐藏" aria-pressed="false">多选</button>
+                                    <button type="button" id="addGroupBtn" onclick="addGroup()">+ 添加分组</button>
+                                </div>
                             </div>
                             <div class="my-playlist-search">
                                 <input type="text" id="channelSearchInput" placeholder="搜索频道名" autocomplete="off" spellcheck="false"
                                        oninput="onChannelSearchInput(event)" onkeydown="onChannelSearchKey(event)">
                                 <button type="button" id="channelSearchClear" onclick="clearChannelSearch(true)" title="清空搜索" aria-label="清空搜索" hidden>×</button>
                             </div>
+                            <div class="group-select-bar" id="groupSelectBar" role="group" aria-label="批量隐藏分组" hidden></div>
                             <div class="my-playlist-group-list" id="activeGroupList"></div>
                         </div>
                     </div>
@@ -10787,6 +10813,8 @@ if(success){
         let searchBatchMode = false;           // 搜索结果的批量模式（issue #176）：与分组批量互不相干
         let searchSelectedKeys = new Set();    // 搜索结果里勾选的频道，按 searchResultKey 记（同一 ID 可能出现在两个原始分组）
         let lastSearchMoveTarget = '';         // 上次从搜索结果移到的分组，连搜几个关键字时不用每次重选
+        let groupSelectMode = false;           // 左栏分组多选：勾几个分组一次隐藏，与组内频道的批量管理互不相干
+        const selectedGroupNames = new Set();  // 勾选的分组按显示名记：保存后重新加载，下标会变
         const SYSTEM_ANNOUNCEMENT_ID = 'iptv-announcement';
         // 系统频道：公告 + 央视频登录教程 + 「网络分享」添加教程，都在「公告」分组、可逐条隐藏、不能删/移/改名/改序。
         // 与服务端 utils/announcement.js 的 SYSTEM_CHANNELS 对应。
@@ -11218,6 +11246,7 @@ if(success){
                         selectedGroupIndex = 0;
                         isViewingDeleted = false;
                         resetChannelSearch();   // 切档 / 切回本页 / 重置：搜索框里的字不带到新视图
+                        resetGroupSelect();     // 勾选的是上一档的分组，换档后隐藏会写错档
                     }
                     
                     renderMyPlaylist();
@@ -11344,8 +11373,11 @@ if(success){
             const activeList = document.getElementById('activeGroupList');
             if (!activeList) return;
 
+            renderGroupSelectControls();
             if (myPlaylistData.length === 0) {
                 activeList.innerHTML = '<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">暂无频道</div>';
+            } else if (groupSelectMode) {
+                activeList.innerHTML = myPlaylistData.map(groupSelectItemMarkup).join('');
             } else {
                 activeList.innerHTML = myPlaylistData.map((group, originalIndex) => {
                     const mergedCount = mergedSourceGroupCount(group);
@@ -11390,6 +11422,142 @@ if(success){
                     </div>
                 `}).join('');
             }
+        }
+
+        // ========== 左栏分组多选：一次隐藏多个分组 ==========
+        // 分组多了以后逐个「隐藏分组 + 确认」太慢（#159 起陆续有人提）。多选模式下点分组是勾选，
+        // 勾好点「隐藏选中」，与「只保留此分组」走同一套写法（groupHidePlanItem + applyGroupHidePlan）：
+        // 只写当前档，按原始分组名写 deletedGroups、改名和 groupOrder 都留着，恢复后原样回来。
+        // 不能整组隐藏的分组也照样列出、勾选框置灰，点一下说明原因。
+
+        const GROUP_HIDE_SKIP_REASONS = {
+            ungrouped: '「未分组」不能整组隐藏，可在组内批量隐藏频道',
+            announcement: '公告固定保留，不需要可在频道行逐条隐藏',
+            synthetic: '这个分组是按规则归类或手动移入的频道凑成的，不能整组隐藏，可在组内批量隐藏频道',
+            covered: '原分组已经隐藏，这里剩下的是手动移入或按规则归类的频道，可在组内批量隐藏',
+        };
+
+        function resetGroupSelect() {
+            groupSelectMode = false;
+            selectedGroupNames.clear();
+        }
+
+        function toggleGroupSelectMode() {
+            groupSelectMode = !groupSelectMode;
+            selectedGroupNames.clear();
+            renderGroupLists();
+        }
+
+        function groupSelectItemMarkup(group, index) {
+            const item = groupHidePlanItem(group);
+            const checked = !item.skip && selectedGroupNames.has(group.name);
+            const name = `<span>${escapeHtml(group.name)}</span>`;
+            const count = `<span style="color: #999; font-size: 12px;">${group.channels.length}</span>`;
+            if (item.skip) {
+                const reason = escapeHtml(GROUP_HIDE_SKIP_REASONS[item.skip]);
+                return `
+                    <div class="my-playlist-group-item selecting locked" title="${reason}" onclick="explainGroupLocked(${index})">
+                        <span class="group-select-name"><input type="checkbox" disabled aria-label="${escapeHtml(group.name)}：${reason}">${name}</span>${count}
+                    </div>`;
+            }
+            return `
+                <label class="my-playlist-group-item selecting${checked ? ' checked' : ''}">
+                    <span class="group-select-name"><input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleGroupSelected(${index}, this)">${name}</span>${count}
+                </label>`;
+        }
+
+        // 只改这一行和工具条，不重画整个列表：键盘勾选时焦点留在勾选框上
+        function toggleGroupSelected(index, checkbox) {
+            const group = myPlaylistData[index];
+            if (!group) return;
+            if (checkbox.checked) selectedGroupNames.add(group.name);
+            else selectedGroupNames.delete(group.name);
+            const row = checkbox.closest('.my-playlist-group-item');
+            if (row) row.classList.toggle('checked', checkbox.checked);
+            renderGroupSelectControls();
+        }
+
+        function explainGroupLocked(index) {
+            const item = groupHidePlanItem(myPlaylistData[index]);
+            if (item.skip) showStatus(GROUP_HIDE_SKIP_REASONS[item.skip], 'error', 4000);
+        }
+
+        /** 当前列表里能整组隐藏的分组名。勾选集合可能留着已经不在列表里的名字，计数和保存都以这份为准。 */
+        function selectableGroupNames() {
+            return myPlaylistData.filter(g => !groupHidePlanItem(g).skip).map(g => g.name);
+        }
+
+        function toggleSelectAllGroups() {
+            const selectable = selectableGroupNames();
+            const allOn = selectable.length > 0 && selectable.every(name => selectedGroupNames.has(name));
+            selectedGroupNames.clear();
+            if (!allOn) selectable.forEach(name => selectedGroupNames.add(name));
+            renderGroupLists();
+        }
+
+        function renderGroupSelectControls() {
+            const toggle = document.getElementById('groupSelectToggle');
+            if (toggle) {
+                toggle.textContent = groupSelectMode ? '取消' : '多选';
+                toggle.title = groupSelectMode ? '退出多选' : '勾选多个分组，一次隐藏';
+                toggle.setAttribute('aria-pressed', groupSelectMode ? 'true' : 'false');
+            }
+            const addBtn = document.getElementById('addGroupBtn');
+            if (addBtn) addBtn.hidden = groupSelectMode;
+            const bar = document.getElementById('groupSelectBar');
+            if (!bar) return;
+            bar.hidden = !groupSelectMode;
+            if (!groupSelectMode) { bar.innerHTML = ''; return; }
+            const selectable = selectableGroupNames();
+            const count = selectable.filter(name => selectedGroupNames.has(name)).length;
+            const allOn = selectable.length > 0 && count === selectable.length;
+            bar.innerHTML = `
+                <button type="button" class="btn btn-sm" onclick="toggleSelectAllGroups()" ${selectable.length ? '' : 'disabled'}>${allOn ? '全不选' : '全选'}</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="hideSelectedGroups()" ${count ? '' : 'disabled'}
+                        title="把勾选的分组移到「已隐藏」，可以逐个恢复或一键恢复全部">隐藏${count ? ` ${count} 个` : '选中'}</button>`;
+        }
+
+        async function hideSelectedGroups() {
+            const plan = myPlaylistData
+                .filter(g => selectedGroupNames.has(g.name))
+                .map(groupHidePlanItem)
+                .filter(item => !item.skip);
+            if (plan.length === 0) {
+                showStatus('先勾选要隐藏的分组', 'error');
+                return;
+            }
+            const names = plan.map(item => item.name);
+            const preview = names.slice(0, 12).join('、') + (names.length > 12 ? ` …另 ${names.length - 12} 个` : '');
+            const hiddenNames = new Set(names);
+            const keepsSome = myPlaylistData.some(g => !isSystemAnnouncementGroup(g) && !hiddenNames.has(g.name));
+            const confirmed = await showConfirm(
+                `隐藏「${currentProfileName()}」档的 ${plan.length} 个分组吗？\n${preview}\n\n`
+                + `隐藏的分组都在「已隐藏」里，可以逐个恢复或一键恢复全部。`
+                + (keepsSome ? '' : '\n所有分组都会隐藏，播放列表里只剩公告。')
+            );
+            if (!confirmed) return;
+
+            // 记下中间栏正在看的分组：隐藏后列表变短，下标对不上了，按名字找回来
+            const viewing = isViewingDeleted ? hiddenAreaGroups()[selectedGroupIndex] : myPlaylistData[selectedGroupIndex];
+            const sameEntry = g => viewing && g.name === viewing.name
+                && !!g.isPartialDelete === !!viewing.isPartialDelete && !!g.isCustomHidden === !!viewing.isCustomHidden;
+            const previousIndex = selectedGroupIndex;
+            if (!await applyGroupHidePlan(plan)) return;
+
+            resetGroupSelect();
+            const list = isViewingDeleted ? hiddenAreaGroups() : myPlaylistData;
+            const found = list.findIndex(sameEntry);
+            if (found >= 0) {
+                selectedGroupIndex = found;
+            } else {
+                // 正在看的分组被隐藏了：组内频道的勾选跟着作废，停在原位置附近的分组上
+                isBatchMode = false;
+                selectedChannels.clear();
+                selectedGroupIndex = Math.max(0, Math.min(previousIndex, list.length - 1));
+            }
+            renderMyPlaylist();
+            const left = myPlaylistData.filter(g => hiddenNames.has(g.name)).map(g => g.name);
+            showStatus(`已隐藏 ${plan.length} 个分组` + hideLeftoverNote(left), 'success', left.length ? 6000 : 3000);
         }
 
         function selectGroup(index, isDeleted) {
@@ -12532,33 +12700,94 @@ if(success){
             }
         }
 
-        // 只保留此分组（issue #176）：给儿童 / 老人电视单配一档时，先把要的频道归到一个分组，再一键隐藏其余分组。
-        // 只写当前档的 deletedGroups（按原始分组名，改名留着），「已隐藏」里有「恢复全部分组」可一键撤回。
-        // 自定义分组打上 hidden 标记（customGroups[].hidden，连同移进去的频道一起隐藏）；
-        // 「未分组」不能整组隐藏（与「隐藏分组」按钮同一限制），公告固定保留；
-        // 只由关键字规则 / 源默认分组 / 手动移入凑出来的分组（issue #69/#110）也跳过：它背后没有源分组，
-        // 写进 deletedGroups 隐藏不了它，反而会把以后源里真出现的同名分组悄悄藏掉。
-        async function keepOnlyGroup(index) {
-            const keep = myPlaylistData[index];
-            if (!keep) return;
+        /**
+         * 整组隐藏一个显示分组要写什么（「只保留此分组」和左栏多选隐藏共用）：
+         * - 自定义分组 → { name, custom: true }，打上 hidden 标记（customGroups[].hidden，连同移进去的频道一起隐藏）；
+         * - 源分组 → { name, originals }，要写进 deletedGroups 的原始分组名（改名留着）；
+         * - 不能整组隐藏 → { name, skip }：
+         *   ungrouped「未分组」与「隐藏分组」按钮同一限制，announcement 公告固定保留；
+         *   synthetic 只由关键字规则 / 源默认分组 / 手动移入凑出来的分组（issue #69/#110）：它背后没有源分组，
+         *   写进 deletedGroups 隐藏不了它，反而会把以后源里真出现的同名分组悄悄藏掉；
+         *   covered 原始分组已被规则（含 `前缀*`）盖住、只因有移入频道还显示的：不再补精确条目，免得「解除规则」后残留。
+         */
+        function groupHidePlanItem(group) {
+            const name = group?.name;
+            if (name === '未分组') return { name, skip: 'ungrouped' };
+            if (isSystemAnnouncementGroup(group)) return { name, skip: 'announcement' };
+            if (isCustomGroupName(name)) return { name, custom: true };
             const renameMap = myPlaylistConfig.groupRenameMap || {};
             // 显示名 → 当前显示成这个名字的原始分组。必须按「原名经改名后等于显示名」反查：
             // 只看显示名在不在原始分组名单里，改名套改名（央视→卫视、卫视→省台）时会把别的组的原名当成它的
-            const originalsOf = name => (myPlaylistOriginalData || [])
+            const originals = (myPlaylistOriginalData || [])
                 .map(g => g.name)
                 .filter(original => (renameMap[original] || original) === name);
-            const others = myPlaylistData.filter((g, i) => i !== index && !isSystemAnnouncementGroup(g));
-            const plan = [];      // [{ name, originals: 还没被隐藏规则盖住的原始分组 }] 或 [{ name, custom: true }]
-            const skipped = [];
-            others.forEach(g => {
-                if (g.name === '未分组') { skipped.push(g.name); return; }
-                if (isCustomGroupName(g.name)) { plan.push({ name: g.name, custom: true }); return; }
-                const originals = originalsOf(g.name);
-                if (originals.length === 0) { skipped.push(g.name); return; }
-                // 已被规则（含 `前缀*`）盖住、只因有移入频道还显示的：不再补精确条目，免得「解除规则」后残留
-                const pending = originals.filter(original => !isGroupHiddenByConfig(original));
-                if (pending.length > 0) plan.push({ name: g.name, originals: pending });
+            if (originals.length === 0) return { name, skip: 'synthetic' };
+            const pending = originals.filter(original => !isGroupHiddenByConfig(original));
+            return pending.length > 0 ? { name, originals: pending } : { name, skip: 'covered' };
+        }
+
+        /**
+         * 把 groupHidePlanItem 算出的计划写进当前档并保存。成功、且保存期间没切档才返回 true；
+         * 保存失败会把内存里的配置退回去并提示，免得下次随手一存全带出去。
+         * 不动 groupOrder：留着这些分组的位置，之后「恢复全部分组」时顺序还是原来的样子。
+         */
+        /** 把整组隐藏计划写进配置（纯函数，scripts/test-move-hide.mjs 抽出来和服务端 applyConfig 对照着跑）。 */
+        function writeGroupHidePlan(config, plan) {
+            if (!Array.isArray(config.deletedGroups)) config.deletedGroups = [];
+            plan.forEach(item => {
+                if (item.custom) { setCustomGroupHidden(config, item.name, true); return; }
+                item.originals.forEach(original => {
+                    if (!config.deletedGroups.includes(original)) config.deletedGroups.push(original);
+                });
             });
+        }
+
+        async function applyGroupHidePlan(plan) {
+            const config = myPlaylistConfig;
+            const before = (config.deletedGroups || []).slice();
+            const beforeCustom = JSON.parse(JSON.stringify(config.customGroups || []));
+            const rollback = () => {
+                if (myPlaylistConfig !== config) return;
+                config.deletedGroups = before;
+                config.customGroups = beforeCustom;
+            };
+            writeGroupHidePlan(config, plan);
+            try {
+                const response = await fetch(mpConfigUrl(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    rollback();
+                    showStatus('隐藏失败' + (result.message ? ': ' + result.message : ''), 'error');
+                    return false;
+                }
+                await loadMyPlaylist(false);
+                return myPlaylistConfig === config;   // 保存期间切了档：后面的选中和提示都对不上了
+            } catch (error) {
+                rollback();
+                showStatus('隐藏失败: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        // 手动移进来 / 按关键字规则归进来的频道不跟原始分组一起隐藏，它们所在的分组会留下来，如实告诉用户
+        function hideLeftoverNote(leftNames) {
+            return leftNames.length ? `；${leftNames.join('、')} 里是手动移入或按规则归类的频道，没有跟着隐藏，可在组内批量隐藏` : '';
+        }
+
+        // 只保留此分组（issue #176）：给儿童 / 老人电视单配一档时，先把要的频道归到一个分组，再一键隐藏其余分组。
+        // 只写当前档，「已隐藏」里有「恢复全部分组」可一键撤回；哪些分组能整组隐藏见 groupHidePlanItem。
+        async function keepOnlyGroup(index) {
+            const keep = myPlaylistData[index];
+            if (!keep) return;
+            const items = myPlaylistData
+                .filter((g, i) => i !== index && !isSystemAnnouncementGroup(g))
+                .map(groupHidePlanItem);
+            const plan = items.filter(item => !item.skip);
+            const skipped = items.filter(item => item.skip === 'ungrouped' || item.skip === 'synthetic').map(item => item.name);
             if (plan.length === 0) {
                 showStatus(skipped.length ? `其余分组（${skipped.join('、')}）都不能整组隐藏` : '没有其他分组需要隐藏', 'error');
                 return;
@@ -12569,54 +12798,18 @@ if(success){
                 + (skipped.length ? `\n\n${skipped.join('、')} 不能整组隐藏，会保留，可在组内批量隐藏频道。` : '')
             );
             if (!confirmed) return;
+            if (!await applyGroupHidePlan(plan)) return;
 
-            const config = myPlaylistConfig;
-            const before = config.deletedGroups.slice();
-            const beforeCustom = JSON.parse(JSON.stringify(config.customGroups || []));
-            const rollback = () => {
-                if (myPlaylistConfig !== config) return;
-                config.deletedGroups = before;
-                config.customGroups = beforeCustom;
-            };
-            plan.forEach(item => {
-                if (item.custom) { setCustomGroupHidden(config, item.name, true); return; }
-                item.originals.forEach(original => {
-                    if (!config.deletedGroups.includes(original)) config.deletedGroups.push(original);
-                });
-            });
-            // 不动 groupOrder：留着这些分组的位置，紧接着「恢复全部分组」时顺序还是原来的样子
-            try {
-                const response = await fetch(mpConfigUrl(), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(config)
-                });
-                const result = await response.json();
-                if (result.success) {
-                    await loadMyPlaylist(false);
-                    if (myPlaylistConfig !== config) return;   // 保存期间切了档：后面的选中和提示都对不上了
-                    const keptIndex = myPlaylistData.findIndex(g => g.name === keep.name);
-                    if (keptIndex >= 0) {
-                        selectedGroupIndex = keptIndex;
-                        renderMyPlaylist();
-                    }
-                    // 手动移进来 / 按关键字规则归进来的频道不跟原始分组一起隐藏，它们所在的分组会留下来，如实告诉用户
-                    const hiddenNames = new Set(plan.map(item => item.name));
-                    const left = myPlaylistData
-                        .filter(g => hiddenNames.has(g.name) || (g.name !== keep.name && !isSystemAnnouncementGroup(g) && !skipped.includes(g.name)))
-                        .map(g => g.name);
-                    showStatus(`已隐藏 ${plan.length} 个分组`
-                        + (left.length ? `；${left.join('、')} 里是手动移入或按规则归类的频道，没有跟着隐藏，可在组内批量隐藏` : ''),
-                        'success', left.length ? 6000 : 3000);
-                } else {
-                    // 没存上就别留着隐藏的内存状态，免得下次随手一存全带出去
-                    rollback();
-                    showStatus('隐藏失败' + (result.message ? ': ' + result.message : ''), 'error');
-                }
-            } catch (error) {
-                rollback();
-                showStatus('隐藏失败: ' + error.message, 'error');
+            const keptIndex = myPlaylistData.findIndex(g => g.name === keep.name);
+            if (keptIndex >= 0) {
+                selectedGroupIndex = keptIndex;
+                renderMyPlaylist();
             }
+            const hiddenNames = new Set(plan.map(item => item.name));
+            const left = myPlaylistData
+                .filter(g => hiddenNames.has(g.name) || (g.name !== keep.name && !isSystemAnnouncementGroup(g) && !skipped.includes(g.name)))
+                .map(g => g.name);
+            showStatus(`已隐藏 ${plan.length} 个分组` + hideLeftoverNote(left), 'success', left.length ? 6000 : 3000);
         }
 
         // 恢复「已隐藏」里所有整组隐藏的分组；单独隐藏的频道不动。

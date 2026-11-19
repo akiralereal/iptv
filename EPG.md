@@ -35,7 +35,7 @@
 <!-- epg-status:start -->
 | 模块 | 名称 | 状态 | 覆盖 | 天数 | 官方来源 | 备注 |
 |---|---|---|---|---|---|---|
-| `migu` | 咪咕视频 | 咪咕自带 | 自有频道 | 2 | program-sc.miguvideo.com；部分央视走 CNTV epginfo3 | 旧通道（utils/playback.js），优先级最高；今天决定是否算已覆盖（今天没发让给模块），明天补在后面 |
+| `migu` | 咪咕视频 | 咪咕自带 | 自有频道 | 8 | program-sc.miguvideo.com；部分央视走 CNTV epginfo3 | 旧通道（utils/playback.js），优先级最高；今天决定是否算已覆盖（今天没发让给模块），明天补在后面；另带往前 6 天给回看用（咪咕回看从当前起滚动 168 小时，节目单接口给往前 6 天、再早全空，2026-11-19 实测），往日的存在数据目录 `epg-cache/migu-history/`、每台每天只取一次（utils/epgHistory.js） |
 | `yangshipin` | 央视频 | 已接入 | 73/73 | 2 | capi.yangshipin.cn/api/yspepg/program/{livePid}/{日期} | 对象存储上的静态 protobuf；国学频道官方无文件（与河南国学频道同一个台，由河南补） |
 | `fengshows` | 凤凰卫视 | 已接入 | 3/3 | 2 | api.fengshows.cn/live/{id}/resources | 开始时间是 UTC 时间戳 |
 | `hkstv` | 香港卫视 | 已接入 | 1/1 | 2 | hkstv.tv/services/live/epg | 接口不带频道参数，给的是官网当前默认的那一路 |

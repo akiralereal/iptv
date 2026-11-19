@@ -13,6 +13,7 @@ import { printBlue, printGreen, printGrey, printMagenta, printRed, printYellow }
 import { channel, interfaceStr, fetchManifestDirect, rewriteManifest, inlineResolvedManifest } from "./utils/appUtils.js";
 import { toProxyManifest, lookup as lookupProxyTarget, pipeUpstream, probeUpstream, fetchNested, manifestCooling, markManifestResult } from "./utils/hlsProxy.js";
 import { dataPath } from "./utils/paths.js";
+import { acceptsGzip, createGzipFileCache } from "./utils/gzipResponse.js";
 import { cachedLogoFile } from "./utils/logoCache.js";
 import { packLogoFile } from "./utils/logoPack.js";
 import { getExtractorManager, getModuleConfig } from "./utils/extractorManager.js";
@@ -248,6 +249,9 @@ function readBody(req) {
 
 // 升级过渡自愈只试一次（issue #29/#68）：见 /api/source-profiles POST
 let sourceIdsHealAttempted = false
+
+// 节目单的 gzip 版本，文件没变就复用（utils/gzipResponse.js）
+const gzipPlayback = createGzipFileCache()
 
 /**
  * 请求处理主体。
@@ -1444,6 +1448,25 @@ async function handleRequest(req, res) {
     // 订阅拉取留痕（issue #98）：核心排查判据是「播放器拉订阅时带没带 ?relay=、是谁在拉」，
     // 此前这里零日志，App 二次拉订阅丢参数的场景完全无痕
     printGrey(`订阅拉取: ${method} ${routeUrlPath}${relayParam ? `?relay=${relayParam}` : '（无 relay 参数）'}｜${clientOf(req).tag}`)
+    // 节目单对所有人都是同一份文件，播放器接受 gzip 就给压缩过的（带上回看用的往日节目单后有 5 MB 多，
+    // 压完一成不到）。压不了就走下面的老路原样发，不让节目单因为压缩取不到。
+    if (routeUrlPath === "/playback.xml") {
+      res.setHeader('Vary', 'Accept-Encoding');
+      if (acceptsGzip(headers)) {
+        try {
+          const zipped = await gzipPlayback(dataPath("playback.xml"))
+          res.setHeader('Content-Type', 'text/xml;charset=UTF-8');
+          res.setHeader('Content-Encoding', 'gzip');
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.statusCode = 200;
+          res.end(zipped);
+          return
+        } catch {
+          // 文件还没生成或读不了：下面会回「获取失败」并打日志
+        }
+      }
+    }
     const interfaceObj = interfaceStr(routeUrlPath, headers, urlUserId, urlToken, effectiveProfile, accessPrefix, relayParam)
     if (interfaceObj.content == null) {
       interfaceObj.content = "获取失败"

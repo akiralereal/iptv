@@ -1,7 +1,8 @@
 import { getAllChannels, updateExternalSources, updateBuiltInSources, updateExtractors, externalSourceManager } from "./channelMerger.js"
 import { getExtractorManager, getModuleConfig } from "./extractorManager.js"
 import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile, writeFileSync } from "./fileUtil.js"
-import { updatePlaybackData } from "./playback.js"
+import { pastShanghaiDays, updatePlaybackData } from "./playback.js"
+import { createEpgHistory } from "./epgHistory.js"
 import { aggregateExternalEpg, loadOverrideKeys } from "./epgAggregator.js"
 import { appendModuleEpg } from "./moduleEpg.js"
 import { normalizeKey, logoMatchName } from "./channelNormalize.js"
@@ -27,6 +28,9 @@ const PE_CACHE_PATH = dataPath('pe-cache.json')
 
 // 本进程最近一次重新生成 playback.xml 的时间；零点后补刷据此判断今天是否已经刷过（utils/dailyEpgRefresh.js）
 let lastPlaybackBuiltAt = 0
+// 咪咕 / 央视网往日节目单的存盘（给回看用，见 utils/epgHistory.js）。放在外部节目单缓存目录下：
+// 同为可再生缓存，已在 .gitignore 与配置备份的排除范围里。
+const playbackHistory = createEpgHistory(dataPath('epg-cache/migu-history'))
 export function getLastPlaybackBuiltAt() {
   return lastPlaybackBuiltAt
 }
@@ -481,7 +485,7 @@ async function updateTV(hours, options = {}) {
         // 刷新也一起作废（实测日志：TypeError → 更新失败）。
         try {
           // 咪咕成功写入 EPG 的频道记为「已覆盖」，外部 EPG 不再为其重复补充
-          if (await updatePlaybackData(channelItem, playbackFile)) {
+          if (await updatePlaybackData(channelItem, playbackFile, undefined, { history: playbackHistory })) {
             epgCoveredKeys.add(normalizeKey(channelItem.name))
           }
         } catch (error) {
@@ -547,6 +551,14 @@ async function updateTV(hours, options = {}) {
 
   // regenerateOnly模式下跳过playback文件生成
   if (!regenerateOnly) {
+    // 往日节目单落盘：本轮新取到的写进数据目录、滚出回看窗口的删掉。写不了（目录只读、盘满）
+    // 只是下一轮重取，本轮节目单已经带上了。
+    try {
+      const { added } = playbackHistory.flush(pastShanghaiDays())
+      if (added > 0) printGreen(`回看节目单：新存 ${added} 份往日节目单（每台每天只取一次，之后各轮直接用）`)
+    } catch (e) {
+      printYellow(`往日节目单存盘失败（不影响本轮节目单，下一轮会重取）: ${e.message}`)
+    }
     // 模块自带的官方节目单：补咪咕没覆盖的模块频道。失败不影响基础节目单。
     try {
       await appendModuleEpg(playbackFile, moduleEpgChannels, epgCoveredKeys, { skipKeys: epgOverrideKeys })

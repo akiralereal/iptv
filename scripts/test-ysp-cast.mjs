@@ -2,13 +2,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
 import { once } from 'node:events'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawn } from 'node:child_process'
 import { Readable, Writable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { createCastGateway, UHD_REFS } from '../extractors/yangshipin/cast/gateway.js'
+import { CAST_SLUGS, createCastGateway, routesRef, UHD_REFS } from '../extractors/yangshipin/cast/gateway.js'
+import { CHANNEL_BY_REF } from '../extractors/yangshipin/channels.js'
 import { CastProcess } from '../extractors/yangshipin/cast/process.js'
 import { createAudioVividFilter, filtersResponse, mpegCrc32 } from '../extractors/yangshipin/cast/ts-audio-filter.js'
 import { sendLocalMediaResponse } from '../utils/localMediaResponse.js'
@@ -57,10 +58,10 @@ async function filtered(input, sizes) {
 
 async function fixture() {
   let starts = 0, originals = 0, calls = 0, mode = 'ok', at = Date.now(), closed = 0
-  const headers = []
+  const headers = [], urls = []
   const bytes = Buffer.from('0123456789')
   const backend = http.createServer((req, res) => {
-    calls++; headers.push(req.headers)
+    calls++; headers.push(req.headers); urls.push(req.url)
     if (mode === 'fail') { res.writeHead(503); return res.end('private details') }
     if (req.url.startsWith('/proxy.ts')) {
       if (mode === 'slow') {
@@ -89,7 +90,7 @@ async function fixture() {
     else { res.writeHead(404); res.end() }
   })
   server.listen(0, '127.0.0.1'); await once(server, 'listening')
-  return { gateway, base: 'http://127.0.0.1:' + server.address().port, bytes, headers,
+  return { gateway, base: 'http://127.0.0.1:' + server.address().port, bytes, headers, urls,
     counts: () => ({ starts, originals, calls, closed }), mode: value => { mode = value }, advance: n => { at += n },
     close: async () => { await gateway.close(); server.closeAllConnections(); backend.closeAllConnections();
       await Promise.all([new Promise(r => server.close(r)), new Promise(r => backend.close(r))]) },
@@ -108,12 +109,56 @@ test('only three UHD entries, source is pinned, entry/HEAD do not resolve stream
       assert.equal((await f.gateway.handle({ path: '/ysp-cast/cast/' + ref + '.m3u8', method: 'HEAD' })).status, 200)
     }
     assert.deepEqual(f.counts(), { starts: 0, originals: 0, calls: 0, closed: 0 })
-    for (const ref of ['ysp-cctv1', 'ysp-cctv16', 'ysp-vip-cctvsjdl', 'ysp-gxpd']) assert.equal(f.gateway.claims('/' + ref), false)
-    assert.equal((await f.gateway.handle({ path: '/ysp-cast/cast/ysp-cctv1.m3u8' })).status, 404)
+    // Ordinary castable channels are claimed by path, but stay on the original route unless 'all'.
+    for (const ref of ['ysp-cctv1', 'ysp-cctv16']) {
+      assert.equal(f.gateway.claims('/' + ref), true)
+      for (const config of [{}, { uhdSource: 'cast' }, { uhdSource: 'main' }]) {
+        assert.equal(await f.gateway.handle({ path: '/' + ref + '.m3u8', config }), null)
+        assert.equal(await f.gateway.handle({ path: '/' + ref, method: 'HEAD', config }), null)
+      }
+    }
+    for (const ref of ['ysp-cctv6', 'ysp-vip-cctvsjdl', 'ysp-gxpd', 'ysp-bjws']) assert.equal(f.gateway.claims('/' + ref), false)
+    assert.equal((await f.gateway.handle({ path: '/ysp-cast/cast/ysp-cctv6.m3u8' })).status, 404)
     assert.equal((await f.gateway.handle({ path: '/ysp-cast/media/ysp-cctv8k' })).status, 404)
     const main = await f.gateway.handle({ path: '/ysp-cast/main/ysp-cctv8k.m3u8', config: { uhdSource: 'cast' } })
     assert(main.body.includes('https://official.test/main.ts'))
     assert.equal(f.counts().starts, 0); assert.equal(f.counts().originals, 1)
+  } finally { await f.close() }
+})
+
+test('all mode: 26 castable channels, ids match the engine table, others untouched', async () => {
+  // Our refs and the bundled engine's slugs must name the same official channel (pid + livePid).
+  const engine = readFileSync(new URL('../extractors/yangshipin/cast/vendor/ysp-live.py', import.meta.url), 'utf8')
+  const table = engine.slice(engine.indexOf('DEFAULT_CHANNELS =['), engine.indexOf(']', engine.indexOf('DEFAULT_CHANNELS =[') + 20))
+  const engineIds = new Map([...table.matchAll(/\('([a-z0-9]+)','[^']*','(\d+)','(\d+)'/g)].map(m => [m[1], [m[2], m[3]]]))
+  assert.equal(Object.keys(CAST_SLUGS).length, 26)
+  assert.equal(new Set(Object.values(CAST_SLUGS)).size, 26)
+  for (const [ref, slug] of Object.entries(CAST_SLUGS)) {
+    const ours = CHANNEL_BY_REF.get(ref)
+    assert(ours, ref); assert.deepEqual([ours.channelId, ours.livePid], engineIds.get(slug), `${ref} → ${slug}`)
+  }
+  for (const ref of UHD_REFS) assert(CAST_SLUGS[ref])
+  const f = await fixture()
+  try {
+    for (const ref of Object.keys(CAST_SLUGS)) {
+      assert.equal(routesRef(ref, { uhdSource: 'all' }), true)
+      assert.equal(routesRef(ref, { uhdSource: 'cast' }), UHD_REFS.includes(ref))
+      const entry = await f.gateway.handle({ path: '/' + ref + '.m3u8', config: { uhdSource: 'all' }, accessPrefix: '/pass' })
+      assert(entry.body.includes('/pass/ysp-cast/cast/' + ref + '.m3u8'), ref)
+      assert(entry.body.includes(UHD_REFS.includes(ref) ? 'BANDWIDTH=40000000' : 'BANDWIDTH=15000000'))
+    }
+    for (const ref of ['ysp-cctv6', 'ysp-bjws', 'ysp-cetv1', 'ysp-vip-cctvfyzq']) {
+      assert.equal(routesRef(ref, { uhdSource: 'all' }), false)
+      assert.equal(await f.gateway.handle({ path: '/' + ref + '.m3u8', config: { uhdSource: 'all' } }), null)
+    }
+    assert.deepEqual(f.counts(), { starts: 0, originals: 0, calls: 0, closed: 0 })
+    // Engine names differ for CGTN language channels.
+    const cgtn = await f.gateway.handle({ path: '/ysp-cast/cast/ysp-cgtnfy.m3u8', config: { uhdSource: 'all' } })
+    assert.equal(cgtn.status, 200); assert.equal(f.urls.at(-1), '/cgtnfr.m3u8')
+    // A playback opened under 'all' keeps working after the setting is changed back.
+    const playing = await f.gateway.handle({ path: '/ysp-cast/cast/ysp-cctv1.m3u8', config: { uhdSource: 'cast' } })
+    assert.equal(playing.status, 200); assert.equal(f.urls.at(-1), '/cctv1.m3u8')
+    assert(playing.body.includes('/ysp-cast/media/'))
   } finally { await f.close() }
 })
 

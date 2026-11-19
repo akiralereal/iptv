@@ -37,9 +37,13 @@ class WorkerTest(unittest.TestCase):
                 handler.path = '/' + slug + '.m3u8'
                 handler.do_GET(head_only=True)
                 self.assertEqual(len(calls), 0)
+            # Exactly the engine's device-protocol channels; the Node gateway picks which are used.
+            self.assertEqual(worker.CHANNELS, frozenset(engine.BACKEND_CHANNELS))
             handler.path = '/cctv8k.m3u8'; handler.do_GET()
             self.assertEqual(calls, ['cctv8k']); self.assertEqual(output[-1], 200)
-            for path in ['/cctv1.m3u8', '/epg.xml', '/diag', '/cctv.m3u', '/engine_proxy']:
+            handler.path = '/cctv1.m3u8'; handler.do_GET()
+            self.assertEqual(calls, ['cctv8k', 'cctv1']); self.assertEqual(output[-1], 200)
+            for path in ['/cctv6.m3u8', '/bjws.m3u8', '/epg.xml', '/diag', '/cctv.m3u', '/engine_proxy']:
                 handler.path = path; handler.do_GET()
                 self.assertEqual(output[-1], 404)
             def fail(*args):

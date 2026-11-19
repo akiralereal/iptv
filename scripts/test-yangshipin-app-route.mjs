@@ -165,6 +165,15 @@ try {
     assert(main.body.toString().includes('/' + PASS + '/ysp-cast/main/ysp-cctv8k.m3u8'))
     assert.throws(() => manager.updateModuleConfig('yangshipin', { uhdSource: 'invalid' }))
     assert.equal(manager.effectiveConfig((await import('../extractors/yangshipin/index.js')).default).uhdSource, 'main')
+    // 「CCTV、CGTN 共 26 台」：普通台的同一个订阅地址改给投屏主清单（issue #240）；默认档的普通台见下面清单直出那条
+    manager.updateModuleConfig('yangshipin', { uhdSource: 'all' })
+    for (const ref of ['ysp-cctv1', 'ysp-cgtnfy', 'ysp-cctv8k']) {
+      const all = await request('/' + PASS + '/relay/' + ref + '.m3u8')
+      assert.equal(all.status, 200)
+      assert(all.body.toString().includes('/' + PASS + '/ysp-cast/cast/' + ref + '.m3u8'), ref)
+    }
+    const allUser = await request('/u/' + USER_TOKEN + '/proxy/ysp-cctv13.m3u8')
+    assert(allUser.body.toString().includes('/u/' + USER_TOKEN + '/ysp-cast/cast/ysp-cctv13.m3u8'))
     manager.updateModuleConfig('yangshipin', { uhdSource: 'cast' })
     assert.equal(existsSync(join(DATA_DIR, 'yangshipin/cast-device')), false, '主清单、HEAD和设置不启动取票服务')
     assert.notEqual((await request('/ysp-cast/cast/ysp-cctv8k.m3u8')).status, 200, '固定来源路径也要鉴权')

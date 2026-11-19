@@ -7,6 +7,18 @@ import { checkModuleBurst } from '../../../utils/clientScanGuard.js'
 import { printBlue } from '../../../utils/colorOut.js'
 
 export const UHD_REFS = Object.freeze(['ysp-cctv4k', 'ysp-cctv164k', 'ysp-cctv8k'])
+// 频道引用 → 投屏引擎频道名。引擎只有这 26 台走设备协议（CCTV6、卫视、CETV 等没有）；
+// CGTN 外语台两边叫法不同，按官方 pid/livePid 一一对过。
+export const CAST_SLUGS = Object.freeze(Object.fromEntries([
+  ...['cctv1', 'cctv2', 'cctv3', 'cctv4', 'cctv5', 'cctv5p', 'cctv7', 'cctv8', 'cctv9', 'cctv10', 'cctv11',
+    'cctv12', 'cctv13', 'cctv14', 'cctv15', 'cctv16', 'cctv17', 'cctv4k', 'cctv164k', 'cctv8k', 'cgtn']
+    .map(slug => [`ysp-${slug}`, slug]),
+  ['ysp-cgtnfy', 'cgtnfr'], ['ysp-cgtney', 'cgtnru'], ['ysp-cgtnalby', 'cgtnar'],
+  ['ysp-cgtnxby', 'cgtnes'], ['ysp-cgtnwyjl', 'cgtndoc'],
+]))
+const castable = ref => Object.hasOwn(CAST_SLUGS, ref)
+/** 这次开播是否交给本网关：超高清三台除「原方案」外都由这里固定来源；其他可投屏的台只在「全部走投屏」时接管。 */
+export const routesRef = (ref, config = {}) => UHD_REFS.includes(ref) || (castable(ref) && config.uhdSource === 'all')
 const HEADERS = new Set(['accept', 'range', 'if-none-match', 'if-modified-since', 'user-agent'])
 const RESPONSE_HEADERS = new Set(['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified'])
 const MIME = 'application/vnd.apple.mpegurl'
@@ -19,7 +31,8 @@ export function createCastGateway({ worker = new CastProcess(), resolveMain,
   log = message => printBlue(`[央视频] ${message}`), now = Date.now } = {}) {
   const agent = new http.Agent({ keepAlive: true, maxSockets: 8, maxFreeSockets: 4 })
   const assets = new Map(), pending = new Map()
-  const claims = path => path.startsWith('/ysp-cast/') || UHD_REFS.includes(topRef(path))
+  // 只按路径认领（注册表拿不到设置）；普通台没开「全部走投屏」时 handle 回 null，交回原方案的通用流程。
+  const claims = path => path.startsWith('/ysp-cast/') || castable(topRef(path))
   async function open(base, path, headers, method = 'GET') {
     const target = new URL(base)
     if (target.protocol !== 'http:' || target.hostname !== '127.0.0.1') throw new Error('投屏服务地址无效')
@@ -55,7 +68,7 @@ export function createCastGateway({ worker = new CastProcess(), resolveMain,
     if (pending.has(ref)) return pending.get(ref)
     const task = (async () => {
       const base = await worker.ensure()
-      const { req, res } = await open(base, '/' + ref.slice(4) + '.m3u8', headers)
+      const { req, res } = await open(base, '/' + CAST_SLUGS[ref] + '.m3u8', headers)
       const buffers = []; let size = 0
       try {
         for await (const chunk of res) {
@@ -77,13 +90,15 @@ export function createCastGateway({ worker = new CastProcess(), resolveMain,
   async function handle(ctx) {
     const { path, method = 'GET', headers = {}, accessPrefix = '', config = {}, client } = ctx
     if (!claims(path)) return null
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) return failure(405, '只支持 GET/HEAD/OPTIONS')
-    if (method === 'OPTIONS') return reply(204)
     const route = path.match(/^\/ysp-cast\/(cast|main)\/(ysp-[a-z0-9]+)\.m3u8$/)
     const token = path.match(/^\/ysp-cast\/media\/([a-f0-9]{32})$/)?.[1]
-    if (path.startsWith('/ysp-cast/') && !route && !token) return failure(404, '没有此媒体入口')
     const ref = route?.[2] || topRef(path)
-    if (!token && !UHD_REFS.includes(ref)) return failure(404, '没有此超高清频道')
+    // 入口按当前设置分流；已开播的子清单/分片不看设置，保存后正在播的不中途换源。
+    if (!path.startsWith('/ysp-cast/') && !routesRef(ref, config)) return null
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) return failure(405, '只支持 GET/HEAD/OPTIONS')
+    if (method === 'OPTIONS') return reply(204)
+    if (path.startsWith('/ysp-cast/') && !route && !token) return failure(404, '没有此媒体入口')
+    if (!token && !castable(ref)) return failure(404, '没有此投屏频道')
     const asset = token && assets.get(token)
     if (token && (!asset || now() - asset.at > 30 * 60000)) return failure(404, '分片入口已过期，请重新开播')
     if (method === 'HEAD') return reply(200, '', token ? 'video/mp2t' : MIME)
@@ -99,10 +114,12 @@ export function createCastGateway({ worker = new CastProcess(), resolveMain,
           body, dispose: () => { body.destroy(); res.destroy(); req.destroy() } }
       }
       if (!route) {
+        // Only the three UHD channels reach here under 'main'; the rest returned null above.
         const source = config.uhdSource === 'main' ? 'main' : 'cast'
+        const bandwidth = UHD_REFS.includes(ref) ? 40000000 : 15000000
         // A one-variant master pins this playback to its selected source, without a
         // redirect or a request to either source. Old subscriptions remain valid.
-        return reply(200, `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=40000000\n${accessPrefix}/ysp-cast/${source}/${ref}.m3u8\n`)
+        return reply(200, `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth}\n${accessPrefix}/ysp-cast/${source}/${ref}.m3u8\n`)
       }
       const verdict = checkModuleBurst({ moduleId: 'yangshipin', moduleName: '央视频', client, channelKey: ref })
       if (!verdict.allowed) return failure(429, verdict.desc)
@@ -123,7 +140,7 @@ export function createCastGateway({ worker = new CastProcess(), resolveMain,
       return reply(200, body)
     } catch {
       log(`${token ? asset.ref : ref} 投屏入口失败 ${now() - started}ms`)
-      return failure(503, '超高清来源暂不可用，请稍后重试或在源管理切回原方案')
+      return failure(503, '投屏来源暂不可用，请稍后重试或在源管理切回原方案')
     }
   }
   return { claims, handle,

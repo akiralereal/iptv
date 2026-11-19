@@ -1,4 +1,7 @@
-"""Private UHD-only worker. Original ticket/cache logic; no JCE/BK/EPG/Node fallback.
+"""Private device-protocol worker. Original ticket/cache logic; no JCE/BK/EPG/Node fallback.
+
+Serves the 26 channels the engine plays over the device protocol; the Node gateway decides
+which of them actually come here (UHD by default, all of them when the admin opts in).
 
 Listens on an ephemeral loopback port and exits when its owning Node process exits.
 No login material is read. Device state belongs exclusively to this deployment.
@@ -18,7 +21,10 @@ from transport import install
 from quality import install as install_quality
 
 ROOT = Path(__file__).resolve().parent
-CHANNELS = frozenset(('cctv4k', 'cctv164k', 'cctv8k'))
+CHANNELS = frozenset((
+    'cctv1', 'cctv2', 'cctv3', 'cctv4', 'cctv5', 'cctv5p', 'cctv7', 'cctv8', 'cctv9', 'cctv10',
+    'cctv11', 'cctv12', 'cctv13', 'cctv14', 'cctv15', 'cctv16', 'cctv17',
+    'cctv4k', 'cctv164k', 'cctv8k', 'cgtn', 'cgtnfr', 'cgtnru', 'cgtnar', 'cgtnes', 'cgtndoc'))
 
 
 def load_engine():
@@ -101,7 +107,7 @@ def main():
     engine = load_engine()
     pool = configure(engine)
     sys.argv = [str(ROOT / 'vendor/ysp-live.py'), '0', '--bind', '127.0.0.1',
-                '--data-dir', str(data), '--only-4k', '--no-engine', '--zap-debounce', '0']
+                '--data-dir', str(data), '--no-engine', '--zap-debounce', '0']
     try:
         engine.main()
     finally:

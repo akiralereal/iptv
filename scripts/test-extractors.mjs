@@ -1650,6 +1650,25 @@ try {
     assert.equal(channel.relayHls, false, '旧缓存中的只中转清单标记必须被覆盖')
   })
 
+  check('输出：纯直播模块的旧频道缓存也立即标 catchup:none，咪咕不动', () => {
+    const manager = newManager()
+    // 升级前抓下的缓存：频道上还没有 catchup 字段
+    manager.cache.modules.njtv = {
+      groups: [{ name: '南京', dataList: [{ name: '南京新闻综合', url: 'https://example.com/nj.m3u8' }] }],
+      health: { status: 'ok' },
+    }
+    manager.cache.modules.migu = {
+      groups: [{ name: '央视', dataList: [{ name: 'CCTV1', deferredRef: '608807420' }] }],
+      health: { status: 'ok' },
+    }
+    const channels = manager.getValidChannels().flatMap(group => group.dataList)
+    assert.equal(channels.find(ch => ch.name === '南京新闻综合')?.catchup, 'none',
+      '旧缓存不补的话，要等下一轮抓取才不继承订阅头的回看模板')
+    const migu = channels.find(ch => ch.name === 'CCTV1')
+    assert.ok(migu, '咪咕默认开着，旧缓存照常输出')
+    assert.equal(migu.catchup, undefined, '咪咕的回看要保留')
+  })
+
   check('输出：省市分组与管理卡片同名，旧缓存也立即生效', () => {
     const manager = newManager()
     manager.cache.modules.dalian = {

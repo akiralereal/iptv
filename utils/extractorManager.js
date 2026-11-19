@@ -1337,6 +1337,10 @@ class ExtractorManager {
           const entry = {
             ...channel,
             ...hlsRouting,
+            // 纯直播模块（capabilities.catchup: false）的频道一律不继承订阅头的咪咕回看模板：
+            // 频道自己没写回看模式就补 catchup:'none'。和上面的 HLS 模式一样在输出时覆盖，
+            // 升级前抓下的磁盘缓存里没有这个字段，不补要等各模块下一轮抓取（最长 6 小时）才生效
+            ...(module.capabilities?.catchup === false && !channel.catchup ? { catchup: 'none' } : {}),
             groupTitle: name,
             opts: sanitizeOpts(channel.opts),
             sourceId,

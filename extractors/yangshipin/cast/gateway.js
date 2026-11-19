@@ -1,6 +1,8 @@
 import http from 'node:http'
+import { pipeline } from 'node:stream'
 import { createHash } from 'node:crypto'
 import { CastProcess } from './process.js'
+import { createAudioVividFilter, filtersResponse } from './ts-audio-filter.js'
 import { checkModuleBurst } from '../../../utils/clientScanGuard.js'
 import { printBlue } from '../../../utils/colorOut.js'
 
@@ -90,9 +92,11 @@ export function createCastGateway({ worker = new CastProcess(), resolveMain,
       if (token) {
         worker.touch()
         const { req, res } = await open(asset.base, asset.path, headers)
+        // Same bytes and length, minus the Audio Vivid track players pick and cannot decode.
+        const body = filtersResponse(res) ? pipeline(res, createAudioVividFilter(), () => {}) : res
         return { status: res.statusCode,
           headers: { ...Object.fromEntries(Object.entries(res.headers).filter(([k]) => RESPONSE_HEADERS.has(k))), 'Cache-Control': 'no-store' },
-          body: res, dispose: () => { res.destroy(); req.destroy() } }
+          body, dispose: () => { body.destroy(); res.destroy(); req.destroy() } }
       }
       if (!route) {
         const source = config.uhdSource === 'main' ? 'main' : 'cast'

@@ -6,9 +6,54 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawn } from 'node:child_process'
+import { Readable, Writable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import { createCastGateway, UHD_REFS } from '../extractors/yangshipin/cast/gateway.js'
 import { CastProcess } from '../extractors/yangshipin/cast/process.js'
+import { createAudioVividFilter, filtersResponse, mpegCrc32 } from '../extractors/yangshipin/cast/ts-audio-filter.js'
 import { sendLocalMediaResponse } from '../utils/localMediaResponse.js'
+
+// Minimal TS shaped like the cast feed: HEVC, Audio Vivid (0xd5 "av3a"), AAC.
+function psi(pid, body) {
+  body[2] = body.length - 3 + 4
+  const section = Buffer.concat([body, Buffer.alloc(4)])
+  section.writeUInt32BE(mpegCrc32(section, 0, section.length - 4), section.length - 4)
+  const packet = Buffer.alloc(188, 0xff)
+  packet.set([0x47, 0x40 | (pid >> 8), pid & 0xff, 0x10, 0x00]); section.copy(packet, 5)
+  return packet
+}
+const pat = pmtPid => psi(0, Buffer.from([0x00, 0xb0, 0, 0, 1, 0xc1, 0, 0, 0, 1, 0xe0 | (pmtPid >> 8), pmtPid & 0xff]))
+const reg = tag => Buffer.from([0x05, 4, ...Buffer.from(tag)])
+function pmt(pmtPid, pcrPid, streams) {
+  const es = streams.map(({ type, pid, desc = Buffer.alloc(0) }) =>
+    Buffer.concat([Buffer.from([type, 0xe0 | (pid >> 8), pid & 0xff, 0xf0, desc.length]), desc]))
+  return psi(pmtPid, Buffer.concat([Buffer.from([0x02, 0xb0, 0, 0, 1, 0xc1, 0, 0, 0xe0 | (pcrPid >> 8), pcrPid & 0xff, 0xf0, 0]), ...es]))
+}
+function pes(pid, fill) {
+  const packet = Buffer.alloc(188, fill)
+  packet.set([0x47, 0x40 | (pid >> 8), pid & 0xff, 0x10, 0, 0, 1, 0xc0])
+  return packet
+}
+const HEVC = { type: 0x24, pid: 0x100, desc: reg('HEVC') }, VIVID = { type: 0xd5, pid: 0x101, desc: reg('av3a') }, AAC = { type: 0x0f, pid: 0x102 }
+const castTs = (streams = [HEVC, VIVID, AAC], pcr = 0x100) => Buffer.concat([pat(0x1000), pmt(0x1000, pcr, streams),
+  pes(0x100, 1), pes(0x101, 2), pes(0x102, 3), pat(0x1000), pmt(0x1000, pcr, streams), pes(0x101, 2), pes(0x100, 1)])
+const pidOf = (buf, off) => ((buf[off + 1] & 0x1f) << 8) | buf[off + 2]
+function pmtStreams(buf, off) {
+  const start = off + 5, end = start + 3 + (((buf[start + 1] & 0x0f) << 8) | buf[start + 2])
+  assert.equal(mpegCrc32(buf, start, end), 0, 'PMT CRC')
+  const list = []
+  for (let i = start + 12; i < end - 4; i += 5 + buf[i + 4]) list.push([buf[i], ((buf[i + 1] & 0x1f) << 8) | buf[i + 2]])
+  return list
+}
+async function filtered(input, sizes) {
+  const chunks = []
+  for (let at = 0, n = 0; at < input.length; n++) {
+    const size = sizes[n % sizes.length]; chunks.push(Buffer.from(input.subarray(at, at + size))); at += size
+  }
+  const out = []
+  await pipeline(Readable.from(chunks), createAudioVividFilter(), new Writable({ write(c, _e, done) { out.push(c); done() } }))
+  return Buffer.concat(out)
+}
 
 async function fixture() {
   let starts = 0, originals = 0, calls = 0, mode = 'ok', at = Date.now(), closed = 0
@@ -20,6 +65,10 @@ async function fixture() {
     if (req.url.startsWith('/proxy.ts')) {
       if (mode === 'slow') {
         res.writeHead(200); res.write(bytes); req.once('close', () => { closed++ }); return
+      }
+      if (mode === 'ts') {
+        const ts = castTs()
+        res.writeHead(200, { 'Content-Type': 'video/mp2t', 'Content-Length': ts.length }); return res.end(ts)
       }
       const range = req.headers.range === 'bytes=2-5'
       res.writeHead(range ? 206 : 200, { 'Content-Type': 'video/mp2t', ...(range ? { 'Content-Range': 'bytes 2-5/10' } : {}) })
@@ -99,6 +148,49 @@ test('cast failure never invokes original source; arbitrary returned targets rej
       assert.equal(result.status, 503); assert(!result.body.includes('private'))
     }
     assert.equal(f.counts().originals, 0); assert.equal(f.counts().calls, 2)
+  } finally { await f.close() }
+})
+
+test('Audio Vivid track is hidden with length and other packets unchanged, under any chunking', async () => {
+  const input = castTs()
+  for (const sizes of [[1], [7], [187], [188], [189], [1000], [5, 200, 3, 376]]) {
+    const out = await filtered(input, sizes)
+    assert.equal(out.length, input.length, `sizes ${sizes}`)
+    for (let off = 0; off < out.length; off += 188) {
+      const pid = pidOf(input, off)
+      if (pid === 0x1000) assert.deepEqual(pmtStreams(out, off), [[0x24, 0x100], [0x0f, 0x102]])
+      else if (pid === 0x101) assert.deepEqual(out.subarray(off, off + 188), Buffer.concat([Buffer.from([0x47, 0x1f, 0xff, 0x10]), Buffer.alloc(184, 0xff)]))
+      else assert.deepEqual(out.subarray(off, off + 188), input.subarray(off, off + 188))
+    }
+  }
+})
+
+test('Audio Vivid kept when it is the only audio or carries PCR; non-TS and lost sync pass through', async () => {
+  for (const input of [castTs([HEVC, VIVID]), castTs([HEVC, VIVID, AAC], 0x101), Buffer.from('0123456789'),
+    Buffer.from('#EXTM3U\n#EXTINF:4,\nx.ts\n')]) {
+    assert.deepEqual(await filtered(input, [64]), input)
+  }
+  // Sync lost before the PMT: nothing after it is touched.
+  const broken = castTs(); broken[188] = 0
+  assert.deepEqual(await filtered(broken, [188]), broken)
+  assert.equal(filtersResponse({ statusCode: 200, headers: {} }), true)
+  assert.equal(filtersResponse({ statusCode: 206, headers: { 'content-range': 'bytes 376-999/2000' } }), true)
+  assert.equal(filtersResponse({ statusCode: 206, headers: { 'content-range': 'bytes 2-5/10' } }), false)
+  assert.equal(filtersResponse({ statusCode: 404, headers: {} }), false)
+})
+
+test('cast media through the gateway drops Audio Vivid and keeps Content-Length', async () => {
+  const f = await fixture()
+  try {
+    const playlist = await f.gateway.handle({ path: '/ysp-cast/cast/ysp-cctv4k.m3u8' })
+    const path = playlist.body.split('\n').find(line => line.startsWith('/ysp-cast/media/'))
+    f.mode('ts')
+    const media = await fetch(f.base + path)
+    const body = Buffer.from(await media.arrayBuffer())
+    assert.equal(media.status, 200); assert.equal(Number(media.headers.get('content-length')), castTs().length)
+    assert.equal(body.length, castTs().length)
+    assert.deepEqual(pmtStreams(body, 188), [[0x24, 0x100], [0x0f, 0x102]])
+    assert.equal(pidOf(body, 188 * 3), 0x1fff)
   } finally { await f.close() }
 })
 

@@ -5,7 +5,8 @@ export default {
   id: 'kankanews-scenic',
   name: '上海景观',
   description: '看看新闻陆家嘴、外滩观光平台、魔都眼、北外滩、外白渡桥五路慢直播，播放时验签取流并全代理。电视频道在「上海」模块；松江慢直播是单独的「上海松江」模块。',
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   outputGroupName: '上海',
   preserveGroupSuffixes: ['景观'],
   splitFrom: { id: 'kankanews', groups: ['上海景观'] },

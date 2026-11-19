@@ -5,7 +5,8 @@ export default {
   id: 'gztv',
   name: '广州',
   description: '广州综合、新闻与南国都市三路官方直播；播放时自动换取官网最新签名地址。',
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   outputGroupName: '广东',
   defaultRefreshMinutes: 240,
   refreshConfigurable: false,

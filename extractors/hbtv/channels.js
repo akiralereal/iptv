@@ -30,6 +30,7 @@ export function buildChannels(rows = []) {
     // CDN 清单有浏览器指纹校验，分片又要求官网 Referer；两者都在服务端完成，
     // 不把匿名 client-id、短效票或请求头暴露给播放器。
     proxyHls: true,
+    catchup: 'none',
     logo: logos.get(channel.id) || '',
     opts: ['network-caching=3000'],
   }))

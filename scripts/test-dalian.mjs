@@ -108,6 +108,8 @@ await check('大连频道追加到辽宁频道并固定走完整 HLS 代理', ()
   assert.deepEqual(groups.map(group => group.name), ['辽宁'])
   assert.deepEqual(groups[0].dataList.map(channel => channel.deferredRef), ['dalian-7', 'dalian-8'])
   assert.ok(groups[0].dataList.every(channel => channel.proxyHls === true))
+  assert.equal(dalian.capabilities.catchup, false)
+  assert.ok(groups[0].dataList.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
 })
 
 await check('模块不暴露配置且引用范围拒绝路径注入与内部频道', () => {

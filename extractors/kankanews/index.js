@@ -11,7 +11,9 @@ export default {
   id: 'kankanews',
   name: '上海',
   description: '东方卫视、新闻综合等 SMG 官方电视直播。按官网当前节目验签取流并全代理防盗链请求；版权屏蔽时段以官网为准。陆家嘴、外滩等慢直播在「上海景观」模块。',
-  capabilities: { cache: 'disk', resolve: true, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数。官网另有回看页，按节目放行（节目单接口的 can_review），
+  // 与直播取流是两套，没接；频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   outputGroupName: '上海',
   defaultRefreshMinutes: 240,
   refreshConfigurable: false,

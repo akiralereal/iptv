@@ -120,6 +120,7 @@ export function buildChannels(row) {
     name: row.name,
     deferredRef: 'songjiang-slow-live',
     relayHls: true,
+    catchup: 'none',
     logo: row.logo || '',
     opts: ['network-caching=3000'],
   }] : []

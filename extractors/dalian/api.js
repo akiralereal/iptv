@@ -202,6 +202,7 @@ export function buildChannelGroups(rows) {
     name: row.name,
     deferredRef: `dalian-${row.id}`,
     proxyHls: true,
+    catchup: 'none',
     logo: row.logo || '',
     opts: ['network-caching=3000'],
   }))

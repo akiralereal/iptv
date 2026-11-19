@@ -12,7 +12,8 @@ export default {
   id: 'gxtv',
   name: '广西',
   description: '广西卫视及地面频道官方直播。只收录官网正式频道，自动排除测试流和矩阵号。',
-  capabilities: { cache: 'disk', resolve: true, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（地址不带查询串，拼上去上游直接 403/404），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   outputGroupName: '广西',
   defaultRefreshMinutes: 30,
   refreshConfigurable: false,

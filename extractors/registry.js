@@ -85,7 +85,9 @@
  *                                 FLV resolve 须返回 validateMediaUrl 校验官方调度跳转。
  *   streamTypeForConfig(config) 可选；格式由用户选的模块（抖音）按生效配置返回 'hls'/'flv'。
  *                                 只给后台卡片的「占上行」判断用；播放时仍以 resolve 返回的 streamType 为准
- *   capabilities.catchup boolean 可选；false 表示纯直播，不透传回看查询参数。
+ *   capabilities.catchup boolean false 表示纯直播，不透传回看查询参数。没接官方回看的模块都要写 false，
+ *                                 并给每个频道标 catchup:'none'（见下方频道字段）——订阅头带着咪咕的回看模板，
+ *                                 不标的频道会继承它。目前只有咪咕不写；scripts/test-extractors.mjs「回看声明」守门
  *   configSchema          array   字段描述，后台据此渲染表单、后端据此校验。值会进请求头的
  *                                 文本字段声明 headerValue: true，保存时去首尾空白、拦下非法字符。
  *                                 字段说明 hint 写一句话的字符串；三条以上要点写成字符串数组，

@@ -59,6 +59,7 @@ assert.deepEqual(buildChannels(row), [{
   name: '松江融媒慢直播',
   deferredRef: 'songjiang-slow-live',
   relayHls: true,
+  catchup: 'none',
   logo: row.logo,
   opts: ['network-caching=3000'],
 }])

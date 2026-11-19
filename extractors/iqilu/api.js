@@ -96,6 +96,7 @@ export function buildChannels(rows) {
     return [{
       name: definition.name,
       deferredRef: `iqilu-${definition.slug}`,
+      catchup: 'none',
       logo: definition.logo,
     }]
   })

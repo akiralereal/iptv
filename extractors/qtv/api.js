@@ -86,6 +86,7 @@ export async function fetchChannels(options = {}) {
     channels: rows.map(row => ({
       name: row.name,
       url: row.url,
+      catchup: 'none',
       logo: row.logo,
       opts: ['network-caching=3000'],
     })),

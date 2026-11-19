@@ -5,7 +5,8 @@ export default {
   id: 'mgtv',
   name: '湖南',
   description: '湖南广电及长沙频道官方直播。自动排除购物频道并选择官网当前最高画质。',
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（地址不带查询串，拼上去上游直接 403/404），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   outputGroupName: '湖南',
   defaultRefreshMinutes: 240,
   refreshConfigurable: false,

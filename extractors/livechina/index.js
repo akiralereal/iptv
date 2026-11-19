@@ -6,7 +6,8 @@ export default {
   id: 'livechina',
   name: '央视直播中国',
   description: '央视网「直播中国」当前在线景观慢直播；自动排除历史下线页面，播放时由官网播放器获取 HLS。',
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（地址不带查询串，拼上去上游直接 403/404），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   outputGroupName: '央视景观',
   region: '直播中国',
   // 同时覆盖旧磁盘缓存中的 relayHls 标记：升级后重新生成播放列表即可切到全代理，

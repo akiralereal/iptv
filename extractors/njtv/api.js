@@ -108,7 +108,7 @@ const fallbackRows = definitions => definitions.map(channel => ({
 export function buildChannels(rows) {
   return (Array.isArray(rows) ? rows : []).flatMap(row => {
     const url = normalizeStreamUrl(row?.url)
-    return url ? [{ name: String(row.name || '').trim(), url, logo: row.logo || '', opts: ['network-caching=3000'] }] : []
+    return url ? [{ name: String(row.name || '').trim(), url, catchup: 'none', logo: row.logo || '', opts: ['network-caching=3000'] }] : []
   })
 }
 

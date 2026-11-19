@@ -6,7 +6,9 @@ export default {
   id: 'hntv',
   name: '河南',
   description: '河南卫视及十二个地面、专业频道官方直播。自动排除购物频道并刷新短效地址。',
-  capabilities: { cache: 'disk', resolve: true, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数。官方的回看是节目单接口里按节目给的录像文件（programs[].playUrl），
+  // 与直播取流是两套，没接；频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   outputGroupName: '河南',
   defaultRefreshMinutes: 120,
   refreshConfigurable: false,

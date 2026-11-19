@@ -6,7 +6,8 @@ export default {
   id: 'cztv',
   name: '浙江',
   description: '浙江卫视及地面频道官方直播。播放时即时选择码率并生成有效地址。',
-  capabilities: { cache: 'disk', resolve: true, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   outputGroupName: '浙江',
   defaultRefreshMinutes: 240,
   refreshConfigurable: false,

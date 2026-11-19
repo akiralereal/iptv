@@ -8,7 +8,8 @@ export default {
   id: 'hbtv',
   name: '湖北',
   description: '湖北卫视、经视、综合、影视、教育、垄上六套官网公开直播；自动处理短效签名与防盗链。',
-  capabilities: { cache: 'disk', resolve: true, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   outputGroupName: '湖北',
   defaultRefreshMinutes: 240,
   refreshConfigurable: false,

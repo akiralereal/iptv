@@ -79,6 +79,7 @@ export function buildChannels(rows) {
       // 地址 token 绑定取详情时的出口 IP 与 UA，交给客户端直连很容易 403；
       // 全代理保证详情、清单、分片都由同一服务端网络与 UA 发出。
       proxyHls: true,
+      catchup: 'none',
       logo: validLogo(row?.cover || row?.station_logo),
     })
   }
@@ -96,6 +97,7 @@ export function buildScenicChannels(rows) {
       name: definition.name,
       deferredRef: `kankanews-scenic-${id}`,
       proxyHls: true,
+      catchup: 'none',
       logo: validLogo(row?.cover),
     })
   }

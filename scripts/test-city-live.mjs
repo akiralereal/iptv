@@ -73,6 +73,7 @@ check('广州：只接受代码与名称吻合的三路官方签名 HLS', () => 
   const channels = buildGztvChannels(rows)
   assert.deepEqual(channels.map(channel => channel.deferredRef), ['gztv-3001', 'gztv-3002', 'gztv-3003'])
   assert.ok(channels.every(channel => channel.opts?.[0] === 'network-caching=3000'))
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
 })
 
 await checkAsync('广州：模块抓频道后预热签名缓存，播放不会立刻重复联网', async () => {
@@ -171,6 +172,8 @@ await checkAsync('南京：页面失败时两组各自回退已核验地址，�
   assert.equal(tv.warnings.length, 1)
   assert.equal(scenic.warnings.length, 1)
   assert.ok([...tv.group.dataList, ...scenic.group.dataList].every(channel => channel.url.startsWith('https://')))
+  // 直链频道：播放器会把订阅头的回看参数直接接到官方地址后面，逐条关掉
+  assert.ok([...tv.group.dataList, ...scenic.group.dataList].every(channel => channel.catchup === 'none'))
   // 回退时电视频道仍带台标，景观机位照旧留空
   assert.deepEqual(tv.group.dataList.map(channel => channel.logo), TV_CHANNELS.map(channel => channel.logo))
   assert.ok(scenic.group.dataList.every(channel => channel.logo === ''))
@@ -196,6 +199,7 @@ await checkAsync('青岛：按用户指定顺序刷新五路，单页失败只�
   assert.equal(result.warnings.length, 1)
   assert.match(result.warnings[0], /快速路大润发方向/)
   assert.ok(result.channels.every(channel => channel.url.startsWith('https://video10.qtv.com.cn/')))
+  assert.ok(result.channels.every(channel => channel.catchup === 'none'), '直链频道逐条关掉订阅头的回看声明')
 })
 
 console.log(`\n全部通过：${passed} ✅`)

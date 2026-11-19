@@ -6,7 +6,8 @@ export default {
   id: 'hnntv',
   name: '海南',
   description: '海南卫视、三沙卫视及五个地面频道官方直播。播放时自动换取短效签名地址。',
-  capabilities: { cache: 'disk', resolve: true, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   outputGroupName: '海南',
   defaultRefreshMinutes: 240,
   refreshConfigurable: false,

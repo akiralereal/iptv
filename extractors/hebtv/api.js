@@ -298,6 +298,7 @@ export function buildChannels(rows) {
     deferredRef: `hebtv-${row.id}`,
     // 顶层清单持续续签，清单内带独立参数的 TS 分片仍由播放器直连 CDN。
     relayHls: true,
+    catchup: 'none',
     logo: row.logo || '',
   }))
 }

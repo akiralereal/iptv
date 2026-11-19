@@ -19,7 +19,8 @@ export default {
   // 关掉后再打开时弹 enableNotice
   enableNotice: '辽宁省台和沈阳台的官方接口曾经只放行辽宁本地网络（2026 年 11 月实测大陆其他地区也能播，香港和海外不行），官方随时可能再收紧。能不能播取决于部署这台服务器的网络，请自行辨别。',
   catalogVersion: 1,
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   outputGroupName: '辽宁',
   defaultRefreshMinutes: 10,
   refreshConfigurable: false,

@@ -52,6 +52,7 @@ const row = {
     name: '西藏｜甲岗拉姆雪山及县城湿地',
     deferredRef: 'livechina-ahhs01',
     proxyHls: true,
+    catchup: 'none',
     logo: row.logo,
     opts: ['network-caching=3000'],
   }])

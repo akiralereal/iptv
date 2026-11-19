@@ -7,7 +7,8 @@ export default {
   id: 'sztv',
   name: '深圳',
   description: '深圳卫视4K及六个地面频道官方直播。播放时自动完成官网鉴权、换取直播 Key 并续签分片。',
-  capabilities: { cache: 'disk', resolve: true, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   outputGroupName: '广东',
   defaultRefreshMinutes: 240,
   refreshConfigurable: false,

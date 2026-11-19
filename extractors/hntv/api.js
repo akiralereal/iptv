@@ -73,6 +73,7 @@ export function buildChannels(rows) {
   return normalizeRows(rows).map(row => ({
     name: row.name,
     deferredRef: `hntv-${row.id}`,
+    catchup: 'none',
     logo: row.logo,
   }))
 }

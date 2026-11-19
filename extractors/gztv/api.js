@@ -69,6 +69,7 @@ export function buildChannels(rows) {
   return normalizeRows(rows).map(row => ({
     name: row.name,
     deferredRef: `gztv-${row.code}`,
+    catchup: 'none',
     logo: row.logo,
     opts: ['network-caching=3000'],
   }))

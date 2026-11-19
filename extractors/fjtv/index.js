@@ -78,7 +78,8 @@ export default {
   id: 'fjtv',
   name: '福建',
   description: '福建省级频道播放时自动续签；地市、福州和厦门官方线路独立抓取并合入现有福建分组。',
-  capabilities: { cache: 'disk', resolve: true, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   outputGroupName: '福建',
   defaultRefreshMinutes: 360,
   refreshConfigurable: false,

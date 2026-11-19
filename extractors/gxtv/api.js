@@ -61,6 +61,7 @@ export function buildChannelGroups(rows) {
       // 广西 CDN 在部分浏览器/电视端会被客户端网络层拦截；让写盘层生成
       // /proxy/<ref>.m3u8，清单与分片都经本机现有 HLS 全代理转发。
       proxyHls: true,
+      catchup: 'none',
       logo: String(row?.logo || '').trim(),
     })
   }

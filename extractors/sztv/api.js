@@ -165,6 +165,7 @@ export function buildChannels(rows) {
     deferredRef: `sztv-${row.id}`,
     // LSDPlayer 会给每一条清单/分片路径单独签名，普通播放器无法直接复现，必须全代理。
     proxyHls: true,
+    catchup: 'none',
     logo: row.logo || '',
   }))
 }

@@ -48,6 +48,7 @@ export function buildChannels() {
     name: channel.name,
     deferredRef: `gdtv-${channel.id}`,
     relayHls: true,
+    catchup: 'none',
     logo: channel.logo || '',
     opts: ['network-caching=3000'],
   }))

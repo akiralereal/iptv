@@ -78,6 +78,8 @@ check('省台与沈阳台合并进辽宁，引用只带频道编号，固定走�
     ['沈阳新闻综合', 'liaoning-d447fcc472f14c7f14872d4e26b12d8f'],
   ])
   assert.ok(groups.every(group => group.dataList.every(channel => channel.proxyHls === true)))
+  assert.equal(liaoning.capabilities.catchup, false)
+  assert.ok(groups.every(group => group.dataList.every(channel => channel.catchup === 'none')), '纯直播：逐条关掉订阅头的回看声明')
 })
 
 check('模块只认领白名单频道；旧 beidou 引用和路径注入都不接', () => {

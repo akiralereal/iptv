@@ -5,7 +5,8 @@ export default {
   id: 'hebtv-scenic',
   name: '河北景观',
   description: '冀时「美丽河北」石家庄、承德、张家口、雄安新区等城市慢直播，播放时自动续签。电视频道在「河北」模块。',
-  capabilities: { cache: 'disk', resolve: true, epg: false },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: false, catchup: false },
   outputGroupName: '河北',
   preserveGroupSuffixes: ['景观'],
   splitFrom: { id: 'hebtv', groups: ['河北景观'] },

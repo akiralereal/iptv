@@ -1300,6 +1300,31 @@ try {
     }
   })
 
+  check('★ 回看声明：除咪咕外每个模块都写明 capabilities.catchup: false，频道逐条标 catchup:\'none\'', () => {
+    // 订阅头带着咪咕的回看模板（catchup="append"），没标 catchup="none" 的频道都会继承；模块没写
+    // capabilities.catchup: false 的，播放时还会把 playbackbegin / playbackend 原样拼到上游地址后面。
+    // 2026-11-19 实测 23 个漏了声明的省台、城市台、景观模块：带上参数要么照回直播，要么把地址拼坏（403/404）。
+    // 真接了官方回看的模块才加进 SUPPORTS_CATCHUP
+    const SUPPORTS_CATCHUP = ['migu']
+    const undeclared = listModules()
+      .filter(module => !SUPPORTS_CATCHUP.includes(module.id) && module.capabilities?.catchup !== false)
+      .map(module => module.id)
+    assert.deepEqual(undeclared, [],
+      '这些模块没声明回看：不支持就写 capabilities.catchup: false，并给每个频道标 catchup:\'none\'')
+    for (const id of SUPPORTS_CATCHUP) assert.notEqual(getModule(id).capabilities?.catchup, false, `${id} 的回看要保留`)
+
+    // 频道那一半按目录静态看（一个目录可能出多个模块）：至少有一处给频道标 catchup:'none'，防整个模块漏掉
+    const root = new URL('../extractors/', import.meta.url)
+    // 这三个直播平台模块一直只有模块级声明、没逐条标；直播间没有节目单，这次没动
+    const ROOMS_WITHOUT_EPG = ['bilibili-live', 'douyu-live', 'huya-live']
+    const unstamped = readdirSync(root)
+      .filter(name => existsSync(new URL(`${name}/index.js`, root)))
+      .filter(dir => !SUPPORTS_CATCHUP.includes(dir) && !ROOMS_WITHOUT_EPG.includes(dir))
+      .filter(dir => !readdirSync(new URL(`${dir}/`, root)).some(file => file.endsWith('.js')
+        && /catchup: ?'none'/.test(readFileSync(new URL(`${dir}/${file}`, root), 'utf8'))))
+    assert.deepEqual(unstamped, [], '这些模块目录里没有一处给频道标 catchup:\'none\'')
+  })
+
   check('★ 走代理的模块：proxyHosts 盖住模块真会连的域名——探测目标、海外频道表里的每条流和取表的 GitHub', () => {
     for (const [host, suffix] of [
       ['www.tdm.com.mo', 'tdm.com.mo'], ['live5.tdm.com.mo', 'tdm.com.mo'], ['api.telegram.org', 'telegram.org'],
@@ -2856,6 +2881,33 @@ await checkAsync('画质覆盖：播放地址的查询参数交给模块，签�
   }
 })
 
+await checkAsync('回看声明：纯直播模块收到 playbackbegin / playbackend 不往上游地址上拼，咪咕照旧透传', async () => {
+  const query = '?playbackbegin=20261119100000&playbackend=20261119110000'
+  const resolveWith = async (id, ref, url) => {
+    const module = getModule(id)
+    const original = module.resolve
+    module.resolve = async () => ({ url })
+    try {
+      return await playbackChannel(`/${ref}${query}`, '', '')
+    } finally {
+      module.resolve = original
+    }
+  }
+  for (const [id, ref, url] of [
+    // 带签名查询串的：以前拼成 …&playbackbegin=…，上游不认、照回直播
+    ['gztv', 'gztv-3001', 'https://tencentplaywebsite.gztv.com/live/zonghes.m3u8?txSecret=abc&txTime=1a1f28cc2b1'],
+    // 不带查询串的：以前拼成 …/x.m3u8&playbackbegin=…，路径坏了，上游 403/404
+    ['gxtv', 'gxtv-gxws', 'https://hlscdn.liangtv.cn/live/abc/def.m3u8'],
+  ]) {
+    const result = await resolveWith(id, ref, url)
+    assert.equal(result.code, 302, id)
+    assert.equal(result.playURL, url, `${id} 的上游地址要原样下发`)
+  }
+  const migu = await resolveWith('migu', '608807420', 'https://hlszymgsplive.miguvideo.com/x/index.m3u8?msisdn=1&puData=abc')
+  assert.equal(migu.playURL,
+    'https://hlszymgsplive.miguvideo.com/x/index.m3u8?msisdn=1&puData=abc&playbackbegin=20261119100000&playbackend=20261119110000')
+})
+
 await checkAsync('虎牙：?quality=0 覆盖后台 2M，去掉 ratio 取原画，并与 2M 分开缓存', async () => {
   clearHuyaResolveCache()
   const config = resolveConfig(huya, {})
@@ -3000,6 +3052,7 @@ check('广西：只取官网正式频道、规范命名并排除内部/专题流
   const groups = buildGxtvGroups(rows, { includeSpecialty: true, includeCetv: true })
   assert.deepEqual(groups.map(g => g.name), ['广西电视台'])
   assert.deepEqual(groups[0].dataList.map(ch => ch.name), ['广西卫视', '广西新闻', '广西移动'])
+  assert.ok(groups[0].dataList.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
 })
 
 check('广西：HLS 字段按优先级回落，非 HLS/坏 URL 不进入播放列表', () => {
@@ -3108,6 +3161,7 @@ check('浙江：频道名规范化、deferredRef 带平台前缀并固定排除�
     ['浙江新闻', 'cztv-107'],
   ])
   assert.equal(channels[0].logo, 'https://oss/a.png', '台标升级为 HTTPS')
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
   assert.equal(channels[0].relayHls, true, '浙江清单需经本机中继，播放中才能持续换签和切 CDN')
 })
 
@@ -3268,6 +3322,7 @@ check('看看新闻：只收录官网 8 个正式上海频道，规范命名并�
   ])
   assert.equal(channels[0].deferredRef, 'kankanews-1')
   assert.equal(channels[1].logo, 'https://p.statickksmg.com/news.png')
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
   assert.ok(channels.every(channel => channel.proxyHls === true))
 })
 
@@ -3280,6 +3335,7 @@ check('看看新闻：收录上海这一刻 5 路景观直播，并区分同名�
     { id: 13974, title: '外白渡桥', play_url: 'encrypted' },
     { id: 99999, title: '临时机位', play_url: 'encrypted' },
   ])
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
   assert.deepEqual(channels.map(channel => channel.name), [
     '陆家嘴', '外滩观光平台', '魔都眼景观', '北外滩', '外白渡桥',
   ])
@@ -3490,6 +3546,7 @@ check('福建：固定输出6个动态省级与9个海博地市频道，排除�
     groups[0].dataList.map(channel => channel.name),
     ['福建综合', '东南卫视', '福建新闻', '福建文旅体育', '福建少儿', '海峡卫视'],
   )
+  assert.ok(groups.flatMap(group => group.dataList).every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
   assert.deepEqual(
     groups[1].dataList.map(channel => channel.name),
     ['福州新闻综合', '漳州新闻综合', '三明综合', '泉州新闻综合', '南平综合', '龙岩综合', '莆田新闻综合', '平潭综合', '宁德新闻综合'],
@@ -3581,6 +3638,8 @@ await checkAsync('福建：福州固定官方 HLS 逐路探测，单路失败不
   } })
   assert.deepEqual(calls, FUZHOU_CHANNELS.map(channel => channel.url))
   assert.deepEqual(result.channels.map(channel => channel.name), ['福州综合', '福州少儿'])
+  // 直链频道：播放器会把订阅头的回看参数直接接到官方地址后面，逐条关掉
+  assert.ok(result.channels.every(channel => channel.catchup === 'none'))
   assert.match(result.warnings[0], /福州生活探测失败：HTTP 503/)
   // 台标来自官网播放器频道列表的 icon，三路各不相同
   assert.ok(FUZHOU_CHANNELS.every(channel => /^https:\/\/img\.zohi\.tv\/a\/10001\/\d{6}\/[0-9a-f]{32}\.jpe?g$/.test(channel.logo)))
@@ -3600,6 +3659,7 @@ await checkAsync('福建：厦门官方接口严格选三路，探测失败只�
   })
   assert.deepEqual(result.channels.map(channel => channel.name), ['厦视一套', '厦视三套'])
   assert.ok(result.channels.every(channel => channel.proxyHls === true && /^fjtv-xiamen-/.test(channel.deferredRef)))
+  assert.ok(result.channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
   assert.match(result.warnings[0], /厦视二套探测失败：HTTP 503/)
 })
 
@@ -3690,6 +3750,7 @@ check('海南：只输出固定七套电视，保持官网顺序并拒绝身份�
   assert.deepEqual(channels.map(channel => channel.name), [
     '海南卫视', '三沙卫视', '海南自贸', '海南新闻', '海南社会与法', '海南文旅', '海南少儿',
   ])
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
   assert.deepEqual(channels.map(channel => channel.deferredRef), [
     'hnntv-13', 'hnntv-5', 'hnntv-1', 'hnntv-3', 'hnntv-4', 'hnntv-6', 'hnntv-7',
   ])
@@ -3778,6 +3839,7 @@ check('河南：只输出固定正式频道、规范名称并排除购物与 ID/
   ])
   assert.deepEqual(channels.map(channel => channel.name), ['河南卫视', '河南新闻'])
   assert.deepEqual(channels.map(channel => channel.deferredRef), ['hntv-145', 'hntv-149'])
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
   assert.ok(channels.every(channel => !channel.proxyHls && !channel.relayHls))
 })
 
@@ -3923,6 +3985,7 @@ await checkAsync('山东：九个官方频道全部加入，播放鉴权结果�
     ['山东卫视', '齐鲁频道', '山东新闻', '山东体育休闲', '山东生活', '山东综艺', '山东农科', '山东文旅', '山东少儿'],
   )
   assert.ok(result.groups[0].dataList.every(channel => !channel.proxyHls && !channel.relayHls))
+  assert.ok(result.groups[0].dataList.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
 
   const first = await resolveIqiluChannel('iqilu-qlpd', { fetchImpl, now: 1720000000123 })
   const cached = await resolveIqiluChannel('iqilu-qlpd', { fetchImpl, now: 1720000001123 })
@@ -3963,6 +4026,7 @@ check('江苏：4K 与普通频道默认全部加入且走全代理', () => {
   assert.deepEqual(channels.map(x => x.name), ['江苏卫视', '江苏卫视4K'])
   assert.equal(channels[0].deferredRef, 'jstv-670')
   assert.ok(channels.every(x => x.proxyHls === true))
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
 })
 
 await checkAsync('江苏：模块取 Bearer 频道表，缓存后播放时签名并声明防盗链请求头', async () => {
@@ -4041,6 +4105,7 @@ check('河北：官网直播稿件规范成六套频道，固定排除三佳购�
   assert.equal(channels.length, 6)
   assert.equal(channels[0].deferredRef, 'hebtv-10524916')
   assert.ok(channels.every(channel => channel.relayHls === true))
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
   assert.equal(channels[0].logo, 'https://pic.cmc.hebrts.cn/logo.png')
 })
 
@@ -4260,6 +4325,7 @@ check('深圳：固定排除购物，七套频道规范命名并全部走全代�
   assert.deepEqual(channels.map(channel => channel.name), [
     '深圳卫视4K', '深圳卫视', '深圳都市', '深圳电视剧', '深圳少儿', '深圳移动电视', '深圳国际',
   ])
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
   assert.deepEqual(channels.map(channel => channel.deferredRef), [
     'sztv-24725', 'sztv-7867', 'sztv-7868', 'sztv-7880', 'sztv-7881', 'sztv-7869', 'sztv-7944',
   ])
@@ -4354,6 +4420,7 @@ check('芒果：固定排除快乐购，官网分类重复频道只输出一次�
   assert.equal(channels[0].deferredRef, 'mgtv-287')
   assert.equal(channels[0].logo, 'https://0img.hitv.com/jykt.jpg')
   assert.ok(channels.every(channel => channel.proxyHls === true))
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
   // 长沙两台用长沙广电官网的频道图标，芒果以后给了图也不顶替；快乐垂钓官方没有，留空
   const logoOf = name => channels.find(channel => channel.name === name).logo
   assert.equal(logoOf('快乐垂钓'), '')

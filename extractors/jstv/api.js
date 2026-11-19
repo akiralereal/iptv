@@ -155,6 +155,7 @@ export function buildChannels(rows) {
       deferredRef: `jstv-${row.id}`,
       // CDN 同时校验短签名与 Origin/Referer，必须由本机代理清单和分片。
       proxyHls: true,
+      catchup: 'none',
       logo: row.logo || '',
     }))
 }

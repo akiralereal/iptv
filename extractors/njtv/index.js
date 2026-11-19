@@ -6,7 +6,8 @@ export default {
   id: 'njtv',
   name: '南京',
   description: '南京新闻综合、教育科技、十八·生活、文旅纪录四个电视频道官方直播。Live 南京城市景观在「南京景观」模块。',
-  capabilities: { cache: 'disk', resolve: false, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: false, epg: true, catchup: false },
   outputGroupName: '江苏',
   defaultRefreshMinutes: 360,
   refreshConfigurable: false,

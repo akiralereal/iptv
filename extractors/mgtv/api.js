@@ -84,6 +84,7 @@ export function buildChannels(rows) {
       deferredRef: `mgtv-${definition.id}`,
       // 官网 CDN 对清单和分片都校验 Origin/Referer，必须经本机全代理。
       proxyHls: true,
+      catchup: 'none',
       logo: definition.logo || normalizeLogo(row?.channel_image),
     }]
   })

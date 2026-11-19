@@ -31,6 +31,8 @@ check('频道表固定排除购物频道，同时保留广东移动与 4K', () =
   assert.ok(channels.some(channel => channel.name === '广东4K超高清'))
   assert.ok(channels.every(channel => channel.relayHls === true))
   assert.ok(channels.every(channel => channel.deferredRef.startsWith('gdtv-')))
+  assert.equal(gdtv.capabilities.catchup, false)
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
 })
 
 check('台标用官网频道卡的缩放版；只有总台标的经典剧、纪录片、健康用广东台台标，岭南戏曲留给内置台标', () => {
@@ -45,7 +47,7 @@ check('台标用官网频道卡的缩放版；只有总台标的经典剧、纪�
   assert.equal(channels.find(channel => channel.name === '广东卫视').logo,
     'https://img.gdtv.cn/image/202212/0.341152693165587748d6fc1c271c6514dOSS1670410407.jpg?x-oss-process=image/resize,w_400')
   assert.equal(channels.find(channel => channel.name === '岭南戏曲').logo, '', '岭南戏曲由内置台标补')
-  assert.equal(gdtv.catalogVersion, 1, '改了台标，存量缓存要在启动时重建')
+  assert.equal(gdtv.catalogVersion, 2, '改了台标或频道字段，存量缓存要在启动时重建')
 })
 
 check('频道引用和官网页面范围严格受模块白名单约束', () => {

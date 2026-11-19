@@ -56,6 +56,7 @@ export function buildChannels(rows) {
       // 清单由本机转发、分片仍由播放器直连 CDN。这样播放过程中每次刷新清单
       // 都能重新签名并在多个官方 CDN 节点之间故障切换。
       relayHls: true,
+      catchup: 'none',
       logo: normalizeLogo(row?.logo || row?.tvLogo),
     })
   }

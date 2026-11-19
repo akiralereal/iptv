@@ -245,6 +245,7 @@ export function buildChannelGroups(rows) {
         name: row.name,
         deferredRef: `liaoning-${row.id}`,
         proxyHls: true,
+        catchup: 'none',
         logo: row.logo || '',
         opts: ['network-caching=3000'],
       }))

@@ -6,7 +6,9 @@ export default {
   id: 'jstv',
   name: '江苏',
   description: '江苏卫视及地面频道官方直播。播放时自动生成短效签名并代理官网防盗链请求头。',
-  capabilities: { cache: 'disk', resolve: true, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数，官方节目单接口也回 allowReplay: 0（2026-11-19 看了卫视、城市、新闻三台）；
+  // 频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   outputGroupName: '江苏',
   defaultRefreshMinutes: 240,
   refreshConfigurable: false,

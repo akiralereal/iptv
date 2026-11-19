@@ -6,7 +6,8 @@ export default {
   // 电视频道在「青岛」模块（extractors/qingdao），这张卡只管城市景观机位
   name: '青岛景观',
   description: '五四广场、奥帆中心及三路主干道官方城市直播；QTV-1 到 QTV-5 电视频道在「青岛」模块。',
-  capabilities: { cache: 'disk', resolve: false, epg: false },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: false, epg: false, catchup: false },
   outputGroupName: '山东',
   preserveGroupSuffixes: ['景观'],
   defaultRefreshMinutes: 360,

@@ -102,6 +102,7 @@ export function buildProvinceGroup() {
       deferredRef: `fjtv-province-${channel.id}`,
       // 清单由本机刷新并改写为绝对分片地址，视频分片仍由播放器直连官方 CDN。
       relayHls: true,
+      catchup: 'none',
       logo: channel.logo,
     })),
   }
@@ -127,6 +128,7 @@ export function buildChannelGroups(groupRows) {
       found.set(id, {
         name: definition.name,
         url,
+        catchup: 'none',
         logo: logoOf(row),
       })
     }
@@ -318,7 +320,7 @@ async function probeFuzhouChannel(channel, { timeoutMs = 10000, fetchImpl = fetc
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const manifest = await response.text()
     if (!/^\s*#EXTM3U(?:\r?\n|$)/.test(manifest)) throw new Error('返回内容不是 HLS 清单')
-    return { name: channel.name, url: channel.url, logo: channel.logo }
+    return { name: channel.name, url: channel.url, catchup: 'none', logo: channel.logo }
   } catch (error) {
     const reason = error?.name === 'AbortError' ? `超时 ${timeoutMs}ms` : (error?.message || String(error))
     throw new Error(`${channel.name}探测失败：${reason}`)
@@ -441,6 +443,7 @@ export async function fetchXiamenChannels(options = {}) {
       name: definition.name,
       deferredRef: `fjtv-xiamen-${definition.id}`,
       proxyHls: true,
+      catchup: 'none',
       logo: stream.logo,
     }
   }))

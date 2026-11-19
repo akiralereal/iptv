@@ -12,7 +12,8 @@ export default {
   id: 'iqilu',
   name: '山东',
   description: '山东卫视及八个地面频道官方直播。播放时自动完成官网 AES 鉴权并获取最新地址。',
-  capabilities: { cache: 'disk', resolve: true, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: true, epg: true, catchup: false },
   outputGroupName: '山东',
   defaultRefreshMinutes: 240,
   refreshConfigurable: false,

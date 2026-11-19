@@ -40,6 +40,7 @@ check('频道输出固定全代理，引用白名单不误认其它直播', () =
   const channels = buildChannels(parseChannelPage(html, now))
   assert.equal(channels.length, 6)
   assert.ok(channels.every(channel => channel.proxyHls === true))
+  assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
   assert.equal(channelIdFromRef('hbtv-431'), '431')
   assert.equal(channelIdFromRef('hbtv-434'), '')
 })

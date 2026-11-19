@@ -7,7 +7,8 @@ export default {
   name: '大连',
   outputGroupName: '辽宁',
   description: '大连云官方正式电视直播；固定排除购物、测试、研发和回看内容，只追加真实在线的大连频道。',
-  capabilities: { cache: 'memory', resolve: true, epg: true },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'memory', resolve: true, epg: true, catchup: false },
   defaultRefreshMinutes: 5,
   refreshConfigurable: false,
   refreshDescription: '自动管理：每 5 分钟刷新官方目录与媒体票据，并验证 HLS 正在产出；上游短暂失败时有限回退。',

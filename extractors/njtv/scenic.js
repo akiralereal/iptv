@@ -5,7 +5,8 @@ export default {
   id: 'njtv-scenic',
   name: '南京景观',
   description: 'Live 南京长江大桥、紫金山、南京眼等 13 路城市景观官方直播，自动排除与电视频道重复的流。电视频道在「南京」模块。',
-  capabilities: { cache: 'disk', resolve: false, epg: false },
+  // catchup: false —— 只做直播：官方直播地址不认回看时间参数（带上也照回直播），频道逐条标 catchup:'none'，不继承订阅头的回看声明
+  capabilities: { cache: 'disk', resolve: false, epg: false, catchup: false },
   outputGroupName: '江苏',
   preserveGroupSuffixes: ['景观'],
   splitFrom: { id: 'njtv', groups: ['南京景观'] },

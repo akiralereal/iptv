@@ -1029,16 +1029,18 @@
             border: 1px solid #ffd591;
         }
 
-        /* 高度随内容走：卡片网格取代了原来的定高三栏布局，height:100% 会塌成 0。
-           上限 calc(100vh - 260px) 是为了让下面的「抓取模块」段仍够得着。 */
+        /* 高度随内容走、整张卡跟着页面滚，不设高度上限、不在卡内单独滚动。
+           以前限高 calc(100vh - 260px) + 中间 body 自己滚，为的是让同页下方的「抓取模块」
+           够得着；源管理拆成子标签后下方已没有别的段，限高只剩副作用：订阅模式字段多，
+           页眉、模式切换、底部按钮栏一占，中间能滚的就剩一小条。
+           overflow: hidden 只为裁出圆角（底部即时块是白底直角），卡内没有会溢出的浮层。 */
         .external-detail {
             background: white;
             border: 1px solid #e8e8e8;
             border-radius: 8px;
-            overflow-y: auto;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
-            max-height: calc(100vh - 260px);
         }
 
         .external-usage-side {
@@ -1086,8 +1088,6 @@
 
         .external-detail-body {
             padding: 20px;
-            flex: 1;
-            overflow-y: auto;
         }
 
         /* 表单块之外的即时生效控件：没有归属的保存按钮，勾了就写盘。
@@ -1422,7 +1422,6 @@
             }
 
             .external-detail {
-                max-height: none;
                 min-height: 300px;
             }
 
@@ -9010,7 +9009,13 @@
             // 详情渲染在整个卡片网格**下方**，源一多或窄屏单列时它就在视口外：
             // 不滚过去的话点卡片「屏幕上什么都没变」，用户会再点一下——正好收起，
             // 坐实「点了没反应」。改动前是定高三栏、详情恒在右栏，不需要这一步。
-            if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            // 详情卡不限高后常比视口还高，nearest 会把卡顶对齐视口顶 —— 正好压在吸顶的
+            // 页眉底下，所以按页眉实际高度留出 scroll-margin（窄屏页眉会换行变高，不写死）。
+            if (wrap) {
+                const shell = document.querySelector('.header-shell');
+                wrap.style.scrollMarginTop = `${(shell ? shell.offsetHeight : 0) + 12}px`;
+                wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
         }
 
         function renderExternalDetail(index) {

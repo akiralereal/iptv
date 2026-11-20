@@ -46,6 +46,7 @@ import { startProbe, getProbeStatus, cancelProbe } from "./utils/sourceProbe.js"
 import { cleanUserAgent, userAgentOf } from "./utils/channelOpts.js";
 import { SYSTEM_ASSET_PATHS, readAnnouncementAsset } from "./utils/announcement.js";
 import { cleanCoreDumps } from "./utils/coreDumpCleanup.js";
+import { proxiedPublicBase } from "./utils/publicOrigin.js";
 
 // 自定义源「经网络代理转发」的播放引用（${replace}/proxy/cp-<hex>.m3u8）：不是抓取模块，挂到 resolverFor 上
 registerRefResolver(createCustomProxyResolver({
@@ -77,12 +78,15 @@ function clientOf(req) {
 // 这位客户端访问本实例用的来源（协议 + 主机）：经反代时取转发头，否则取 Host。
 // 写进下发给它自己的清单里，格式不对就回空串，调用方当作没有。
 function originOf(req) {
+  // 反代改写了 Host、访问者来自公网：和订阅里的频道地址一样用「公网地址」，见 utils/publicOrigin.js
+  const viaProxy = proxiedPublicBase(req.headers, host)
+  if (viaProxy) return viaProxy
   const forwardedHost = req.headers['x-forwarded-host']?.split(',')[0]?.trim()
-  const host = forwardedHost || String(req.headers.host || '')
-  if (!/^[a-z0-9.\-_:[\]]{1,255}$/i.test(host)) return ''
+  const requestHost = forwardedHost || String(req.headers.host || '')
+  if (!/^[a-z0-9.\-_:[\]]{1,255}$/i.test(requestHost)) return ''
   const forwardedProto = req.headers['x-forwarded-proto']?.split(',')[0]?.trim().toLowerCase()
   const proto = ['http', 'https'].includes(forwardedProto) ? forwardedProto : (forwardedHost ? 'https' : 'http')
-  return `${proto}://${host}`
+  return `${proto}://${requestHost}`
 }
 
 /**

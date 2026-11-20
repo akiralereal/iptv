@@ -10,6 +10,7 @@ import { getExtractorManager, getModuleConfig } from "./extractorManager.js";
 import { omitPlayerOnlyOpts } from "./channelOpts.js";
 import { fetchUpstreamResponse } from "./hlsProxy.js";
 import { checkModuleBurst } from "./clientScanGuard.js";
+import { isLanHostHeader, proxiedPublicBase } from "./publicOrigin.js";
 import miguDanmaku from "../extractors/migu/danmaku.js";
 import { markFengshowsLiveUrls } from "../extractors/fengshows/channels.js";
 
@@ -243,8 +244,9 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix, 
   // 优先使用反向代理转发的原始 host（x-forwarded-host），否则用直接请求的 host
   const forwardedHost = headers["x-forwarded-host"]?.split(",")[0]?.trim()
   const actualHost = forwardedHost || headers.host || ""
-  const actualHostName = actualHost.split(":")[0]
-  const isLocal = !forwardedHost && (actualHostName === "localhost" || actualHostName === "127.0.0.1" || actualHostName.startsWith("192.168.") || actualHostName.startsWith("10.") || actualHostName.startsWith("172."))
+  // Host 是内网地址也可能是反代改写的（Lucky 等不带 X-Forwarded-Host）：访问者来自公网且填了公网地址时
+  // 不算内网，走下面的公网地址分支，否则外网播放器拿到的频道地址是 192.168.x.x（见 utils/publicOrigin.js）
+  const isLocal = !forwardedHost && isLanHostHeader(actualHost) && !proxiedPublicBase(headers, host)
   let replaceHost
 
   if (isLocal) {

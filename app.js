@@ -28,6 +28,7 @@ import { getChannelsAPI, getExternalSourcesAPI, saveExternalSourcesAPI,
 import { getEpgSourcesAPI, setEpgEnabledAPI, addEpgSourceAPI, updateEpgSourceAPI,
          removeEpgSourceAPI, expireEpgSourcesAPI } from "./utils/epgSourcesAPI.js";
 import { userManager, viewerIp } from "./utils/userManager.js";
+import { authFailLogLine } from "./utils/authFailLog.js";
 import { getUsersAPI, addUserAPI, updateUserAPI, removeUserAPI, regenUserTokenAPI } from "./utils/usersAPI.js";
 import { getAlertsAPI, getAlertTracker, postAlertsAPI } from "./utils/alerts.js";
 import { getNotifyAPI, postNotifyAPI, getNotifier } from "./utils/notify.js";
@@ -1108,7 +1109,12 @@ async function handleRequest(req, res) {
 
   // 设置密码但未授权访问（非 admin/player/api 路由）：拒绝。用户访问令牌(userAuthed)放行内容
   if (pass !== "" && !passAuthed && !userAuthed) {
-    printRed(`身份认证失败`)
+    // 带上路径、来源 IP 和播放器，同一来源同一路径每分钟一行（utils/authFailLog.js）
+    const line = authFailLogLine({
+      method, urlPath, pass,
+      client: { ip: viewerIp(req.socket?.remoteAddress, headers['x-forwarded-for']), ua: headers['user-agent'] },
+    })
+    if (line) printRed(line)
     res.writeHead(403, { 'Content-Type': 'application/json;charset=UTF-8' });
     res.end(`身份认证失败`);
     return

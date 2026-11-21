@@ -390,6 +390,10 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
         const requestedSession = sessionID(params.get('playsessionid'));
         const playSessionId = requestedSession || randomBytes(16).toString('hex');
         const preferHLS = params.get('iptvpreferhls') === 'true';
+        const previousSession = sessionID(params.get('iptvpreviousplaysessionid'));
+        if (preferHLS && ref.kind === 'Episode' && previousSession && previousSession !== playSessionId && !res.destroyed) {
+          playback.replaceMediaLease(ref.show.id, ref.number, mediaLease(keyHash, previousSession));
+        }
         const startTicks = Number(params.get('starttimeticks') || 0);
         const resumeOffset = preferHLS && Number.isSafeInteger(startTicks) && startTicks > 0
           ? Math.floor(startTicks / 10_000) / 1000 : 0;
@@ -485,6 +489,9 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
       }
       if (stopped && playSessionId) {
         playback.releaseMediaLease(ref.show.id, ref.number, mediaLease(keyHash, playSessionId));
+      }
+      if (path.endsWith('/progress') && Number.isSafeInteger(position) && position > 0 && !(input.IsPaused ?? input.isPaused) && ref.number < ref.show.total) {
+        playback.warmNext(ref.show.id, ref.number + 1);
       }
       res.writeHead(204).end(); return;
     }

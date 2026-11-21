@@ -10,7 +10,7 @@ function postOnLeave(path, data) {
     method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify(data),
   }).catch(() => {});
 }
-const state = { home: null, detail: null, current: 0, range: 0, searchGeneration: 0, detailGeneration: 0, playGeneration: 0, hls: null, statusTimer: null, request: null, lease: null, clientId: newClientId(), session: null, offset: 0, total: 0, streamGeneration: 0, seekSequence: 0, seekRequest: null, scrubbing: false, seeking: false, frameCallback: null, warm: null, adopting: null, preloadTimer: null, preloadRetryAt: 0, automaticTransitions: 0 };
+const state = { home: null, detail: null, current: 0, range: 0, searchGeneration: 0, detailGeneration: 0, playGeneration: 0, hls: null, statusTimer: null, request: null, lease: null, clientId: newClientId(), session: null, offset: 0, total: 0, streamGeneration: 0, seekSequence: 0, seekRequest: null, scrubbing: false, seeking: false, processing: false, frameCallback: null, warm: null, adopting: null, preloadTimer: null, preloadRetryAt: 0, automaticTransitions: 0 };
 function el(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; }
 async function api(path, data, signal) {
   let res;
@@ -346,12 +346,12 @@ function stopVideo({ release = true } = {}) {
   $('video').pause(); $('video').removeAttribute('src'); $('video').load(); $('screen-empty').hidden = false;
 }
 function schedulePreload() {
-  if (!$('auto-next').checked || !state.session || state.current >= state.detail?.total || state.warm || state.adopting || state.preloadTimer || state.seeking || Date.now() < state.preloadRetryAt) return;
+  if (!$('auto-next').checked || !state.session || state.current >= state.detail?.total || state.warm || state.adopting || state.preloadTimer || state.processing || state.seeking || Date.now() < state.preloadRetryAt) return;
   const generation = state.playGeneration;
   state.preloadTimer = setTimeout(() => { state.preloadTimer = null; if (generation === state.playGeneration && !$('video').paused) startPreload(); }, 1000);
 }
 function startPreload() {
-  if (state.warm || !$('auto-next').checked || !state.session || state.current >= state.detail?.total || state.seeking) return;
+  if (state.warm || !$('auto-next').checked || !state.session || state.current >= state.detail?.total || state.processing || state.seeking) return;
   const warm = { number: state.current + 1, seriesId: state.detail.id, parentSession: state.session, parentClientId: state.clientId,
     clientId: newClientId(), controller: new AbortController(), player: $('standby'), started: performance.now() };
   state.warm = warm; $('next-status').textContent = `正在准备第 ${warm.number} 集…`;
@@ -377,7 +377,13 @@ function startPreload() {
     };
     warm.timer = setTimeout(renew, 10000); return result;
   })();
-  warm.promise.catch(error => { if (state.warm === warm) { discardWarm(warm); state.warm = null; state.preloadRetryAt = Date.now() + Math.max(10000, (error.retryAfterSeconds || 0) * 1000); $('next-status').textContent = '下一集暂未就绪，播放不受影响'; } });
+  warm.promise.catch(error => {
+    if (state.warm !== warm) return;
+    discardWarm(warm); state.warm = null;
+    const busy = ['APP_BUSY', 'PLAY_CANCELLED'].includes(error.code);
+    state.preloadRetryAt = Date.now() + Math.max(busy ? 3000 : 10000, (error.retryAfterSeconds || 0) * 1000);
+    $('next-status').textContent = busy ? '空闲后准备下一集' : '下一集暂未就绪，播放不受影响';
+  });
 }
 async function openDetail(id, resume) {
   const generation = ++state.detailGeneration; state.playGeneration++; stopVideo(); state.detail = null; state.current = 0;
@@ -429,7 +435,7 @@ function attachPlayback(result, generation, requestedAt, { seeking = false, auto
   if (state.frameCallback !== null && player.cancelVideoFrameCallback) player.cancelVideoFrameCallback(state.frameCallback);
   if (!prepared) { player.pause(); player.removeAttribute('src'); player.load(); }
   state.lease = result.status.split('/').pop(); state.session = result.session;
-  state.offset = result.offset || 0; state.total = result.duration; state.seeking = true; state.resumeAfterSeek = autoplay;
+  state.offset = result.offset || 0; state.total = result.duration; state.processing = result.processing; state.seeking = true; state.resumeAfterSeek = autoplay;
   $('timeline').max = String(result.duration); $('timeline').disabled = false; $('screen-empty').hidden = true;
   paintTimeline(result.position || 0); playbackStatus(result);
   const valid = () => generation === state.playGeneration && stream === state.streamGeneration;
@@ -460,6 +466,9 @@ function attachPlayback(result, generation, requestedAt, { seeking = false, auto
     if (!valid()) return;
     try {
       const status = await api(result.status + '?client=' + state.clientId); if (!valid()) return;
+      const justCompleted = state.processing && !status.processing;
+      state.processing = status.processing;
+      if (justCompleted && !player.paused) schedulePreload();
       if (!state.seeking) playbackStatus(status);
       // Keep the session available after the end so replay/backward seeking works.
       state.statusTimer = setTimeout(update, status.processing ? 1500 : 10000);
@@ -470,7 +479,7 @@ function attachPlayback(result, generation, requestedAt, { seeking = false, auto
 async function play(number, { automatic = false, refresh = false } = {}) {
   const d = state.detail; if (!d || number < 1 || number > d.total) return;
   const generation = ++state.playGeneration, fromEpisode = state.current, requestedAt = performance.now();
-  const warm = state.warm?.seriesId === d.id && state.warm.number === number && !state.warm.cancelled ? state.warm : null;
+  const warm = state.warm?.result && state.warm.seriesId === d.id && state.warm.number === number && !state.warm.cancelled ? state.warm : null;
   const previous = { token: state.session || state.lease, clientId: state.clientId };
   let released = false; const releasePrevious = () => { if (!released) { released = true; releaseSession(previous.token, previous.clientId); } };
   if (warm) { state.warm = null; clearTimeout(warm.timer); }

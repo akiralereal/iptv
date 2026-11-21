@@ -12,16 +12,22 @@ export class Playback {
   async resolve(seriesId, value, { refresh = false, preload = false } = {}) {
     const detail = await this.catalog.detail(seriesId); const number = episodeNumber(value, detail.total);
     const videoId = detail.episodes[number - 1].id; const key = `${seriesId}:${number}`;
+    if (!preload) this.mobile.promote(videoId);
     const existing = this.entries.get(key);
     if (!refresh && existing?.expiresAt > Date.now() + 60000 && (!existing.appRetryAt || existing.appRetryAt > Date.now()) && (!existing.job || this.mobile.available(existing.job))) return existing;
-    if (this.pending.has(key)) return this.pending.get(key);
+    const pending = this.pending.get(key);
+    if (pending) {
+      if (preload || !pending.preload) return pending.work;
+      try { return await pending.work; }
+      catch { return this.resolve(seriesId, value, { refresh }); }
+    }
     const work = (async () => {
       let source, appError;
       try {
         const job = await this.mobile.prepare(videoId, { refresh, priority: !preload });
         source = { job, duration: job.duration, expectedDuration: job.expectedDuration, width: job.width, height: job.height,
           video: job.video, audio: job.audio, provider: job.provider, identityVerified: job.identityVerified, expiresAt: job.expiresAt };
-      } catch (error) { if (error.code === 'APP_BUSY' || error.code === 'PLAY_CANCELLED') throw error; appError = error; }
+      } catch (error) { if (preload || error.code === 'APP_BUSY' || error.code === 'PLAY_CANCELLED') throw error; appError = error; }
       if (!source) {
         // The public endpoint is observed from the official website. No external parser or signing service is used.
         const response = await fetch(ORIGIN + '/api/video/protected/fallback-play-info?aid=8662', {
@@ -33,7 +39,7 @@ export class Playback {
           if (data.base_resp?.StatusCode === 0 && data.main_url) source = { url: mediaURL(data.main_url), expiresAt: Number(data.url_expire) * 1000, expectedDuration: null, identityVerified: true, provider: 'official_public_endpoint' };
         } else { await response?.body?.cancel(); }
         // A normal official browser session may have different playback rights; its requested and returned episode IDs must agree.
-        if (!source) { if (preload) throw appError; try { source = await this.browser.resolve(seriesId, videoId); } catch { throw appError; } }
+        if (!source) { try { source = await this.browser.resolve(seriesId, videoId); } catch { throw appError; } }
         if (!source.expectedDuration && source.provider === 'official_public_endpoint') {
           const meta = playerMetadata(await officialPage(`/player/${seriesId}/${videoId}`), seriesId, videoId);
           source.expectedDuration = meta.duration;
@@ -49,7 +55,10 @@ export class Playback {
       for (const [token, old] of this.tokens) if (old.expiresAt < Date.now() || (old.job && !this.mobile.available(old.job))) this.tokens.delete(token);
       this.entries.set(key, entry); this.tokens.set(entry.token, entry); return entry;
     })().catch(error => { this.entries.delete(key); throw error; }).finally(() => this.pending.delete(key));
-    this.pending.set(key, work); return work;
+    this.pending.set(key, { work, preload }); return work;
+  }
+  warmNext(seriesId, number) {
+    if (this.mobile.idle) void this.resolve(seriesId, number, { preload: true }).catch(() => {});
   }
   async resolveResumeHLS(seriesId, number, offset) {
     const detail = await this.catalog.detail(seriesId);
@@ -78,6 +87,12 @@ export class Playback {
   releaseMediaLease(seriesId, number, lease) {
     for (const entry of this.tokens.values()) {
       if (entry.seriesId === seriesId && entry.number === number) entry.job?.leases.delete(lease);
+    }
+  }
+  replaceMediaLease(seriesId, number, lease) {
+    for (const entry of this.tokens.values()) {
+      if (entry.seriesId === seriesId && entry.number === number) continue;
+      if (entry.job?.leases.delete(lease)) this.mobile.cancelUnleased(entry.job);
     }
   }
   public(entry, { position = entry.job?.offset || 0, session = entry.token } = {}) {
@@ -113,7 +128,7 @@ export class Playback {
     parent.nextClient = clientId;
     const entry = await this.resolve(parent.base.seriesId, parent.base.number + 1, { preload: true });
     if (disconnected() || this.sessions.get(parentClientId) !== parent || parent.nextClient !== clientId) {
-      this.mobile.cancelUnleased(entry.job); throw new AppError('PLAY_CANCELLED', '已取消预加载', 499);
+      this.mobile.cancelUnleased(entry.job, { preloadOnly: true }); throw new AppError('PLAY_CANCELLED', '已取消预加载', 499);
     }
     this.begin(entry, clientId); return this.public(entry);
   }
@@ -128,6 +143,7 @@ export class Playback {
   adopt({ parentClientId, clientId, session: anchor }) {
     const parent = this.sessions.get(parentClientId), next = this.sessions.get(clientId);
     if (!parent || parent.nextClient !== clientId || !next || next.anchor !== anchor || next.expiresAt <= Date.now() || (next.active.job && !this.mobile.available(next.active.job))) throw new AppError('PRELOAD_EXPIRED', '预加载已失效，正在重新准备', 410);
+    this.mobile.promote(next.active.videoId);
     delete parent.nextClient; this.claim(next.active, clientId); return this.public(next.active);
   }
   release(token, client) {

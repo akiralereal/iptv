@@ -165,7 +165,7 @@ test('a full cache makes room for the next episode while preserving the current 
   } finally { await playback.close(); await rm(root, { recursive: true, force: true }); }
 });
 
-test('a foreground episode can take a stopped episode’s worker without interrupting active playback', async () => {
+test('the sole worker preserves active playback and yields a stopped episode to foreground selection', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'drama-worker-switch-'));
   const playback = new MobilePlayback(root);
   playback.create = async (videoId, _, cacheKey) => {
@@ -184,18 +184,51 @@ test('a foreground episode can take a stopped episode’s worker without interru
   try {
     const previous = await playback.prepare('79', { priority: true });
     previous.leases.set('previous-session', Date.now() + 60_000);
-    const current = await playback.prepare('80', { priority: true });
-    current.leases.set('current-session', Date.now() + 60_000);
+    await assert.rejects(playback.prepare('80'), { code: 'APP_BUSY' });
     const queued = playback.prepare('81', { priority: true });
     await sleep(60);
     assert.equal(previous.error, undefined);
-    assert.equal(current.error, undefined);
+    assert.equal(playback.worker.job, previous);
     previous.leases.delete('previous-session');
     const next = await queued;
     assert.equal(next.videoId, '81');
     assert.ok(previous.error);
-    assert.equal(current.error, undefined);
-    assert.equal(playback.workers, 2);
+    assert.equal(playback.worker.job, next);
+  } finally { await playback.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('foreground work preempts standby conversion only after it exits, and reuses the chosen standby', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'drama-worker-preempt-'));
+  const playback = new MobilePlayback(root);
+  let active = 0;
+  playback.create = async (videoId, _, cacheKey) => {
+    assert.equal(++active, 1, 'the previous worker must finish cleanup before spawning the next');
+    const completion = Promise.withResolvers();
+    const job = { videoId, cacheKey, directory: path.join(root, videoId), expiresAt: Date.now() + 120_000,
+      leases: new Map(), waiters: 0, diskBytes: 0, done: completion.promise.finally(() => active--) };
+    job.ready = Promise.resolve(job);
+    job.cancel = reason => {
+      if (job.error) return;
+      job.error = reason ?? new Error('Cancelled');
+      setTimeout(() => completion.reject(job.error), 40);
+    };
+    playback.jobs.add(job);
+    playback.entries.set(cacheKey, job);
+    return job;
+  };
+  try {
+    const standby = await playback.prepare('2');
+    standby.leases.set('standby-buffer', Date.now() + 60_000);
+    const foreground = playback.prepare('5', { priority: true });
+    await assert.rejects(standby.done, { code: 'PLAY_CANCELLED' });
+    const chosen = await foreground;
+    assert.equal(chosen.videoId, '5');
+    assert.equal(active, 1);
+    chosen.cancel();
+    await playback.worker.done.catch(() => {});
+    const next = await playback.prepare('6');
+    assert.equal(await playback.prepare('6', { priority: true }), next);
+    assert.equal(playback.worker.priority, true);
   } finally { await playback.close(); await rm(root, { recursive: true, force: true }); }
 });
 
@@ -242,7 +275,7 @@ test('seeking into unprocessed encrypted media lands in the correct scene with a
     await sleep(100);
     const latest = await playback.seek({ session: initial.token, clientId, sequence: 3, position: 5 });
     assert.equal((await old).code, 'SEEK_SUPERSEDED'); assert.equal(latest.sequence, 3);
-    assert.equal(playback.sessions.get(clientId).active.job.offset, 5); assert.ok(playback.mobile.workers <= 2);
+    assert.equal(playback.sessions.get(clientId).active.job.offset, 5);
     playback.release(initial.token, clientId); assert.equal(playback.sessions.has(clientId), false);
   } finally { await playback.close(); await rm(root, { recursive: true, force: true }); }
 });
@@ -255,12 +288,18 @@ test('preloading the next encrypted episode transfers its existing job and keeps
   const parentClientId = '11111111-2222-4333-8444-555555555555', clientId = '22222222-2222-4333-8444-555555555555';
   try {
     const current = await playback.resolve('1', 1); playback.begin(current, parentClientId);
+    assert.equal(current.job.complete, false);
+    await assert.rejects(playback.preload({ session: current.token, parentClientId, clientId }), { code: 'APP_BUSY' });
+    assert.deepEqual(requested, ['1']);
+    await playback.mobile.worker.done;
     const next = await playback.preload({ session: current.token, parentClientId, clientId });
     const warmJob = playback.sessions.get(clientId).active.job;
     assert.equal(next.number, 2); assert.equal(next.verification, 'not_checked'); assert.deepEqual(requested, ['1', '2']);
-    assert.equal(current.job.error, undefined); assert.ok(current.job.leases.has(parentClientId)); assert.ok(playback.mobile.workers <= 2);
+    assert.equal(current.job.error, undefined); assert.ok(current.job.leases.has(parentClientId));
+    assert.equal(playback.mobile.worker.job, warmJob);
     const adopted = playback.adopt({ parentClientId, clientId, session: next.session });
     assert.equal(adopted.media, next.media); playback.release(current.token, parentClientId);
+    assert.equal(playback.mobile.worker.priority, true);
     assert.equal(playback.mobile.available(warmJob), true); assert.ok(warmJob.leases.has(clientId));
     await warmJob.done;
     assert.equal((await decodeMedia(warmJob.file, warmJob, 12, { local: true })).classification, 'complete');

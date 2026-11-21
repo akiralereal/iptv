@@ -21,12 +21,13 @@ export class SourceBridge {
     });
     await this.started;
   }
-  async register(source) {
+  async register(source, signal) {
     await this.start();
     const token = randomBytes(24).toString('hex');
     const record = { url: appMediaURL(source.url), bytes: 0, size: 0, maxRangeStart: 0, requests: new Set(), released: false };
     if (source.codec === 'bytevc2') {
-      const response = await this.fetcher(record.url, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(8_000),
+      const timeout = AbortSignal.timeout(8_000);
+      const response = await this.fetcher(record.url, { method: 'GET', redirect: 'error', signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
         headers: { 'user-agent': APP_UA, range: `bytes=0-${BYTEVC2_HEADER_LIMIT - 1}` } });
       const size = Number(/^bytes 0-\d+\/(\d+)$/.exec(response.headers.get('content-range') || '')?.[1]);
       if (response.status !== 206 || !response.body || !Number.isSafeInteger(size) || size <= 0 || size > MAX_SOURCE) {

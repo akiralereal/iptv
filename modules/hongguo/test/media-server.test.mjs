@@ -31,6 +31,9 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   const resumed = { ...growing, token: resumeToken, expectedDuration: 12, job: { ...job, offset: 5.025 } };
   let resumeExpired = false;
   let renewals = 0;
+  const warmed = [];
+  const switchCandidates = [];
+  const tokens = () => new Map([[growing.token, growing], [resumed.token, resumed]]);
   const playback = {
     entries: new Map(),
     async byToken(value, { localMedia }) {
@@ -41,9 +44,13 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
     },
     renewLocalMedia(entry) { assert.ok(entry === growing || entry === resumed); renewals++; },
     episodeDuration() { return 12; },
+    warmNext(...target) { warmed.push(target); },
     releaseMediaLease(seriesId, number, lease) {
-      const tokens = new Map([[growing.token, growing], [resumed.token, resumed]]);
-      Playback.prototype.releaseMediaLease.call({ tokens }, seriesId, number, lease);
+      Playback.prototype.releaseMediaLease.call({ tokens: tokens() }, seriesId, number, lease);
+    },
+    replaceMediaLease(seriesId, number, lease) {
+      const mobile = { cancelUnleased: candidate => switchCandidates.push(candidate) };
+      Playback.prototype.replaceMediaLease.call({ tokens: tokens(), mobile }, seriesId, number, lease);
     },
     async resolveResumeHLS(id, number, offset) {
       assert.equal(id, seriesId);
@@ -229,6 +236,13 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   assert.equal(job.leases.size, leaseCount + 1);
   assert.ok([...job.leases.keys()].some(lease => lease.endsWith(':second-session')));
   assert.equal([...job.leases.keys()].some(lease => lease.endsWith(':first-session')), false);
+  const switchInfo = `/Items/${Items[1].Id}/PlaybackInfo?IPTVPreferHLS=true&PlaySessionId=third-session&IPTVPreviousPlaySessionId=second-session`;
+  await assertStatus(await get(switchInfo, { headers: { 'x-emby-token': other.AccessToken } }), 200);
+  assert.deepEqual(switchCandidates, []);
+  assert.equal(job.leases.size, leaseCount + 1);
+  assert.equal((await api(switchInfo)).PlaySessionId, 'third-session');
+  assert.deepEqual(switchCandidates, [job]);
+  assert.equal(job.leases.size, leaseCount);
   job.complete = true;
   completion.resolve({ file, size: 10 });
   await assertStatus(await get(`/Videos/${Items[0].Id}/stream.mp4`, { headers, method: 'HEAD' }), 200);
@@ -247,6 +261,8 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
 
   const itemId = Items[1].Id;
   await assertStatus(await post('/Sessions/Playing/Progress', { ItemId: itemId, PositionTicks: 50_000_000 }, headers), 204);
+  await assertStatus(await post('/Sessions/Playing/Progress', { ItemId: itemId, PositionTicks: 50_000_000, IsPaused: true }, headers), 204);
+  assert.deepEqual(warmed, [[seriesId, 3]]);
   assert.equal((await api('/UserItems/Resume')).Items[0].Id, itemId);
   const hide = `/Users/${user}/Items/${itemId}/HideFromResume`;
   await assertStatus(await post(hide + '?Hide=true', {}, headers), 204);
@@ -256,6 +272,8 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   assert.equal((await api('/UserItems/Resume')).Items[0].Id, itemId);
   await assertStatus(await post('/Sessions/Playing/Stopped', { ItemId: itemId, PositionTicks: 120_000_000 }, headers), 204);
   assert.equal((await api('/Shows/NextUp')).Items[0].Id, Items[2].Id);
+  await assertStatus(await post('/Sessions/Playing/Progress', { ItemId: Items[2].Id, PositionTicks: 100_000_000 }, headers), 204);
+  assert.deepEqual(warmed, [[seriesId, 3]]);
   await assertStatus(await post('/Users/' + user + '/PlayedItems/' + Items[2].Id, {}, headers), 200);
   assert.deepEqual((await api('/Shows/NextUp')).Items, []);
 

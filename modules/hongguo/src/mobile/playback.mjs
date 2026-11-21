@@ -9,9 +9,10 @@ import { SourceBridge, MAX_SOURCE } from './source-bridge.mjs';
 import { byteVC2Unsupported } from './bytevc2.mjs';
 const run = promisify(execFile);
 const MAX_CACHE = 500_000_000, TTL = 15 * 60_000;
-const WORKER_LIMIT = 2, FOREGROUND_WAIT_MS = 12_000;
+const FOREGROUND_WAIT_MS = 12_000;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const failure = () => new AppError('APP_MEDIA_DECODE_FAILED', '媒体处理中断，请重新选择此集');
+const cancelled = () => new AppError('PLAY_CANCELLED', '已取消本次播放', 499);
 
 export function parsePlaylist(text) {
   const segments = [];
@@ -19,7 +20,9 @@ export function parsePlaylist(text) {
   return { segments, duration: segments.reduce((sum, row) => sum + row.duration, 0), ended: text.includes('#EXT-X-ENDLIST') };
 }
 export class MobilePlayback {
-  entries = new Map(); pending = new Map(); jobs = new Set(); workers = 0; sources = new Map(); sourceRequests = new Map();
+  entries = new Map(); jobs = new Set(); sources = new Map(); sourceRequests = new Map();
+  worker = null; foregroundRequests = 0;
+  get idle() { return !this.closed && !this.worker && !this.foregroundRequests; }
   constructor(root, { models, bridge } = {}) {
     this.base = path.join(root, '.runtime', 'media'); this.models = models || new MobileModels(root); this.bridge = bridge || new SourceBridge();
     this.timer = setInterval(() => this.prune().catch(() => {}), 60_000); this.timer.unref();
@@ -45,7 +48,7 @@ export class MobilePlayback {
   async prune({ reserve = false } = {}) {
     let bytes = [...this.jobs].filter(job => job.complete || job.error).reduce((sum, job) => sum + job.diskBytes, 0);
     for (const job of this.jobs) {
-      if (!job.complete && !job.error) continue;
+      if (!job.complete && (!job.error || job === this.worker?.job)) continue;
       for (const [client, expires] of job.leases) if (expires <= Date.now()) job.leases.delete(client);
       if (!job.error && job.leases.size) continue;
       if (!job.error && job.expiresAt > Date.now() && bytes <= MAX_CACHE && this.jobs.size <= (reserve ? 11 : 12)) continue;
@@ -54,48 +57,66 @@ export class MobilePlayback {
     }
     for (const [id, source] of this.sources) if (source.expiresAt <= Date.now()) { source.contentKey?.fill(0); this.sources.delete(id); }
   }
+  promote(videoId) {
+    if (this.worker?.cacheKey === `${videoId}:0.000` && !this.worker.controller.signal.aborted) this.worker.priority = true;
+  }
   async prepare(videoId, { refresh = false, signal, offset = 0, priority = false, requestKey = '' } = {}) {
-    if (this.closed) throw failure();
     if (!Number.isFinite(offset) || offset < 0) throw new AppError('INVALID_POSITION', '播放位置无效', 400);
     const cacheKey = `${videoId}:${offset.toFixed(3)}${requestKey ? ':' + requestKey : ''}`;
     const until = Date.now() + FOREGROUND_WAIT_MS;
-    let work, releasedWorker = false;
-    while (true) {
-      if (this.closed) throw failure();
-      if (signal?.aborted) throw new AppError('PLAY_CANCELLED', '已取消本次播放', 499);
-      const existing = this.entries.get(cacheKey);
-      if ((!refresh || !existing?.complete) && this.available(existing) && existing.expiresAt > Date.now() + 60_000) return this.waitReady(existing, signal);
-      work = this.pending.get(cacheKey);
-      if (work || this.workers < WORKER_LIMIT) break;
-      if (!priority || Date.now() >= until) throw new AppError('APP_BUSY', '正在准备其他剧集，请稍后再试', 429);
-      // A stopped episode can finish and stay cached when the server is idle.
-      // When a viewer is waiting, yield its slot to the foreground request.
-      if (!releasedWorker) {
-        releasedWorker = [...this.jobs].some(job => job.claimed && !job.waiters && this.cancelUnleased(job));
+    if (priority) this.foregroundRequests++;
+    try {
+      while (true) {
+        if (this.closed) throw failure();
+        if (signal?.aborted) throw cancelled();
+        const current = this.worker;
+        const existing = this.entries.get(cacheKey);
+        const sameWorker = current?.cacheKey === cacheKey && !current.controller.signal.aborted;
+        if (sameWorker && priority) current.priority = true;
+        if ((!refresh || !existing?.complete) && this.available(existing) && existing.expiresAt > Date.now() + 60_000) {
+          return await this.waitReady(existing, signal);
+        }
+        if (sameWorker && !current.job?.error) return await this.waitReady(await current.ready, signal);
+        if (!current && (priority || !this.foregroundRequests)) {
+          return await this.waitReady(await this.startWorker(videoId, offset, cacheKey, priority, signal), signal);
+        }
+        if (!priority || Date.now() >= until) throw new AppError('APP_BUSY', '正在准备其他剧集，请稍后再试', 429);
+        if (!current.priority) {
+          current.controller.abort();
+          if (!current.job?.complete && !current.job?.error) current.job?.cancel(cancelled());
+        } else if (current.job?.claimed && !current.job.waiters) {
+          this.cancelUnleased(current.job);
+        }
+        await delay(20);
       }
-      await delay(20);
-    }
-    if (!work) {
-      this.workers++;
-      work = (async () => {
-        try {
-          await this.prune({ reserve: true });
-          if (this.jobs.size >= 12 || [...this.jobs].filter(job => job.complete).reduce((sum, job) => sum + job.diskBytes, 0) > MAX_CACHE) throw new AppError('APP_BUSY', '当前播放缓存正在使用，请先关闭其他播放页面', 429);
-          const job = await this.create(videoId, offset, cacheKey, signal);
-          job.done.finally(() => this.workers--).catch(() => {}); return job;
-        } catch (error) { this.workers--; throw error; }
-      })().finally(() => this.pending.delete(cacheKey)); this.pending.set(cacheKey, work);
-    }
-    return this.waitReady(await work, signal);
+    } finally { if (priority) this.foregroundRequests--; }
+  }
+  startWorker(videoId, offset, cacheKey, priority, signal) {
+    const controller = new AbortController();
+    const worker = { cacheKey, priority, controller, job: null };
+    this.worker = worker;
+    const startupSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+    worker.ready = (async () => {
+      await this.prune({ reserve: true });
+      if (startupSignal.aborted) throw cancelled();
+      if (this.jobs.size >= 12 || [...this.jobs].filter(job => job.complete).reduce((sum, job) => sum + job.diskBytes, 0) > MAX_CACHE) throw new AppError('APP_BUSY', '当前播放缓存正在使用，请先关闭其他播放页面', 429);
+      const job = await this.create(videoId, offset, cacheKey, startupSignal);
+      worker.job = job;
+      if (controller.signal.aborted && !job.complete) job.cancel(cancelled());
+      return job;
+    })();
+    // Keep the sole slot occupied until FFmpeg and its cleanup have exited.
+    worker.done = worker.ready.then(job => job.done).finally(() => { this.worker = null; });
+    worker.done.catch(() => {});
+    return worker.ready;
   }
   async waitReady(job, signal) {
     job.waiters++;
-    const aborted = () => new AppError('PLAY_CANCELLED', '已取消本次播放', 499);
     let listener;
     try {
-      if (signal?.aborted) throw aborted();
-      const cancelled = new Promise((resolve, reject) => { listener = () => reject(aborted()); signal?.addEventListener('abort', listener, { once: true }); });
-      const result = await Promise.race([job.ready, cancelled]); job.claimed = true; return result;
+      if (signal?.aborted) throw cancelled();
+      const abort = new Promise((resolve, reject) => { listener = () => reject(cancelled()); signal?.addEventListener('abort', listener, { once: true }); });
+      const result = await Promise.race([job.ready, abort]); job.claimed = true; return result;
     } finally {
       signal?.removeEventListener('abort', listener); job.waiters--;
       if (!job.waiters && !job.claimed && signal?.aborted) job.cancel();
@@ -121,8 +142,9 @@ export class MobilePlayback {
     source.contentKey?.fill(0);
     return { expectedDuration: source.expectedDuration };
   }
-  cancelUnleased(job) {
+  cancelUnleased(job, { preloadOnly = false } = {}) {
     if (!job || job.complete || job.error) return false;
+    if (preloadOnly && (this.worker?.job !== job || this.worker.priority)) return false;
     for (const [client, expires] of job.leases) if (expires <= Date.now()) job.leases.delete(client);
     if (job.leases.size) return false;
     job.cancel();
@@ -138,8 +160,9 @@ export class MobilePlayback {
   }
   async create(videoId, offset, cacheKey, signal) {
     const started = performance.now(); await this.initialize();
+    if (this.closed || signal?.aborted) throw cancelled();
     const source = await this.source(videoId);
-    if (this.closed || signal?.aborted || offset >= source.expectedDuration) { source.contentKey?.fill(0); throw new AppError('PLAY_CANCELLED', '已取消本次播放', 499); }
+    if (this.closed || signal?.aborted || offset >= source.expectedDuration) { source.contentKey?.fill(0); throw cancelled(); }
     const directory = await mkdtemp(path.join(this.directory, 'episode-'));
     const job = { videoId, cacheKey, offset, sourceDuration: source.expectedDuration, availableDuration: 0, directory, file: path.join(directory, 'complete.mp4'), playlist: path.join(directory, 'index.m3u8'),
       expectedDuration: source.expectedDuration - offset, duration: source.expectedDuration - offset, provider: source.provider, identityVerified: source.identityVerified,
@@ -147,14 +170,14 @@ export class MobilePlayback {
       timing: { modelMs: Math.round(performance.now() - started) }, started };
     let readyResolve, readyReject;
     job.ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; }); job.ready.catch(() => {});
-    job.cancel = () => { job.error ||= failure(); job.process?.kill('SIGTERM'); };
+    job.cancel = (reason = failure()) => { job.error ||= reason; job.process?.kill('SIGTERM'); };
     this.jobs.add(job); this.entries.set(cacheKey, job);
-    job.done = this.process(job, source, readyResolve).catch(error => {
-      job.error = error instanceof AppError ? error : failure(); readyReject(job.error); throw job.error;
+    job.done = this.process(job, source, readyResolve, signal).catch(error => {
+      job.error ||= error instanceof AppError ? error : failure(); readyReject(job.error); throw job.error;
     });
     job.done.catch(() => {}); return job;
   }
-  async process(job, source, readyResolve) {
+  async process(job, source, readyResolve, signal) {
     let input, watchdog, killTimer;
     try {
       const ffmpeg = process.env.FFMPEG_PATH || 'ffmpeg';
@@ -163,8 +186,8 @@ export class MobilePlayback {
           .then(({ stdout }) => /^\s*V\S*\s+vvc\s/m.test(stdout), () => false);
         if (!await this.vvcDecoder) throw byteVC2Unsupported();
       }
-      input = await this.bridge.register(source);
-      if (job.error) throw job.error;
+      input = await this.bridge.register(source, signal);
+      if (job.error || signal?.aborted) throw job.error || cancelled();
       const child = spawn(ffmpeg, ['-v', 'error', '-nostdin', '-xerror', '-rw_timeout', '15000000',
         ...(source.contentKey ? ['-decryption_key', source.contentKey.toString('hex')] : []), ...(job.offset ? ['-ss', String(job.offset)] : []),
         ...(source.codec === 'bytevc2' ? ['-threads', '4'] : []), '-i', input.url,
@@ -176,8 +199,8 @@ export class MobilePlayback {
       job.process = child; let exited = false, exitCode = null, stderrBytes = 0;
       // Never expose FFmpeg arguments/errors: they can contain media keys or URLs.
       child.stderr.on('data', chunk => { stderrBytes += chunk.length; if (stderrBytes > 100_000) job.cancel(); });
-      const exit = new Promise(resolve => { child.once('error', () => { job.error = failure(); }); child.once('close', code => { exited = true; job.processClosed = true; exitCode = code; resolve(); }); });
-      job.cancel = () => { job.error ||= failure(); child.kill('SIGTERM'); killTimer ||= setTimeout(() => child.kill('SIGKILL'), 2000); killTimer.unref(); };
+      const exit = new Promise(resolve => { child.once('error', () => { job.error ||= failure(); }); child.once('close', code => { exited = true; job.processClosed = true; exitCode = code; resolve(); }); });
+      job.cancel = (reason = failure()) => { job.error ||= reason; child.kill('SIGTERM'); killTimer ||= setTimeout(() => child.kill('SIGKILL'), 2000); killTimer.unref(); };
       watchdog = setTimeout(job.cancel, 180_000); watchdog.unref();
       let first = false, lastSizeCheck = 0;
       while (true) {
@@ -213,10 +236,12 @@ export class MobilePlayback {
       // clients. Remuxing starts after HLS playback is already available.
       await run(ffmpeg, ['-v', 'error', '-nostdin', '-xerror', '-i', job.playlist,
         '-map', '0:v:0', '-map', '0:a:0', '-c', 'copy', '-movflags', '+faststart', job.file], { timeout: 30_000, maxBuffer: 100_000 });
+      if (job.error) throw job.error;
       const media = await inspectMedia(job.file, { local: true });
       if (media.size > MAX_SOURCE || Math.abs(media.duration - job.expectedDuration) > Math.max(1, job.expectedDuration * 0.01)) throw new AppError('APP_DURATION_MISMATCH', '媒体长度与官方整集时长不符');
       Object.assign(job, media); job.diskBytes = await this.diskSize(job.directory);
       for (const name of await readdir(job.directory)) await chmod(path.join(job.directory, name), 0o600);
+      if (job.error) throw job.error;
       job.complete = true; job.availableDuration = job.duration; job.timing.completeMs = Math.round(performance.now() - job.started); job.timing.inputBytes = input.record.bytes;
       await this.prune(); return job;
     } finally {
@@ -236,9 +261,9 @@ export class MobilePlayback {
   }
   async close() {
     this.closed = true; clearInterval(this.timer);
-    await Promise.allSettled([...this.pending.values()]);
+    this.worker?.controller.abort();
     for (const job of this.jobs) if (!job.complete) job.cancel();
-    await Promise.allSettled([...this.jobs].map(job => job.done)); await this.bridge.close();
+    await this.worker?.done.catch(() => {}); await this.bridge.close();
     for (const source of this.sources.values()) source.contentKey?.fill(0); this.sources.clear();
     if (this.directory) await rm(this.directory, { recursive: true, force: true });
   }

@@ -81,7 +81,7 @@ test('a fallback entry stops masking a recovered App source after its retry wind
   const playback = Object.assign(Object.create(Playback.prototype), {
     entries: new Map([['1:4', fallback]]), pending: new Map(), tokens: new Map(),
     catalog: { detail: async () => ({ total: 4, title: 'fixture', episodes: [1, 2, 3, 4].map(n => ({ id: String(n) })) }) },
-    mobile: { prepare: async () => { calls++; return job; }, available: candidate => candidate === job },
+    mobile: { promote() {}, prepare: async () => { calls++; return job; }, available: candidate => candidate === job },
   });
   assert.strictEqual(await playback.resolve('1', 4), fallback); assert.equal(calls, 0);
   fallback.appRetryAt = Date.now() - 1;

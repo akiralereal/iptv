@@ -8,7 +8,7 @@ const clientId = '22222222-2222-4333-8444-555555555555';
 const newerId = '33333333-2222-4333-8444-555555555555';
 async function setup() {
   const playback = new Playback({}, {}, os.tmpdir()); await playback.mobile.close();
-  playback.mobile = { jobs: new Set(), available: job => !job.error, cancelUnleased: job => { if (job && !job.leases.size) job.error = true; }, close: async () => {} };
+  playback.mobile = { jobs: new Set(), promote() {}, available: job => !job.error, cancelUnleased: job => { if (job && !job.leases.size) job.error = true; }, close: async () => {} };
   const entry = number => { const job = { leases: new Map(), timing: {}, offset: 0, availableDuration: 2 }; playback.mobile.jobs.add(job); return { token: 'episode-' + number, job, seriesId: '1', number, total: 4, duration: 12, expiresAt: Date.now() + 60000 }; };
   const current = entry(1); playback.begin(current, parentClientId);
   return { playback, current, entry, request: { session: current.token, parentClientId, clientId } };

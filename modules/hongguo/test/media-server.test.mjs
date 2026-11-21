@@ -14,7 +14,9 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   const root = await mkdtemp(path.join(os.tmpdir(), 'hongguo-media-server-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const seriesId = '7503745441910017049';
-  const film = { id: seriesId, title: '剧集测试', intro: '', cover: '', total: 3, tags: ['剧情'] };
+  const cover = 'https://p3-reading-sign.fqnovelpic.com/cover.jpg';
+  const coverBytes = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+  const film = { id: seriesId, title: '剧集测试', intro: '', cover, total: 3, tags: ['剧情'] };
   const catalog = new PlaybackCatalog(root, { detail: async () => film });
   await catalog.set(seriesId, true);
   const original = await catalog.ensure();
@@ -68,6 +70,10 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   };
   const handle = createMediaServer({
     catalog, playback, serveMedia: serveFile, json, body,
+    async fetcher(url) {
+      assert.equal(url, cover);
+      return new Response(coverBytes, { headers: { 'content-type': 'image/jpeg' } });
+    },
     serveHLS(req, res, entry, name, clientToken) {
       assert.ok(entry === growing || entry === resumed);
       assert.match(clientToken, /^[a-f0-9]{64}$/);
@@ -133,6 +139,11 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   assert.deepEqual(Items.map(item => item.IndexNumber), [1, 2, 3]);
   assert.equal(Items[0].SeriesId, series.Id);
   assert.equal(Items[0].ParentId, season.Id);
+  const backdrop = `/Items/${Items[0].SeriesId}/Images/Backdrop/0?maxWidth=1200`;
+  const artwork = await get(backdrop, { headers });
+  assert.equal(artwork.status, 200);
+  assert.equal(artwork.headers.get('content-type'), 'image/jpeg');
+  assert.deepEqual(Buffer.from(await artwork.arrayBuffer()), coverBytes);
   assert.deepEqual((await api(query + '&startItemId=' + Items[1].Id)).Items.map(item => item.IndexNumber), [2, 3]);
   const firstInfo = `/Items/${Items[0].Id}/PlaybackInfo`;
   const first = await get(firstInfo, { headers, signal: AbortSignal.timeout(2000) }).then(r => r.json());

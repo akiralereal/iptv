@@ -363,7 +363,7 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
       }
       json(res, 200, sliceItems(refs.map(item => itemDto(state, item)), params)); return;
     }
-    const item = path.match(/^\/items\/([a-f0-9-]+)(?:\/(playbackinfo|images\/(?:primary|thumb)(?:\/0)?|similar|userdata|hidefromresume))?$/);
+    const item = path.match(/^\/items\/([a-f0-9-]+)(?:\/(playbackinfo|images\/(?:primary|thumb|backdrop)(?:\/0)?|similar|userdata|hidefromresume))?$/);
     if (item) {
       const ref = mediaRef(state, item[1]);
       if (!ref) throw new AppError('MEDIA_SERVER_NOT_FOUND', '项目不存在', 404);

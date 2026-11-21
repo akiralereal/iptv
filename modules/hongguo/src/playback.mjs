@@ -75,6 +75,11 @@ export class Playback {
       || [...this.tokens.values()].find(value => value.seriesId === seriesId && value.number === number);
     return entry?.expectedDuration || entry?.duration || 0;
   }
+  releaseMediaLease(seriesId, number, lease) {
+    for (const entry of this.tokens.values()) {
+      if (entry.seriesId === seriesId && entry.number === number) entry.job?.leases.delete(lease);
+    }
+  }
   public(entry, { position = entry.job?.offset || 0, session = entry.token } = {}) {
     return { seriesId: entry.seriesId, number: entry.number, title: entry.title, total: entry.total, duration: entry.expectedDuration || entry.duration, width: entry.width, height: entry.height, verification: entry.verification, checkedAt: entry.checkedAt, provider: entry.provider,
       format: entry.job ? 'hls' : 'mp4', media: entry.job ? `/hls/${entry.token}/index.m3u8` : '/media/' + entry.token,

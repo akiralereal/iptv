@@ -6,8 +6,10 @@ import { AppError } from '../common.mjs';
 import { inspectMedia } from '../media.mjs';
 import { MobileModels } from './model.mjs';
 import { SourceBridge, MAX_SOURCE } from './source-bridge.mjs';
+import { byteVC2Unsupported } from './bytevc2.mjs';
 const run = promisify(execFile);
 const MAX_CACHE = 500_000_000, TTL = 15 * 60_000;
+const WORKER_LIMIT = 2, FOREGROUND_WAIT_MS = 12_000;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const failure = () => new AppError('APP_MEDIA_DECODE_FAILED', '媒体处理中断，请重新选择此集');
 
@@ -56,15 +58,24 @@ export class MobilePlayback {
     if (this.closed) throw failure();
     if (!Number.isFinite(offset) || offset < 0) throw new AppError('INVALID_POSITION', '播放位置无效', 400);
     const cacheKey = `${videoId}:${offset.toFixed(3)}${requestKey ? ':' + requestKey : ''}`;
-    const existing = this.entries.get(cacheKey);
-    if ((!refresh || !existing?.complete) && this.available(existing) && existing.expiresAt > Date.now() + 60_000) return this.waitReady(existing, signal);
-    let work = this.pending.get(cacheKey);
-    if (!work) {
-      const until = Date.now() + 3000;
-      while (priority && this.workers >= 2 && Date.now() < until && !signal?.aborted) await delay(20);
+    const until = Date.now() + FOREGROUND_WAIT_MS;
+    let work, releasedWorker = false;
+    while (true) {
+      if (this.closed) throw failure();
       if (signal?.aborted) throw new AppError('PLAY_CANCELLED', '已取消本次播放', 499);
-      if (this.pending.has(cacheKey)) return this.waitReady(await this.pending.get(cacheKey), signal);
-      if (this.workers >= 2) throw new AppError('APP_BUSY', '正在准备其他剧集，请稍后再试', 429);
+      const existing = this.entries.get(cacheKey);
+      if ((!refresh || !existing?.complete) && this.available(existing) && existing.expiresAt > Date.now() + 60_000) return this.waitReady(existing, signal);
+      work = this.pending.get(cacheKey);
+      if (work || this.workers < WORKER_LIMIT) break;
+      if (!priority || Date.now() >= until) throw new AppError('APP_BUSY', '正在准备其他剧集，请稍后再试', 429);
+      // A stopped episode can finish and stay cached when the server is idle.
+      // When a viewer is waiting, yield its slot to the foreground request.
+      if (!releasedWorker) {
+        releasedWorker = [...this.jobs].some(job => job.claimed && !job.waiters && this.cancelUnleased(job));
+      }
+      await delay(20);
+    }
+    if (!work) {
       this.workers++;
       work = (async () => {
         try {
@@ -111,9 +122,11 @@ export class MobilePlayback {
     return { expectedDuration: source.expectedDuration };
   }
   cancelUnleased(job) {
-    if (!job || job.complete || job.error) return;
+    if (!job || job.complete || job.error) return false;
     for (const [client, expires] of job.leases) if (expires <= Date.now()) job.leases.delete(client);
-    if (!job.leases.size) job.cancel();
+    if (job.leases.size) return false;
+    job.cancel();
+    return true;
   }
   async covering(videoId, position) {
     const candidates = [...this.jobs].filter(job => job.videoId === videoId && job.offset <= position && this.available(job) && job.claimed);
@@ -144,10 +157,17 @@ export class MobilePlayback {
   async process(job, source, readyResolve) {
     let input, watchdog, killTimer;
     try {
+      const ffmpeg = process.env.FFMPEG_PATH || 'ffmpeg';
+      if (source.codec === 'bytevc2') {
+        this.vvcDecoder ??= run(ffmpeg, ['-hide_banner', '-decoders'], { timeout: 5000, maxBuffer: 500_000 })
+          .then(({ stdout }) => /^\s*V\S*\s+vvc\s/m.test(stdout), () => false);
+        if (!await this.vvcDecoder) throw byteVC2Unsupported();
+      }
       input = await this.bridge.register(source);
       if (job.error) throw job.error;
-      const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', ['-v', 'error', '-nostdin', '-xerror', '-rw_timeout', '15000000',
-        ...(source.contentKey ? ['-decryption_key', source.contentKey.toString('hex')] : []), ...(job.offset ? ['-ss', String(job.offset)] : []), '-i', input.url,
+      const child = spawn(ffmpeg, ['-v', 'error', '-nostdin', '-xerror', '-rw_timeout', '15000000',
+        ...(source.contentKey ? ['-decryption_key', source.contentKey.toString('hex')] : []), ...(job.offset ? ['-ss', String(job.offset)] : []),
+        ...(source.codec === 'bytevc2' ? ['-threads', '4'] : []), '-i', input.url,
         '-map', '0:v:0', '-map', '0:a:0', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-threads', '4',
         '-pix_fmt', 'yuv420p', '-force_key_frames', 'expr:gte(t,n_forced*2)', ...(job.offset ? ['-c:a', 'aac', '-b:a', '128k'] : ['-c:a', 'copy']),
         '-f', 'hls', '-hls_time', '2', '-hls_list_size', '0', '-hls_playlist_type', 'event', '-hls_segment_type', 'fmp4',
@@ -191,7 +211,7 @@ export class MobilePlayback {
       if (!playlist.ended || Math.abs(playlist.duration - job.expectedDuration) > Math.max(1, job.expectedDuration * 0.01)) throw new AppError('APP_DURATION_MISMATCH', '媒体长度与官方整集时长不符');
       // A compact MP4 remains available for full decoding and conventional Range
       // clients. Remuxing starts after HLS playback is already available.
-      await run(process.env.FFMPEG_PATH || 'ffmpeg', ['-v', 'error', '-nostdin', '-xerror', '-i', job.playlist,
+      await run(ffmpeg, ['-v', 'error', '-nostdin', '-xerror', '-i', job.playlist,
         '-map', '0:v:0', '-map', '0:a:0', '-c', 'copy', '-movflags', '+faststart', job.file], { timeout: 30_000, maxBuffer: 100_000 });
       const media = await inspectMedia(job.file, { local: true });
       if (media.size > MAX_SOURCE || Math.abs(media.duration - job.expectedDuration) > Math.max(1, job.expectedDuration * 0.01)) throw new AppError('APP_DURATION_MISMATCH', '媒体长度与官方整集时长不符');

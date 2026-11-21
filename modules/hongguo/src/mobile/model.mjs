@@ -2,6 +2,7 @@ import { gzipSync } from 'node:zlib';
 import { AppError, id } from '../common.mjs';
 import { MobileSession, PROFILE, APP_VERSION, APP_BUILD } from './session.mjs';
 import { mediaKey, unwrapMediaAddress } from './wire.mjs';
+import { byteVC2Unsupported } from './bytevc2.mjs';
 
 export function appMediaURL(value) {
   let url; try { url = new URL(value); } catch { throw new AppError('APP_MEDIA_INVALID', 'App 没有提供有效媒体地址'); }
@@ -65,14 +66,16 @@ export class MobileModels {
       if (Number(response.code ?? response.Code ?? 0) || Number(response.video_info?.code ?? response.video_info?.Code ?? 0)) throw new AppError('APP_PLAY_REJECTED', '官方 App 服务未授权此集播放');
       info = response.video_info?.data;
     }
-    const candidates = Object.values(info?.video_list || {}).map(item => ({ item,
+    const variants = Object.values(info?.video_list || {}).map(item => ({ item,
       codec: String(item.codec_type || item.video_meta?.codec_type || '').toLowerCase(),
       height: Number(item.height || item.vheight || item.video_meta?.height || item.video_meta?.vheight || 0),
-    })).filter(x => ['h264', 'avc', 'avc1', 'hevc', 'h265', 'hvc1', 'hev1', 'bytevc1'].includes(x.codec));
+    }));
+    const candidates = variants.filter(x => ['h264', 'avc', 'avc1', 'hevc', 'h265', 'hvc1', 'hev1', 'bytevc1', 'bytevc2'].includes(x.codec));
     const rank = codec => ['h264', 'avc', 'avc1'].includes(codec) ? 0 : 1;
     // FFmpeg already converts HEVC to H.264; prefer actual resolution over the
     // input codec so an SD H.264 variant cannot displace an HD HEVC variant.
-    candidates.sort((a, b) => b.height - a.height || rank(a.codec) - rank(b.codec));
+    candidates.sort((a, b) => Number(a.codec === 'bytevc2') - Number(b.codec === 'bytevc2')
+      || b.height - a.height || rank(a.codec) - rank(b.codec));
     for (const { item, codec } of candidates) {
       const wrappedKey = item.spade_a || item.encrypt_info?.spade_a;
       if (!wrappedKey && item.encrypt_info && ![false, 0, '0', 'false'].includes(item.encrypt_info.encrypt)) continue;
@@ -87,6 +90,7 @@ export class MobileModels {
         } catch {}
       }
     }
+    if (variants.length && variants.every(({ codec }) => codec === 'bytevc2')) throw byteVC2Unsupported();
     throw new AppError('APP_SOURCE_UNSUPPORTED', 'App 没有返回兼容的完整媒体');
   }
 }

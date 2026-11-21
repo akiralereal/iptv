@@ -7,6 +7,7 @@ import test from 'node:test';
 import { AppError } from '../src/common.mjs';
 import { PlaybackCatalog } from '../src/playback-catalog.mjs';
 import { createMediaServer, playbackPassword } from '../src/media-server.mjs';
+import { Playback } from '../src/playback.mjs';
 import { serveFile } from '../src/ranges.mjs';
 
 test('Emby clients can discover, sign in, browse a series, stream and continue in order', async t => {
@@ -37,10 +38,15 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
     },
     renewLocalMedia(entry) { assert.ok(entry === growing || entry === resumed); renewals++; },
     episodeDuration() { return 12; },
+    releaseMediaLease(seriesId, number, lease) {
+      const tokens = new Map([[growing.token, growing], [resumed.token, resumed]]);
+      Playback.prototype.releaseMediaLease.call({ tokens }, seriesId, number, lease);
+    },
     async resolveResumeHLS(id, number, offset) {
       assert.equal(id, seriesId);
       assert.equal(number, 1);
-      if (offset === 11) throw new AppError('APP_BUSY', 'Unavailable', 429);
+      if (offset === 11) return null;
+      if (offset === 10) throw new AppError('APP_BUSY', 'Busy', 429);
       assert.equal(offset, resumed.job.offset);
       return resumed;
     },
@@ -158,6 +164,21 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   await assertStatus(await get(resumeHls, { headers, redirect: 'manual' }), 410);
   const fallback = await api(firstInfo + '?IPTVPreferHLS=true&StartTimeTicks=110000000');
   assert.equal(fallback.MediaSources[0].DirectStreamUrl, undefined);
+  await assertStatus(await get(firstInfo + '?IPTVPreferHLS=true&StartTimeTicks=100000000', { headers }), 429);
+
+  const leaseCount = job.leases.size;
+  const firstSession = await api(firstInfo + '?IPTVPreferHLS=true&PlaySessionId=first-session');
+  assert.equal(firstSession.PlaySessionId, 'first-session');
+  const secondSession = await api(firstInfo + '?IPTVPreferHLS=true&PlaySessionId=second-session');
+  assert.equal(secondSession.PlaySessionId, 'second-session');
+  await assertStatus(await get(firstSession.MediaSources[0].DirectStreamUrl + '?PlaySessionId=first-session', { headers }), 200);
+  assert.equal(job.leases.size, leaseCount + 2);
+  await assertStatus(await post('/Sessions/Playing/Stopped', {
+    ItemId: Items[0].Id, PlaySessionId: 'first-session',
+  }, headers), 204);
+  assert.equal(job.leases.size, leaseCount + 1);
+  assert.ok([...job.leases.keys()].some(lease => lease.endsWith(':second-session')));
+  assert.equal([...job.leases.keys()].some(lease => lease.endsWith(':first-session')), false);
   job.complete = true;
   completion.resolve({ file, size: 10 });
   await assertStatus(await get(`/Videos/${Items[0].Id}/stream.mp4`, { headers, method: 'HEAD' }), 200);

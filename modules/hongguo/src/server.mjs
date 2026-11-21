@@ -44,7 +44,7 @@ export function createHongguo(root) {
   const publications = new PlaybackCatalog(root, catalog);
   const mediaServer = createMediaServer({
     catalog: publications, playback, serveMedia: (req, res, entry) => serveMedia(req, res, entry, playback), body, json,
-    serveHLS: (req, res, entry, name, token) => serveHLS(req, res, playback, entry, name, token),
+    serveHLS: (req, res, entry, name, token, playSessionId) => serveHLS(req, res, playback, entry, name, token, playSessionId),
   });
 
   async function handle(req, res, pathname, { adminPath, accessPrefix, isEmby = isEmbyPath(pathname) }) {
@@ -140,7 +140,7 @@ export function createHongguo(root) {
   };
 }
 
-async function serveHLS(req, res, playback, entry, name, token) {
+async function serveHLS(req, res, playback, entry, name, token, playSessionId) {
   const asset = await playback.mobile.asset(entry.job, name);
   if (name !== 'index.m3u8') {
     await serveFile(req, res, asset);
@@ -149,11 +149,13 @@ async function serveHLS(req, res, playback, entry, name, token) {
   let playlist = await readFile(asset.file);
   if (token) {
     // HLS players resolve segment URLs relative to the manifest, without its query.
+    const authQuery = new URLSearchParams({ api_key: token });
+    if (playSessionId) authQuery.set('PlaySessionId', playSessionId);
     playlist = Buffer.from(playlist.toString('utf8').replace(
       '#EXT-X-PLAYLIST-TYPE:EVENT', '#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-START:TIME-OFFSET=0,PRECISE=YES',
     ).replace(
       /^part-\d{5}\.m4s(?=\r?$)|(?<=URI=")init\.mp4(?=")/gm,
-      name => name + '?api_key=' + token,
+      name => name + '?' + authQuery,
     ));
   }
   res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl', 'content-length': playlist.length, 'cache-control': 'no-store' });

@@ -25,7 +25,7 @@ async function fixture({ colors = false } = {}) {
     '-encryption_scheme', 'cenc-aes-ctr', '-encryption_key', key.toString('hex'), '-encryption_kid', kid.toString('hex'), file]);
   return { root, data: await readFile(file) };
 }
-function mediaFetcher(data, { failAfter = Infinity, wait = 5 } = {}) {
+function mediaFetcher(data, { failAfter = Infinity, wait = 5, chunkBytes = 16384 } = {}) {
   let served = 0;
   return async (url, options) => {
     assert.equal(url, sourceURL); assert.equal(options.redirect, 'error');
@@ -37,7 +37,7 @@ function mediaFetcher(data, { failAfter = Infinity, wait = 5 } = {}) {
       if (options.signal.aborted) { controller.error(new Error('Aborted')); return; }
       if (served >= failAfter) { controller.error(new Error('Synthetic network interruption')); return; }
       if (offset > range.end) { controller.close(); return; }
-      const chunk = data.subarray(offset, Math.min(offset + 16384, range.end + 1)); offset += chunk.length; served += chunk.length; controller.enqueue(chunk);
+      const chunk = data.subarray(offset, Math.min(offset + chunkBytes, range.end + 1)); offset += chunk.length; served += chunk.length; controller.enqueue(chunk);
     } });
     return new Response(body, { status: range.status, headers: { 'content-length': String(range.end - range.start + 1), 'accept-ranges': 'bytes', ...(range.status === 206 ? { 'content-range': `bytes ${range.start}-${range.end}/${data.length}` } : {}) } });
   };
@@ -98,6 +98,48 @@ test('source bridge rejects oversized responses and never forwards an Origin req
   } finally { await bridge.close(); }
 });
 
+test('ByteVC2 normalization preserves encrypted bytes and offsets across split HTTP ranges', async () => {
+  function box(type, ...parts) {
+    const header = Buffer.alloc(8);
+    header.writeUInt32BE(8 + parts.reduce((size, part) => size + part.length, 0));
+    header.write(type, 4);
+    return Buffer.concat([header, ...parts]);
+  }
+  const privateConfig = box('bv2C', Buffer.alloc(38, 17));
+  const protection = box('sinf', box('frma', Buffer.from('bvc2')), box('schi', box('tenc', Buffer.alloc(23, 21))));
+  const sample = box('encv', Buffer.alloc(78), privateConfig, protection);
+  const description = Buffer.alloc(8);
+  description.writeUInt32BE(1, 4);
+  const stsd = box('stsd', description, sample);
+  const moov = box('moov', box('trak', box('mdia', box('minf', box('stbl', stsd)))));
+  const media = box('mdat', Buffer.from('untouched bv2C and bvc2 payload'));
+  const data = Buffer.concat([box('ftyp', Buffer.from('isom')), moov, media]);
+  const bridge = new SourceBridge(mediaFetcher(data, { chunkBytes: 7, wait: 0 }));
+  try {
+    const input = await bridge.register({ url: sourceURL, codec: 'bytevc2' });
+    const whole = await fetch(input.url);
+    assert.equal(whole.status, 200);
+    const patched = Buffer.from(await whole.arrayBuffer());
+    assert.equal(patched.length, data.length);
+    assert.deepEqual(patched.subarray(-media.length), media);
+    const configOffset = data.indexOf('bv2C') - 4;
+    assert.equal(patched.readUInt32BE(configOffset), 14);
+    assert.equal(patched.toString('ascii', configOffset + 4, configOffset + 8), 'vvcC');
+    assert.equal(patched[configOffset + 12], 0xfe);
+    assert.equal(patched.readUInt32BE(configOffset + 14), privateConfig.length - 14);
+    const originalOffset = data.indexOf('frmabvc2') + 4;
+    assert.equal(patched.toString('ascii', originalOffset, originalOffset + 4), 'vvi1');
+    assert.deepEqual(patched.subarray(originalOffset + 4), data.subarray(originalOffset + 4));
+    for (const start of [configOffset + 3, originalOffset + 2]) {
+      const response = await fetch(input.url, { headers: { range: `bytes=${start}-${start + 17}` } });
+      assert.equal(response.status, 206);
+      assert.equal(response.headers.get('content-range'), `bytes ${start}-${start + 17}/${data.length}`);
+      assert.deepEqual(Buffer.from(await response.arrayBuffer()), patched.subarray(start, start + 18));
+    }
+    input.release();
+  } finally { await bridge.close(); }
+});
+
 test('cache pressure preserves playing episodes and expired leases become evictable', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'drama-lease-test-'));
   const playback = new MobilePlayback(root);
@@ -120,6 +162,40 @@ test('a full cache makes room for the next episode while preserving the current 
     const active = { complete: false, cancel() {}, leases: new Map() }; playback.jobs.add(active);
     await playback.prune({ reserve: true });
     assert.equal(playback.jobs.size, 11); assert.ok(playback.jobs.has(active)); assert.ok(playback.jobs.has(jobs[0]));
+  } finally { await playback.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('a foreground episode can take a stopped episode’s worker without interrupting active playback', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'drama-worker-switch-'));
+  const playback = new MobilePlayback(root);
+  playback.create = async (videoId, _, cacheKey) => {
+    const completion = Promise.withResolvers();
+    const job = { videoId, cacheKey, directory: path.join(root, videoId), expiresAt: Date.now() + 120_000,
+      leases: new Map(), waiters: 0, diskBytes: 0, done: completion.promise };
+    job.ready = Promise.resolve(job);
+    job.cancel = () => {
+      job.error ||= new Error('Cancelled background work');
+      completion.reject(job.error);
+    };
+    playback.jobs.add(job);
+    playback.entries.set(cacheKey, job);
+    return job;
+  };
+  try {
+    const previous = await playback.prepare('79', { priority: true });
+    previous.leases.set('previous-session', Date.now() + 60_000);
+    const current = await playback.prepare('80', { priority: true });
+    current.leases.set('current-session', Date.now() + 60_000);
+    const queued = playback.prepare('81', { priority: true });
+    await sleep(60);
+    assert.equal(previous.error, undefined);
+    assert.equal(current.error, undefined);
+    previous.leases.delete('previous-session');
+    const next = await queued;
+    assert.equal(next.videoId, '81');
+    assert.ok(previous.error);
+    assert.equal(current.error, undefined);
+    assert.equal(playback.workers, 2);
   } finally { await playback.close(); await rm(root, { recursive: true, force: true }); }
 });
 

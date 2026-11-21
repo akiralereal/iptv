@@ -59,6 +59,15 @@ test('HD HEVC wins over SD AVC for both object and array variant lists', async (
   }
 });
 
+test('ByteVC2 can be selected, while an available compatible variant takes precedence', async () => {
+  const models = new MobileModels('', { session: {} });
+  const videoList = [{ codec_type: 'bytevc2', height: 1920, main_url: 'https://v3.qznovelvod.com/hd' }];
+  models.model = async () => ({ video_duration: 85, video_list: videoList });
+  assert.equal((await models.resolve('4')).codec, 'bytevc2');
+  videoList.push({ codec_type: 'h264', height: 640, main_url: 'https://v3.qznovelvod.com/sd' });
+  assert.equal((await models.resolve('4')).codec, 'h264');
+});
+
 test('strict HD verification rejects website fallback and unknown or low resolution before decoding', async () => {
   const check = entry => Playback.prototype.verify.call({ resolve: async () => entry }, '1', 4, { requireApp: true, minimumSide: 1080 });
   await assert.rejects(check({ provider: 'official_public_endpoint', width: 360, height: 640 }), { code: 'APP_HD_UNAVAILABLE' });

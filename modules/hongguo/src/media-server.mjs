@@ -255,6 +255,8 @@ async function artwork(req, res, ref, fetcher) {
 }
 
 export function createMediaServer({ catalog, playback, serveMedia, serveHLS, body, json, fetcher = fetch }) {
+  const sessionID = value => typeof value === 'string' && /^[a-z0-9-]{1,80}$/i.test(value) ? value : '';
+  const mediaLease = (keyHash, playSessionId) => `media-server:${keyHash}:${playSessionId}`;
   async function authenticate(req, res) {
     const input = await body(req);
     const token = randomBytes(32).toString('hex');
@@ -272,17 +274,18 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
     json(res, 200, { User: user(state), AccessToken: token, ServerId: state.serverId, ServerName: serverName, SessionInfo: sessionDto(state, session) });
   }
 
-  function holdMedia(entry) {
-    entry.job?.leases.set(`media-server:${entry.token}`, Date.now() + 45_000);
+  function holdMedia(entry, keyHash, playSessionId) {
+    entry.job?.leases.set(mediaLease(keyHash, playSessionId), Date.now() + 45_000);
   }
 
-  async function playerEntry(res, keyHash, ref, { completeFile = false, resumeOffset = 0 } = {}) {
+  async function playerEntry(res, keyHash, ref, { completeFile = false, resumeOffset = 0, playSessionId = '' } = {}) {
     if (ref?.kind !== 'Episode') throw new AppError('MEDIA_SERVER_NOT_FOUND', '分集不存在', 404);
+    if (res.destroyed) return null;
     const entry = resumeOffset > 0
       ? await playback.resolveResumeHLS(ref.show.id, ref.number, resumeOffset)
       : await playback.resolve(ref.show.id, ref.number);
-    if (!entry) return null;
-    holdMedia(entry);
+    if (!entry || res.destroyed) return null;
+    holdMedia(entry, keyHash, playSessionId);
     // The MP4 stream needs all bytes. PlaybackInfo can respond at the first segment.
     const file = completeFile && entry.job ? await entry.job.done : entry;
     const current = await catalog.read();
@@ -378,6 +381,8 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
       if (['GET', 'HEAD'].includes(req.method) && action?.startsWith('images/')) { await artwork(req, res, ref, fetcher); return; }
       if (['GET', 'POST'].includes(req.method) && action === 'playbackinfo') {
         if (req.method === 'POST') req.resume();
+        const requestedSession = sessionID(params.get('playsessionid'));
+        const playSessionId = requestedSession || randomBytes(16).toString('hex');
         const preferHLS = params.get('iptvpreferhls') === 'true';
         const startTicks = Number(params.get('starttimeticks') || 0);
         const resumeOffset = preferHLS && Number.isSafeInteger(startTicks) && startTicks > 0
@@ -385,12 +390,12 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
         let entry;
         if (resumeOffset > 0) {
           try {
-            entry = await playerEntry(res, keyHash, ref, { resumeOffset });
+            entry = await playerEntry(res, keyHash, ref, { resumeOffset, playSessionId });
           } catch (error) {
-            if (error.code?.startsWith('MEDIA_SERVER_')) throw error;
+            if (error.code === 'APP_BUSY' || error.code?.startsWith('MEDIA_SERVER_')) throw error;
           }
         }
-        if (!entry && !res.destroyed) entry = await playerEntry(res, keyHash, ref);
+        if (!entry && !res.destroyed) entry = await playerEntry(res, keyHash, ref, { playSessionId });
         if (!entry) return;
         const duration = Math.round((entry.expectedDuration || entry.duration) * ticksPerSecond);
         const source = {
@@ -409,12 +414,13 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
           const offsetPath = offsetMs > 0 ? `${offsetMs}/` : '';
           source.DirectStreamUrl = `/Videos/${ref.id}/hls/${entry.token}/${offsetPath}index.m3u8`;
         }
-        json(res, 200, { MediaSources: [source], PlaySessionId: randomBytes(16).toString('hex') }); return;
+        json(res, 200, { MediaSources: [source], PlaySessionId: playSessionId }); return;
       }
     }
     const video = path.match(/^\/videos?\/([a-f0-9-]+)\/(?:stream(?:\.mp4)?|original(?:\.mp4)?)$/);
     if (['GET', 'HEAD'].includes(req.method) && video) {
-      const entry = await playerEntry(res, keyHash, mediaRef(state, video[1]), { completeFile: true });
+      const playSessionId = sessionID(params.get('playsessionid'));
+      const entry = await playerEntry(res, keyHash, mediaRef(state, video[1]), { completeFile: true, playSessionId });
       if (entry) await serveMedia(req, res, entry);
       return;
     }
@@ -422,6 +428,7 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
     if (['GET', 'HEAD'].includes(req.method) && segment) {
       const [, episode, mediaToken, offsetPath, asset] = segment;
       const offsetMs = Number(offsetPath || 0);
+      const playSessionId = sessionID(params.get('playsessionid'));
       const ref = mediaRef(state, episode);
       if (ref?.kind !== 'Episode') throw new AppError('MEDIA_SERVER_NOT_FOUND', '分集不存在', 404);
       let entry;
@@ -433,38 +440,45 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
         // An offset playlist must never redirect to the full episode: its
         // client clock is relative to the trimmed stream. Reopen via PlaybackInfo.
         if (error.code !== 'SESSION_EXPIRED' || asset !== 'index.m3u8' || offsetMs > 0) throw error;
-        const fresh = await playerEntry(res, keyHash, ref);
+        const fresh = await playerEntry(res, keyHash, ref, { playSessionId });
         if (!fresh) return;
         if (fresh.job && fresh.token === mediaToken) throw error;
         const target = fresh.job ? `../${fresh.token}/index.m3u8` : '../../stream.mp4';
-        res.writeHead(307, { Location: target + '?api_key=' + token, 'Cache-Control': 'no-store' }).end();
+        const authQuery = new URLSearchParams({ api_key: token });
+        if (playSessionId) authQuery.set('PlaySessionId', playSessionId);
+        res.writeHead(307, { Location: target + '?' + authQuery, 'Cache-Control': 'no-store' }).end();
         return;
       }
       if (!entry.job || entry.seriesId !== ref.show.id || entry.number !== ref.number
         || Math.round((entry.job.offset || 0) * 1000) !== offsetMs) {
         throw new AppError('MEDIA_SERVER_NOT_FOUND', '播放分段不存在', 404);
       }
-      holdMedia(entry);
+      holdMedia(entry, keyHash, playSessionId);
       playback.renewLocalMedia(entry);
-      await serveHLS(req, res, entry, asset, token);
+      await serveHLS(req, res, entry, asset, token, playSessionId);
       return;
     }
     if (req.method === 'POST' && ['/sessions/playing', '/sessions/playing/progress', '/sessions/playing/stopped'].includes(path)) {
       const input = await body(req, 32_768);
       const ref = mediaRef(state, input.ItemId ?? input.itemId);
       if (ref?.kind !== 'Episode') throw new AppError('MEDIA_SERVER_NOT_FOUND', '分集不存在', 404);
+      const playSessionId = sessionID(input.PlaySessionId ?? input.playSessionId);
+      const stopped = path.endsWith('/stopped');
       const position = input.PositionTicks ?? input.positionTicks;
       if (Number.isSafeInteger(position) && position >= 0) {
         const runtime = Math.round(playback.episodeDuration(ref.show.id, ref.number) * ticksPerSecond);
         await writeUserData(catalog, keyHash, ref.id, previous => {
           const length = runtime || previous.runtime;
-          const played = previous.played || (path.endsWith('/stopped') && length > 0 && position >= length * 0.9);
+          const played = previous.played || (stopped && length > 0 && position >= length * 0.9);
           return {
             ...previous, runtime: length, played, position: played ? 0 : length > 0 ? Math.min(position, length) : position,
             hiddenFromResume: path === '/sessions/playing' ? false : previous.hiddenFromResume,
             at: new Date().toISOString(),
           };
         });
+      }
+      if (stopped && playSessionId) {
+        playback.releaseMediaLease(ref.show.id, ref.number, mediaLease(keyHash, playSessionId));
       }
       res.writeHead(204).end(); return;
     }

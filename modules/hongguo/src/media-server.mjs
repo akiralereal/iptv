@@ -160,6 +160,7 @@ function itemDto(state, ref) {
     ...base, Name: `第 ${number} 集`, IndexNumber: number, ParentIndexNumber: 1, SeasonName: '全集',
     SeriesId: seriesId, SeriesName: show.title, ParentId: mediaId(show.id, seasonNumber), SeasonId: mediaId(show.id, seasonNumber),
     Container: 'mp4', MediaType: 'Video', IsFolder: false, RunTimeTicks: state.jellyfinUserData?.[id]?.runtime,
+    DanmakuUrl: `/Items/${id}/Danmaku`,
     ImageTags: imageTags, SeriesPrimaryImageTag: imageTags.Primary, PrimaryImageAspectRatio: 2 / 3,
   };
 }
@@ -255,7 +256,7 @@ async function artwork(req, res, ref, fetcher) {
   res.end(req.method === 'HEAD' ? undefined : Buffer.concat(chunks));
 }
 
-export function createMediaServer({ catalog, playback, serveMedia, serveHLS, body, json, fetcher = fetch }) {
+export function createMediaServer({ catalog, playback, danmaku, serveMedia, serveHLS, body, json, fetcher = fetch }) {
   const sessionID = value => typeof value === 'string' && /^[a-z0-9-]{1,80}$/i.test(value) ? value : '';
   const mediaLease = (keyHash, playSessionId) => `media-server:${keyHash}:${playSessionId}`;
   async function authenticate(req, res) {
@@ -364,12 +365,16 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
       }
       json(res, 200, sliceItems(refs.map(item => itemDto(state, item)), params)); return;
     }
-    const item = path.match(/^\/items\/([a-f0-9-]+)(?:\/(playbackinfo|images\/(?:primary|thumb|backdrop)(?:\/0)?|similar|userdata|hidefromresume))?$/);
+    const item = path.match(/^\/items\/([a-f0-9-]+)(?:\/(playbackinfo|images\/(?:primary|thumb|backdrop)(?:\/0)?|similar|userdata|hidefromresume|danmaku(?:\/segments)?))?$/);
     if (item) {
       const ref = mediaRef(state, item[1]);
       if (!ref) throw new AppError('MEDIA_SERVER_NOT_FOUND', '项目不存在', 404);
       const action = item[2];
       if (req.method === 'GET' && !action) { json(res, 200, itemDto(state, ref)); return; }
+      if (req.method === 'GET' && ref.kind === 'Episode' && danmaku) {
+        if (action === 'danmaku') { json(res, 200, await danmaku.metadata(ref, token)); return; }
+        if (action === 'danmaku/segments') { json(res, 200, await danmaku.segment(ref, params.get('part'))); return; }
+      }
       if (req.method === 'GET' && action === 'userdata') { json(res, 200, userData(state, ref.id)); return; }
       if (req.method === 'GET' && action === 'similar') { json(res, 200, sliceItems([], params)); return; }
       if (req.method === 'POST' && action === 'hidefromresume') {

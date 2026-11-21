@@ -6,6 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { AppError } from '../src/common.mjs';
 import { PlaybackCatalog } from '../src/playback-catalog.mjs';
+import { HongguoDanmaku } from '../src/danmaku.mjs';
 import { createMediaServer, playbackPassword } from '../src/media-server.mjs';
 import { Playback } from '../src/playback.mjs';
 import { serveFile } from '../src/ranges.mjs';
@@ -68,8 +69,29 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
     for await (const chunk of req) chunks.push(chunk);
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   };
+  const windows = [];
+  const danmaku = new HongguoDanmaku({
+    catalog: { detail: async () => ({ total: 3, episodes: [{ id: '100' }, { id: '200' }, { id: '300' }] }) },
+    playback: { episodeDuration: () => 70 },
+    session: {
+      parameters: async () => ({}),
+      async signedPost(endpoint, params, bytes) {
+        const input = JSON.parse(bytes);
+        const { start_offset_time: start, book_id } = input.business_param;
+        assert.equal(book_id, seriesId);
+        assert.ok(endpoint.endsWith(`/${input.group_id}/v1/`));
+        windows.push([input.group_id, start, input.cursor]);
+        return { code: 0, data: {
+          common_list_info: { has_more: start < 60000, cursor: `window-${start}` },
+          extra: { next_query_danmaku_list_time: start + 30000 },
+          data_list: [{ comment: { comment_id: String(Number(input.group_id) + start),
+            common: { content: { text: `第 ${input.group_id} 集的弹幕` } }, expand: { offset_time: start + 5000 } } }],
+        } };
+      },
+    },
+  });
   const handle = createMediaServer({
-    catalog, playback, serveMedia: serveFile, json, body,
+    catalog, playback, danmaku, serveMedia: serveFile, json, body,
     async fetcher(url) {
       assert.equal(url, cover);
       return new Response(coverBytes, { headers: { 'content-type': 'image/jpeg' } });
@@ -139,6 +161,23 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   assert.deepEqual(Items.map(item => item.IndexNumber), [1, 2, 3]);
   assert.equal(Items[0].SeriesId, series.Id);
   assert.equal(Items[0].ParentId, season.Id);
+  assert.equal(series.DanmakuUrl, undefined);
+  await assertStatus(await get(Items[0].DanmakuUrl), 401);
+  for (const [index, videoId] of [[0, '100'], [1, '200']]) {
+    const endpoint = Items[index].DanmakuUrl;
+    assert.equal(endpoint, `/Items/${Items[index].Id}/Danmaku`);
+    const metadata = await api(endpoint);
+    assert.equal(metadata.videoID, `hongguo:${videoId}`);
+    const url = new URL(metadata.segmentsURL, origin + endpoint);
+    url.searchParams.set('part', '1');
+    const segment = await fetch(url);
+    assert.equal(segment.status, 200);
+    const packet = await segment.json();
+    assert.equal(packet.videoID, metadata.videoID);
+    assert.deepEqual(packet.items.map(item => [item.time, item.text]), [[5, `第 ${videoId} 集的弹幕`], [35, `第 ${videoId} 集的弹幕`]]);
+    await (await fetch(url)).body.cancel();
+  }
+  assert.deepEqual(windows, [['100', 0, ''], ['100', 30000, 'window-0'], ['200', 0, ''], ['200', 30000, 'window-0']]);
   const backdrop = `/Items/${Items[0].SeriesId}/Images/Backdrop/0?maxWidth=1200`;
   const artwork = await get(backdrop, { headers });
   assert.equal(artwork.status, 200);

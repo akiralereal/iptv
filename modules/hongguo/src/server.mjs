@@ -10,6 +10,7 @@ import { Account } from './mobile/account.mjs';
 import { AccountActions } from './mobile/account-actions.mjs';
 import { AccountSync } from './mobile/account-sync.mjs';
 import { PlaybackCatalog } from './playback-catalog.mjs';
+import { HongguoDanmaku } from './danmaku.mjs';
 import { createMediaServer, isEmbyPath, playbackPassword } from './media-server.mjs';
 
 function json(res, status, value) { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); }
@@ -42,8 +43,9 @@ export function createHongguo(root) {
   const accountActions = new AccountActions(account, catalog, playback);
   const accountSync = new AccountSync(account, accountActions, catalog);
   const publications = new PlaybackCatalog(root, catalog);
+  const danmaku = new HongguoDanmaku({ catalog, playback, session: playback.mobile.models.session });
   const mediaServer = createMediaServer({
-    catalog: publications, playback, serveMedia: (req, res, entry) => serveMedia(req, res, entry, playback), body, json,
+    catalog: publications, playback, danmaku, serveMedia: (req, res, entry) => serveMedia(req, res, entry, playback), body, json,
     serveHLS: (req, res, entry, name, token, playSessionId) => serveHLS(req, res, playback, entry, name, token, playSessionId),
   });
 

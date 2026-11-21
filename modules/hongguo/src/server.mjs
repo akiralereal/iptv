@@ -55,7 +55,7 @@ export function createHongguo(root) {
       const queryStart = req.url.indexOf('?');
       const params = new URLSearchParams(queryStart === -1 ? '' : req.url.slice(queryStart + 1));
       if (isEmby) {
-        await mediaServer(req, res, pathname.slice('/emby'.length), params);
+        await mediaServer(req, res, pathname, params);
         return;
       }
       if (pathname === '/api/playback-catalog' && ['GET', 'POST'].includes(req.method)) {
@@ -67,9 +67,9 @@ export function createHongguo(root) {
           if (!state.key || !state.serverId) state = await publications.ensure();
         }
         const prefixDepth = accessPrefix.split('/').filter(Boolean).length;
-        const relative = prefixDepth ? '../'.repeat(prefixDepth + 1) + 'hongguo/' : '';
+        const server = '../'.repeat(prefixDepth + 1) + 'hongguo';
         json(res, 200, {
-          emby: { server: relative + 'emby', username: 'hongguo', password: playbackPassword(state.key) },
+          emby: { server, username: 'hongguo', password: playbackPassword(state.key) },
           series: state.series,
         });
         return;

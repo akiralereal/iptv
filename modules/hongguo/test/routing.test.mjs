@@ -1,16 +1,22 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
-import { handleHongguo, isHongguoPath, shutdownHongguo } from '../index.js';
 
 test('Hongguo requires admin access across pages, account operations and media', async t => {
-  let access = { adminPath: 'control', passAuthed: false, userAuthed: false, passConfigured: true };
-  const server = createServer((req, res) => handleHongguo(req, res, req.url.split('?')[0], access));
+  const root = await mkdtemp(join(tmpdir(), 'hongguo-routing-'));
+  process.env.mdataDir = root;
+  const { handleHongguo, isHongguoPath, shutdownHongguo } = await import('../index.js');
+  let access = { adminPath: 'control', accessPrefix: '', passAuthed: false, userAuthed: false, passConfigured: true };
+  const server = createServer((req, res) => handleHongguo(req, res, req.url.split('?')[0].slice(access.accessPrefix.length), access));
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(async () => {
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
     await shutdownHongguo();
+    await rm(root, { recursive: true, force: true });
   });
   const base = `http://127.0.0.1:${server.address().port}`;
   const get = (path, options = {}) => fetch(base + path, { redirect: 'manual', ...options });
@@ -37,6 +43,27 @@ test('Hongguo requires admin access across pages, account operations and media',
   const page = await get('/hongguo/');
   assert.equal(page.status, 200);
   assert.match(await page.text(), /href="\.\.\/control#vod-sources">返回点播源<\/a>/);
+
+  for (const accessPrefix of ['', '/admin-password']) {
+    access = { ...access, accessPrefix };
+    const directory = await get(accessPrefix + '/hongguo/api/playback-catalog');
+    assert.equal(directory.status, 200);
+    const { emby } = await directory.json();
+    assert.equal(new URL(emby.server, base + accessPrefix + '/hongguo/').href, base + '/hongguo');
+  }
+  access = { ...access, accessPrefix: '' };
+  const old = await get('/hongguo/emby/System/Info/Public');
+  assert.equal(old.status, 404);
+  await old.body.cancel();
+
+  access = { ...access, passAuthed: false };
+  const publicInfo = await get('/hongguo/System/Info/Public');
+  assert.equal(publicInfo.status, 200);
+  assert.equal((await publicInfo.json()).ProductName, 'Emby Server');
+  const noSession = await get('/hongguo/Items');
+  assert.equal(noSession.status, 401);
+  await noSession.body.cancel();
+  access = { ...access, passAuthed: true };
 
   const post = (headers, body = '{}') => get('/hongguo/api/account/poll', { method: 'POST', headers, body });
   const crossSite = await post({ 'Content-Type': 'application/json', 'Sec-Fetch-Site': 'cross-site' });

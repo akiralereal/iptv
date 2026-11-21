@@ -19,7 +19,8 @@ export function playbackPassword(key) {
 }
 
 export function isEmbyPath(pathname) {
-  return pathname === '/emby' || pathname.startsWith('/emby/');
+  // Mount the Emby namespaces directly under the module root, alongside the admin page and its APIs.
+  return /^\/(?:system|users|sessions|views|userviews|library|items|useritems|shows|videos?|favoriteitems|playeditems)(?:\/|$)/i.test(pathname);
 }
 
 function matchesPassword(input, expected) {

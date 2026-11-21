@@ -47,6 +47,7 @@ import { cleanUserAgent, userAgentOf } from "./utils/channelOpts.js";
 import { SYSTEM_ASSET_PATHS, readAnnouncementAsset } from "./utils/announcement.js";
 import { cleanCoreDumps } from "./utils/coreDumpCleanup.js";
 import { proxiedPublicBase } from "./utils/publicOrigin.js";
+import { handleHongguo, isHongguoPath, shutdownHongguo } from './modules/hongguo/index.js'
 
 // 自定义源「经网络代理转发」的播放引用（${replace}/proxy/cp-<hex>.m3u8）：不是抓取模块，挂到 resolverFor 上
 registerRefResolver(createCustomProxyResolver({
@@ -347,6 +348,11 @@ async function handleRequest(req, res) {
       res.end('Admin page not found');
       printRed("管理页面文件不存在")
     }
+    return
+  }
+
+  if (isHongguoPath(routePath)) {
+    await handleHongguo(req, res, routePath, { adminPath, accessPrefix, passAuthed, userAuthed, passConfigured: pass !== '' })
     return
   }
 
@@ -1672,7 +1678,7 @@ function shutdownProcess() {
     // 守护进程的重启因为浏览器异常关闭而无限挂住。
     try { server.close() } catch { /* 尚未监听或已经关闭 */ }
     await Promise.race([
-      shutdownModules(),
+      Promise.allSettled([shutdownModules(), shutdownHongguo()]),
       new Promise(resolve => setTimeout(resolve, 8_000)),
     ])
     process.exit(0)

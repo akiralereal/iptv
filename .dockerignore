@@ -12,6 +12,7 @@ logo-remote
 
 # Private runtime profiles/cookies must never enter an image build context
 iqiyi-vod
+hongguo-vod
 iqiyi-sports
 data
 **/.runtime

@@ -1,0 +1,163 @@
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import { AppError } from '../src/common.mjs';
+import { PlaybackCatalog } from '../src/playback-catalog.mjs';
+import { createMediaServer, playbackPassword } from '../src/media-server.mjs';
+import { serveFile } from '../src/ranges.mjs';
+
+test('Emby clients can discover, sign in, browse a series, stream and continue in order', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'hongguo-media-server-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const seriesId = '7503745441910017049';
+  const film = { id: seriesId, title: '剧集测试', intro: '', cover: '', total: 3, tags: ['剧情'] };
+  const catalog = new PlaybackCatalog(root, { detail: async () => film });
+  await catalog.set(seriesId, true);
+  const original = await catalog.ensure();
+  const file = path.join(root, 'fixture.mp4');
+  await writeFile(file, '0123456789');
+  const token = 'ab'.repeat(24);
+  const completion = Promise.withResolvers();
+  const job = { leases: new Map(), complete: false, done: completion.promise };
+  const growing = { token, seriesId, number: 1, duration: 12, job };
+  const playback = {
+    entries: new Map(),
+    async byToken(value) {
+      assert.equal(value, token);
+      return growing;
+    },
+    async resolve(id, number) {
+      assert.equal(id, seriesId);
+      if (number === 1) return growing;
+      const entry = { file, size: 10, duration: 12, video: 'h264', audio: 'aac', width: 1080, height: 1920 };
+      this.entries.set(`${id}:${number}`, entry);
+      return entry;
+    },
+  };
+  const json = (res, status, value) => {
+    res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(value));
+  };
+  const body = async req => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  };
+  const handle = createMediaServer({
+    catalog, playback, serveMedia: serveFile, json, body,
+    serveHLS(req, res, entry, name, clientToken) {
+      assert.equal(entry, growing);
+      assert.match(clientToken, /^[a-f0-9]{64}$/);
+      res.end(name);
+    },
+  });
+  const server = createServer((req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    handle(req, res, url.pathname, url.searchParams).catch(error => {
+      assert.ok(error instanceof AppError, error.stack);
+      json(res, error.status, { code: error.code });
+    });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  });
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const get = (route, init) => fetch(origin + route, init);
+  const post = (route, value, headers = {}) => get(route, {
+    method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(value),
+  });
+  const assertStatus = async (response, status) => {
+    assert.equal(response.status, status);
+    await response.body?.cancel();
+  };
+
+  const publicInfo = await get('/System/Info/Public').then(r => r.json());
+  assert.equal(publicInfo.Id, original.serverId);
+  assert.equal(publicInfo.ProductName, 'Emby Server');
+  assert.equal(await get('/System/Ping', { method: 'POST' }).then(r => r.text()), 'Emby Server');
+  await assertStatus(await get('/Items'), 401);
+  await assertStatus(await post('/Users/AuthenticateByName', { Username: 'hongguo', Pw: original.key }), 401);
+  async function signIn(key, device) {
+    const response = await post('/Users/AuthenticateByName', { Username: 'hongguo', Pw: playbackPassword(key) }, {
+      'x-emby-authorization': `MediaBrowser Client="Test", DeviceId="${device}"`,
+    });
+    assert.equal(response.status, 200);
+    return response.json();
+  }
+  const auth = await signIn(original.key, 'first');
+  const other = await signIn(original.key, 'second');
+  assert.notEqual(auth.AccessToken, other.AccessToken);
+  assert.notEqual(auth.AccessToken, playbackPassword(original.key));
+  const headers = { 'x-emby-token': auth.AccessToken };
+  const api = route => get(route, { headers }).then(r => {
+    assert.equal(r.status, 200);
+    return r.json();
+  });
+  const user = auth.User.Id;
+  const views = await api(`/Users/${user}/Views`);
+  const library = views.Items[0];
+  assert.equal(library.CollectionType, 'tvshows');
+  const browse = await api(`/Users/${user}/Items?ParentId=${library.Id}&IncludeItemTypes=Series&Limit=1`);
+  const series = browse.Items[0];
+  assert.equal(series.Name, '剧集测试');
+  assert.equal(browse.TotalRecordCount, 1);
+  assert.equal((await api('/Items/Latest?ParentId=' + library.Id))[0].Id, series.Id);
+  const { Items: [season] } = await api(`/Shows/${series.Id}/Seasons?UserId=${user}`);
+  const query = `/Shows/${series.Id}/Episodes?SeasonId=${season.Id}`;
+  const { Items } = await api(query);
+  assert.deepEqual(Items.map(item => item.IndexNumber), [1, 2, 3]);
+  assert.equal(Items[0].SeriesId, series.Id);
+  assert.equal(Items[0].ParentId, season.Id);
+  assert.deepEqual((await api(query + '&startItemId=' + Items[1].Id)).Items.map(item => item.IndexNumber), [2, 3]);
+  const firstInfo = `/Items/${Items[0].Id}/PlaybackInfo`;
+  const first = await get(firstInfo, { headers, signal: AbortSignal.timeout(2000) }).then(r => r.json());
+  assert.equal(first.MediaSources[0].DirectStreamUrl, undefined);
+  const requestedHLS = await api(firstInfo + '?IPTVPreferHLS=true');
+  const hls = requestedHLS.MediaSources[0].DirectStreamUrl;
+  assert.equal(hls, `/Videos/${Items[0].Id}/hls/${token}/index.m3u8`);
+  await assertStatus(await get(hls), 401);
+  assert.equal(await get(hls, { headers }).then(r => r.text()), 'index.m3u8');
+  await assertStatus(await get(hls.replace(Items[0].Id, Items[1].Id), { headers }), 404);
+  job.complete = true;
+  completion.resolve({ file, size: 10 });
+  assert.equal((await api(firstInfo + '?IPTVPreferHLS=true')).MediaSources[0].DirectStreamUrl, undefined);
+  const play = await post('/Items/' + Items[1].Id + '/PlaybackInfo', { DeviceProfile: {} }, headers);
+  assert.equal(play.status, 200);
+  const metadata = await play.json();
+  assert.equal(metadata.MediaSources[0].Container, 'mp4');
+  assert.equal(metadata.MediaSources[0].RunTimeTicks, 120_000_000);
+  const mp4 = `/Videos/${Items[1].Id}/stream.mp4?Static=true&api_key=${auth.AccessToken}`;
+  const range = await get(mp4, { headers: { range: 'bytes=2-4' } });
+  assert.equal(range.status, 206);
+  assert.equal(range.headers.get('content-range'), 'bytes 2-4/10');
+  assert.equal(await range.text(), '234');
+  await assertStatus(await get(mp4, { method: 'HEAD' }), 200);
+
+  const itemId = Items[1].Id;
+  await assertStatus(await post('/Sessions/Playing/Progress', { ItemId: itemId, PositionTicks: 50_000_000 }, headers), 204);
+  assert.equal((await api('/UserItems/Resume')).Items[0].Id, itemId);
+  const hide = `/Users/${user}/Items/${itemId}/HideFromResume`;
+  await assertStatus(await post(hide + '?Hide=true', {}, headers), 204);
+  assert.deepEqual((await api('/UserItems/Resume')).Items, []);
+  assert.equal((await api(`/Users/${user}/Items/${itemId}`)).UserData.PlaybackPositionTicks, 50_000_000);
+  await assertStatus(await post(hide + '?Hide=false', {}, headers), 204);
+  assert.equal((await api('/UserItems/Resume')).Items[0].Id, itemId);
+  await assertStatus(await post('/Sessions/Playing/Stopped', { ItemId: itemId, PositionTicks: 120_000_000 }, headers), 204);
+  assert.equal((await api('/Shows/NextUp')).Items[0].Id, Items[2].Id);
+  await assertStatus(await post('/Users/' + user + '/PlayedItems/' + Items[2].Id, {}, headers), 200);
+  assert.deepEqual((await api('/Shows/NextUp')).Items, []);
+
+  await catalog.set(seriesId, false);
+  await assertStatus(await get(mp4), 404);
+  await assertStatus(await post('/Sessions/Logout', {}, headers), 204);
+  await assertStatus(await get('/Items', { headers }), 401);
+  await assertStatus(await get('/Items', { headers: { 'x-emby-token': other.AccessToken } }), 200);
+  const rotated = await catalog.rotate();
+  assert.equal(rotated.serverId, original.serverId);
+  await assertStatus(await get('/Items', { headers: { 'x-emby-token': other.AccessToken } }), 401);
+  await assertStatus(await post('/Users/AuthenticateByName', { Username: 'hongguo', Pw: playbackPassword(original.key) }), 401);
+});

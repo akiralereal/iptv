@@ -2423,6 +2423,7 @@
             box-shadow: none;
         }
         .tab.active:hover { background: var(--ui-selected-hover); }
+        .tab.hongguo-link { display: grid; place-items: center; text-decoration: none; white-space: nowrap; }
         .tabs-right { padding-right: 0; justify-self: end; }
         .restart-btn {
             min-height: 38px;
@@ -3733,7 +3734,7 @@
                 flex: 1 0 100%;
                 width: 100%;
                 max-width: 100%;
-                grid-template-columns: repeat(4, minmax(0, 1fr));
+                grid-template-columns: repeat(5, minmax(0, 1fr));
                 overflow: visible;
             }
             .tabs-left::-webkit-scrollbar { display: none; }
@@ -3781,7 +3782,7 @@
             .brand { padding-inline: 5px; }
             .tabs-left {
                 display: grid;
-                grid-template-columns: repeat(4, minmax(0, 1fr));
+                grid-template-columns: repeat(5, minmax(0, 1fr));
                 overflow: visible;
             }
             .tab { width: 100%; padding-inline: 6px; font-size: 12px; text-align: center; }
@@ -4543,6 +4544,7 @@
                         <button class="tab" onclick="switchTab(1)">源管理<span class="attention-dot" data-alert-where="extractors" role="img" hidden></span></button>
                         <button class="tab" onclick="switchTab(2)">设置<span class="attention-dot" data-alert-where="epg system" role="img" hidden></span></button>
                         <button class="tab" onclick="switchTab(3)">关于我们</button>
+                        <a class="tab hongguo-link" href="hongguo/">红果短剧</a>
                     </div>
                     <div class="tabs-right">
                         <button class="restart-btn" onclick="restartService()">重启服务</button>
@@ -5132,7 +5134,7 @@
 
         // Tab 切换功能
         async function switchTab(index) {
-            const tabs = document.querySelectorAll('.tab');
+            const tabs = document.querySelectorAll('.tabs-left > button.tab');
             const panels = document.querySelectorAll('.panel');
             const tabChanged = !tabs[index].classList.contains('active');
             

@@ -42,6 +42,12 @@ function paintResume() {
   $('resume-play').hidden = !resume;
   if (resume) $('resume-play').textContent = `继续观看 · 第 ${resume.episode} 集 · ${clock(resume.position)}`;
 }
+function paintConnection({ connected, name }) {
+  const status = $('connection');
+  status.textContent = connected ? name || '已登录账号' : '未登录红果';
+  status.classList.toggle('connected', connected);
+  $('login').textContent = connected ? '账号' : '登录账号';
+}
 function applyCloudIdentity(result) {
   const epoch = result.connected ? result.accountEpoch : null;
   if (accountView.epoch !== epoch) {
@@ -50,7 +56,7 @@ function applyCloudIdentity(result) {
     if (personalView(library.view)) { library.items = []; library.cursor = null; cards([]); $('load-more').hidden = true; }
     paintAccountActions(); paintResume();
   }
-  $('connection').textContent = result.connected ? result.name || '已登录账号' : '未登录红果'; $('login').textContent = result.connected ? '账号' : '登录账号';
+  paintConnection(result);
 }
 function scheduleAccountPull(delay = 20000) {
   clearTimeout(incomingSync.timer);
@@ -199,7 +205,9 @@ function cards(items, preserve = false) {
     const poster = el('div', 'poster');
     if (item.cover) { const img = el('img'); img.src = item.cover; img.alt = ''; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer'; poster.append(img); }
     poster.append(el('span', '', item.progressLabel || (item.total ? `全 ${item.total} 集` : '查看详情')));
-    b.append(poster, el('h3', '', item.title), el('p', '', item.tags.slice(0, 3).join(' · ') || '短剧'));
+    const info = el('div', 'card-info');
+    info.append(el('h3', '', item.title), el('p', '', item.tags.slice(0, 3).join(' · ') || '短剧'));
+    b.append(poster, info);
     b.onclick = () => openDetail(item.id, item); $('cards').append(b);
   }
   if (preserve) { const children = [...$('cards').children], current = children.find(x => x.dataset.key === anchorKey); if (current && Number.isFinite(anchorTop)) scrollBy(0, current.getBoundingClientRect().top - anchorTop); children.find(x => x.dataset.key === focused)?.focus({ preventScroll: true }); }
@@ -207,12 +215,29 @@ function cards(items, preserve = false) {
 function paintCategories() {
   const topics = $('catalog-topics');
   topics.replaceChildren();
-  const all = el('button', library.category === '0' ? 'active' : '', '全部题材');
-  all.onclick = () => { library.category = '0'; library.filters = []; paintCategories(); loadLibrary(); }; topics.append(all);
+  $('catalog-active-topic').textContent = '全部';
+  function topicButton(id, title) {
+    const selected = library.category === id;
+    const button = el('button', selected ? 'active' : '', title);
+    button.setAttribute('aria-pressed', String(selected));
+    button.onclick = () => {
+      if (selected) return;
+      library.category = id;
+      library.filters = [];
+      paintCategories();
+      topics.querySelector('[aria-pressed="true"]')?.focus({ preventScroll: true });
+      loadLibrary();
+    };
+    return button;
+  }
+  topics.append(topicButton('0', '全部题材'));
   for (const group of state.home?.groups || []) {
     const row = el('div', 'filter-row'); row.append(el('span', 'filter-label', group.title));
     const options = el('div', 'filter-options');
-    for (const item of group.items) { const button = el('button', library.category === item.id ? 'active' : '', item.title); button.onclick = () => { library.category = item.id; library.filters = []; paintCategories(); loadLibrary(); }; options.append(button); }
+    for (const item of group.items) {
+      options.append(topicButton(item.id, item.title));
+      if (library.category === item.id) $('catalog-active-topic').textContent = item.title;
+    }
     row.append(options); topics.append(row);
   }
 }
@@ -251,10 +276,15 @@ async function loadLibrary(more = false) {
   const generation = ++library.generation; library.controller?.abort(); const controller = new AbortController(); library.controller = controller;
   library.loading = true; $('load-more').disabled = true; $('load-more-status').textContent = '';
   if (!more) { library.cursor = null; library.items = []; $('catalog-meta').textContent = ''; $('filters').replaceChildren(); $('load-more').hidden = true; $('cards').replaceChildren(el('p', 'loading', '正在读取剧集…')); }
-  const names = { catalog: '发现好剧', search: '搜索：' + library.query, favorites: '我的收藏', likes: '我的喜欢', history: '观看历史' };
+  const names = { catalog: '剧集', search: '搜索：' + library.query, favorites: '我的收藏', likes: '我的喜欢', history: '观看历史' };
   $('catalog-title').textContent = names[library.view]; $('back-home').hidden = library.view === 'catalog';
   $('categories').hidden = library.view !== 'catalog';
-  for (const b of $('library-nav').querySelectorAll('button')) b.classList.toggle('active', b.dataset.view === library.view);
+  $('cloud-status').hidden = !personalView(library.view);
+  for (const b of $('library-nav').querySelectorAll('button')) {
+    const active = b.dataset.view === library.view;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-pressed', String(active));
+  }
   try {
     const params = new URLSearchParams({ filters: library.filters.join(','), ...(more ? { cursor: library.cursor } : {}) });
     let route;
@@ -269,7 +299,7 @@ async function loadLibrary(more = false) {
     if (generation !== library.generation) return;
     const seen = new Map(library.items.map(x => [x.key || x.id, x])); for (const item of result.items) seen.set(item.key || item.id, item);
     library.items = [...seen.values()]; library.cursor = result.cursor; cards(library.items); paintFilters(result.filters);
-    $('catalog-meta').textContent = `${result.accountSource || '官方 App 片库'} · 已展示 ${library.items.length} ${result.accountSource ? '条' : '部'}`;
+    $('catalog-meta').textContent = `已展示 ${library.items.length} ${result.accountSource ? '条' : '部'}`;
     $('load-more').hidden = !result.hasMore;
     $('load-more-status').textContent = !result.hasMore ? '已加载全部结果' : library.items.length ? '' : '可以继续加载后面的结果。';
   } catch (e) {
@@ -622,7 +652,7 @@ for (const id of ['emby-server', 'emby-user', 'emby-password']) {
 }
 
 async function connection() {
-  try { const s = await api('/api/account'); if (accountView.epoch !== (s.accountEpoch || null)) { accountView.epoch = s.accountEpoch || null; progressSync.pending.clear(); accountView.loaded = false; paintAccountActions(); } $('connection').textContent = s.connected ? s.name : '未登录红果'; $('login').textContent = s.connected ? '账号' : '登录账号'; return s; }
+  try { const s = await api('/api/account'); if (accountView.epoch !== (s.accountEpoch || null)) { accountView.epoch = s.accountEpoch || null; progressSync.pending.clear(); accountView.loaded = false; paintAccountActions(); } paintConnection(s); return s; }
   catch { return { connected: false }; }
 }
 async function startQr() {
@@ -647,7 +677,7 @@ $('refresh-qr').onclick = startQr;
 $('disconnect-account').onclick = async () => { await api('/api/account/disconnect', {}); $('account-dialog').close(); await connection(); if (state.detail) loadAccountActions(); if (!['catalog', 'search'].includes(library.view)) loadLibrary(); };
 if (filePreview) {
   notice('当前打开的是本地 HTML 文件。请从 IPTV 管理后台进入「红果短剧」，再登录和选剧。');
-  for (const selector of ['.intro', '.catalog', 'header .account']) document.querySelector(selector).hidden = true;
+  for (const selector of ['.catalog', 'header .account', '#open-playback-catalog']) document.querySelector(selector).hidden = true;
 } else {
   loadHome();
   connection().then(() => scheduleAccountPull(0));

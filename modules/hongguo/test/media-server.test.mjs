@@ -23,15 +23,27 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   const completion = Promise.withResolvers();
   const job = { leases: new Map(), complete: false, done: completion.promise };
   let growing = { token, seriesId, number: 1, duration: 12, job };
+  const resumeToken = 'ef'.repeat(24);
+  const resumed = { ...growing, token: resumeToken, expectedDuration: 12, job: { ...job, offset: 5.025 } };
+  let resumeExpired = false;
   let renewals = 0;
   const playback = {
     entries: new Map(),
     async byToken(value, { localMedia }) {
       assert.equal(localMedia, true);
+      if (value === resumed.token && !resumeExpired) return resumed;
       if (value !== growing.token) throw new AppError('SESSION_EXPIRED', 'Expired', 410);
       return growing;
     },
-    renewLocalMedia(entry) { assert.equal(entry, growing); renewals++; },
+    renewLocalMedia(entry) { assert.ok(entry === growing || entry === resumed); renewals++; },
+    episodeDuration() { return 12; },
+    async resolveResumeHLS(id, number, offset) {
+      assert.equal(id, seriesId);
+      assert.equal(number, 1);
+      if (offset === 11) throw new AppError('APP_BUSY', 'Unavailable', 429);
+      assert.equal(offset, resumed.job.offset);
+      return resumed;
+    },
     async resolve(id, number) {
       assert.equal(id, seriesId);
       if (number === 1) return growing;
@@ -51,7 +63,7 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   const handle = createMediaServer({
     catalog, playback, serveMedia: serveFile, json, body,
     serveHLS(req, res, entry, name, clientToken) {
-      assert.equal(entry, growing);
+      assert.ok(entry === growing || entry === resumed);
       assert.match(clientToken, /^[a-f0-9]{64}$/);
       res.end(name);
     },
@@ -135,8 +147,20 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   assert.equal(fresh.searchParams.get('api_key'), auth.AccessToken);
   assert.equal(await fetch(fresh).then(r => r.text()), 'index.m3u8');
   assert.equal(renewals, 2);
+  const resumeInfo = await api(firstInfo + '?IPTVPreferHLS=true&StartTimeTicks=50259999');
+  const resumeHls = resumeInfo.MediaSources[0].DirectStreamUrl;
+  assert.equal(resumeHls, `/Videos/${Items[0].Id}/hls/${resumeToken}/5025/index.m3u8`);
+  assert.equal(resumeInfo.MediaSources[0].RunTimeTicks, 120_000_000);
+  assert.equal(await get(resumeHls, { headers }).then(r => r.text()), 'index.m3u8');
+  assert.equal(await get(resumeHls.replace('index.m3u8', 'part-00000.m4s'), { headers }).then(r => r.text()), 'part-00000.m4s');
+  await assertStatus(await get(resumeHls.replace('/5025/', '/5000/'), { headers }), 404);
+  resumeExpired = true;
+  await assertStatus(await get(resumeHls, { headers, redirect: 'manual' }), 410);
+  const fallback = await api(firstInfo + '?IPTVPreferHLS=true&StartTimeTicks=110000000');
+  assert.equal(fallback.MediaSources[0].DirectStreamUrl, undefined);
   job.complete = true;
   completion.resolve({ file, size: 10 });
+  await assertStatus(await get(`/Videos/${Items[0].Id}/stream.mp4`, { headers, method: 'HEAD' }), 200);
   assert.equal((await api(firstInfo + '?IPTVPreferHLS=true')).MediaSources[0].DirectStreamUrl, undefined);
   const play = await post('/Items/' + Items[1].Id + '/PlaybackInfo', { DeviceProfile: {} }, headers);
   assert.equal(play.status, 200);

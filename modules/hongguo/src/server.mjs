@@ -150,6 +150,8 @@ async function serveHLS(req, res, playback, entry, name, token) {
   if (token) {
     // HLS players resolve segment URLs relative to the manifest, without its query.
     playlist = Buffer.from(playlist.toString('utf8').replace(
+      '#EXT-X-PLAYLIST-TYPE:EVENT', '#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-START:TIME-OFFSET=0,PRECISE=YES',
+    ).replace(
       /^part-\d{5}\.m4s(?=\r?$)|(?<=URI=")init\.mp4(?=")/gm,
       name => name + '?api_key=' + token,
     ));

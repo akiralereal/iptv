@@ -105,6 +105,11 @@ export class MobilePlayback {
     }
     return { ...source, contentKey: source.contentKey ? Buffer.from(source.contentKey) : null };
   }
+  async sourceMetadata(videoId) {
+    const source = await this.source(videoId);
+    source.contentKey?.fill(0);
+    return { expectedDuration: source.expectedDuration };
+  }
   cancelUnleased(job) {
     if (!job || job.complete || job.error) return;
     for (const [client, expires] of job.leases) if (expires <= Date.now()) job.leases.delete(client);

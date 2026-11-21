@@ -276,9 +276,12 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
     entry.job?.leases.set(`media-server:${entry.token}`, Date.now() + 45_000);
   }
 
-  async function playerEntry(res, keyHash, ref, { completeFile = false } = {}) {
+  async function playerEntry(res, keyHash, ref, { completeFile = false, resumeOffset = 0 } = {}) {
     if (ref?.kind !== 'Episode') throw new AppError('MEDIA_SERVER_NOT_FOUND', '分集不存在', 404);
-    const entry = await playback.resolve(ref.show.id, ref.number);
+    const entry = resumeOffset > 0
+      ? await playback.resolveResumeHLS(ref.show.id, ref.number, resumeOffset)
+      : await playback.resolve(ref.show.id, ref.number);
+    if (!entry) return null;
     holdMedia(entry);
     // The MP4 stream needs all bytes. PlaybackInfo can respond at the first segment.
     const file = completeFile && entry.job ? await entry.job.done : entry;
@@ -375,7 +378,19 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
       if (['GET', 'HEAD'].includes(req.method) && action?.startsWith('images/')) { await artwork(req, res, ref, fetcher); return; }
       if (['GET', 'POST'].includes(req.method) && action === 'playbackinfo') {
         if (req.method === 'POST') req.resume();
-        const entry = await playerEntry(res, keyHash, ref);
+        const preferHLS = params.get('iptvpreferhls') === 'true';
+        const startTicks = Number(params.get('starttimeticks') || 0);
+        const resumeOffset = preferHLS && Number.isSafeInteger(startTicks) && startTicks > 0
+          ? Math.floor(startTicks / 10_000) / 1000 : 0;
+        let entry;
+        if (resumeOffset > 0) {
+          try {
+            entry = await playerEntry(res, keyHash, ref, { resumeOffset });
+          } catch (error) {
+            if (error.code?.startsWith('MEDIA_SERVER_')) throw error;
+          }
+        }
+        if (!entry && !res.destroyed) entry = await playerEntry(res, keyHash, ref);
         if (!entry) return;
         const duration = Math.round((entry.expectedDuration || entry.duration) * ticksPerSecond);
         const source = {
@@ -389,8 +404,10 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
             { Type: 'Audio', Codec: entry.audio, Index: 1, IsDefault: true },
           ],
         };
-        if (params.get('iptvpreferhls') === 'true' && entry.job && !entry.job.complete) {
-          source.DirectStreamUrl = `/Videos/${ref.id}/hls/${entry.token}/index.m3u8`;
+        const offsetMs = Math.round((entry.job?.offset || 0) * 1000);
+        if (preferHLS && entry.job && (offsetMs > 0 || (startTicks === 0 && !entry.job.complete))) {
+          const offsetPath = offsetMs > 0 ? `${offsetMs}/` : '';
+          source.DirectStreamUrl = `/Videos/${ref.id}/hls/${entry.token}/${offsetPath}index.m3u8`;
         }
         json(res, 200, { MediaSources: [source], PlaySessionId: randomBytes(16).toString('hex') }); return;
       }
@@ -401,9 +418,10 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
       if (entry) await serveMedia(req, res, entry);
       return;
     }
-    const segment = path.match(/^\/videos\/([a-f0-9]{32})\/hls\/([a-f0-9]{48})\/(index\.m3u8|init\.mp4|part-\d{5}\.m4s)$/);
+    const segment = path.match(/^\/videos\/([a-f0-9]{32})\/hls\/([a-f0-9]{48})\/(?:(\d{1,10})\/)?(index\.m3u8|init\.mp4|part-\d{5}\.m4s)$/);
     if (['GET', 'HEAD'].includes(req.method) && segment) {
-      const [, episode, mediaToken, asset] = segment;
+      const [, episode, mediaToken, offsetPath, asset] = segment;
+      const offsetMs = Number(offsetPath || 0);
       const ref = mediaRef(state, episode);
       if (ref?.kind !== 'Episode') throw new AppError('MEDIA_SERVER_NOT_FOUND', '分集不存在', 404);
       let entry;
@@ -412,7 +430,9 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
       } catch (error) {
         // A retry can reopen the playlist after the job was evicted. A
         // cached playlist's segments must keep referring to their original bytes.
-        if (error.code !== 'SESSION_EXPIRED' || asset !== 'index.m3u8') throw error;
+        // An offset playlist must never redirect to the full episode: its
+        // client clock is relative to the trimmed stream. Reopen via PlaybackInfo.
+        if (error.code !== 'SESSION_EXPIRED' || asset !== 'index.m3u8' || offsetMs > 0) throw error;
         const fresh = await playerEntry(res, keyHash, ref);
         if (!fresh) return;
         if (fresh.job && fresh.token === mediaToken) throw error;
@@ -420,7 +440,8 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
         res.writeHead(307, { Location: target + '?api_key=' + token, 'Cache-Control': 'no-store' }).end();
         return;
       }
-      if (!entry.job || entry.seriesId !== ref.show.id || entry.number !== ref.number) {
+      if (!entry.job || entry.seriesId !== ref.show.id || entry.number !== ref.number
+        || Math.round((entry.job.offset || 0) * 1000) !== offsetMs) {
         throw new AppError('MEDIA_SERVER_NOT_FOUND', '播放分段不存在', 404);
       }
       holdMedia(entry);
@@ -434,8 +455,7 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
       if (ref?.kind !== 'Episode') throw new AppError('MEDIA_SERVER_NOT_FOUND', '分集不存在', 404);
       const position = input.PositionTicks ?? input.positionTicks;
       if (Number.isSafeInteger(position) && position >= 0) {
-        const media = playback.entries.get(`${ref.show.id}:${ref.number}`);
-        const runtime = Math.round((media?.expectedDuration || media?.duration || 0) * ticksPerSecond);
+        const runtime = Math.round(playback.episodeDuration(ref.show.id, ref.number) * ticksPerSecond);
         await writeUserData(catalog, keyHash, ref.id, previous => {
           const length = runtime || previous.runtime;
           const played = previous.played || (path.endsWith('/stopped') && length > 0 && position >= length * 0.9);

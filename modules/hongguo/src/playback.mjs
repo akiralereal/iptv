@@ -51,6 +51,30 @@ export class Playback {
     })().catch(error => { this.entries.delete(key); throw error; }).finally(() => this.pending.delete(key));
     this.pending.set(key, work); return work;
   }
+  async resolveResumeHLS(seriesId, number, offset) {
+    const detail = await this.catalog.detail(seriesId);
+    const videoId = detail.episodes[episodeNumber(number, detail.total) - 1].id;
+    const { expectedDuration } = await this.mobile.sourceMetadata(videoId);
+    // A tail shorter than one segment is better served by the full file.
+    if (offset <= 0 || offset > expectedDuration - 2) return null;
+    const job = await this.mobile.prepare(videoId, { offset, priority: true });
+    let entry = [...this.tokens.values()].find(value => value.job === job);
+    if (!entry) {
+      entry = { seriesId, number, job, token: randomBytes(24).toString('hex'),
+        expectedDuration, width: job.width, height: job.height, video: job.video, audio: job.audio,
+        expiresAt: job.expiresAt };
+      for (const [token, value] of this.tokens) {
+        if (value.expiresAt < Date.now() || (value.job && !this.mobile.available(value.job))) this.tokens.delete(token);
+      }
+      this.tokens.set(entry.token, entry);
+    }
+    return entry;
+  }
+  episodeDuration(seriesId, number) {
+    const entry = this.entries.get(`${seriesId}:${number}`)
+      || [...this.tokens.values()].find(value => value.seriesId === seriesId && value.number === number);
+    return entry?.expectedDuration || entry?.duration || 0;
+  }
   public(entry, { position = entry.job?.offset || 0, session = entry.token } = {}) {
     return { seriesId: entry.seriesId, number: entry.number, title: entry.title, total: entry.total, duration: entry.expectedDuration || entry.duration, width: entry.width, height: entry.height, verification: entry.verification, checkedAt: entry.checkedAt, provider: entry.provider,
       format: entry.job ? 'hls' : 'mp4', media: entry.job ? `/hls/${entry.token}/index.m3u8` : '/media/' + entry.token,

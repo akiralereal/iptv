@@ -36,7 +36,7 @@ test('Hongguo requires admin access across pages, account operations and media',
   assert.equal(redirect.headers.get('location'), './hongguo/');
   const page = await get('/hongguo/');
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /href="\.\.\/control"/);
+  assert.match(await page.text(), /href="\.\.\/control#vod-sources">返回点播源<\/a>/);
 
   const post = (headers, body = '{}') => get('/hongguo/api/account/poll', { method: 'POST', headers, body });
   const crossSite = await post({ 'Content-Type': 'application/json', 'Sec-Fetch-Site': 'cross-site' });

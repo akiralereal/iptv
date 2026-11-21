@@ -35,6 +35,11 @@ export class MobilePlayback {
     return this.init;
   }
   available(job) { return !!job && this.jobs.has(job) && !job.error && job.expiresAt > Date.now(); }
+  renew(job) {
+    // Only extend the lifetime of the existing local files.
+    if (this.available(job)) job.expiresAt = Date.now() + TTL;
+    return job.expiresAt;
+  }
   async prune({ reserve = false } = {}) {
     let bytes = [...this.jobs].filter(job => job.complete || job.error).reduce((sum, job) => sum + job.diskBytes, 0);
     for (const job of this.jobs) {

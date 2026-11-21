@@ -22,13 +22,16 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   const token = 'ab'.repeat(24);
   const completion = Promise.withResolvers();
   const job = { leases: new Map(), complete: false, done: completion.promise };
-  const growing = { token, seriesId, number: 1, duration: 12, job };
+  let growing = { token, seriesId, number: 1, duration: 12, job };
+  let renewals = 0;
   const playback = {
     entries: new Map(),
-    async byToken(value) {
-      assert.equal(value, token);
+    async byToken(value, { localMedia }) {
+      assert.equal(localMedia, true);
+      if (value !== growing.token) throw new AppError('SESSION_EXPIRED', 'Expired', 410);
       return growing;
     },
+    renewLocalMedia(entry) { assert.equal(entry, growing); renewals++; },
     async resolve(id, number) {
       assert.equal(id, seriesId);
       if (number === 1) return growing;
@@ -121,7 +124,17 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   assert.equal(hls, `/Videos/${Items[0].Id}/hls/${token}/index.m3u8`);
   await assertStatus(await get(hls), 401);
   assert.equal(await get(hls, { headers }).then(r => r.text()), 'index.m3u8');
+  assert.equal(renewals, 1);
   await assertStatus(await get(hls.replace(Items[0].Id, Items[1].Id), { headers }), 404);
+  growing = { ...growing, token: 'cd'.repeat(24) };
+  await assertStatus(await get(hls.replace('index.m3u8', 'part-00000.m4s'), { headers }), 410);
+  const redirect = await get(hls, { headers, redirect: 'manual' });
+  assert.equal(redirect.status, 307);
+  const fresh = new URL(redirect.headers.get('location'), origin + hls);
+  assert.equal(fresh.pathname, hls.replace(token, growing.token));
+  assert.equal(fresh.searchParams.get('api_key'), auth.AccessToken);
+  assert.equal(await fetch(fresh).then(r => r.text()), 'index.m3u8');
+  assert.equal(renewals, 2);
   job.complete = true;
   completion.resolve({ file, size: 10 });
   assert.equal((await api(firstInfo + '?IPTVPreferHLS=true')).MediaSources[0].DirectStreamUrl, undefined);

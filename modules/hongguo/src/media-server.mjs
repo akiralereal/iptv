@@ -403,14 +403,29 @@ export function createMediaServer({ catalog, playback, serveMedia, serveHLS, bod
     }
     const segment = path.match(/^\/videos\/([a-f0-9]{32})\/hls\/([a-f0-9]{48})\/(index\.m3u8|init\.mp4|part-\d{5}\.m4s)$/);
     if (['GET', 'HEAD'].includes(req.method) && segment) {
-      const ref = mediaRef(state, segment[1]);
+      const [, episode, mediaToken, asset] = segment;
+      const ref = mediaRef(state, episode);
       if (ref?.kind !== 'Episode') throw new AppError('MEDIA_SERVER_NOT_FOUND', '分集不存在', 404);
-      const entry = await playback.byToken(segment[2]);
+      let entry;
+      try {
+        entry = await playback.byToken(mediaToken, { localMedia: true });
+      } catch (error) {
+        // A retry can reopen the playlist after the job was evicted. A
+        // cached playlist's segments must keep referring to their original bytes.
+        if (error.code !== 'SESSION_EXPIRED' || asset !== 'index.m3u8') throw error;
+        const fresh = await playerEntry(res, keyHash, ref);
+        if (!fresh) return;
+        if (fresh.job && fresh.token === mediaToken) throw error;
+        const target = fresh.job ? `../${fresh.token}/index.m3u8` : '../../stream.mp4';
+        res.writeHead(307, { Location: target + '?api_key=' + token, 'Cache-Control': 'no-store' }).end();
+        return;
+      }
       if (!entry.job || entry.seriesId !== ref.show.id || entry.number !== ref.number) {
         throw new AppError('MEDIA_SERVER_NOT_FOUND', '播放分段不存在', 404);
       }
       holdMedia(entry);
-      await serveHLS(req, res, entry, segment[3], token);
+      playback.renewLocalMedia(entry);
+      await serveHLS(req, res, entry, asset, token);
       return;
     }
     if (req.method === 'POST' && ['/sessions/playing', '/sessions/playing/progress', '/sessions/playing/stopped'].includes(path)) {

@@ -141,16 +141,18 @@ export class Playback {
         availableThrough: Math.min(entry.duration, job.offset + job.availableDuration) };
     } catch (error) { if (controller.signal.aborted || session.sequence !== sequence) throw superseded(); throw error; }
   }
-  async byToken(token) {
+  async byToken(token, { localMedia = false } = {}) {
     const old = this.tokens.get(token);
     if (!old) throw new AppError('SESSION_EXPIRED', '播放会话已失效，请重新选集', 410);
     if (old.job?.error) throw old.job.error;
-    if (old.expiresAt > Date.now() + 30000 && (!old.job || this.mobile.available(old.job))) return old;
-    if (old.job) throw new AppError('SESSION_EXPIRED', '媒体会话已过期，请重新选集', 410);
+    if (old.job && this.mobile.available(old.job) && (localMedia || old.expiresAt > Date.now() + 30000)) return old;
+    if (old.job || localMedia) throw new AppError('SESSION_EXPIRED', '媒体会话已过期，请重新选集', 410);
+    if (old.expiresAt > Date.now() + 30000) return old;
     const fresh = await this.resolve(old.seriesId, old.number, { refresh: true });
     if (fresh.size !== old.size || Math.abs(fresh.duration - old.duration) > 0.1) throw new AppError('MEDIA_CHANGED', '官网片源已变化，请重新加载此集', 409);
     return fresh;
   }
+  renewLocalMedia(entry) { entry.expiresAt = this.mobile.renew(entry.job); }
   async verify(seriesId, number, { requireApp = false, minimumSide = 0 } = {}) {
     const entry = await this.resolve(seriesId, number, { refresh: true });
     if (requireApp && entry.provider !== 'official_app') throw new AppError('APP_HD_UNAVAILABLE', `尚未恢复官方 App 高清来源（${entry.appIssue || 'APP_UNAVAILABLE'}）`);

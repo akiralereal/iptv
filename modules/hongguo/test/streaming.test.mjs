@@ -60,6 +60,8 @@ test('encrypted input plays before download completes; final output still decode
     assert.equal(parsePlaylist(await readFile(job.playlist, 'utf8')).ended, true);
     const decoded = await decodeMedia(job.file, job, job.expectedDuration, { local: true });
     assert.equal(decoded.classification, 'complete'); assert.ok(job.timing.completeMs > job.timing.firstSegmentMs);
+    job.expiresAt = Date.now() + 1000;
+    assert.ok(playback.renew(job) - Date.now() > 60_000);
     job.expiresAt = Date.now() - 1; await playback.prune(); assert.equal(playback.available(job), false); await assert.rejects(access(job.directory));
   } finally { await playback.close(); await rm(root, { recursive: true, force: true }); }
 });

@@ -25,7 +25,8 @@ export async function serveFile(req, res, entry, type = 'video/mp4') {
     headers['content-length'] = String(range.end - range.start + 1);
     if (range.status === 206) headers['content-range'] = `bytes ${range.start}-${range.end}/${size}`;
     res.writeHead(range.status, headers);
-    if (req.method === 'HEAD') { res.end(); return; }
+    // 客户端在打开文件期间已断开时 close 事件早已发出，下面的监听收不到：直接结束，由 finally 关文件
+    if (req.method === 'HEAD' || res.destroyed) { res.end(); return; }
     const stream = handle.createReadStream({ start: range.start, end: range.end }); handedOff = true;
     res.on('close', () => stream.destroy()); stream.on('error', () => res.destroy()); stream.pipe(res);
   } finally { if (!handedOff) await handle.close(); }

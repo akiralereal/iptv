@@ -7,7 +7,7 @@ import { seekPosition, validClient, superseded } from './seek.mjs';
 export { assessCompleteness } from './media.mjs';
 
 export class Playback {
-  entries = new Map(); pending = new Map(); tokens = new Map(); sessions = new Map();
+  entries = new Map(); pending = new Map(); tokens = new Map(); sessions = new Map(); preloadFailures = new Map();
   constructor(catalog, browser, root) { this.catalog = catalog; this.browser = browser; this.mobile = new MobilePlayback(root); }
   async resolve(seriesId, value, { refresh = false, preload = false } = {}) {
     const detail = await this.catalog.detail(seriesId); const number = episodeNumber(value, detail.total);
@@ -58,7 +58,15 @@ export class Playback {
     this.pending.set(key, { work, preload }); return work;
   }
   warmNext(seriesId, number) {
-    if (this.mobile.idle) void this.resolve(seriesId, number, { preload: true }).catch(() => {});
+    // Emby 客户端约每 10 秒上报一次进度、每次都会走到这里：下一集预加载失败过（锁集、格式不支持、转码中断等）
+    // 就 5 分钟内不再试，免得反复请求官方接口、反复重转一遍
+    const key = `${seriesId}:${number}`;
+    if (!this.mobile.idle || this.preloadFailures.get(key) > Date.now()) return;
+    void this.resolve(seriesId, number, { preload: true }).catch(error => {
+      if (['APP_BUSY', 'PLAY_CANCELLED'].includes(error?.code)) return;
+      this.preloadFailures.set(key, Date.now() + 5 * 60_000);
+      while (this.preloadFailures.size > 200) this.preloadFailures.delete(this.preloadFailures.keys().next().value);
+    });
   }
   async resolveResumeHLS(seriesId, number, offset) {
     const detail = await this.catalog.detail(seriesId);

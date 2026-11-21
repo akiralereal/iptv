@@ -49,11 +49,21 @@ export class SourceBridge {
     if (range && (range.length > 70 || !/^bytes=(?:\d+-\d*|-\d+)$/.test(range))) { res.writeHead(416); res.end(); return; }
     source.maxRangeStart = Math.max(source.maxRangeStart, Number(/^bytes=(\d+)-/.exec(range || '')?.[1] || 0));
     const controller = new AbortController(); source.requests.add(controller); res.once('close', () => controller.abort());
+    // 不设整段下载的总时限：FFmpeg 按转码速度边转边读，低配 NAS 上一集要读好几分钟。
+    // 等响应头最多 20 秒，之后只要 30 秒内还有数据进来就一直传（FFmpeg 自己 15 秒读不到也会退出）。
+    let idle;
+    const touch = ms => { clearTimeout(idle); idle = setTimeout(() => controller.abort(), ms); idle.unref?.(); };
+    touch(20_000);
     try {
-      const response = await this.fetcher(source.url, { method: req.method, redirect: 'error', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(90_000)]),
+      const response = await this.fetcher(source.url, { method: req.method, redirect: 'error', signal: controller.signal,
         headers: { 'user-agent': APP_UA, ...(range ? { range } : {}) } });
+      touch(30_000);
       const total = Number(response.headers.get('content-range')?.split('/')[1] || response.headers.get('content-length'));
-      if (![200, 206].includes(response.status) || (total && (!Number.isSafeInteger(total) || total > MAX_SOURCE))) { await response.body?.cancel(); throw new Error('Invalid upstream media'); }
+      if (![200, 206].includes(response.status) || (total && (!Number.isSafeInteger(total) || total > MAX_SOURCE))) {
+        // 上游拒绝（地址过期、403 等）：记下来，播放层据此丢掉缓存的源地址，下次重新取
+        if (response.status >= 400) source.rejected = true;
+        await response.body?.cancel(); throw new Error('Invalid upstream media');
+      }
       if (source.size && total && source.size !== total) { await response.body?.cancel(); throw new Error('Upstream media changed'); }
       const rangeStart = response.status === 206 ? Number(/^bytes (\d+)-\d+\/\d+$/.exec(response.headers.get('content-range') || '')?.[1]) : 0;
       if (source.patches && (!Number.isSafeInteger(rangeStart) || rangeStart < 0)) { await response.body?.cancel(); throw new Error('Invalid upstream range'); }
@@ -65,13 +75,14 @@ export class SourceBridge {
       let received = 0;
       const limiter = new Transform({ transform(chunk, encoding, done) {
         const offset = rangeStart + received;
+        touch(30_000);
         received += chunk.length; source.bytes += chunk.length;
         if (received > MAX_SOURCE || source.bytes > MAX_SOURCE * 3) return done(new Error('Input limit exceeded'));
         done(null, source.patches ? patchByteVC2Range(chunk, offset, source.patches) : chunk);
       } });
       await pipeline(Readable.fromWeb(response.body), limiter, res);
     } catch { if (res.headersSent) res.destroy(); else { res.writeHead(502); res.end(); } }
-    finally { source.requests.delete(controller); }
+    finally { clearTimeout(idle); source.requests.delete(controller); }
   }
   async close() {
     for (const source of this.sources.values()) for (const controller of source.requests) controller.abort();

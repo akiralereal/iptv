@@ -58,7 +58,8 @@ export class AccountSync {
     first ||= await this.window('history', 18, epoch, fresh);
     let found = first.items.find(x => x.id === seriesId);
     const lookedUp = this.lookedUp.get(seriesId);
-    if (!found && !fresh && lookedUp > Date.now() - 300000) return this.history.get(seriesId) || null;
+    // 历史按最近观看排序：这部剧在别处有新进度会回到第一页，所以翻过一遍后半小时内不必再翻整个历史
+    if (!found && !fresh && lookedUp > Date.now() - 1800000) return this.history.get(seriesId) || null;
     let cursor = first.cursor, scanned = first.items.length, pages = 0;
     while (!found && cursor) {
       if (scanned >= 10000 || ++pages > 600) throw new AppError('HISTORY_LOOKUP_LIMIT', '历史记录较多，尚未确认这部剧的最新进度');
@@ -92,7 +93,7 @@ export class AccountSync {
     ]);
     const resume = seriesId ? await this.validResume(seriesId, await this.historyFor(seriesId, epoch, { first: view === 'history' ? list : first })) : null;
     this.check(epoch);
-    return { connected: true, name: status.name, accountEpoch: epoch, list, actions: actions ? { ...actions, resume } : null, checkedAt: new Date().toISOString(), pollAfterMs: 20000 };
+    return { connected: true, name: status.name, accountEpoch: epoch, list, actions: actions ? { ...actions, resume } : null, checkedAt: new Date().toISOString(), pollAfterMs: 60000 };
   }
   async resume(seriesId, epoch) {
     id(seriesId); this.actions.check(epoch);

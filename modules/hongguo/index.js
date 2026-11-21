@@ -9,8 +9,9 @@ export function isHongguoPath(pathname) {
 }
 
 function localRequest(req) {
-  const { host, forwarded, 'x-forwarded-for': via, 'x-forwarded-host': forwardedHost } = req.headers
-  return !forwarded && !via && !forwardedHost &&
+  // 同机反代（nginx proxy_pass 127.0.0.1）只带 X-Real-IP 或 Via 时也不算本机，免得外网访问者被当成本机
+  const { host, forwarded, via, 'x-forwarded-for': forwardedFor, 'x-forwarded-host': forwardedHost, 'x-real-ip': realIp } = req.headers
+  return !forwarded && !via && !forwardedFor && !forwardedHost && !realIp &&
     ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress) &&
     /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host || '')
 }

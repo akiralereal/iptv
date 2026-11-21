@@ -125,7 +125,8 @@ async function continueLatest() {
 }
 $('resume-play').onclick = continueLatest;
 document.addEventListener('visibilitychange', () => { if (document.hidden) clearTimeout(incomingSync.timer); else scheduleAccountPull(0); });
-window.addEventListener('focus', () => { if (Date.now() - incomingSync.lastStarted > 3000) scheduleAccountPull(200); });
+// 切回窗口时补拉一次；距上次不到 20 秒就不补，免得来回切窗口时一阵阵请求官方接口
+window.addEventListener('focus', () => { if (Date.now() - incomingSync.lastStarted > 20000) scheduleAccountPull(200); });
 window.addEventListener('online', () => scheduleAccountPull(0));
 window.addEventListener('offline', () => { clearTimeout(incomingSync.timer); $('cloud-status').textContent = '网络离线，恢复连接后自动同步。'; });
 function paintAccountActions() {
@@ -662,7 +663,8 @@ for (const id of ['emby-server', 'emby-user', 'emby-password']) {
 
 async function connection() {
   try { const s = await api('/api/account'); if (accountView.epoch !== (s.accountEpoch || null)) { accountView.epoch = s.accountEpoch || null; progressSync.pending.clear(); accountView.loaded = false; paintAccountActions(); } paintConnection(s); return s; }
-  catch { return { connected: false }; }
+  // 读不到状态（如网页已登录但 App 账号关联失败）时带上原因，登录框据此显示「退出」，否则只能反复扫码
+  catch (e) { return { connected: false, error: e.message }; }
 }
 async function startQr() {
   clearTimeout(qrTimer); $('refresh-qr').hidden = true; $('account-qr').hidden = true; $('account-message').textContent = '正在获取登录二维码…';
@@ -677,13 +679,21 @@ async function pollQr() {
     if (['expired', 'canceled', 'unconfirmed'].includes(result.state)) { $('account-message').textContent = '本次登录已结束，请刷新二维码重试。'; $('refresh-qr').hidden = false; return; }
     $('account-message').textContent = result.state === 'scanned' ? '已扫码，请在手机上确认。' : '请使用红果 App「我的 → 扫一扫」，并在手机上确认登录。';
     qrTimer = setTimeout(pollQr, 2200);
-  } catch (e) { $('account-message').textContent = e.message; $('refresh-qr').hidden = false; }
+  } catch (e) { $('account-message').textContent = e.message; $('refresh-qr').hidden = false; $('disconnect-account').hidden = false; }
 }
-$('login').onclick = async () => { $('account-dialog').showModal(); $('refresh-qr').hidden = true; const s = await connection(); $('disconnect-account').hidden = !s.connected; if (s.connected) { $('account-qr').hidden = true; $('account-message').textContent = '已登录：' + s.name; } else await startQr(); };
+$('login').onclick = async () => {
+  $('account-dialog').showModal(); $('refresh-qr').hidden = true;
+  const s = await connection(); $('disconnect-account').hidden = !s.connected && !s.error;
+  if (s.connected) { $('account-qr').hidden = true; $('account-message').textContent = '已登录：' + s.name; }
+  else if (s.error) { $('account-qr').hidden = true; $('account-message').textContent = s.error.replace(/[。.]$/, '') + '。可点「退出本模块账号」后重新扫码登录。'; $('refresh-qr').hidden = false; }
+  else await startQr();
+};
 $('close-account').onclick = () => $('account-dialog').close();
 $('account-dialog').addEventListener('close', () => clearTimeout(qrTimer));
 $('refresh-qr').onclick = startQr;
-$('disconnect-account').onclick = async () => { await api('/api/account/disconnect', {}); $('account-dialog').close(); await connection(); if (state.detail) loadAccountActions(); if (!['catalog', 'search'].includes(library.view)) loadLibrary(); };
+$('disconnect-account').onclick = async () => {
+  try { await api('/api/account/disconnect', {}); } catch (e) { $('account-message').textContent = '退出未完成：' + e.message; return; }
+  $('account-dialog').close(); await connection(); if (state.detail) loadAccountActions(); if (!['catalog', 'search'].includes(library.view)) loadLibrary(); };
 if (filePreview) {
   notice('当前打开的是本地 HTML 文件。请从 IPTV 管理后台进入「红果短剧」，再登录和选剧。');
   for (const selector of ['.catalog', 'header .account', '#open-playback-catalog']) document.querySelector(selector).hidden = true;

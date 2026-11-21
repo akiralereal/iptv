@@ -10,6 +10,7 @@ import { byteVC2Unsupported } from './bytevc2.mjs';
 const run = promisify(execFile);
 const MAX_CACHE = 500_000_000, TTL = 15 * 60_000;
 const FOREGROUND_WAIT_MS = 12_000;
+const STALL_MS = 60_000;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const failure = () => new AppError('APP_MEDIA_DECODE_FAILED', '媒体处理中断，请重新选择此集');
 const cancelled = () => new AppError('PLAY_CANCELLED', '已取消本次播放', 499);
@@ -201,8 +202,10 @@ export class MobilePlayback {
       child.stderr.on('data', chunk => { stderrBytes += chunk.length; if (stderrBytes > 100_000) job.cancel(); });
       const exit = new Promise(resolve => { child.once('error', () => { job.error ||= failure(); }); child.once('close', code => { exited = true; job.processClosed = true; exitCode = code; resolve(); }); });
       job.cancel = (reason = failure()) => { job.error ||= reason; child.kill('SIGTERM'); killTimer ||= setTimeout(() => child.kill('SIGKILL'), 2000); killTimer.unref(); };
-      watchdog = setTimeout(job.cancel, 180_000); watchdog.unref();
-      let first = false, lastSizeCheck = 0;
+      // 看进展不看总时长：低配 NAS 上转一集可能要好几分钟，只要还在读源、还在写分段就不掐断；
+      // 连续 60 秒既没读进数据也没写出文件才算卡住。另留 30 分钟总上限兜底。
+      watchdog = setTimeout(job.cancel, 30 * 60_000); watchdog.unref();
+      let first = false, lastSizeCheck = 0, lastProgress = performance.now(), progressMark = '';
       while (true) {
         if (!first) {
           let playlist; try { playlist = parsePlaylist(await readFile(job.playlist, 'utf8')); } catch {}
@@ -223,6 +226,9 @@ export class MobilePlayback {
           lastSizeCheck = performance.now(); job.diskBytes = await this.diskSize(job.directory);
           try { job.availableDuration = parsePlaylist(await readFile(job.playlist, 'utf8')).duration; } catch {}
           if (job.diskBytes > MAX_SOURCE) job.cancel();
+          const mark = `${input.record.bytes}:${job.diskBytes}`;
+          if (mark !== progressMark) { progressMark = mark; lastProgress = performance.now(); }
+          else if (performance.now() - lastProgress > STALL_MS) job.cancel();
         }
         if (exited) break;
         await delay(25);
@@ -235,7 +241,7 @@ export class MobilePlayback {
       // A compact MP4 remains available for full decoding and conventional Range
       // clients. Remuxing starts after HLS playback is already available.
       await run(ffmpeg, ['-v', 'error', '-nostdin', '-xerror', '-i', job.playlist,
-        '-map', '0:v:0', '-map', '0:a:0', '-c', 'copy', '-movflags', '+faststart', job.file], { timeout: 30_000, maxBuffer: 100_000 });
+        '-map', '0:v:0', '-map', '0:a:0', '-c', 'copy', '-movflags', '+faststart', job.file], { timeout: 120_000, maxBuffer: 100_000 });
       if (job.error) throw job.error;
       const media = await inspectMedia(job.file, { local: true });
       if (media.size > MAX_SOURCE || Math.abs(media.duration - job.expectedDuration) > Math.max(1, job.expectedDuration * 0.01)) throw new AppError('APP_DURATION_MISMATCH', '媒体长度与官方整集时长不符');
@@ -246,6 +252,8 @@ export class MobilePlayback {
       await this.prune(); return job;
     } finally {
       clearTimeout(watchdog); clearTimeout(killTimer); input?.release(); source.contentKey?.fill(0);
+      // 上游拒绝了这个源地址：丢掉缓存（否则 10 分钟内重选此集还是同一个坏地址）
+      if (input?.record.rejected) { this.sources.get(job.videoId)?.contentKey?.fill(0); this.sources.delete(job.videoId); }
       if (job.process && !job.processClosed) { job.process.kill('SIGKILL'); await new Promise(resolve => job.process.once('close', resolve)); }
       job.process = null;
     }

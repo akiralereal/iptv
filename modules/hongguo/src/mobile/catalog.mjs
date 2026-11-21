@@ -2,6 +2,8 @@ import { randomBytes } from 'node:crypto';
 import { AppError, Cache, ORIGIN, imageURL } from '../common.mjs';
 
 const API = 'https://reading.snssdk.com';
+const LIVE_ACTION_TYPE = 1;
+const MAX_FILTERED_PAGES = 3;
 const religious = /宗教|佛教|基督|天主|伊斯兰|传教/;
 const parse = value => { try { return JSON.parse(value); } catch { return []; } };
 export function seriesCard(row) {
@@ -25,6 +27,9 @@ function success(data) {
   return data;
 }
 function unique(rows) { return [...new Map(rows.filter(Boolean).map(x => [x.id, x])).values()]; }
+function assertAdvancingOffset(state, previous) {
+  if (!Number.isSafeInteger(state.offset) || state.offset <= previous.offset) throw new AppError('APP_PAGE_STALLED', '官方分页没有前进，请稍后重试');
+}
 export class MobileCatalog {
   cache = new Cache(); cursors = new Map(); knownFilters = new Map();
   constructor(session) { this.session = session; }
@@ -45,7 +50,7 @@ export class MobileCatalog {
   }
   next(key, state, previous, hasMore) {
     if (!hasMore) return null;
-    if (!Number.isSafeInteger(state.offset) || state.offset <= previous.offset) throw new AppError('APP_PAGE_STALLED', '官方分页没有前进，请稍后重试');
+    assertAdvancingOffset(state, previous);
     for (const [token, value] of this.cursors) if (value.expires < Date.now()) this.cursors.delete(token);
     while (this.cursors.size >= 500) this.cursors.delete(this.cursors.keys().next().value);
     const token = randomBytes(18).toString('hex');
@@ -58,21 +63,34 @@ export class MobileCatalog {
     return values.join(',');
   }
   rememberFilters(key, rows) { this.knownFilters.set(key, new Set(rows.flatMap(x => x.options.map(y => y.id)))); }
-  async page({ category = '0', filters = '', cursor = '' } = {}) {
+  async page({ category = '0', filters = '', cursor = '', contentType = '' } = {}) {
+    if (contentType !== '' && contentType !== 'real-drama') throw new AppError('INVALID_CONTENT_TYPE', '请选择已有的内容类型', 400);
     if (category !== '0' && !(await this.categories()).groups.some(g => g.items.some(x => x.id === category))) throw new AppError('INVALID_CATEGORY', '请选择已有分类', 400);
     const filterKey = 'catalog:' + category;
     if (filters && !this.knownFilters.has(filterKey)) await this.page({ category });
     filters = this.selections(filters, filterKey);
-    const key = JSON.stringify(['catalog', category, filters]), state = this.cursor(cursor, key);
+    const key = JSON.stringify(['catalog', category, filters, contentType]), state = this.cursor(cursor, key);
     return this.cache.get(key + ':' + (cursor || ''), 60000, async () => {
-      const data = success(await this.session.signedGet(API + '/reading/bookapi/new_category/landing/v', {
-        category_id: category, genre_type: 130, offset: state.offset, limit: 18, selected_items: filters, session_id: state.session || '',
-      })).data;
-      if (!data || !('video_info' in data) || (data.video_info !== null && !Array.isArray(data.video_info))) throw new AppError('APP_CATALOG_CHANGED', '官方片库结构已变化');
-      const rows = selectorRows(data.selector); this.rememberFilters(filterKey, rows);
-      return { provider: 'official_app', items: unique((data.video_info || []).map(seriesCard)), filters: rows,
-        cursor: this.next(key, { offset: Number(data.offset), session: data.session_id }, state, data.has_more),
-        hasMore: !!data.has_more, category, fetchedAt: new Date().toISOString() };
+      let current = state;
+      for (let pagesLeft = contentType ? MAX_FILTERED_PAGES : 1; ; pagesLeft--) {
+        const data = success(await this.session.signedGet(API + '/reading/bookapi/new_category/landing/v', {
+          category_id: category, genre_type: 130, offset: current.offset, limit: 18, selected_items: filters, session_id: current.session || '',
+        })).data;
+        if (!data || !('video_info' in data) || (data.video_info !== null && !Array.isArray(data.video_info))) throw new AppError('APP_CATALOG_CHANGED', '官方片库结构已变化');
+        const videos = data.video_info || [];
+        // 官方片库混合返回多种内容，按每条记录的类型筛选。
+        const matches = contentType ? videos.filter(video => video?.content_type === LIVE_ACTION_TYPE) : videos;
+        const items = unique(matches.map(seriesCard));
+        const nextState = { offset: Number(data.offset), session: data.session_id };
+        if (items.length || !data.has_more || pagesLeft === 1) {
+          const rows = selectorRows(data.selector); this.rememberFilters(filterKey, rows);
+          return { provider: 'official_app', items, filters: rows,
+            cursor: this.next(key, nextState, current, data.has_more),
+            hasMore: !!data.has_more, category, fetchedAt: new Date().toISOString() };
+        }
+        assertAdvancingOffset(nextState, current);
+        current = nextState;
+      }
     });
   }
   async search({ query, filters = '', cursor = '' } = {}) {

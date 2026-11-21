@@ -24,6 +24,38 @@ test('only server-provided filters can be sent, and empty pages are valid', asyn
   await assert.rejects(catalog.page({ filters: 'invented_filter' }), { code: 'INVALID_FILTER' });
   assert.equal(calls, 1); assert.deepEqual(seriesCard({ ...video(), category_schema: '{}' }).tags, []);
 });
+test('the live-action filter uses official content types and keeps category, selectors and pagination', async () => {
+  const liveAction = { ...video('124'), content_type: 1 };
+  const comic = { ...video('125'), content_type: 1004 };
+  const videosByOffset = { 0: [comic, video()], 12: [comic, liveAction], 24: [{ ...liveAction, series_id: '126' }] };
+  const upstreamRequests = [];
+  const catalog = new MobileCatalog({ signedGet: async (url, params) => {
+    if (url.endsWith('/front/v')) return { code: 0, data: { category_tab_data: { cell_data: [
+      { cell_name: '题材', atom_data: [{ category_data: { category_id: 12, name: '古装' } }] },
+    ] } } };
+    upstreamRequests.push([params.category_id, params.selected_items, params.offset, params.session_id]);
+    const { offset } = params;
+    return { code: 0, data: {
+      video_info: videosByOffset[offset],
+      selector: { rows: [{ type: 'order', row_name: '排序', items: [{ selector_item_id: 'sort_hot', show_name: '热门' }] }] },
+      offset: offset + 12, session_id: `official-${offset}`, has_more: offset < 24,
+    } };
+  } });
+  const options = { category: '12', filters: 'sort_hot' };
+  const all = await catalog.page({ category: '12' });
+  assert.deepEqual(all.items.map(item => item.id), ['125', '123']);
+  const selected = { ...options, contentType: 'real-drama' };
+  const first = await catalog.page(selected);
+  assert.deepEqual(first.items.map(item => item.id), ['124']);
+  await assert.rejects(catalog.page({ ...options, cursor: first.cursor }), { code: 'PAGE_EXPIRED' });
+  await assert.rejects(catalog.page({ ...options, contentType: 'unknown' }), { code: 'INVALID_CONTENT_TYPE' });
+  const next = await catalog.page({ ...selected, cursor: first.cursor });
+  assert.deepEqual(next.items.map(item => item.id), ['126']);
+  assert.equal(next.hasMore, false);
+  assert.deepEqual(upstreamRequests, [
+    ['12', '', 0, ''], ['12', 'sort_hot', 0, ''], ['12', 'sort_hot', 12, 'official-0'], ['12', 'sort_hot', 24, 'official-12'],
+  ]);
+});
 test('liked episodes of the same series have separate keys and history time uses milliseconds', () => {
   const a = personalCard('likes', { video_data: { ...video(), vid: '100', vid_index: 4 } });
   const b = personalCard('likes', { video_data: { ...video(), vid: '101', vid_index: 5 } });

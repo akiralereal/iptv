@@ -105,7 +105,16 @@
       <button data-view="history">观看历史</button>
     </nav>
     <p id="cloud-status" role="status">登录后自动同步账号数据</p>
-    <div id="categories" aria-label="短剧分类"></div>
+    <div id="categories" aria-label="短剧分类">
+      <div id="catalog-content-type" class="filter-row" role="group" aria-labelledby="catalog-content-type-label">
+        <span id="catalog-content-type-label" class="filter-label">内容类型</span>
+        <div class="filter-options">
+          <button type="button" data-content-type="" class="active" aria-pressed="true">不限</button>
+          <button type="button" data-content-type="real-drama" aria-pressed="false">真人剧</button>
+        </div>
+      </div>
+      <div id="catalog-topics"></div>
+    </div>
     <div id="filters" aria-label="筛选条件"></div>
     <p id="catalog-meta"></p>
     <div id="cards" aria-live="polite"><p class="loading">正在读取片库…</p></div>

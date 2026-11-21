@@ -31,7 +31,7 @@ async function api(path, data, signal) {
   return body;
 }
 function notice(text = '') { $('notice').textContent = text; $('notice').hidden = !text; }
-const library = { view: 'catalog', category: '0', query: '', filters: [], cursor: null, items: [], generation: 0, loading: false, controller: null };
+const library = { view: 'catalog', category: '0', contentType: '', query: '', filters: [], cursor: null, items: [], generation: 0, loading: false, controller: null };
 const accountView = { resume: null, epoch: null, loaded: false, busy: false, generation: 0, favorite: false, likedEpisodes: [] };
 const progressSync = { sequence: 0, lastSent: 0, lastPosition: null, lastClient: null, lastObservedAt: 0, pending: new Map(), running: false };
 try { $('sync-progress').checked = localStorage.getItem('iptv-hongguo-progress-sync') !== 'false'; } catch {}
@@ -205,15 +205,29 @@ function cards(items, preserve = false) {
   if (preserve) { const children = [...$('cards').children], current = children.find(x => x.dataset.key === anchorKey); if (current && Number.isFinite(anchorTop)) scrollBy(0, current.getBoundingClientRect().top - anchorTop); children.find(x => x.dataset.key === focused)?.focus({ preventScroll: true }); }
 }
 function paintCategories() {
-  $('categories').replaceChildren();
+  const topics = $('catalog-topics');
+  topics.replaceChildren();
   const all = el('button', library.category === '0' ? 'active' : '', '全部题材');
-  all.onclick = () => { library.category = '0'; library.filters = []; paintCategories(); loadLibrary(); }; $('categories').append(all);
+  all.onclick = () => { library.category = '0'; library.filters = []; paintCategories(); loadLibrary(); }; topics.append(all);
   for (const group of state.home?.groups || []) {
     const row = el('div', 'filter-row'); row.append(el('span', 'filter-label', group.title));
     const options = el('div', 'filter-options');
     for (const item of group.items) { const button = el('button', library.category === item.id ? 'active' : '', item.title); button.onclick = () => { library.category = item.id; library.filters = []; paintCategories(); loadLibrary(); }; options.append(button); }
-    row.append(options); $('categories').append(row);
+    row.append(options); topics.append(row);
   }
+}
+const contentTypeButtons = $('catalog-content-type').querySelectorAll('button');
+for (const button of contentTypeButtons) {
+  button.onclick = () => {
+    if (library.contentType === button.dataset.contentType) return;
+    library.contentType = button.dataset.contentType;
+    for (const option of contentTypeButtons) {
+      const selected = option === button;
+      option.classList.toggle('active', selected);
+      option.setAttribute('aria-pressed', String(selected));
+    }
+    loadLibrary();
+  };
 }
 function paintFilters(rows) {
   $('filters').replaceChildren();
@@ -244,7 +258,11 @@ async function loadLibrary(more = false) {
   try {
     const params = new URLSearchParams({ filters: library.filters.join(','), ...(more ? { cursor: library.cursor } : {}) });
     let route;
-    if (library.view === 'catalog') { params.set('category', library.category); route = '/api/catalog/page'; }
+    if (library.view === 'catalog') {
+      params.set('category', library.category);
+      if (library.contentType) params.set('contentType', library.contentType);
+      route = '/api/catalog/page';
+    }
     else if (library.view === 'search') { params.set('q', library.query); route = '/api/search'; }
     else { params.set('kind', library.view); route = '/api/account/list'; }
     const result = await api(route + '?' + params, undefined, controller.signal);
@@ -252,7 +270,8 @@ async function loadLibrary(more = false) {
     const seen = new Map(library.items.map(x => [x.key || x.id, x])); for (const item of result.items) seen.set(item.key || item.id, item);
     library.items = [...seen.values()]; library.cursor = result.cursor; cards(library.items); paintFilters(result.filters);
     $('catalog-meta').textContent = `${result.accountSource || '官方 App 片库'} · 已展示 ${library.items.length} ${result.accountSource ? '条' : '部'}`;
-    $('load-more').hidden = !result.hasMore; $('load-more-status').textContent = result.hasMore ? '' : '已加载全部结果';
+    $('load-more').hidden = !result.hasMore;
+    $('load-more-status').textContent = !result.hasMore ? '已加载全部结果' : library.items.length ? '' : '可以继续加载后面的结果。';
   } catch (e) {
     if (generation !== library.generation || e.name === 'AbortError') return;
     $('catalog-meta').textContent = '';

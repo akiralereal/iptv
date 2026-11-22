@@ -71,6 +71,8 @@ export class Playback {
   async resolveResumeHLS(seriesId, number, offset) {
     const detail = await this.catalog.detail(seriesId);
     const videoId = detail.episodes[episodeNumber(number, detail.total) - 1].id;
+    // 整集已经转好：直接给能拖动的完整 MP4（播放器自己跳到进度），不用再转一遍，也不用等别人占着的转码
+    if (this.mobile.finished(videoId)) return null;
     const { expectedDuration } = await this.mobile.sourceMetadata(videoId);
     // A tail shorter than one segment is better served by the full file.
     if (offset <= 0 || offset > expectedDuration - 2) return null;
@@ -96,6 +98,10 @@ export class Playback {
     for (const entry of this.tokens.values()) {
       if (entry.seriesId === seriesId && entry.number === number) entry.job?.leases.delete(lease);
     }
+  }
+  // 播放会话已作废：从所有转码任务上去掉它们的租约。不在这里取消任务：续播可能正好要复用同一个，占着转码的那个由 prepare 取消
+  dropMediaLeases(leases) {
+    for (const job of this.mobile.jobs) for (const lease of leases) job.leases?.delete(lease);
   }
   replaceMediaLease(seriesId, number, lease) {
     for (const entry of this.tokens.values()) {

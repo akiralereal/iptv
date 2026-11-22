@@ -52,6 +52,9 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
       const mobile = { cancelUnleased: candidate => switchCandidates.push(candidate) };
       Playback.prototype.replaceMediaLease.call({ tokens: tokens(), mobile }, seriesId, number, lease);
     },
+    dropMediaLeases(leases) {
+      Playback.prototype.dropMediaLeases.call({ mobile: { jobs: new Set([job, resumed.job]) } }, leases);
+    },
     async resolveResumeHLS(id, number, offset) {
       assert.equal(id, seriesId);
       assert.equal(number, 1);
@@ -216,7 +219,20 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   assert.equal(fresh.searchParams.get('api_key'), auth.AccessToken);
   assert.equal(await fetch(fresh).then(r => r.text()), 'index.m3u8');
   assert.equal(renewals, 2);
+  // 同一台设备开始续播：它之前的播放会话不再占着唯一的转码，晚到的请求也续不上租约；别的设备、同一账号的另一台设备不受影响
+  const leaseKeys = () => [...job.leases.keys()];
+  const earlier = requestedHLS.PlaySessionId;
+  assert.ok(leaseKeys().some(lease => lease.endsWith(':' + earlier)));
+  await assertStatus(await get(firstInfo + '?IPTVPreferHLS=true&PlaySessionId=elsewhere', { headers: { 'x-emby-token': other.AccessToken } }), 200);
+  await assertStatus(await get(firstInfo + '?IPTVPreferHLS=true&PlaySessionId=tablet', { headers: {
+    ...headers, 'x-emby-authorization': 'MediaBrowser Client="Test", DeviceId="tablet"' } }), 200);
   const resumeInfo = await api(firstInfo + '?IPTVPreferHLS=true&StartTimeTicks=50259999');
+  assert.equal(leaseKeys().some(lease => lease.endsWith(':' + earlier)), false);
+  assert.ok(leaseKeys().some(lease => lease.endsWith(':' + resumeInfo.PlaySessionId)));
+  assert.ok(leaseKeys().some(lease => lease.endsWith(':elsewhere')));
+  assert.ok(leaseKeys().some(lease => lease.endsWith(':tablet')));
+  assert.equal(await get(fresh.pathname + '?PlaySessionId=' + earlier, { headers }).then(r => r.text()), 'index.m3u8');
+  assert.equal(leaseKeys().some(lease => lease.endsWith(':' + earlier)), false, 'a retired session cannot lease the job again');
   const resumeHls = resumeInfo.MediaSources[0].DirectStreamUrl;
   assert.equal(resumeHls, `/Videos/${Items[0].Id}/hls/${resumeToken}/5025/index.m3u8`);
   assert.equal(resumeInfo.MediaSources[0].RunTimeTicks, 120_000_000);

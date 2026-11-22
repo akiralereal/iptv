@@ -262,6 +262,30 @@ test('foreground work preempts standby conversion only after it exits, and reuse
   } finally { await playback.close(); await rm(root, { recursive: true, force: true }); }
 });
 
+test('resuming a fully converted episode answers with the whole file instead of converting again', async () => {
+  const playback = new Playback({ detail: async () => ({ title: 'fixture', total: 1, episodes: [{ id: '9' }] }) }, {}, os.tmpdir());
+  const whole = { videoId: '9', cacheKey: '9:0.000', offset: 0, complete: true, expiresAt: Date.now() + 120_000, leases: new Map(), cancel() {} };
+  playback.mobile.jobs.add(whole); playback.mobile.entries.set(whole.cacheKey, whole);
+  const prepared = [];
+  playback.mobile.sourceMetadata = async () => ({ expectedDuration: 12 });
+  playback.mobile.prepare = async (videoId, options) => {
+    prepared.push(options.offset);
+    const job = { videoId, offset: options.offset, leases: new Map(), expiresAt: Date.now() + 120_000, cancel() {} };
+    playback.mobile.jobs.add(job); return job;
+  };
+  try {
+    assert.equal(playback.mobile.finished('9'), whole);
+    assert.equal(await playback.resolveResumeHLS('1', 1, 5), null);
+    assert.deepEqual(prepared, [], 'the seekable whole file serves the resume; no second conversion');
+    // 快过期（prepare 也不会复用）或还没转完的，照常从进度处转
+    whole.expiresAt = Date.now() + 30_000;
+    assert.equal((await playback.resolveResumeHLS('1', 1, 5)).job.offset, 5);
+    whole.expiresAt = Date.now() + 120_000; whole.complete = false;
+    assert.equal((await playback.resolveResumeHLS('1', 1, 6)).job.offset, 6);
+    assert.deepEqual(prepared, [5, 6]);
+  } finally { await playback.close(); }
+});
+
 test('seek positions reject invalid values and leave a valid tail at the end', () => {
   for (const value of [-1, 13, NaN, Infinity, '9', null]) assert.throws(() => seekPosition(value, 12), { code: 'INVALID_POSITION' });
   assert.deepEqual(seekPosition(9, 12), { position: 9, offset: 9 });

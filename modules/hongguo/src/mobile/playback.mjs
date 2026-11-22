@@ -70,6 +70,11 @@ export class MobilePlayback {
     }
     for (const [id, source] of this.sources) if (source.expiresAt <= Date.now()) { source.contentKey?.fill(0); this.sources.delete(id); }
   }
+  // 从头转完、还能直接复用的整集（条件与 prepare 复用缓存一致，拿到它就不会再开一次转码）
+  finished(videoId) {
+    const job = this.entries.get(`${videoId}:0.000`);
+    return job?.complete && this.available(job) && job.expiresAt > Date.now() + 60_000 ? job : null;
+  }
   promote(videoId) {
     if (this.worker?.cacheKey === `${videoId}:0.000` && !this.worker.controller.signal.aborted) this.worker.priority = true;
   }

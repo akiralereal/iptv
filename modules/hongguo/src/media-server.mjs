@@ -266,6 +266,22 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
     resumingSessions.delete(playSessionId); resumingSessions.set(playSessionId, Date.now() + 30 * 60_000);
     while (resumingSessions.size > 200) resumingSessions.delete(resumingSessions.keys().next().value);
   };
+  // 播放器只在全屏播放时带进度要 HLS（多画面小窗不会），所以同一台设备开始续播一集，就说明它之前的播放会话都结束了。
+  // 那些会话的租约要是还在（播放器被杀、没报停止，或停止后又晚到一次分段请求），会占着唯一的转码 45 秒：
+  // 续播等满 12 秒报「正在准备其他剧集」，播放器退回从头播的 MP4。这里把它们作废，晚到的请求也不再续上租约。
+  const viewerSessions = new Map(), retiredLeases = new Map();
+  const noteSession = (lease, viewer) => {
+    viewerSessions.delete(lease); viewerSessions.set(lease, viewer); retiredLeases.delete(lease);
+    while (viewerSessions.size > 200) viewerSessions.delete(viewerSessions.keys().next().value);
+  };
+  const retireOtherSessions = (viewer, current) => {
+    const retired = [];
+    for (const [lease, owner] of viewerSessions) if (owner === viewer && lease !== current) retired.push(lease);
+    for (const [lease, expires] of retiredLeases) if (expires <= Date.now()) retiredLeases.delete(lease);
+    for (const lease of retired) { viewerSessions.delete(lease); retiredLeases.set(lease, Date.now() + 30 * 60_000); }
+    while (retiredLeases.size > 200) retiredLeases.delete(retiredLeases.keys().next().value);
+    if (retired.length) playback.dropMediaLeases(retired);
+  };
   async function authenticate(req, res) {
     const input = await body(req);
     const token = randomBytes(32).toString('hex');
@@ -284,7 +300,9 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
   }
 
   function holdMedia(entry, keyHash, playSessionId) {
-    entry.job?.leases.set(mediaLease(keyHash, playSessionId), Date.now() + 45_000);
+    const lease = mediaLease(keyHash, playSessionId);
+    if (retiredLeases.get(lease) > Date.now()) return;
+    entry.job?.leases.set(lease, Date.now() + 45_000);
   }
 
   async function playerEntry(res, keyHash, ref, { completeFile = false, resumeOffset = 0, playSessionId = '' } = {}) {
@@ -405,12 +423,17 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
         const resumeOffset = preferHLS && Number.isSafeInteger(startTicks) && startTicks > 0
           ? Math.floor(startTicks / 10_000) / 1000 : 0;
         if (!preferHLS && startTicks > 0) markResuming(playSessionId);
+        const lease = mediaLease(keyHash, playSessionId), viewer = deviceKey(req) || keyHash;
+        noteSession(lease, viewer);
         let entry;
         if (resumeOffset > 0) {
+          retireOtherSessions(viewer, lease);
           try {
             entry = await playerEntry(res, keyHash, ref, { resumeOffset, playSessionId });
           } catch (error) {
             if (error.code === 'APP_BUSY' || error.code?.startsWith('MEDIA_SERVER_')) throw error;
+            // 退回整集时播放器只能从头播：记一行，下次排查不用猜
+            console.warn(JSON.stringify({ event: 'resume_hls_fallback', code: error.code || error.name }));
           }
         }
         if (!entry && !res.destroyed) entry = await playerEntry(res, keyHash, ref, { playSessionId });

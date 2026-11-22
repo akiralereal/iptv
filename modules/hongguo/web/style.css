@@ -111,12 +111,13 @@ button.danger:hover { border-color: var(--ui-danger-line); background: var(--ui-
   gap: 12px;
   min-width: 0;
 }
-.brand-mark { display: block; border-radius: 9px; flex: none; }
+/* 左侧只剩返回链接：抵掉内边距，让箭头与下方标题左对齐 */
 .admin-back {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   min-height: 38px;
+  margin-inline-start: -10px;
   padding: 6px 10px;
   border-radius: var(--ui-radius-control);
   color: var(--ui-text-secondary);
@@ -523,8 +524,7 @@ footer { margin-top: 20px; padding-block: 15px 20px; border-top: 1px solid var(-
   :root { --header-height: 60px; }
   .site-header { padding-block: 9px; gap: 6px; }
   .source-path, .account { gap: 5px; }
-  .brand-mark { width: 34px; height: 34px; }
-  .admin-back { padding-inline: 5px; font-size: 12px; }
+  .admin-back { margin-inline-start: -5px; padding-inline: 5px; font-size: 12px; }
   #connection { max-width: 75px; font-size: 11px; }
   .account button { padding-inline: 7px; font-size: 12px; }
   .module-heading { margin-block: 18px 13px; }

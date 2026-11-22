@@ -25,7 +25,9 @@
   --ui-radius-panel: 24px;
   --ui-radius-card: 18px;
   --ui-radius-control: 10px;
-  --page-gutter: clamp(14px, 3vw, 32px);
+  /* 页面左右留白与内容最大宽度跟 IPTV 后台一致（web/admin.html 的 body 内边距与 .container） */
+  --page-gutter: 32px;
+  --page-max-width: 1720px;
   --header-height: 72px;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Segoe UI", sans-serif;
   font-size: 15px;
@@ -40,7 +42,9 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { margin: 0; min-height: 100vh; padding: 0 var(--page-gutter); }
-.site-header, main, footer { max-width: 1480px; margin-inline: auto; }
+.site-header, main, footer { max-width: var(--page-max-width); margin-inline: auto; }
+@media (max-width: 900px) { :root { --page-gutter: 20px; } }
+@media (max-width: 768px) { :root { --page-gutter: 14px; } }
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: clamp(24px, 2.5vw, 32px); font-weight: 650; line-height: 1.25; }
 h2 { font-size: 21px; font-weight: 650; line-height: 1.35; }

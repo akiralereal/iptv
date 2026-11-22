@@ -550,3 +550,29 @@ footer { margin-top: 20px; padding-block: 15px 20px; border-top: 1px solid var(-
 @media (prefers-reduced-motion: reduce) {
   button { transition: none; }
 }
+
+/* 复制等操作的提示，与 IPTV 后台的全局提示同一样式 */
+.toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 30;
+  min-width: min(300px, calc(100vw - 32px));
+  max-width: min(500px, calc(100vw - 32px));
+  padding: 16px 22px;
+  border: 1px solid #505851;
+  border-radius: 13px;
+  background: #3c423e;
+  color: #fff;
+  box-shadow: 0 16px 42px rgba(25, 27, 25, .24);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: center;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.92);
+  transition: opacity .2s ease, transform .2s ease;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.toast.error { border-color: var(--ui-danger-line); background: var(--ui-danger-soft); color: var(--ui-danger); }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }

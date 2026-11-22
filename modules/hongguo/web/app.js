@@ -644,7 +644,6 @@ $('open-playback-catalog').onclick = () => {
   loadPlaybackCatalog();
 };
 $('close-playback-catalog').onclick = () => $('playback-catalog-dialog').close();
-$('playback-catalog-dialog').addEventListener('close', () => { $('emby-password').type = 'password'; });
 $('publish-series').onclick = () => {
   const seriesId = state.detail?.id;
   if (seriesId && playbackCatalog) {
@@ -654,19 +653,44 @@ $('publish-series').onclick = () => {
 $('rotate-playback-catalog').onclick = () => {
   if (confirm('重置会让当前 Emby 播放登录失效。继续重置？')) changePlaybackCatalog({ rotate: true });
 };
+let toastTimer;
+function toast(text, type = 'success') {
+  let box = $('toast');
+  if (!box) { box = document.createElement('div'); box.id = 'toast'; box.setAttribute('role', 'status'); }
+  // 模态对话框打开时它在最上层，提示要放进对话框里才不会被盖住
+  (document.querySelector('dialog[open]') || document.body).append(box);
+  box.className = `toast ${type}`;
+  box.textContent = text;
+  box.getBoundingClientRect();
+  box.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => box.classList.remove('show'), 2000);
+}
+async function writeClipboard(text, host) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try { await navigator.clipboard.writeText(text); return; } catch {}
+  }
+  // 用局域网 http 地址打开时没有 Clipboard API，只能选中文字再复制；模态对话框外的元素选不中，
+  // 所以在对话框里临时放一个文本框来复制
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.readOnly = true;
+  area.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+  host.append(area);
+  area.select();
+  try { if (!document.execCommand('copy')) throw new Error('copy failed'); } finally { area.remove(); }
+}
+const catalogFieldNames = { 'emby-server': '服务器地址', 'emby-user': '用户名', 'emby-password': '播放密码' };
 async function copyCatalogField(id) {
-  const link = $(id);
+  const field = $(id);
+  $('playback-catalog-status').textContent = '';
   try {
-    if (navigator.clipboard) await navigator.clipboard.writeText(link.value);
-    else {
-      link.select();
-      if (!document.execCommand('copy')) throw new Error();
-    }
-    $('playback-catalog-status').textContent = '已复制。';
+    await writeClipboard(field.value, field.closest('dialog') || document.body);
+    $('copy-' + id).focus();
+    toast(`${catalogFieldNames[id]}已复制`);
   } catch {
-    if (link.type === 'password') link.type = 'text';
-    link.select();
-    $('playback-catalog-status').textContent = '请复制已选中的内容。';
+    field.select();
+    toast('复制失败，请手动复制已选中的内容', 'error');
   }
 }
 for (const id of ['emby-server', 'emby-user', 'emby-password']) {

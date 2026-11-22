@@ -8,14 +8,6 @@ export function isHongguoPath(pathname) {
   return pathname === ROOT || pathname.startsWith(`${ROOT}/`)
 }
 
-function localRequest(req) {
-  // 同机反代（nginx proxy_pass 127.0.0.1）只带 X-Real-IP 或 Via 时也不算本机，免得外网访问者被当成本机
-  const { host, forwarded, via, 'x-forwarded-for': forwardedFor, 'x-forwarded-host': forwardedHost, 'x-real-ip': realIp } = req.headers
-  return !forwarded && !via && !forwardedFor && !forwardedHost && !realIp &&
-    ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress) &&
-    /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host || '')
-}
-
 function sameOriginWrite(req) {
   if (req.method !== 'POST') return true
   const site = req.headers['sec-fetch-site']
@@ -30,14 +22,15 @@ function fail(res, status, error) {
   res.end(JSON.stringify({ error }))
 }
 
-export async function handleHongguo(req, res, routePath, { adminPath, accessPrefix = '', passAuthed, userAuthed, passConfigured }) {
+export async function handleHongguo(req, res, routePath, { adminPath, accessPrefix = '', passAuthed, userAuthed }) {
   let subPath = routePath.slice(ROOT.length)
   // Emby 官方 App 等客户端会在服务器地址后自动加 /emby：/hongguo/emby/Items 与 /hongguo/Items 等价
   const unprefixed = subPath.replace(/^\/emby(?=\/)/i, '')
   const isEmby = isEmbyPath(unprefixed)
   if (isEmby) subPath = unprefixed
-  if (!isEmby && (!passAuthed || userAuthed || (!passConfigured && !localRequest(req)))) {
-    fail(res, 403, '请从 IPTV 管理后台进入红果短剧。远程访问需要设置 IPTV 访问密码。')
+  // 管理页与 IPTV 后台同一规矩：没设访问密码时能进后台就能进；设了密码要带密码路径；用户令牌进不了
+  if (!isEmby && (!passAuthed || userAuthed)) {
+    fail(res, 403, '请从 IPTV 管理后台进入红果短剧。')
     return
   }
   if (!isEmby && !sameOriginWrite(req)) {

@@ -23,7 +23,7 @@ export function isEmbyPath(pathname) {
   return /^\/(?:system|users|sessions|views|userviews|library|items|useritems|shows|videos?|favoriteitems|playeditems)(?:\/|$)/i.test(pathname);
 }
 
-function matchesPassword(input, expected) {
+function matchesSecret(input, expected) {
   return typeof input === 'string' && input.length === expected.length
     && timingSafeEqual(Buffer.from(digest(input), 'hex'), Buffer.from(digest(expected), 'hex'));
 }
@@ -55,17 +55,24 @@ function mediaRef(state, value) {
   return { id, kind: number === 0 ? 'Series' : number === seasonNumber ? 'Season' : 'Episode', show, number };
 }
 
-function itemRefs(state, parentId, includeTypes, recursive) {
+function itemTypes(value) {
+  return new Set(value?.toLowerCase().split(',').map(type => type.trim()).filter(Boolean));
+}
+
+function itemRefs(state, parentId, includeTypes, recursive, latest) {
   const parent = parentId ? mediaRef(state, parentId) : null;
   if (parentId && !parent) return [];
   const wants = kind => !includeTypes.size || includeTypes.has(kind.toLowerCase());
   if (parent?.kind === 'Episode') return [];
   if (parent?.show) {
     const show = parent.show;
-    if (parent.kind === 'Series' && !recursive && !includeTypes.has('episode')) {
+    if (parent.kind === 'Series' && !recursive && !latest && !includeTypes.has('episode')) {
       return wants('Season') ? [mediaRef(state, mediaId(show.id, seasonNumber))] : [];
     }
     return wants('Episode') ? episodeRefs(show) : [];
+  }
+  if (!parent && !recursive && !latest && (!includeTypes.size || includeTypes.has('collectionfolder'))) {
+    return [mediaRef(state, privateId(state, 'library'))];
   }
   if (!wants('Series')) return recursive && includeTypes.has('episode') ? state.series.flatMap(episodeRefs) : [];
   return state.series.map(show => ({ id: mediaId(show.id), kind: 'Series', show, number: 0 }));
@@ -134,6 +141,20 @@ function userData(state, id) {
   };
 }
 
+function artworkTag(state, show) {
+  if (!state.key || !show?.cover) return '';
+  return createHmac('sha256', state.key).update(`artwork:${show.id}:${show.cover}`).digest('hex').slice(0, 32);
+}
+
+function directMediaSource(id, runtime) {
+  return {
+    Id: id, Name: '红果', Container: 'mp4', Protocol: 'File', Type: 'Default',
+    SupportsDirectPlay: true, SupportsDirectStream: true, SupportsTranscoding: false,
+    RunTimeTicks: runtime, IsRemote: false, IsInfiniteStream: false,
+    RequiresOpening: false, RequiresClosing: false,
+  };
+}
+
 function itemDto(state, ref) {
   const { id, kind, show, number } = ref;
   const base = { Id: id, ServerId: state.serverId, Type: kind, UserData: userData(state, id) };
@@ -142,7 +163,8 @@ function itemDto(state, ref) {
     return { ...base, Name: '红果短剧', CollectionType: 'tvshows', IsFolder: true, ChildCount: state.series.length };
   }
   const seriesId = mediaId(show.id);
-  const imageTags = show.cover ? { Primary: digest(show.cover).slice(0, 16) } : {};
+  const tag = artworkTag(state, show);
+  const imageTags = tag ? { Primary: tag } : {};
   if (kind === 'Series') {
     return {
       ...base, Name: show.title, Overview: show.intro, Genres: show.tags, ParentId: libraryId,
@@ -156,10 +178,12 @@ function itemDto(state, ref) {
       ParentId: seriesId, ImageTags: imageTags, IsFolder: true, ChildCount: show.total,
     };
   }
+  const runtime = state.jellyfinUserData?.[id]?.runtime;
   return {
     ...base, Name: `第 ${number} 集`, IndexNumber: number, ParentIndexNumber: 1, SeasonName: '全集',
     SeriesId: seriesId, SeriesName: show.title, ParentId: mediaId(show.id, seasonNumber), SeasonId: mediaId(show.id, seasonNumber),
-    Container: 'mp4', MediaType: 'Video', IsFolder: false, RunTimeTicks: state.jellyfinUserData?.[id]?.runtime,
+    Container: 'mp4', MediaType: 'Video', VideoType: 'VideoFile', IsFolder: false, RunTimeTicks: runtime,
+    MediaSources: [directMediaSource(id, runtime)],
     DanmakuUrl: `/Items/${id}/Danmaku`,
     ImageTags: imageTags, SeriesPrimaryImageTag: imageTags.Primary, PrimaryImageAspectRatio: 2 / 3,
   };
@@ -174,12 +198,13 @@ function sliceItems(items, query) {
 
 function filteredItems(state, refs, query) {
   const term = query.get('searchterm')?.trim().toLowerCase();
+  const excluded = itemTypes(query.get('excludeitemtypes'));
   const filters = (query.get('filters') || '').toLowerCase().split(',');
   const favorites = query.get('isfavorite') === 'true' || filters.includes('isfavorite');
   const played = query.get('isplayed') ?? (filters.includes('isplayed') ? 'true' : filters.includes('isunplayed') ? 'false' : null);
   const sort = query.get('sortby')?.toLowerCase();
   let items = refs.map(ref => itemDto(state, ref)).filter(item =>
-    (!term || (item.Name + ' ' + (item.SeriesName || '')).toLowerCase().includes(term)) &&
+    !excluded.has(item.Type.toLowerCase()) && (!term || (item.Name + ' ' + (item.SeriesName || '')).toLowerCase().includes(term)) &&
     (!favorites || item.UserData.IsFavorite) && (played === null || item.UserData.Played === (played === 'true')));
   if (sort?.includes('random')) {
     // Only the head is used by clients asking for shuffle.
@@ -290,7 +315,7 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
     const state = await catalog.update(previous => {
       const name = input.Username ?? input.username;
       if (!previous.key || typeof name !== 'string' || name.toLowerCase() !== username
-        || !matchesPassword(input.Pw ?? input.pw, playbackPassword(previous.key))) {
+        || !matchesSecret(input.Pw ?? input.pw, playbackPassword(previous.key))) {
         throw new AppError('MEDIA_SERVER_UNAUTHORIZED', '播放账号或密码有误', 401);
       }
       const sessions = (previous.jellyfinSessions || []).filter(item => !device || item.device !== device);
@@ -343,6 +368,13 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
       return;
     }
     if (req.method === 'POST' && route === '/users/authenticatebyname') { await authenticate(req, res); return; }
+    // Some Emby clients fetch cover images using only the tag from the authenticated item response.
+    const taggedImage = route.match(/^\/items\/([a-f0-9-]+)\/images\/(?:primary|thumb|backdrop)(?:\/0)?$/);
+    if (taggedImage && ['GET', 'HEAD'].includes(req.method) && params.has('tag')) {
+      const ref = mediaRef(state, taggedImage[1]);
+      const tag = artworkTag(state, ref?.show);
+      if (tag && matchesSecret(params.get('tag'), tag)) { await artwork(req, res, ref, fetcher); return; }
+    }
     const token = readAuth(req, params);
     const keyHash = typeof token === 'string' && tokenPattern.test(token) ? digest(token) : '';
     const session = authorization(state, keyHash);
@@ -370,15 +402,16 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
       json(res, 200, sliceItems(historyItems(state, params, path === '/shows/nextup'), params)); return;
     }
     if (req.method === 'GET' && ['/items', '/items/latest'].includes(path)) {
-      const types = new Set((params.get('includeitemtypes') || '').toLowerCase().split(',').filter(Boolean));
-      const refs = itemRefs(state, params.get('parentid'), types, params.get('recursive') === 'true');
+      const latest = path === '/items/latest';
+      const types = itemTypes(params.get('includeitemtypes'));
+      const refs = itemRefs(state, params.get('parentid'), types, params.get('recursive') === 'true', latest);
       const items = sliceItems(filteredItems(state, refs, params), params);
-      json(res, 200, path === '/items/latest' ? items.Items : items); return;
+      json(res, 200, latest ? items.Items : items); return;
     }
     const hierarchy = path.match(/^\/shows\/([a-f0-9-]+)\/(seasons|episodes)$/);
     if (req.method === 'GET' && hierarchy) {
       const ref = mediaRef(state, hierarchy[1]);
-      if (ref?.kind !== 'Series') throw new AppError('MEDIA_SERVER_NOT_FOUND', '剧集已移除', 404);
+      if (!ref?.show) throw new AppError('MEDIA_SERVER_NOT_FOUND', '剧集已移除', 404);
       const [, , child] = hierarchy;
       let refs = child === 'seasons' ? [mediaRef(state, mediaId(ref.show.id, seasonNumber))] : episodeRefs(ref.show);
       const season = params.get('seasonid');
@@ -440,11 +473,8 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
         if (!entry) return;
         const duration = Math.round((entry.expectedDuration || entry.duration) * ticksPerSecond);
         const source = {
-          Id: ref.id, Name: '红果', Container: 'mp4', Protocol: 'File', Type: 'Default',
-          SupportsDirectPlay: true, SupportsDirectStream: true, SupportsTranscoding: false,
-          RunTimeTicks: duration, Size: entry.size ?? (entry.job?.complete ? entry.job.size : undefined),
-          IsRemote: false, IsInfiniteStream: false,
-          RequiresOpening: false, RequiresClosing: false, DefaultAudioStreamIndex: 1,
+          ...directMediaSource(ref.id, duration),
+          Size: entry.size ?? (entry.job?.complete ? entry.job.size : undefined), DefaultAudioStreamIndex: 1,
           MediaStreams: [
             { Type: 'Video', Codec: entry.video, Index: 0, Width: entry.width, Height: entry.height, IsDefault: true },
             { Type: 'Audio', Codec: entry.audio, Index: 1, IsDefault: true },
@@ -454,6 +484,14 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
         if (preferHLS && entry.job && (offsetMs > 0 || (startTicks === 0 && !entry.job.complete))) {
           const offsetPath = offsetMs > 0 ? `${offsetMs}/` : '';
           source.DirectStreamUrl = `/Videos/${ref.id}/hls/${entry.token}/${offsetPath}index.m3u8`;
+        } else if (!preferHLS && params.get('isplayback')?.toLowerCase() === 'true') {
+          const prefix = req.url.split('?')[0].replace(/\/(?:users\/[a-f0-9-]+\/)?items\/[a-f0-9-]+\/playbackinfo\/?$/i, '');
+          const streamQuery = new URLSearchParams({
+            Static: 'true', MediaSourceId: ref.id, PlaySessionId: playSessionId, api_key: token,
+          });
+          source.DirectStreamUrl = `${prefix}/Videos/${ref.id}/stream.mp4?${streamQuery}`;
+          source.Protocol = 'Http';
+          source.SupportsDirectPlay = false;
         }
         json(res, 200, { MediaSources: [source], PlaySessionId: playSessionId }); return;
       }

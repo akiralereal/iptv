@@ -158,6 +158,12 @@
       <label for="emby-server">服务器地址</label>
       <input id="emby-server" type="url" readonly spellcheck="false">
       <button id="copy-emby-server" disabled aria-label="复制服务器地址">复制</button>
+      <label for="emby-direct-server" data-direct-emby hidden>无路径地址</label>
+      <input id="emby-direct-server" type="url" readonly spellcheck="false" data-direct-emby hidden>
+      <button id="copy-emby-direct-server" disabled aria-label="复制无路径地址" data-direct-emby hidden>复制</button>
+      <label for="emby-direct-port">无路径端口</label>
+      <input id="emby-direct-port" type="number" min="1" max="65535" step="1" placeholder="1906" required disabled>
+      <button id="save-emby-port" type="button" disabled>保存端口</button>
       <label for="emby-user">用户名</label>
       <input id="emby-user" readonly spellcheck="false">
       <button id="copy-emby-user" disabled aria-label="复制用户名">复制</button>

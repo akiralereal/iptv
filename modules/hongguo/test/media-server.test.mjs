@@ -166,17 +166,34 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   const views = await api(`/Users/${user}/Views`);
   const library = views.Items[0];
   assert.equal(library.CollectionType, 'tvshows');
+  const rootItems = await api(`/Users/${user}/Items?ExcludeItemTypes=Audio,Book,MusicVideo,MusicAlbum,Game`);
+  assert.deepEqual(rootItems.Items, [library]);
   const browse = await api(`/Users/${user}/Items?ParentId=${library.Id}&IncludeItemTypes=Series&Limit=1`);
   const series = browse.Items[0];
   assert.equal(series.Name, '剧集测试');
   assert.equal(browse.TotalRecordCount, 1);
   assert.equal((await api('/Items/Latest?ParentId=' + library.Id))[0].Id, series.Id);
+  const latest = await api(`/Users/${user}/Items/Latest?IncludeItemTypes=Movie,Series&ParentId=${library.Id}`);
+  assert.deepEqual(latest, [series]);
   const { Items: [season] } = await api(`/Shows/${series.Id}/Seasons?UserId=${user}`);
   const query = `/Shows/${series.Id}/Episodes?SeasonId=${season.Id}`;
   const { Items } = await api(query);
   assert.deepEqual(Items.map(item => item.IndexNumber), [1, 2, 3]);
   assert.equal(Items[0].SeriesId, series.Id);
   assert.equal(Items[0].ParentId, season.Id);
+  assert.equal(Items[0].VideoType, 'VideoFile');
+  assert.equal(Items[0].MediaSources[0].Id, Items[0].Id);
+  assert.equal(Items[0].MediaSources[0].Container, 'mp4');
+  assert.equal(Items[0].MediaSources[0].SupportsDirectStream, true);
+  for (const child of [season, Items[0]]) {
+    assert.deepEqual((await api(`/Shows/${child.Id}/Seasons?UserId=${user}`)).Items, [season]);
+  }
+  const coverPath = `/Items/${series.Id}/Images/Primary`;
+  await assertStatus(await get(coverPath), 401);
+  await assertStatus(await get(coverPath + '?tag=wrong'), 401);
+  const coverResponse = await get(coverPath + '?tag=' + series.ImageTags.Primary);
+  assert.equal(coverResponse.status, 200);
+  assert.deepEqual(Buffer.from(await coverResponse.arrayBuffer()), coverBytes);
   assert.equal(series.DanmakuUrl, undefined);
   await assertStatus(await get(Items[0].DanmakuUrl), 401);
   for (const [index, videoId] of [[0, '100'], [1, '200']]) {
@@ -294,6 +311,17 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   const metadata = await play.json();
   assert.equal(metadata.MediaSources[0].Container, 'mp4');
   assert.equal(metadata.MediaSources[0].RunTimeTicks, 120_000_000);
+  const directInfo = await post(`/Users/${user}/Items/${Items[1].Id}/PlaybackInfo?IsPlayback=true`, { DeviceProfile: {} }, headers);
+  assert.equal(directInfo.status, 200);
+  const { MediaSources: [direct], PlaySessionId } = await directInfo.json();
+  assert.equal(direct.Protocol, 'Http');
+  assert.equal(direct.SupportsDirectPlay, false);
+  const directURL = new URL(direct.DirectStreamUrl, origin);
+  assert.equal(directURL.pathname, `/Videos/${Items[1].Id}/stream.mp4`);
+  assert.equal(directURL.searchParams.get('PlaySessionId'), PlaySessionId);
+  const directRange = await fetch(directURL, { headers: { range: 'bytes=0-2' } });
+  assert.equal(directRange.status, 206);
+  assert.equal(await directRange.text(), '012');
   const mp4 = `/Videos/${Items[1].Id}/stream.mp4?Static=true&api_key=${auth.AccessToken}`;
   const range = await get(mp4, { headers: { range: 'bytes=2-4' } });
   assert.equal(range.status, 206);

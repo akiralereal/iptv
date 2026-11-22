@@ -51,7 +51,7 @@ export function createHongguo(root) {
     serveHLS: (req, res, entry, name, token, playSessionId) => serveHLS(req, res, playback, entry, name, token, playSessionId),
   });
 
-  async function handle(req, res, pathname, { adminPath, accessPrefix, isEmby = isEmbyPath(pathname) }) {
+  async function handle(req, res, pathname, { adminPath, accessPrefix, isEmby = isEmbyPath(pathname), embyPort }) {
     res.setHeader('x-content-type-options', 'nosniff');
     res.setHeader('referrer-policy', 'same-origin');
     res.setHeader('content-security-policy', "default-src 'self'; img-src 'self' data: https://*.byteimg.com https://*.douyinpic.com https://*.fqnovelpic.com; style-src 'self'; script-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
@@ -67,13 +67,20 @@ export function createHongguo(root) {
         if (req.method === 'GET') state = await publications.ensure();
         else {
           const input = await body(req);
-          state = input.rotate === true ? await publications.rotate() : await publications.set(input.seriesId, input.published);
+          if (Object.hasOwn(input, 'directPort')) {
+            if (!embyPort) throw new AppError('EMBY_PORT_UNAVAILABLE', '红果 Emby 端口正在初始化，请稍后重试。');
+            state = await publications.ensure();
+            await embyPort.set(input.directPort);
+          } else {
+            state = input.rotate === true ? await publications.rotate() : await publications.set(input.seriesId, input.published);
+          }
           if (!state.key || !state.serverId) state = await publications.ensure();
         }
         const prefixDepth = accessPrefix.split('/').filter(Boolean).length;
         const server = '../'.repeat(prefixDepth + 1) + 'hongguo';
+        const portSettings = embyPort?.status();
         json(res, 200, {
-          emby: { server, username: 'hongguo', password: playbackPassword(state.key) },
+          emby: { server, username: 'hongguo', password: playbackPassword(state.key), directPort: portSettings?.listeningPort, portSettings },
           series: state.series,
         });
         return;

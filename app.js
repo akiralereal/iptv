@@ -48,7 +48,7 @@ import { SYSTEM_ASSET_PATHS, readAnnouncementAsset } from "./utils/announcement.
 import { cleanCoreDumps } from "./utils/coreDumpCleanup.js";
 import { proxiedPublicBase } from "./utils/publicOrigin.js";
 import { checkForUpdate } from "./utils/updateCheck.js";
-import { handleHongguo, isHongguoPath, shutdownHongguo } from './modules/hongguo/index.js'
+import { createHongguoEmbyPort, handleHongguo, isHongguoPath, shutdownHongguo } from './modules/hongguo/index.js'
 
 // 自定义源「经网络代理转发」的播放引用（${replace}/proxy/cp-<hex>.m3u8）：不是抓取模块，挂到 resolverFor 上
 registerRefResolver(createCustomProxyResolver({
@@ -353,7 +353,9 @@ async function handleRequest(req, res) {
   }
 
   if (isHongguoPath(routePath)) {
-    await handleHongguo(req, res, routePath, { adminPath, accessPrefix, passAuthed, userAuthed })
+    await handleHongguo(req, res, routePath, {
+      adminPath, accessPrefix, passAuthed, userAuthed, embyPort: hongguoEmbyPort,
+    })
     return
   }
 
@@ -1651,6 +1653,7 @@ const server = http.createServer((req, res) => {
   })
 })
 
+let hongguoEmbyPort
 let shutdownTask = null
 function shutdownProcess() {
   if (shutdownTask) return shutdownTask
@@ -1659,7 +1662,7 @@ function shutdownProcess() {
     // 守护进程的重启因为浏览器异常关闭而无限挂住。
     try { server.close() } catch { /* 尚未监听或已经关闭 */ }
     await Promise.race([
-      Promise.allSettled([shutdownModules(), shutdownHongguo()]),
+      Promise.allSettled([shutdownModules(), shutdownHongguo(), hongguoEmbyPort?.close()]),
       new Promise(resolve => setTimeout(resolve, 8_000)),
     ])
     process.exit(0)
@@ -1695,6 +1698,11 @@ process.on('uncaughtException', (err) => {
 
 server.listen(port, async () => {
   const updateInterval = parseInt(programInfoUpdateInterval)
+  hongguoEmbyPort = createHongguoEmbyPort(server.address().port)
+  hongguoEmbyPort.start().then(
+    () => printGreen(`红果 Emby 无路径端口已开启：${hongguoEmbyPort.status().listeningPort}`),
+    () => printYellow(`红果 Emby 无路径端口启动失败：${hongguoEmbyPort.status().error}`),
+  )
 
   // 用户令牌用量（最近访问 / 次数）节流落盘：内存累加，每 60 秒 flush 一次，避免每请求写磁盘
   setInterval(() => userManager.flushUsage(), 60 * 1000)

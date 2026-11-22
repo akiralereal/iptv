@@ -589,9 +589,23 @@ function updatePlaybackCatalogUI() {
   $('publish-series').disabled = !state.detail || !playbackCatalog || catalogUpdating;
   const emby = playbackCatalog?.emby;
   $('emby-server').value = emby ? moduleUrl(emby.server).href : '';
+  const directServer = emby?.directPort ? new URL(location.href) : null;
+  if (directServer) {
+    directServer.protocol = 'http:';
+    directServer.port = emby.directPort;
+  }
+  $('emby-direct-server').value = directServer?.origin || '';
+  for (const element of document.querySelectorAll('[data-direct-emby]')) element.hidden = !directServer;
+  const portField = $('emby-direct-port');
+  const savedPort = String(emby?.portSettings?.port ?? '');
+  if (portField.dataset.savedPort !== savedPort) {
+    portField.dataset.savedPort = savedPort;
+    portField.value = savedPort;
+  }
+  portField.disabled = $('save-emby-port').disabled = !savedPort || catalogUpdating;
   $('emby-user').value = emby?.username || '';
   $('emby-password').value = emby?.password || '';
-  for (const id of ['emby-server', 'emby-user', 'emby-password']) $('copy-' + id).disabled = !$(id).value;
+  for (const id of Object.keys(catalogFieldNames)) $('copy-' + id).disabled = !$(id).value;
   $('catalog-published-series').replaceChildren(...published.map(item => {
     const row = el('li');
     const remove = el('button', 'quiet', '移除');
@@ -611,7 +625,7 @@ async function loadPlaybackCatalog() {
     const result = await playbackCatalogLoading;
     if (catalogUpdating || revision !== playbackCatalogRevision) return;
     playbackCatalog = result;
-    $('playback-catalog-status').textContent = result.series.length ? '' : '从剧集详情加入要在播放器观看的剧。';
+    $('playback-catalog-status').textContent = result.emby?.portSettings?.error || (result.series.length ? '' : '从剧集详情加入要在播放器观看的剧。');
   } catch (error) {
     $('playback-catalog-status').textContent = error.message;
     $('catalog-publish-status').textContent = error.message;
@@ -626,13 +640,17 @@ async function changePlaybackCatalog(input) {
   updatePlaybackCatalogUI();
   try {
     playbackCatalog = await api('/api/playback-catalog', input);
-    $('playback-catalog-status').textContent = input.rotate ? '播放凭据已重置，请更新播放器来源。' : '';
-    if (state.detail?.id === input.seriesId) {
+    if (Object.hasOwn(input, 'directPort')) {
+      $('playback-catalog-status').textContent = `无路径端口已保存为 ${playbackCatalog.emby.directPort}。`;
+    } else {
+      $('playback-catalog-status').textContent = input.rotate ? '播放凭据已重置，请更新播放器来源。' : '';
+    }
+    if (input.seriesId && state.detail?.id === input.seriesId) {
       $('catalog-publish-status').textContent = input.published ? '已加入点播目录。' : '已移出点播目录。';
     }
   } catch (error) {
     $('playback-catalog-status').textContent = error.message;
-    if (state.detail?.id === input.seriesId) $('catalog-publish-status').textContent = error.message;
+    if (input.seriesId && state.detail?.id === input.seriesId) $('catalog-publish-status').textContent = error.message;
   } finally {
     catalogUpdating = false;
     updatePlaybackCatalogUI();
@@ -640,10 +658,15 @@ async function changePlaybackCatalog(input) {
 }
 
 $('open-playback-catalog').onclick = () => {
+  if (playbackCatalog?.emby?.portSettings) $('emby-direct-port').value = playbackCatalog.emby.portSettings.port;
   $('playback-catalog-dialog').showModal();
   loadPlaybackCatalog();
 };
 $('close-playback-catalog').onclick = () => $('playback-catalog-dialog').close();
+$('save-emby-port').onclick = () => {
+  const port = $('emby-direct-port');
+  if (port.reportValidity()) changePlaybackCatalog({ directPort: port.valueAsNumber });
+};
 $('publish-series').onclick = () => {
   const seriesId = state.detail?.id;
   if (seriesId && playbackCatalog) {
@@ -680,7 +703,7 @@ async function writeClipboard(text, host) {
   area.select();
   try { if (!document.execCommand('copy')) throw new Error('copy failed'); } finally { area.remove(); }
 }
-const catalogFieldNames = { 'emby-server': '服务器地址', 'emby-user': '用户名', 'emby-password': '播放密码' };
+const catalogFieldNames = { 'emby-server': '服务器地址', 'emby-direct-server': '无路径地址', 'emby-user': '用户名', 'emby-password': '播放密码' };
 async function copyCatalogField(id) {
   const field = $(id);
   $('playback-catalog-status').textContent = '';
@@ -693,7 +716,7 @@ async function copyCatalogField(id) {
     toast('复制失败，请手动复制已选中的内容', 'error');
   }
 }
-for (const id of ['emby-server', 'emby-user', 'emby-password']) {
+for (const id of Object.keys(catalogFieldNames)) {
   $('copy-' + id).onclick = () => copyCatalogField(id);
 }
 

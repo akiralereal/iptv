@@ -28,6 +28,7 @@ import { dataPath } from "./paths.js"
 import { sanitizeOpts } from "./channelOpts.js"
 import { listModules, getModule, sourceIdOf, moduleRegion, REGION_NAMES } from "../extractors/registry.js"
 import { printBlue, printGreen, printRed, printYellow } from "./colorOut.js"
+import { secretHint } from "./secretHint.js"
 import { enableExtractors } from "../config.js"
 import { listProfiles, readConfig, saveConfig } from "./playlistConfig.js"
 
@@ -321,7 +322,7 @@ function coerceEnvValue(field, raw) {
 }
 
 /**
- * 给后台看的配置：secret 字段一律不回传明文，只回传「有没有值」。
+ * 给后台看的配置：secret 字段一律不回传明文，只回传「有没有值」和结尾几位（secretHint，认得出是不是自己的、拿去用不了）。
  *
  * 现有的 /api/system-config 是直接明文吐咪咕 token 和访问密码的，而未设访问
  * 密码的部署（默认状态）后台是无鉴权的。新增的凭据不该再走那条路。
@@ -329,15 +330,17 @@ function coerceEnvValue(field, raw) {
 export function redactConfig(module, config) {
   const safe = {}
   const secretsSet = {}
+  const secretHints = {}
   for (const field of module.configSchema || []) {
     if (field.secret) {
       safe[field.key] = ''
       secretsSet[field.key] = !!config[field.key]
+      if (secretsSet[field.key]) secretHints[field.key] = secretHint(config[field.key])
       continue
     }
     safe[field.key] = config[field.key]
   }
-  return { config: safe, secretsSet }
+  return { config: safe, secretsSet, secretHints }
 }
 
 // 平台级 HLS 路由（registry.js 的 channelHlsMode / channelHlsModeForConfig）：
@@ -855,7 +858,7 @@ class ExtractorManager {
       const effective = this.effectiveConfig(module)
       const health = this.#displayHealth(module, effective, cacheEntry)
       const enabled = this.isModuleEnabled(module)
-      const { config, secretsSet } = redactConfig(module, effective)
+      const { config, secretsSet, secretHints } = redactConfig(module, effective)
       // 值来自环境变量而非后台时要让用户知道，否则会遇到「后台看着是空的、
       // 但确实在生效」这种没有任何线索的状态
       const envProvided = {}
@@ -896,6 +899,7 @@ class ExtractorManager {
         configSchema: module.configSchema || [],
         config,
         secretsSet,
+        secretHints,
         envProvided,
         refreshMinutes: this.refreshMinutesOf(module),
         defaultRefreshMinutes: module.defaultRefreshMinutes || 60,

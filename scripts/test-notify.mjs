@@ -503,6 +503,7 @@ await test('添加校验必填与地址格式；后台列表打码；编辑时�
   assert.equal('url' in listed, false)
   assert.equal('secret' in listed, false)
   assert.deepEqual(listed.secretsSet, { url: true, secret: true })
+  assert.deepEqual(listed.secretHints, { url: 'ok', secret: '' }, '只给结尾几位，短密钥不露')
   n.updateChannel(id, { name: '家里', url: '', secret: '' })
   const stored = JSON.parse(readFileSync(n.channelsPath, 'utf-8')).channels[0]
   assert.equal(stored.name, '家里')

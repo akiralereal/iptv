@@ -5291,7 +5291,12 @@
             return line;
         }
 
-        function extractorFieldHtml(moduleId, field, config, secretsSet, envProvided) {
+        // 已保存凭据的占位提示：服务端只给结尾几位（utils/secretHint.js），短凭据不给
+        function secretSetLabel(hint) {
+            return hint ? `已设置（结尾 ${hint}）` : '已设置';
+        }
+
+        function extractorFieldHtml(moduleId, field, config, secretsSet, envProvided, secretHints = {}) {
             // hidden：仍然可配（存储 / 环境变量都照常），只是不渲染。用于那些
             // 原本在系统配置页就是 display:none 的项——让它突然出现同样是变化。
             if (field.hidden) return '';
@@ -5350,10 +5355,10 @@
                     ${hint}${envNote}</div>`;
             }
             if (field.secret) {
-                // 后端从不回传凭据明文，只回传「有没有值」。留空即不修改；
+                // 后端从不回传凭据明文，只回传「有没有值」和结尾几位（认得出是不是自己的）。留空即不修改；
                 // 「清除」按钮把该字段标记为待清空，保存时发显式 null（空串≠清空，
                 // 否则每次保存都会把用户看不见的凭据抹掉）。
-                const ph = secretsSet[field.key] ? '已设置，留空则不修改' : '未设置';
+                const ph = secretsSet[field.key] ? `${secretSetLabel(secretHints[field.key])}，留空则不修改` : '未设置';
                 const clearBtn = secretsSet[field.key]
                     ? `<button class="btn btn-sm" type="button" onclick="markSecretCleared('${moduleId}','${field.key}')" title="清空已保存的凭据（点「保存配置」生效）">清除</button>`
                     : '';
@@ -5546,11 +5551,11 @@
          * 只有出现**可见**字段时才画标题：hidden 字段返回空串（如咪咕的 enableHDR），
          * 整段/整列都隐藏的话留个光秃秃的标题很怪。
          */
-        function extractorFieldsHtml(moduleId, schema, config, secretsSet, envProvided, helper) {
+        function extractorFieldsHtml(moduleId, schema, config, secretsSet, envProvided, helper, secretHints = {}) {
             // 先渲染出每个字段的 html，顺手滤掉 hidden 的
             const rendered = [];
             for (const field of schema) {
-                const body = extractorFieldHtml(moduleId, field, config, secretsSet, envProvided);
+                const body = extractorFieldHtml(moduleId, field, config, secretsSet, envProvided, secretHints);
                 if (!body) continue;
                 rendered.push({ section: field.section || '', group: field.group || '', body });
             }
@@ -6752,7 +6757,7 @@
                 ${extractorChannelsHtml(m)}
                 <div style="border-top:1px solid #f5f5f5; padding-top:12px;">
                     ${m.helperSection ? '' : extractorHelperHtml(m.helper, m.secretsSet || {}, m.config || {}, m.health || {})}
-                    ${extractorFieldsHtml(m.id, m.configSchema || [], m.config || {}, m.secretsSet || {}, m.envProvided || {}, m.helperSection ? { key: m.helper, section: m.helperSection, health: m.health || {} } : null)}
+                    ${extractorFieldsHtml(m.id, m.configSchema || [], m.config || {}, m.secretsSet || {}, m.envProvided || {}, m.helperSection ? { key: m.helper, section: m.helperSection, health: m.health || {} } : null, m.secretHints || {})}
                     ${m.refreshConfigurable === false ? `
                     <div style="margin-bottom:12px; padding:10px 12px; border-radius:6px; background:#f7f9fb; color:#666; font-size:12px; line-height:1.6;">
                         <div style="font-weight:600; color:#555; margin-bottom:2px;">自动刷新</div>
@@ -7636,7 +7641,7 @@
             box.innerHTML = help + presets + type.fields.map(f => {
                 const isSet = editing && editing.secretsSet && editing.secretsSet[f.key];
                 const value = editing && !f.secret ? (editing[f.key] || '') : '';
-                const placeholder = isSet ? '已设置，留空保持不变' : (f.placeholder || '');
+                const placeholder = isSet ? `${secretSetLabel(editing.secretHints && editing.secretHints[f.key])}，留空保持不变` : (f.placeholder || '');
                 const attrs = `data-notify-field="${escapeHtml(f.key)}"`;
                 let control;
                 if (f.options) {

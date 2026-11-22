@@ -24,6 +24,7 @@ import { Readable } from 'node:stream'
 
 import { listModules, getModule, sourceIdOf, resolverFor, validateModule, proxyModules, moduleRegion, REGION_NAMES, MODULE_ID_RE, MODULE_CATEGORIES } from '../extractors/registry.js'
 import { domainSuffix, hostCoveredBy } from '../utils/outboundProxy.js'
+import { secretHint } from '../utils/secretHint.js'
 import { proxyHostsOf } from '../extractors/overseas/index.js'
 import { clearUrlCache, channel as playbackChannel } from '../utils/appUtils.js'
 import { qualityFrom } from '../utils/qualityOverride.js'
@@ -270,6 +271,16 @@ check('redactConfig 不回传 secret 明文，只回传有没有值', () => {
 
   const empty = redactConfig(bili, { sessdata: '' })
   assert.equal(empty.secretsSet.sessdata, false)
+  assert.deepEqual(empty.secretHints, {}, '没设的不给结尾')
+})
+
+check('凭据只回结尾几位：长的 4 位、中等 2 位、短的不露', () => {
+  assert.equal(redactConfig(bili, { sessdata: 'abcdefghijkl%2Cwxyz' }).secretHints.sessdata, 'wxyz')
+  assert.equal(redactConfig(bili, { sessdata: 'SECRET' }).secretHints.sessdata, '', '短凭据露几位就猜得出来')
+  assert.equal(secretHint('12345678'), '78')
+  assert.equal(secretHint('0123456789abcdef'), 'cdef')
+  assert.equal(secretHint('SESSDATA=0123456789abcdef; \n'), 'cdef', 'Cookie 结尾的分号和空白不算')
+  assert.equal(secretHint(null), '')
 })
 
 check('取值分层：已存 → 环境变量 → schema 默认', () => {

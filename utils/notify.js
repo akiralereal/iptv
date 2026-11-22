@@ -22,6 +22,7 @@ import { dataPath } from "./paths.js"
 import { proxyAwareFetch } from "./systemProxy.js"
 import { outboundFetch } from "./outboundProxy.js"
 import { printGreen, printRed, printYellow } from "./colorOut.js"
+import { secretHint } from "./secretHint.js"
 
 export const CHANNELS_FILE = 'notify-channels.json'
 const STATE_FILE = 'notify-state.json'
@@ -661,14 +662,15 @@ export class Notifier {
     try { writeJsonFileSync(this.statePath, state) } catch (error) { printYellow(`推送记录写盘失败：${error.message}`) }
   }
 
-  /** 给后台的渠道列表：敏感字段打码，带上最近一次发送结果。 */
+  /** 给后台的渠道列表：敏感字段打码（只给结尾几位，见 secretHint），带上最近一次发送结果。 */
   publicChannels() {
     const { results } = this.#loadState()
     return this.loadChannels().map(channel => {
-      const out = { ...channel, secretsSet: {}, lastResult: results[channel.id] || null }
+      const out = { ...channel, secretsSet: {}, secretHints: {}, lastResult: results[channel.id] || null }
       for (const field of CHANNEL_TYPES[channel.type].fields) {
         if (!field.secret) continue
         out.secretsSet[field.key] = !!channel[field.key]
+        if (out.secretsSet[field.key]) out.secretHints[field.key] = secretHint(channel[field.key])
         delete out[field.key]
       }
       return out

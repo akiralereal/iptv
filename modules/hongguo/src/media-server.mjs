@@ -85,7 +85,10 @@ function episodeRefs(show) {
 }
 
 function publicInfo(state) {
-  return { Id: state.serverId, ServerName: serverName, Version: '4.9.0.0', ProductName: 'Emby Server', StartupWizardCompleted: true };
+  return {
+    Id: state.serverId, ServerName: serverName, Version: '4.9.0.0', ProductName: 'Emby Server',
+    StartupWizardCompleted: true, IPTVBridge: 'hongguo',
+  };
 }
 
 function user(state) {
@@ -295,6 +298,13 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
   // 那些会话的租约要是还在（播放器被杀、没报停止，或停止后又晚到一次分段请求），会占着唯一的转码 45 秒：
   // 续播等满 12 秒报「正在准备其他剧集」，播放器退回从头播的 MP4。这里把它们作废，晚到的请求也不再续上租约。
   const viewerSessions = new Map(), retiredLeases = new Map();
+  const selectedOffsets = new Map();
+  const selectOffset = (ref, lease, offset) => {
+    selectedOffsets.delete(lease);
+    selectedOffsets.set(lease, offset);
+    while (selectedOffsets.size > 200) selectedOffsets.delete(selectedOffsets.keys().next().value);
+    playback.releaseMediaLease(ref.show.id, ref.number, lease, { keepOffset: offset });
+  };
   const noteSession = (lease, viewer) => {
     viewerSessions.delete(lease); viewerSessions.set(lease, viewer); retiredLeases.delete(lease);
     while (viewerSessions.size > 200) viewerSessions.delete(viewerSessions.keys().next().value);
@@ -327,6 +337,8 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
   function holdMedia(entry, keyHash, playSessionId) {
     const lease = mediaLease(keyHash, playSessionId);
     if (retiredLeases.get(lease) > Date.now()) return;
+    const selected = selectedOffsets.get(lease);
+    if (selected !== undefined && (entry.job?.offset || 0) !== selected) return;
     entry.job?.leases.set(lease, Date.now() + 45_000);
   }
 
@@ -458,6 +470,8 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
         if (!preferHLS && startTicks > 0) markResuming(playSessionId);
         const lease = mediaLease(keyHash, playSessionId), viewer = deviceKey(req) || keyHash;
         noteSession(lease, viewer);
+        const seeking = preferHLS && requestedSession && ref.kind === 'Episode' && params.get('iptvseekhls') === 'true';
+        if (seeking && !res.destroyed) selectOffset(ref, lease, resumeOffset);
         let entry;
         if (resumeOffset > 0) {
           retireOtherSessions(viewer, lease);
@@ -469,7 +483,11 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
             console.warn(JSON.stringify({ event: 'resume_hls_fallback', code: error.code || error.name }));
           }
         }
-        if (!entry && !res.destroyed) entry = await playerEntry(res, keyHash, ref, { playSessionId });
+        if (!entry && !res.destroyed) {
+          if (seeking && selectedOffsets.get(lease) !== resumeOffset) return res.writeHead(409).end();
+          if (seeking) selectOffset(ref, lease, 0);
+          entry = await playerEntry(res, keyHash, ref, { playSessionId });
+        }
         if (!entry) return;
         const duration = Math.round((entry.expectedDuration || entry.duration) * ticksPerSecond);
         const source = {
@@ -503,8 +521,16 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
       // 带其他 Range 的（拖动、探测长度）和续播的仍等完整 MP4，免得拖不动、或前后两份文件的字节位置对不上
       const startTicks = Number(params.get('starttimeticks') || 0);
       const resuming = startTicks > 0 || resumingSessions.get(playSessionId) > Date.now();
-      const sequential = !resuming && /^(?:bytes=0-)?$/.test(req.headers.range || '');
-      const entry = await playerEntry(res, keyHash, mediaRef(state, video[1]), { completeFile: !sequential, playSessionId });
+      const seekableFallback = params.get('iptvrequireseekable') === 'true';
+      const requiresSeekable = resuming || seekableFallback;
+      const sequential = !requiresSeekable && /^(?:bytes=0-)?$/.test(req.headers.range || '');
+      const ref = mediaRef(state, video[1]);
+      if (seekableFallback && playSessionId && ref?.kind === 'Episode') {
+        markResuming(playSessionId);
+        // The trimmed HLS worker and the full-file worker cannot run together.
+        selectOffset(ref, mediaLease(keyHash, playSessionId), 0);
+      }
+      const entry = await playerEntry(res, keyHash, ref, { completeFile: !sequential, playSessionId });
       if (!entry) return;
       if (entry.job && !entry.job.complete) {
         await serveGrowing(req, res, entry, () => { holdMedia(entry, keyHash, playSessionId); playback.renewLocalMedia(entry); });
@@ -518,6 +544,10 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
       const playSessionId = sessionID(params.get('playsessionid'));
       const ref = mediaRef(state, episode);
       if (ref?.kind !== 'Episode') throw new AppError('MEDIA_SERVER_NOT_FOUND', '分集不存在', 404);
+      const selected = selectedOffsets.get(mediaLease(keyHash, playSessionId));
+      if (selected !== undefined && Math.round(selected * 1000) !== offsetMs) {
+        throw new AppError('SEEK_SUPERSEDED', '已切换到新的播放位置', 409);
+      }
       let entry;
       try {
         entry = await playback.byToken(mediaToken, { localMedia: true });

@@ -75,7 +75,9 @@ test('Hongguo requires admin access across pages, account operations and media',
   for (const path of ['/System/Info/Public', '/emby/System/Info/Public']) {
     const info = await fetch(directBase + path);
     assert.equal(info.status, 200);
-    assert.equal((await info.json()).Id, (await get('/hongguo/System/Info/Public').then(response => response.json())).Id);
+    const publicInfo = await info.json();
+    assert.equal(publicInfo.IPTVBridge, 'hongguo');
+    assert.deepEqual(publicInfo, await get('/hongguo/System/Info/Public').then(response => response.json()));
   }
   const anonymous = await fetch(directBase + '/Items');
   assert.equal(anonymous.status, 401);

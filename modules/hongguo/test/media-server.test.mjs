@@ -28,7 +28,7 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   const job = { leases: new Map(), complete: false, done: completion.promise };
   let growing = { token, seriesId, number: 1, duration: 12, job };
   const resumeToken = 'ef'.repeat(24);
-  const resumed = { ...growing, token: resumeToken, expectedDuration: 12, job: { ...job, offset: 5.025 } };
+  const resumed = { ...growing, token: resumeToken, expectedDuration: 12, job: { ...job, offset: 5.025, leases: new Map() } };
   let resumeExpired = false;
   let renewals = 0;
   const warmed = [];
@@ -45,8 +45,8 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
     renewLocalMedia(entry) { assert.ok(entry.job === growing.job || entry.job === resumed.job); renewals++; },
     episodeDuration() { return 12; },
     warmNext(...target) { warmed.push(target); },
-    releaseMediaLease(seriesId, number, lease) {
-      Playback.prototype.releaseMediaLease.call({ tokens: tokens() }, seriesId, number, lease);
+    releaseMediaLease(seriesId, number, lease, options) {
+      Playback.prototype.releaseMediaLease.call({ tokens: tokens() }, seriesId, number, lease, options);
     },
     replaceMediaLease(seriesId, number, lease) {
       const mobile = { cancelUnleased: candidate => switchCandidates.push(candidate) };
@@ -245,7 +245,7 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
     ...headers, 'x-emby-authorization': 'MediaBrowser Client="Test", DeviceId="tablet"' } }), 200);
   const resumeInfo = await api(firstInfo + '?IPTVPreferHLS=true&StartTimeTicks=50259999');
   assert.equal(leaseKeys().some(lease => lease.endsWith(':' + earlier)), false);
-  assert.ok(leaseKeys().some(lease => lease.endsWith(':' + resumeInfo.PlaySessionId)));
+  assert.ok([...resumed.job.leases.keys()].some(lease => lease.endsWith(':' + resumeInfo.PlaySessionId)));
   assert.ok(leaseKeys().some(lease => lease.endsWith(':elsewhere')));
   assert.ok(leaseKeys().some(lease => lease.endsWith(':tablet')));
   assert.equal(await get(fresh.pathname + '?PlaySessionId=' + earlier, { headers }).then(r => r.text()), 'index.m3u8');
@@ -282,6 +282,19 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   assert.equal((await api(switchInfo)).PlaySessionId, 'third-session');
   assert.deepEqual(switchCandidates, [job]);
   assert.equal(job.leases.size, leaseCount);
+
+  const seekingSession = 'hls-seek';
+  const seekInfo = `${firstInfo}?IPTVPreferHLS=true&PlaySessionId=${seekingSession}`;
+  const seekLease = key => key.endsWith(`:${seekingSession}`);
+  const originalHLS = (await api(seekInfo)).MediaSources[0].DirectStreamUrl;
+  assert.ok(leaseKeys().some(seekLease));
+  const replacement = await api(seekInfo + '&IPTVSeekHLS=true&StartTimeTicks=50250000');
+  assert.equal(replacement.PlaySessionId, seekingSession);
+  assert.equal(replacement.MediaSources[0].DirectStreamUrl, resumeHls);
+  assert.equal(leaseKeys().some(seekLease), false);
+  assert.ok([...resumed.job.leases.keys()].some(seekLease));
+  await assertStatus(await get(originalHLS + '?PlaySessionId=' + seekingSession, { headers }), 409);
+  assert.equal(leaseKeys().some(seekLease), false, 'old HLS requests cannot keep their worker after seeking');
   // 还在转码：从头顺序读的 MP4 请求立刻开始推流，不等整集转完
   const growingMp4 = `/Videos/${Items[0].Id}/stream.mp4?PlaySessionId=direct-session`;
   const renewalsBefore = renewals;
@@ -294,8 +307,18 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   assert.equal((await api(firstInfo + '?StartTimeTicks=50000000&PlaySessionId=resume-mp4')).PlaySessionId, 'resume-mp4');
   const resumedRead = get(`/Videos/${Items[0].Id}/stream.mp4?PlaySessionId=resume-mp4`, { headers });
   const resumedByUrl = get(growingMp4 + '&StartTimeTicks=50000000', { headers });
+  await api(firstInfo + '?IPTVPreferHLS=true&StartTimeTicks=50250000&PlaySessionId=seekable-fallback');
+  const hasResumeLease = () => [...resumed.job.leases.keys()].some(key => key.endsWith(':seekable-fallback'));
+  assert.ok(hasResumeLease());
+  const seekableFallback = get(`/Videos/${Items[0].Id}/stream.mp4?PlaySessionId=seekable-fallback&IPTVRequireSeekable=true`, {
+    headers: { ...headers, range: 'bytes=0-' },
+  });
   await new Promise(resolve => setTimeout(resolve, 50));
   assert.equal(sequentialReads.length, 2);
+  assert.equal(hasResumeLease(), false);
+  resumeExpired = false;
+  await assertStatus(await get(resumeHls + '?PlaySessionId=seekable-fallback', { headers }), 409);
+  assert.equal(hasResumeLease(), false, 'a late HLS segment cannot reclaim the fallback session');
   job.complete = true;
   completion.resolve({ file, size: 10 });
   const seeked = await seeking;
@@ -303,6 +326,10 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   for (const response of [await resumedRead, await resumedByUrl]) {
     assert.equal(response.status, 200); assert.equal(response.headers.get('accept-ranges'), 'bytes'); assert.equal(await response.text(), '0123456789');
   }
+  const seekable = await seekableFallback;
+  assert.equal(seekable.status, 206);
+  assert.equal(seekable.headers.get('content-range'), 'bytes 0-9/10');
+  assert.equal(await seekable.text(), '0123456789');
   await assertStatus(await get(`/Videos/${Items[0].Id}/stream.mp4`, { headers, method: 'HEAD' }), 200);
   assert.equal(sequentialReads.length, 2, 'a finished episode is served as the seekable MP4');
   assert.equal((await api(firstInfo + '?IPTVPreferHLS=true')).MediaSources[0].DirectStreamUrl, undefined);

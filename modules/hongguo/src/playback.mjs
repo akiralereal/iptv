@@ -94,9 +94,10 @@ export class Playback {
       || [...this.tokens.values()].find(value => value.seriesId === seriesId && value.number === number);
     return entry?.expectedDuration || entry?.duration || 0;
   }
-  releaseMediaLease(seriesId, number, lease) {
+  releaseMediaLease(seriesId, number, lease, { keepOffset } = {}) {
     for (const entry of this.tokens.values()) {
-      if (entry.seriesId === seriesId && entry.number === number) entry.job?.leases.delete(lease);
+      if (entry.seriesId !== seriesId || entry.number !== number || (entry.job?.offset || 0) === keepOffset) continue;
+      entry.job?.leases.delete(lease);
     }
   }
   // 播放会话已作废：从所有转码任务上去掉它们的租约。不在这里取消任务：续播可能正好要复用同一个，占着转码的那个由 prepare 取消

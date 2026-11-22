@@ -229,7 +229,6 @@ button.danger:hover { border-color: var(--ui-danger-line); background: var(--ui-
   background: var(--ui-surface);
 }
 .catalog-filters:has(#categories[hidden]):has(#filters:empty) { display: none; }
-#categories { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: 12px; }
 #filters:empty { display: none; }
 #categories:not([hidden]) + #filters:not(:empty) { margin-top: 6px; border-top: 1px solid var(--ui-line); padding-top: 6px; }
 .filter-row { display: flex; align-items: flex-start; gap: 10px; padding: 3px 0; }
@@ -245,14 +244,15 @@ button.danger:hover { border-color: var(--ui-danger-line); background: var(--ui-
   font-size: 12px;
 }
 .filter-options button:hover, #catalog-topics > button:hover, .ranges button:hover { background: var(--ui-surface-strong); }
-.topic-filter[open] { grid-column: 1 / -1; }
+/* 题材按钮固定在「内容类型」下一行左侧，展开收起都不挪位置 */
 .topic-filter summary {
   display: flex;
   align-items: center;
   gap: 7px;
   width: fit-content;
   min-height: 32px;
-  margin-block: 3px;
+  /* 上方加上「内容类型」行的 3px、下方加上分隔线前的 6px，上下各留约 11px */
+  margin-block: 8px 5px;
   padding: 4px 10px;
   border: 1px solid var(--ui-line-strong);
   border-radius: 7px;
@@ -275,7 +275,7 @@ button.danger:hover { border-color: var(--ui-danger-line); background: var(--ui-
 }
 .topic-filter[open] summary::after { margin-block-start: 3px; transform: rotate(225deg); }
 #catalog-active-topic { color: var(--ui-text-secondary); font-weight: 400; }
-#catalog-topics { margin-top: 8px; padding-block: 8px 2px; border-top: 1px solid var(--ui-line); }
+#catalog-topics { margin-top: 11px; padding-block: 8px 2px; border-top: 1px solid var(--ui-line); }
 #catalog-topics > button { margin-bottom: 5px; }
 
 .catalog-heading, .viewer-heading, .episode-heading, .dialog-heading {
@@ -548,7 +548,6 @@ footer { margin-top: 20px; padding-block: 15px 20px; border-top: 1px solid var(-
   .catalog-connection label:not(:first-child) { margin-top: 4px; }
 }
 @media (max-width: 360px) {
-  #categories { grid-template-columns: 1fr; }
   #connection { max-width: 56px; }
 }
 @media (prefers-reduced-motion: reduce) {

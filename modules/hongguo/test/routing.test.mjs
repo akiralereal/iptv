@@ -52,17 +52,23 @@ test('Hongguo requires admin access across pages, account operations and media',
     assert.equal(new URL(emby.server, base + accessPrefix + '/hongguo/').href, base + '/hongguo');
   }
   access = { ...access, accessPrefix: '' };
-  const old = await get('/hongguo/emby/System/Info/Public');
-  assert.equal(old.status, 404);
-  await old.body.cancel();
 
   access = { ...access, passAuthed: false };
-  const publicInfo = await get('/hongguo/System/Info/Public');
-  assert.equal(publicInfo.status, 200);
-  assert.equal((await publicInfo.json()).ProductName, 'Emby Server');
-  const noSession = await get('/hongguo/Items');
-  assert.equal(noSession.status, 401);
-  await noSession.body.cancel();
+  // Emby 官方 App 等会在服务器地址后自动加 /emby，两种写法都要能用
+  for (const prefix of ['/hongguo', '/hongguo/emby', '/hongguo/Emby']) {
+    const publicInfo = await get(prefix + '/System/Info/Public');
+    assert.equal(publicInfo.status, 200, prefix);
+    assert.equal((await publicInfo.json()).ProductName, 'Emby Server');
+    const noSession = await get(prefix + '/Items');
+    assert.equal(noSession.status, 401, prefix);
+    await noSession.body.cancel();
+  }
+  // /emby 前缀只对 Emby 接口生效，管理页和管理接口照样要 IPTV 访问密码
+  for (const path of ['/hongguo/emby/', '/hongguo/emby/api/account', '/hongguo/emby/app.js']) {
+    const response = await get(path);
+    assert.equal(response.status, 403, path);
+    await response.body.cancel();
+  }
   access = { ...access, passAuthed: true };
 
   const post = (headers, body = '{}') => get('/hongguo/api/account/poll', { method: 'POST', headers, body });

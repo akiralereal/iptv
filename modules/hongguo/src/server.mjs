@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { once } from 'node:events';
 import { Readable } from 'node:stream';
 import { serveFile } from './ranges.mjs';
 import { OfficialBrowser } from './browser.mjs';
@@ -46,6 +47,7 @@ export function createHongguo(root) {
   const danmaku = new HongguoDanmaku({ catalog, playback, session: playback.mobile.models.session });
   const mediaServer = createMediaServer({
     catalog: publications, playback, danmaku, serveMedia: (req, res, entry) => serveMedia(req, res, entry, playback), body, json,
+    serveGrowing: (req, res, entry, keepAlive) => serveGrowingMP4(req, res, playback, entry, keepAlive),
     serveHLS: (req, res, entry, name, token, playSessionId) => serveHLS(req, res, playback, entry, name, token, playSessionId),
   });
 
@@ -148,7 +150,7 @@ async function serveHLS(req, res, playback, entry, name, token, playSessionId) {
     await serveFile(req, res, asset);
     return;
   }
-  let playlist = await readFile(asset.file);
+  let playlist = Buffer.from(await playback.mobile.playlist(entry.job));
   if (token) {
     // HLS players resolve segment URLs relative to the manifest, without its query.
     const authQuery = new URLSearchParams({ api_key: token });
@@ -162,6 +164,21 @@ async function serveHLS(req, res, playback, entry, name, token, playSessionId) {
   }
   res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl', 'content-length': playlist.length, 'cache-control': 'no-store' });
   res.end(req.method === 'HEAD' ? undefined : playlist);
+}
+
+async function serveGrowingMP4(req, res, playback, entry, keepAlive) {
+  // 不给长度、不声明 Range：客户端只能从头顺序读；转完以后再打开拿到的是能拖动的完整 MP4
+  res.writeHead(200, { 'content-type': 'video/mp4', 'cache-control': 'no-store' });
+  if (req.method === 'HEAD') { res.end(); return; }
+  const controller = new AbortController(); res.once('close', () => controller.abort());
+  // 推流期间一直占着这一集，别被其他播放请求当成没人看给取消或清掉
+  keepAlive(); const renew = setInterval(keepAlive, 10_000);
+  try {
+    for await (const chunk of playback.mobile.progressive(entry.job, { signal: controller.signal })) {
+      if (!res.write(chunk)) await once(res, 'drain', { signal: controller.signal });
+    }
+    res.end();
+  } catch { res.destroy(); } finally { clearInterval(renew); }
 }
 
 async function serveMedia(req, res, entry, playback) {

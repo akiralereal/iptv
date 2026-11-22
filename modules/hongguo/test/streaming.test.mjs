@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import os from 'node:os';
-import { mkdtemp, readFile, rm, access } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, access, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { MobilePlayback, parsePlaylist } from '../src/mobile/playback.mjs';
@@ -25,17 +25,18 @@ async function fixture({ colors = false } = {}) {
     '-encryption_scheme', 'cenc-aes-ctr', '-encryption_key', key.toString('hex'), '-encryption_kid', kid.toString('hex'), file]);
   return { root, data: await readFile(file) };
 }
-function mediaFetcher(data, { failAfter = Infinity, wait = 5, chunkBytes = 16384 } = {}) {
-  let served = 0;
+function mediaFetcher(data, { failAfter = Infinity, failOnce = false, wait = 5, chunkBytes = 16384, requests = [] } = {}) {
+  let served = 0, failed = false;
   return async (url, options) => {
     assert.equal(url, sourceURL); assert.equal(options.redirect, 'error');
     const range = byteRange(options.headers.range, data.length);
     if (!range) return new Response(null, { status: 416 });
+    requests.push(range.start);
     let offset = range.start;
     const body = new ReadableStream({ async pull(controller) {
       await sleep(wait);
       if (options.signal.aborted) { controller.error(new Error('Aborted')); return; }
-      if (served >= failAfter) { controller.error(new Error('Synthetic network interruption')); return; }
+      if (served >= failAfter && !(failOnce && failed)) { failed = true; controller.error(new Error('Synthetic network interruption')); return; }
       if (offset > range.end) { controller.close(); return; }
       const chunk = data.subarray(offset, Math.min(offset + chunkBytes, range.end + 1)); offset += chunk.length; served += chunk.length; controller.enqueue(chunk);
     } });
@@ -56,7 +57,15 @@ test('encrypted input plays before download completes; final output still decode
     assert.ok(early.segments.length > 0); assert.equal(early.ended, false);
     await assert.rejects(playback.asset(job, '../input.mp4'), { code: 'NOT_FOUND' });
     await assert.rejects(playback.asset(job, 'part-00000.m4s.tmp'), { code: 'NOT_FOUND' });
+    // MP4 直放客户端边转边收到的顺序流：转完后拼起来就是完整可解码的一集，且不带只覆盖单段的 sidx
+    const chunks = []; for await (const chunk of playback.progressive(job)) chunks.push(chunk);
     await job.done;
+    const growing = Buffer.concat(chunks), types = new Set();
+    for (let offset = 0; offset < growing.length; offset += growing.readUInt32BE(offset)) types.add(growing.toString('latin1', offset + 4, offset + 8));
+    assert.deepEqual([...types].sort(), ['ftyp', 'mdat', 'moof', 'moov']);
+    await writeFile(path.join(root, 'growing.mp4'), growing);
+    const frames = await run('ffprobe', ['-v', 'error', '-count_frames', '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', path.join(root, 'growing.mp4')]);
+    assert.equal(Number(frames.stdout.trim()), 360);
     assert.equal(parsePlaylist(await readFile(job.playlist, 'utf8')).ended, true);
     const decoded = await decodeMedia(job.file, job, job.expectedDuration, { local: true });
     assert.equal(decoded.classification, 'complete'); assert.ok(job.timing.completeMs > job.timing.firstSegmentMs);
@@ -66,13 +75,34 @@ test('encrypted input plays before download completes; final output still decode
   } finally { await playback.close(); await rm(root, { recursive: true, force: true }); }
 });
 
-test('an interrupted encrypted stream is never advertised as complete', { timeout: 30_000 }, async () => {
+test('a dropped source connection resumes where it stopped instead of failing the episode', { timeout: 30_000 }, async () => {
+  const { root, data } = await fixture(); const requests = [];
+  const playback = new MobilePlayback(root, { models: models(), bridge: new SourceBridge(mediaFetcher(data, { failAfter: Math.floor(data.length / 2), failOnce: true, requests })) });
+  try {
+    const job = await playback.prepare('2b');
+    await job.done; assert.equal(job.complete, true);
+    assert.ok(requests.some(start => start > data.length / 4), 'FFmpeg must reconnect with a Range from the break, not restart');
+    assert.equal((await decodeMedia(job.file, job, job.expectedDuration, { local: true })).classification, 'complete');
+  } finally { await playback.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('an interrupted encrypted stream is never advertised as complete but keeps converted segments for viewers', { timeout: 60_000 }, async () => {
   const { root, data } = await fixture();
   const playback = new MobilePlayback(root, { models: models(), bridge: new SourceBridge(mediaFetcher(data, { failAfter: Math.floor(data.length / 2) })) });
   try {
     const job = await playback.prepare('2');
-    await assert.rejects(job.done); assert.equal(job.complete, false); assert.equal(playback.available(job), false);
-    await assert.rejects(playback.asset(job, 'index.m3u8'), { code: 'APP_MEDIA_DECODE_FAILED' });
+    await assert.rejects(job.done); await playback.worker?.done.catch(() => {});
+    assert.equal(job.complete, false); assert.equal(playback.available(job), false);
+    assert.equal(job.partial, true); assert.equal(playback.readable(job), true); assert.notEqual(job.hlsEnded, true);
+    // 原始文件里 FFmpeg 出错退出时也写了 ENDLIST；对外的播放列表不能带，否则播放器会把断点当片尾
+    const playlist = parsePlaylist(await playback.playlist(job));
+    assert.ok(playlist.segments.length > 0); assert.equal(playlist.ended, false);
+    assert.ok(Math.abs(job.availableDuration - playlist.duration) < 0.01);
+    await playback.asset(job, playlist.segments.at(-1).name);
+    assert.equal(new Playback({}, {}, root).public({ job, token: 't', duration: 12, expectedDuration: 12, expiresAt: Date.now() }).interrupted, true);
+    // 有人在看就留着，没人看了就清掉（available 为 false，新请求不会复用它）
+    job.leases.set('viewer', Date.now() + 45_000); await playback.prune(); assert.ok(playback.jobs.has(job));
+    job.leases.clear(); await playback.prune(); assert.equal(playback.readable(job), false); await assert.rejects(access(job.directory));
   } finally { await playback.close(); await rm(root, { recursive: true, force: true }); }
 });
 

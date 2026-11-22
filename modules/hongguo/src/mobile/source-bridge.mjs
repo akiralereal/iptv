@@ -51,7 +51,7 @@ export class SourceBridge {
     const controller = new AbortController(); source.requests.add(controller); res.once('close', () => controller.abort());
     // 不设整段下载的总时限：FFmpeg 按转码速度边转边读，低配 NAS 上一集要读好几分钟。
     // 等响应头最多 20 秒，之后只要 30 秒内还有数据进来就一直传（FFmpeg 自己 15 秒读不到也会退出）。
-    let idle;
+    let idle, refused = false;
     const touch = ms => { clearTimeout(idle); idle = setTimeout(() => controller.abort(), ms); idle.unref?.(); };
     touch(20_000);
     try {
@@ -62,6 +62,7 @@ export class SourceBridge {
       if (![200, 206].includes(response.status) || (total && (!Number.isSafeInteger(total) || total > MAX_SOURCE))) {
         // 上游拒绝（地址过期、403 等）：记下来，播放层据此丢掉缓存的源地址，下次重新取
         if (response.status >= 400) source.rejected = true;
+        refused = response.status >= 400 && response.status < 500;
         await response.body?.cancel(); throw new Error('Invalid upstream media');
       }
       if (source.size && total && source.size !== total) { await response.body?.cancel(); throw new Error('Upstream media changed'); }
@@ -81,7 +82,10 @@ export class SourceBridge {
         done(null, source.patches ? patchByteVC2Range(chunk, offset, source.patches) : chunk);
       } });
       await pipeline(Readable.fromWeb(response.body), limiter, res);
-    } catch { if (res.headersSent) res.destroy(); else { res.writeHead(502); res.end(); } }
+    } catch {
+      // 中途出错直接断开（不当成正常结束），FFmpeg 会带 Range 重连；上游明确拒绝的回 403，FFmpeg 不再重试
+      if (res.headersSent) res.destroy(); else { res.writeHead(refused ? 403 : 502); res.end(); }
+    }
     finally { clearTimeout(idle); source.requests.delete(controller); }
   }
   async close() {

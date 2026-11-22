@@ -437,6 +437,7 @@ function attachPlayback(result, generation, requestedAt, { seeking = false, auto
   if (!prepared) { player.pause(); player.removeAttribute('src'); player.load(); }
   state.lease = result.status.split('/').pop(); state.session = result.session;
   state.offset = result.offset || 0; state.total = result.duration; state.processing = result.processing; state.seeking = true; state.resumeAfterSeek = autoplay;
+  state.breakAt = result.interrupted ? result.availableThrough : null;
   $('timeline').max = String(result.duration); $('timeline').disabled = false; $('screen-empty').hidden = true;
   paintTimeline(result.position || 0); playbackStatus(result);
   const valid = () => generation === state.playGeneration && stream === state.streamGeneration;
@@ -469,6 +470,8 @@ function attachPlayback(result, generation, requestedAt, { seeking = false, auto
       const status = await api(result.status + '?client=' + state.clientId); if (!valid()) return;
       const justCompleted = state.processing && !status.processing;
       state.processing = status.processing;
+      // 可能已经卡在断点上不再触发 timeupdate，拿到状态时先检查一次
+      if (status.interrupted && state.breakAt == null) { state.breakAt = status.availableThrough; continueAfterBreak(player, 2); if (!valid()) return; }
       if (justCompleted && !player.paused) schedulePreload();
       if (!state.seeking) playbackStatus(status);
       // Keep the session available after the end so replay/backward seeking works.
@@ -531,6 +534,14 @@ async function seekTo(value) {
     return true;
   } catch (error) { if (generation === state.playGeneration && sequence === state.seekSequence && error.name !== 'AbortError') { state.seeking = false; $('play-status').textContent = error.message; } }
 }
+// 转码中途断了（片源断流等）：已转好的部分照常播，播到断点时从断点重新转一段接上，不用重新选集
+function continueAfterBreak(player, margin) {
+  if (state.breakAt == null || state.seeking || state.scrubbing || player !== $('video')) return;
+  const position = state.offset + player.currentTime;
+  if (state.breakAt >= state.total - 0.5 || position < state.breakAt - margin) return;
+  state.breakAt = null; $('play-status').textContent = '这一集转码中途断开，正在从断点接着播放…';
+  seekTo(Math.min(position, state.total));
+}
 function togglePlayback() { const player = $('video'); if (player.ended) seekTo(0); else if (player.paused) { state.remoteProgressPending = false; player.play().catch(() => {}); } else player.pause(); }
 $('play-toggle').onclick = togglePlayback;
 $('retry-hd').onclick = () => play(state.current, { refresh: true });
@@ -549,7 +560,8 @@ $('timeline').addEventListener('keydown', playbackKeys);
 for (const player of [$('video'), $('standby')]) {
   player.addEventListener('click', () => { if (player === $('video')) togglePlayback(); });
   player.addEventListener('keydown', event => { if (player === $('video')) playbackKeys(event); });
-  player.addEventListener('timeupdate', () => { if (player === $('video')) { if (!state.scrubbing && !state.seeking) paintTimeline(); if (!player.paused) schedulePreload(); if (!state.seeking && !state.scrubbing && Math.abs(state.offset + player.currentTime - (state.lastObservedPosition ?? -1)) > 0.01) { state.mediaObservedAt = Date.now(); state.lastObservedPosition = state.offset + player.currentTime; } submitProgress(); } });
+  player.addEventListener('waiting', () => continueAfterBreak(player, 2));
+  player.addEventListener('timeupdate', () => { if (player === $('video')) { continueAfterBreak(player, 0.3); if (!state.scrubbing && !state.seeking) paintTimeline(); if (!player.paused) schedulePreload(); if (!state.seeking && !state.scrubbing && Math.abs(state.offset + player.currentTime - (state.lastObservedPosition ?? -1)) > 0.01) { state.mediaObservedAt = Date.now(); state.lastObservedPosition = state.offset + player.currentTime; } submitProgress(); } });
   player.addEventListener('pause', () => { if (player === $('video')) submitProgress(true); });
   for (const event of ['play','pause','ended']) player.addEventListener(event, () => { if (player === $('video')) $('play-toggle').textContent = player.paused ? '播放' : '暂停'; });
   player.addEventListener('ended', () => {

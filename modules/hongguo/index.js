@@ -31,7 +31,11 @@ function fail(res, status, error) {
 }
 
 export async function handleHongguo(req, res, routePath, { adminPath, accessPrefix = '', passAuthed, userAuthed, passConfigured }) {
-  const isEmby = isEmbyPath(routePath.slice(ROOT.length))
+  let subPath = routePath.slice(ROOT.length)
+  // Emby 官方 App 等客户端会在服务器地址后自动加 /emby：/hongguo/emby/Items 与 /hongguo/Items 等价
+  const unprefixed = subPath.replace(/^\/emby(?=\/)/i, '')
+  const isEmby = isEmbyPath(unprefixed)
+  if (isEmby) subPath = unprefixed
   if (!isEmby && (!passAuthed || userAuthed || (!passConfigured && !localRequest(req)))) {
     fail(res, 403, '请从 IPTV 管理后台进入红果短剧。远程访问需要设置 IPTV 访问密码。')
     return
@@ -52,7 +56,7 @@ export async function handleHongguo(req, res, routePath, { adminPath, accessPref
 
   service ||= import('./src/server.mjs').then(({ createHongguo }) => createHongguo(dataPath('hongguo-vod')))
   const vod = await service
-  await vod.handle(req, res, routePath.slice(ROOT.length), { adminPath, accessPrefix, isEmby })
+  await vod.handle(req, res, subPath, { adminPath, accessPrefix, isEmby })
 }
 
 export async function shutdownHongguo() {

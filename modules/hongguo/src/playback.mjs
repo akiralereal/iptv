@@ -52,7 +52,7 @@ export class Playback {
       while (this.entries.size >= 60 && !this.entries.has(key)) this.entries.delete(this.entries.keys().next().value);
       const entry = { ...source, ...media, key, seriesId, videoId, number, title: detail.title, total: detail.total,
         token: existing && (!source.job || source.job === existing.job) ? existing.token : randomBytes(24).toString('hex'), checkedAt: new Date().toISOString(), verification: 'not_checked' };
-      for (const [token, old] of this.tokens) if (old.expiresAt < Date.now() || (old.job && !this.mobile.available(old.job))) this.tokens.delete(token);
+      for (const [token, old] of this.tokens) if (old.expiresAt < Date.now() || (old.job && !this.mobile.readable(old.job))) this.tokens.delete(token);
       this.entries.set(key, entry); this.tokens.set(entry.token, entry); return entry;
     })().catch(error => { this.entries.delete(key); throw error; }).finally(() => this.pending.delete(key));
     this.pending.set(key, { work, preload }); return work;
@@ -81,7 +81,7 @@ export class Playback {
         expectedDuration, width: job.width, height: job.height, video: job.video, audio: job.audio,
         expiresAt: job.expiresAt };
       for (const [token, value] of this.tokens) {
-        if (value.expiresAt < Date.now() || (value.job && !this.mobile.available(value.job))) this.tokens.delete(token);
+        if (value.expiresAt < Date.now() || (value.job && !this.mobile.readable(value.job))) this.tokens.delete(token);
       }
       this.tokens.set(entry.token, entry);
     }
@@ -106,7 +106,9 @@ export class Playback {
   public(entry, { position = entry.job?.offset || 0, session = entry.token } = {}) {
     return { seriesId: entry.seriesId, number: entry.number, title: entry.title, total: entry.total, duration: entry.expectedDuration || entry.duration, width: entry.width, height: entry.height, verification: entry.verification, checkedAt: entry.checkedAt, provider: entry.provider,
       format: entry.job ? 'hls' : 'mp4', media: entry.job ? `/hls/${entry.token}/index.m3u8` : '/media/' + entry.token,
-      processing: entry.job ? !entry.job.complete : false, startupMs: entry.job?.timing.firstSegmentMs,
+      processing: entry.job ? !entry.job.complete && !entry.job.error : false, startupMs: entry.job?.timing.firstSegmentMs,
+      // 转码中途断了：availableThrough 之前的照常能播，网页播放器播到这里从断点重新接上
+      interrupted: entry.job?.error && !entry.job.hlsEnded ? true : undefined,
       quality: Math.min(entry.width || 0, entry.height || 0) >= 720 ? 'hd' : 'sd', appIssue: entry.appIssue,
       availableThrough: entry.job ? Math.min(entry.duration, entry.job.offset + entry.job.availableDuration) : entry.duration,
       status: '/api/playback/' + entry.token,
@@ -188,7 +190,7 @@ export class Playback {
       }
       const previous = session.active; session.active = entry; this.claim(entry, clientId);
       if (previous?.job !== job) this.mobile.cancelUnleased(previous?.job);
-      for (const [token, value] of this.tokens) if (value.expiresAt < Date.now() || (value.job && !this.mobile.available(value.job))) this.tokens.delete(token);
+      for (const [token, value] of this.tokens) if (value.expiresAt < Date.now() || (value.job && !this.mobile.readable(value.job))) this.tokens.delete(token);
       return { ...this.public(entry, { position: target.position, session: session.anchor }), seekMs: Math.round(performance.now() - started), sequence,
         cached, inputBytesAtFirstSegment: job.timing.inputBytesAtFirstSegment, maxInputRangeStart: job.timing.maxInputRangeStart,
         availableThrough: Math.min(entry.duration, job.offset + job.availableDuration) };
@@ -197,8 +199,8 @@ export class Playback {
   async byToken(token, { localMedia = false } = {}) {
     const old = this.tokens.get(token);
     if (!old) throw new AppError('SESSION_EXPIRED', '播放会话已失效，请重新选集', 410);
-    if (old.job?.error) throw old.job.error;
-    if (old.job && this.mobile.available(old.job) && (localMedia || old.expiresAt > Date.now() + 30000)) return old;
+    if (old.job?.error && !this.mobile.readable(old.job)) throw old.job.error;
+    if (old.job && this.mobile.readable(old.job) && (localMedia || old.expiresAt > Date.now() + 30000)) return old;
     if (old.job || localMedia) throw new AppError('SESSION_EXPIRED', '媒体会话已过期，请重新选集', 410);
     if (old.expiresAt > Date.now() + 30000) return old;
     const fresh = await this.resolve(old.seriesId, old.number, { refresh: true });

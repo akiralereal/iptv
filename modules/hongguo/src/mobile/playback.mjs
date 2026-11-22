@@ -20,6 +20,16 @@ export function parsePlaylist(text) {
   for (const match of text.matchAll(/#EXTINF:([\d.]+),[^\n]*\n(part-\d{5}\.m4s)/g)) segments.push({ duration: Number(match[1]), name: match[2] });
   return { segments, duration: segments.reduce((sum, row) => sum + row.duration, 0), ended: text.includes('#EXT-X-ENDLIST') };
 }
+export function withoutIndex(segment) {
+  const kept = [];
+  for (let offset = 0; offset < segment.length;) {
+    const size = offset + 8 <= segment.length ? segment.readUInt32BE(offset) : 0;
+    if (size < 8 || offset + size > segment.length) return segment;
+    if (!['styp', 'sidx'].includes(segment.toString('latin1', offset + 4, offset + 8))) kept.push(segment.subarray(offset, offset + size));
+    offset += size;
+  }
+  return Buffer.concat(kept);
+}
 export class MobilePlayback {
   entries = new Map(); jobs = new Set(); sources = new Map(); sourceRequests = new Map();
   worker = null; foregroundRequests = 0;
@@ -41,6 +51,8 @@ export class MobilePlayback {
     return this.init;
   }
   available(job) { return !!job && this.jobs.has(job) && !job.error && job.expiresAt > Date.now(); }
+  // 转到一半失败的任务（partial）不再给新请求复用，但已转好的分段留给正在看的播放器播完
+  readable(job) { return !!job && this.jobs.has(job) && (!job.error || job.partial) && job.expiresAt > Date.now(); }
   renew(job) {
     // Only extend the lifetime of the existing local files.
     if (this.available(job)) job.expiresAt = Date.now() + TTL;
@@ -51,8 +63,8 @@ export class MobilePlayback {
     for (const job of this.jobs) {
       if (!job.complete && (!job.error || job === this.worker?.job)) continue;
       for (const [client, expires] of job.leases) if (expires <= Date.now()) job.leases.delete(client);
-      if (!job.error && job.leases.size) continue;
-      if (!job.error && job.expiresAt > Date.now() && bytes <= MAX_CACHE && this.jobs.size <= (reserve ? 11 : 12)) continue;
+      if ((job.complete || job.partial) && job.leases.size) continue;
+      if (job.complete && job.expiresAt > Date.now() && bytes <= MAX_CACHE && this.jobs.size <= (reserve ? 11 : 12)) continue;
       this.jobs.delete(job); if (this.entries.get(job.cacheKey) === job) this.entries.delete(job.cacheKey);
       bytes -= job.diskBytes; await rm(job.directory, { recursive: true, force: true });
     }
@@ -174,7 +186,10 @@ export class MobilePlayback {
     job.cancel = (reason = failure()) => { job.error ||= reason; job.process?.kill('SIGTERM'); };
     this.jobs.add(job); this.entries.set(cacheKey, job);
     job.done = this.process(job, source, readyResolve, signal).catch(error => {
-      job.error ||= error instanceof AppError ? error : failure(); readyReject(job.error); throw job.error;
+      job.error ||= error instanceof AppError ? error : failure();
+      // 已经出过分段的失败不连带作废前面的内容：正在看的播放器照常播到断点（网页播放器会从断点重新接上）
+      job.partial = !!job.timing.firstSegmentMs && !this.closed && job.error.code !== 'PLAY_CANCELLED';
+      readyReject(job.error); throw job.error;
     });
     job.done.catch(() => {}); return job;
   }
@@ -189,7 +204,10 @@ export class MobilePlayback {
       }
       input = await this.bridge.register(source, signal);
       if (job.error || signal?.aborted) throw job.error || cancelled();
+      // 取源断流（家宽抖动、CDN 掐连接、15 秒读不到数据）时 FFmpeg 从断开的位置带 Range 重连，转码不中断；
+      // 中继对上游 4xx（地址过期等）回 403，不在这里白白重试
       const child = spawn(ffmpeg, ['-v', 'error', '-nostdin', '-xerror', '-rw_timeout', '15000000',
+        '-reconnect', '1', '-reconnect_on_network_error', '1', '-reconnect_on_http_error', '5xx', '-reconnect_delay_max', '4',
         ...(source.contentKey ? ['-decryption_key', source.contentKey.toString('hex')] : []), ...(job.offset ? ['-ss', String(job.offset)] : []),
         ...(source.codec === 'bytevc2' ? ['-threads', '4'] : []), '-i', input.url,
         '-map', '0:v:0', '-map', '0:a:0', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-threads', '4',
@@ -197,9 +215,9 @@ export class MobilePlayback {
         '-f', 'hls', '-hls_time', '2', '-hls_list_size', '0', '-hls_playlist_type', 'event', '-hls_segment_type', 'fmp4',
         '-hls_flags', 'independent_segments+temp_file', '-hls_segment_filename', path.join(job.directory, 'part-%05d.m4s'), job.playlist],
       { stdio: ['ignore', 'ignore', 'pipe'] });
-      job.process = child; let exited = false, exitCode = null, stderrBytes = 0;
+      job.process = child; let exited = false, exitCode = null, stderrBytes = 0, stderrText = '';
       // Never expose FFmpeg arguments/errors: they can contain media keys or URLs.
-      child.stderr.on('data', chunk => { stderrBytes += chunk.length; if (stderrBytes > 100_000) job.cancel(); });
+      child.stderr.on('data', chunk => { stderrBytes += chunk.length; if (stderrBytes > 100_000) job.cancel(); else stderrText += chunk; });
       const exit = new Promise(resolve => { child.once('error', () => { job.error ||= failure(); }); child.once('close', code => { exited = true; job.processClosed = true; exitCode = code; resolve(); }); });
       job.cancel = (reason = failure()) => { job.error ||= reason; child.kill('SIGTERM'); killTimer ||= setTimeout(() => child.kill('SIGKILL'), 2000); killTimer.unref(); };
       // 看进展不看总时长：低配 NAS 上转一集可能要好几分钟，只要还在读源、还在写分段就不掐断；
@@ -234,9 +252,14 @@ export class MobilePlayback {
         await delay(25);
       }
       await exit;
-      if (job.error || exitCode !== 0 || stderrBytes) throw job.error || failure();
+      // 断流重连时 http 层会报「Stream ends prematurely」等，重连接上了不算错；
+      // 没接上的话 FFmpeg 会非零退出，或者分段时长和官方整集对不上，下面照样判失败
+      const decodeErrors = stderrText.split('\n').some(line => line.trim() && !/^\[(?:https?|tcp|tls) @ [^\]]+\] /.test(line) && !/^\s*Last message repeated/.test(line));
+      if (job.error || exitCode !== 0 || decodeErrors) throw job.error || failure();
       if (!first) throw failure();
       const playlist = parsePlaylist(await readFile(job.playlist, 'utf8'));
+      // 分段已经全部出完：后面即使时长核对或封装 MP4 失败，HLS 也照常播到结尾，不算中途断开
+      job.hlsEnded = playlist.ended;
       if (!playlist.ended || Math.abs(playlist.duration - job.expectedDuration) > Math.max(1, job.expectedDuration * 0.01)) throw new AppError('APP_DURATION_MISMATCH', '媒体长度与官方整集时长不符');
       // A compact MP4 remains available for full decoding and conventional Range
       // clients. Remuxing starts after HLS playback is already available.
@@ -256,13 +279,34 @@ export class MobilePlayback {
       if (input?.record.rejected) { this.sources.get(job.videoId)?.contentKey?.fill(0); this.sources.delete(job.videoId); }
       if (job.process && !job.processClosed) { job.process.kill('SIGKILL'); await new Promise(resolve => job.process.once('close', resolve)); }
       job.process = null;
+      // 失败时把最后几个分段也算进可播范围（循环里每秒才刷新一次）
+      if (!job.complete) try { job.availableDuration = parsePlaylist(await readFile(job.playlist, 'utf8')).duration; } catch {}
     }
   }
   async diskSize(directory) {
     let bytes = 0; for (const name of await readdir(directory)) { try { bytes += (await stat(path.join(directory, name))).size; } catch (e) { if (e.code !== 'ENOENT') throw e; } } return bytes;
   }
+  // 还没转完时给 MP4 直放客户端的顺序流：init 加各分段首尾相接就是一份能从头播的分片 MP4。
+  // 分段里的 sidx 只覆盖本段 2 秒，留着会让 ExoPlayer 把整集当成 2 秒长，所以和 styp 一起去掉
+  async *progressive(job, { signal } = {}) {
+    let sent = 0;
+    yield await readFile((await this.asset(job, 'init.mp4')).file);
+    while (!signal?.aborted) {
+      const { segments, ended } = parsePlaylist(await this.playlist(job));
+      for (; sent < segments.length && !signal?.aborted; sent++) yield withoutIndex(await readFile((await this.asset(job, segments[sent].name)).file));
+      if (ended) return;
+      if (job.error) throw job.error;
+      await delay(250);
+    }
+  }
+  // FFmpeg 读源出错退出时也会写 ENDLIST：确认正常转完（hlsEnded）之前不对外给片尾标记，
+  // 免得播放器把断点当成片尾、悄悄跳到下一集
+  async playlist(job) {
+    const text = await readFile((await this.asset(job, 'index.m3u8')).file, 'utf8');
+    return job.hlsEnded ? text : text.replace(/^#EXT-X-ENDLIST[ \t]*\r?\n?/m, '');
+  }
   async asset(job, name) {
-    if (!this.available(job)) throw job?.error || new AppError('SESSION_EXPIRED', '媒体会话已过期，请重新选集', 410);
+    if (!this.readable(job)) throw job?.error || new AppError('SESSION_EXPIRED', '媒体会话已过期，请重新选集', 410);
     if (!/^(?:index\.m3u8|init\.mp4|part-\d{5}\.m4s)$/.test(name)) throw new AppError('NOT_FOUND', '媒体分段不存在', 404);
     const file = path.join(job.directory, name);
     try { return { file, size: (await stat(file)).size }; } catch { throw new AppError('NOT_FOUND', '媒体分段尚未就绪', 404); }

@@ -42,7 +42,7 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
       if (value !== growing.token) throw new AppError('SESSION_EXPIRED', 'Expired', 410);
       return growing;
     },
-    renewLocalMedia(entry) { assert.ok(entry === growing || entry === resumed); renewals++; },
+    renewLocalMedia(entry) { assert.ok(entry.job === growing.job || entry.job === resumed.job); renewals++; },
     episodeDuration() { return 12; },
     warmNext(...target) { warmed.push(target); },
     releaseMediaLease(seriesId, number, lease) {
@@ -97,8 +97,14 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
       },
     },
   });
+  const sequentialReads = [];
   const handle = createMediaServer({
     catalog, playback, danmaku, serveMedia: serveFile, json, body,
+    serveGrowing(req, res, entry, keepAlive) {
+      assert.equal(entry.job, job);
+      keepAlive(); sequentialReads.push(req.headers.range || '');
+      res.end(req.method === 'HEAD' ? undefined : 'growing');
+    },
     async fetcher(url) {
       assert.equal(url, cover);
       return new Response(coverBytes, { headers: { 'content-type': 'image/jpeg' } });
@@ -243,9 +249,29 @@ test('Emby clients can discover, sign in, browse a series, stream and continue i
   assert.equal((await api(switchInfo)).PlaySessionId, 'third-session');
   assert.deepEqual(switchCandidates, [job]);
   assert.equal(job.leases.size, leaseCount);
+  // 还在转码：从头顺序读的 MP4 请求立刻开始推流，不等整集转完
+  const growingMp4 = `/Videos/${Items[0].Id}/stream.mp4?PlaySessionId=direct-session`;
+  const renewalsBefore = renewals;
+  assert.equal(await get(growingMp4, { headers, signal: AbortSignal.timeout(2000) }).then(r => r.text()), 'growing');
+  assert.equal(await get(growingMp4, { headers: { ...headers, range: 'bytes=0-' }, signal: AbortSignal.timeout(2000) }).then(r => r.text()), 'growing');
+  assert.deepEqual(sequentialReads, ['', 'bytes=0-']);
+  assert.ok(renewals > renewalsBefore); assert.ok([...job.leases.keys()].some(lease => lease.endsWith(':direct-session')));
+  // 要拖动的 Range 请求、续播（PlaybackInfo 或地址里带开始位置）仍等完整 MP4：边转边推的流拖不动
+  const seeking = get(growingMp4, { headers: { ...headers, range: 'bytes=2-4' } });
+  assert.equal((await api(firstInfo + '?StartTimeTicks=50000000&PlaySessionId=resume-mp4')).PlaySessionId, 'resume-mp4');
+  const resumedRead = get(`/Videos/${Items[0].Id}/stream.mp4?PlaySessionId=resume-mp4`, { headers });
+  const resumedByUrl = get(growingMp4 + '&StartTimeTicks=50000000', { headers });
+  await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal(sequentialReads.length, 2);
   job.complete = true;
   completion.resolve({ file, size: 10 });
+  const seeked = await seeking;
+  assert.equal(seeked.status, 206); assert.equal(await seeked.text(), '234');
+  for (const response of [await resumedRead, await resumedByUrl]) {
+    assert.equal(response.status, 200); assert.equal(response.headers.get('accept-ranges'), 'bytes'); assert.equal(await response.text(), '0123456789');
+  }
   await assertStatus(await get(`/Videos/${Items[0].Id}/stream.mp4`, { headers, method: 'HEAD' }), 200);
+  assert.equal(sequentialReads.length, 2, 'a finished episode is served as the seekable MP4');
   assert.equal((await api(firstInfo + '?IPTVPreferHLS=true')).MediaSources[0].DirectStreamUrl, undefined);
   const play = await post('/Items/' + Items[1].Id + '/PlaybackInfo', { DeviceProfile: {} }, headers);
   assert.equal(play.status, 200);

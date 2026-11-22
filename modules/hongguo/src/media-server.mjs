@@ -256,9 +256,16 @@ async function artwork(req, res, ref, fetcher) {
   res.end(req.method === 'HEAD' ? undefined : Buffer.concat(chunks));
 }
 
-export function createMediaServer({ catalog, playback, danmaku, serveMedia, serveHLS, body, json, fetcher = fetch }) {
+export function createMediaServer({ catalog, playback, danmaku, serveMedia, serveGrowing, serveHLS, body, json, fetcher = fetch }) {
   const sessionID = value => typeof value === 'string' && /^[a-z0-9-]{1,80}$/i.test(value) ? value : '';
   const mediaLease = (keyHash, playSessionId) => `media-server:${keyHash}:${playSessionId}`;
+  // PlaybackInfo 带了开始位置的 MP4 播放会话（续播）：边转边推的流不能拖动，这类请求仍等完整 MP4
+  const resumingSessions = new Map();
+  const markResuming = playSessionId => {
+    for (const [id, expires] of resumingSessions) if (expires <= Date.now()) resumingSessions.delete(id);
+    resumingSessions.delete(playSessionId); resumingSessions.set(playSessionId, Date.now() + 30 * 60_000);
+    while (resumingSessions.size > 200) resumingSessions.delete(resumingSessions.keys().next().value);
+  };
   async function authenticate(req, res) {
     const input = await body(req);
     const token = randomBytes(32).toString('hex');
@@ -288,8 +295,8 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
       : await playback.resolve(ref.show.id, ref.number);
     if (!entry || res.destroyed) return null;
     holdMedia(entry, keyHash, playSessionId);
-    // The MP4 stream needs all bytes. PlaybackInfo can respond at the first segment.
-    const file = completeFile && entry.job ? await entry.job.done : entry;
+    // A seekable MP4 needs all bytes. PlaybackInfo and sequential streams can respond at the first segment.
+    const file = entry.job && (completeFile || entry.job.complete) ? await entry.job.done : entry;
     const current = await catalog.read();
     authorization(current, keyHash);
     if (!mediaRef(current, ref.id)) throw new AppError('MEDIA_SERVER_NOT_FOUND', '分集已移除', 404);
@@ -397,6 +404,7 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
         const startTicks = Number(params.get('starttimeticks') || 0);
         const resumeOffset = preferHLS && Number.isSafeInteger(startTicks) && startTicks > 0
           ? Math.floor(startTicks / 10_000) / 1000 : 0;
+        if (!preferHLS && startTicks > 0) markResuming(playSessionId);
         let entry;
         if (resumeOffset > 0) {
           try {
@@ -430,8 +438,16 @@ export function createMediaServer({ catalog, playback, danmaku, serveMedia, serv
     const video = path.match(/^\/videos?\/([a-f0-9-]+)\/(?:stream(?:\.mp4)?|original(?:\.mp4)?)$/);
     if (['GET', 'HEAD'].includes(req.method) && video) {
       const playSessionId = sessionID(params.get('playsessionid'));
-      const entry = await playerEntry(res, keyHash, mediaRef(state, video[1]), { completeFile: true, playSessionId });
-      if (entry) await serveMedia(req, res, entry);
+      // 还在转码时，从头顺序读的请求（不带 Range 或 bytes=0-）边转边推，不用等整集转完才回应；
+      // 带其他 Range 的（拖动、探测长度）和续播的仍等完整 MP4，免得拖不动、或前后两份文件的字节位置对不上
+      const startTicks = Number(params.get('starttimeticks') || 0);
+      const resuming = startTicks > 0 || resumingSessions.get(playSessionId) > Date.now();
+      const sequential = !resuming && /^(?:bytes=0-)?$/.test(req.headers.range || '');
+      const entry = await playerEntry(res, keyHash, mediaRef(state, video[1]), { completeFile: !sequential, playSessionId });
+      if (!entry) return;
+      if (entry.job && !entry.job.complete) {
+        await serveGrowing(req, res, entry, () => { holdMedia(entry, keyHash, playSessionId); playback.renewLocalMedia(entry); });
+      } else await serveMedia(req, res, entry);
       return;
     }
     const segment = path.match(/^\/videos\/([a-f0-9]{32})\/hls\/([a-f0-9]{48})\/(?:(\d{1,10})\/)?(index\.m3u8|init\.mp4|part-\d{5}\.m4s)$/);

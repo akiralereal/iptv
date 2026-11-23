@@ -6,6 +6,7 @@ import { clearUrlCache } from "./appUtils.js"
 import { maskProxyUrl, normalizeProxyUrl, restoreMaskedProxy, settingProxyUrl, testOutboundProxy, TELEGRAM_TEST_TARGET } from "./outboundProxy.js"
 import { proxyModules } from "../extractors/registry.js"
 import { systemProxyUrl } from "./systemProxy.js"
+import { DEFAULT_UPDATE_INTERVAL_HOURS, resolveUpdateIntervalHours } from "./updateInterval.js"
 import {
   reloadConfig, sanitizeSegment,
   port, host, rateType, pass,
@@ -155,7 +156,9 @@ export function mergeSystemConfig(existing, config) {
   if (config.host !== undefined) validated.host = config.host || ""
   if (config.pass !== undefined) validated.pass = config.pass || ""
   if (config.programInfoUpdateInterval !== undefined) {
-    validated.programInfoUpdateInterval = config.programInfoUpdateInterval || "8"
+    // 按 1～168 小时兜住再存：0、小数、非数字、太大的值会让定时器退成 1 毫秒（issue #246）。
+    // 后台保存前已拦下并提示，这里只防绕过后台直接调接口
+    validated.programInfoUpdateInterval = String(resolveUpdateIntervalHours(config.programInfoUpdateInterval || DEFAULT_UPDATE_INTERVAL_HOURS).hours)
   }
   // 咪咕相关的五项改成「显式提交才写」，与下面那些内容开关一致。
   //

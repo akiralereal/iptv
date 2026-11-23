@@ -4820,8 +4820,8 @@
                     <div class="system-config-grid">
                         <div class="system-config-item">
                             <label>节目单更新间隔（小时） <span class="sys-badge is-restart" title="保存后要重启服务才生效，可直接点下方「保存并重启」">需重启</span></label>
-                            <input type="number" id="sysProgramInterval" oninput="setSaveDirty('sysconfig')" placeholder="8">
-                            <div class="system-config-hint" style="color:#d4380d;">⚠️ 咪咕频道 / EPG / 体育的全量更新间隔。<strong>如果填写了咪咕 Token（登录账号），建议设置 8 小时以上</strong>——过于频繁请求可能触发风控、影响账号。另外每天北京时间 00:10 会自动多更新一次，补上新一天的节目单（不少省台只发当天的）。</div>
+                            <input type="number" id="sysProgramInterval" oninput="setSaveDirty('sysconfig')" placeholder="8" min="1" max="168" step="1">
+                            <div class="system-config-hint" style="color:#d4380d;">⚠️ 咪咕频道 / EPG / 体育的全量更新间隔。<strong>如果填写了咪咕 Token（登录账号），建议设置 8 小时以上</strong>——过于频繁请求可能触发风控、影响账号。另外每天北京时间 00:10 会自动多更新一次，补上新一天的节目单（不少省台只发当天的）。可填 1～168 的整数。</div>
                         </div>
                         <div class="system-config-item">
                             <label class="sys-check-label">
@@ -10625,6 +10625,13 @@ if(success){
                     }
                 }
                 
+                // 更新间隔填 0、小数、太大的数，服务端定时器会退成每毫秒跑一次（issue #246），保存前拦下
+                const intervalInput = document.getElementById('sysProgramInterval').value.trim() || '8';
+                const intervalHours = Number(intervalInput);
+                if (!Number.isInteger(intervalHours) || intervalHours < 1 || intervalHours > 168) {
+                    showStatus('节目单更新间隔要填 1～168 之间的整数（小时）', 'error');
+                    return false;
+                }
                 const adminPathInput = document.getElementById('sysAdminPath').value;
                 const passInput = document.getElementById('sysPass').value;
                 const config = {
@@ -10632,7 +10639,7 @@ if(success){
                     host: host,
                     pass: passInput,
                     adminPath: adminPathInput,
-                    programInfoUpdateInterval: document.getElementById('sysProgramInterval').value || '8',
+                    programInfoUpdateInterval: String(intervalHours),
                     enableDisplayNameUnify: document.getElementById('sysEnableDisplayNameUnify').checked,
                     cctvLogoStyle: document.getElementById('sysCctvLogoStyle').value
                 };

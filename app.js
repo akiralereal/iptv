@@ -9,6 +9,7 @@ import { adminPath, host, pass, port, programInfoUpdateInterval, token, userId, 
 import { getDateTimeStr } from "./utils/time.js";
 import update, { getLastPlaybackBuiltAt, localLogosFingerprint } from "./utils/updateData.js";
 import { epgBuiltToday, scheduleDailyEpgRefresh } from "./utils/dailyEpgRefresh.js";
+import { resolveUpdateIntervalHours } from "./utils/updateInterval.js";
 import { printBlue, printGreen, printGrey, printMagenta, printRed, printYellow } from "./utils/colorOut.js";
 import { channel, interfaceStr, fetchManifestDirect, rewriteManifest, inlineResolvedManifest } from "./utils/appUtils.js";
 import { toProxyManifest, lookup as lookupProxyTarget, pipeUpstream, probeUpstream, fetchNested, manifestCooling, markManifestResult } from "./utils/hlsProxy.js";
@@ -1702,7 +1703,10 @@ process.on('uncaughtException', (err) => {
 })
 
 server.listen(port, async () => {
-  const updateInterval = parseInt(programInfoUpdateInterval)
+  // 填错的间隔（0、小数、负数、非数字、太大）会让 setInterval 退成 1 毫秒，完整更新每毫秒并发
+  // 跑一次（issue #246）。按 1～168 小时兜住，没按配置走时打一行提示
+  const { hours: updateInterval, warning: updateIntervalWarning } = resolveUpdateIntervalHours(programInfoUpdateInterval)
+  if (updateIntervalWarning) printYellow(updateIntervalWarning)
   hongguoEmbyPort = createHongguoEmbyPort(server.address().port)
   hongguoEmbyPort.start().then(
     () => printGreen(`红果 Emby 无路径端口已开启：${hongguoEmbyPort.status().listeningPort}`),
@@ -1724,13 +1728,23 @@ server.listen(port, async () => {
   // （文件名 + 修改时间，一次 readdir，几十个文件不到 1 毫秒）
   let logosFingerprint = localLogosFingerprint()
 
+  // 定时那轮和零点补刷都走这里，自己防重入：一轮没跑完（咪咕慢、源多）就撞上下一轮时，
+  // 两轮会同时重抓咪咕、同时写同一批文件
+  let fullUpdateRunning = false
   async function runFullUpdate() {
+    if (fullUpdateRunning) {
+      printYellow("上一轮完整更新尚未结束，跳过本次")
+      return
+    }
+    fullUpdateRunning = true
     try {
       await update(hours)
       playlistStale = false
     } catch (error) {
       console.log(error)
       printRed("更新失败")
+    } finally {
+      fullUpdateRunning = false
     }
   }
 

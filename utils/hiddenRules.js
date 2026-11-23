@@ -6,6 +6,8 @@
 // 更根本的是有一类频道本来就没有稳定 ID 可言——每天重建的赛事、事件直播——
 // 逐条隐藏对它们没有意义，用户要的是「这个名字以后都别出现」。
 //
+// 文件末尾另有「只保留匹配项」（keepRules）：同一套规则写法，反过来用。
+//
 // 规则形如 { value, mode }：
 //   mode 'exact'    整名相等（「永久屏蔽此频道名」一键生成，不会误伤别的台）
 //   mode 'contains' 名字含该子串（用户手输，用来一次盖住一批）
@@ -62,4 +64,45 @@ export function matchHiddenRule(names, rules) {
   return null
 }
 
-export default { normalizeHiddenRules, matchHiddenRule }
+// ===== 只保留匹配项（2026-11-23 Telegram 群提出）=====
+//
+// 第三方订阅时不时往里加新频道，用屏蔽规则只能追着挡、挡不干净。只保留规则反过来：
+// 勾选的来源里，名字没命中任何一条只保留规则的频道一律不出现，源以后新加的也一样。
+//
+// 与「配置档 = 共享全集的黑名单视图、新源默认全档可见」不冲突，靠的是**来源范围必填**：
+//   - 只管 keepRuleSources 里勾选的来源；没勾的来源、以后新装的源、新开的模块一概不受影响。
+//     这也是当初（issue #123）不做白名单模式的顾虑——「新装的源一条频道都不出现」——在这里不会发生。
+//   - 范围为空 = 只保留规则不生效（不是「对全部生效」）。手滑存下一条规则、没选来源，什么都不会少。
+//   - 规则为空 = 不生效（与屏蔽规则的空规则底线同理：空不能变成「全排除」）。
+// 范围判法与按档禁用源一致：频道的**所有**来源都在范围内才管——多源提供的同一频道，
+// 只要有一个来源不在范围内就照常保留；没有源标记的频道（旧 interface.txt）不管。
+// 屏蔽规则优先：两边都命中的，按屏蔽算。
+
+/** 规整只保留规则的来源范围：只留非空字符串，去重。存盘与匹配共用。 */
+export function normalizeRuleSources(sources) {
+  if (!Array.isArray(sources)) return []
+  const out = []
+  for (const id of sources) {
+    const value = typeof id === 'string' ? id.trim() : ''
+    if (value && !out.includes(value)) out.push(value)
+  }
+  return out
+}
+
+/**
+ * 按配置建一个「是否被只保留规则排除」的判定函数；不生效（无规则或无来源范围）时返回 null，
+ * 调用方据此零成本跳过。规则与范围只规整一次，循环内复用。
+ * @returns {null | ((names: string[], sourceIds: string[]) => boolean)} true = 该频道被排除
+ */
+export function createKeepFilter(keepRules, keepRuleSources) {
+  const rules = normalizeHiddenRules(keepRules)
+  const scope = new Set(normalizeRuleSources(keepRuleSources))
+  if (rules.length === 0 || scope.size === 0) return null
+  return (names, sourceIds) => {
+    if (!Array.isArray(sourceIds) || sourceIds.length === 0) return false
+    if (!sourceIds.every(id => scope.has(id))) return false
+    return matchHiddenRule(names, rules) === null
+  }
+}
+
+export default { normalizeHiddenRules, matchHiddenRule, normalizeRuleSources, createKeepFilter }

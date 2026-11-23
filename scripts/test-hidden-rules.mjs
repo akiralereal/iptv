@@ -12,7 +12,7 @@
  * 运行： node scripts/test-hidden-rules.mjs   （或 npm test）
  */
 import assert from 'node:assert/strict'
-import { normalizeHiddenRules, matchHiddenRule } from '../utils/hiddenRules.js'
+import { normalizeHiddenRules, matchHiddenRule, normalizeRuleSources, createKeepFilter } from '../utils/hiddenRules.js'
 import { applyConfig, collectGroupConflicts } from '../utils/playlistConfig.js'
 
 for (const k of ['log', 'info', 'warn']) {
@@ -191,4 +191,83 @@ check('接线：被规则清空的分组不再占用分组名（否则改名 / �
   assert.equal(collectGroupConflicts(groups(), c2).length, 1)
 })
 
-console.log(`\n全部通过：${passed}/23 ✅`)
+// ── 只保留匹配项（2026-11-23 Telegram 群）─────────────────────────────────
+// 第三方订阅不时加新频道，用屏蔽规则追着挡挡不干净。只保留规则管勾选的来源：
+// 没命中的不出现，源以后新加的也一样；没勾的来源、新装的源不受影响（配置档仍是黑名单视图）。
+console.log('\n只保留匹配项')
+
+const mixed = () => ([
+  { name: '央视', channels: [
+    { id: 'migu-1', name: 'CCTV1综合', sourceIds: ['migu'] },
+    { id: 'ext-c1', name: 'CCTV1', sourceIds: ['ext:third'] },
+  ] },
+  { name: '第三方', channels: [
+    { id: 'ext-t1', name: '翡翠台', sourceIds: ['ext:third'] },
+    { id: 'ext-t2', name: '明珠台', sourceIds: ['ext:third'] },
+    { id: 'ext-t3', name: '新加的购物台', sourceIds: ['ext:third'] },
+  ] },
+  { name: '另一个源', channels: [{ id: 'ext-o1', name: '某台', sourceIds: ['ext:other'] }] },
+  { name: '旧格式', channels: [{ id: 'ext-legacy', name: '无源标记', sourceIds: [] }] },
+  { name: '多源', channels: [{ id: 'ext-m1', name: '双源台', sourceIds: ['ext:third', 'migu'] }] },
+])
+const keepNames = (over = {}) => applyConfig(mixed(), cfg(over)).flatMap(g => g.channels.map(ch => ch.name)).sort()
+const allMixed = keepNames()
+
+check('只保留：勾选来源里只剩命中的频道，没勾的来源原样保留', () => {
+  const out = keepNames({ keepRules: [{ value: '翡翠台', mode: 'exact' }, { value: 'CCTV', mode: 'contains' }], keepRuleSources: ['ext:third'] })
+  assert.ok(out.includes('翡翠台') && out.includes('CCTV1'))
+  assert.ok(!out.includes('明珠台') && !out.includes('新加的购物台'), '没命中的必须排除')
+  for (const name of ['CCTV1综合', '某台', '无源标记']) assert.ok(out.includes(name), `范围外的 ${name} 不该受影响`)
+})
+
+check('只保留：源以后新加的频道没命中也自动排除（这正是要它的理由）', () => {
+  const c = { keepRules: [{ value: '翡翠台', mode: 'exact' }], keepRuleSources: ['ext:third'] }
+  const later = mixed()
+  later[1].channels.push({ id: 'ext-t9', name: '刚冒出来的新台', sourceIds: ['ext:third'] })
+  const out = applyConfig(later, cfg(c)).flatMap(g => g.channels.map(ch => ch.name))
+  assert.ok(!out.includes('刚冒出来的新台'))
+})
+
+check('只保留：没选来源 = 不生效（不是对全部生效）；没有规则 = 不生效', () => {
+  assert.deepEqual(keepNames({ keepRules: [{ value: '翡翠台', mode: 'exact' }] }), allMixed)
+  assert.deepEqual(keepNames({ keepRules: [{ value: '翡翠台', mode: 'exact' }], keepRuleSources: [] }), allMixed)
+  assert.deepEqual(keepNames({ keepRules: [], keepRuleSources: ['ext:third'] }), allMixed)
+  assert.equal(createKeepFilter([{ value: 'x' }], []), null)
+  assert.equal(createKeepFilter([], ['ext:third']), null)
+})
+
+check('只保留：空规则 / 字符串写法不生效，不会把勾选来源整个清空', () => {
+  for (const bad of [[{ value: '' }], [''], [{ value: '  ', mode: 'exact' }], 'CCTV', 42, { value: 'CCTV' }]) {
+    assert.deepEqual(keepNames({ keepRules: bad, keepRuleSources: ['ext:third'] }), allMixed, `被坏规则清空了: ${JSON.stringify(bad)}`)
+  }
+  assert.deepEqual(keepNames({ keepRules: [{ value: '翡翠台' }], keepRuleSources: 'ext:third' }), allMixed, '范围写成字符串不得生效')
+  assert.deepEqual(normalizeRuleSources(['ext:a', ' ext:a ', '', null, 3, 'migu']), ['ext:a', 'migu'])
+})
+
+check('只保留：多源频道只要有一个来源不在范围内就照常保留（与按档禁用源同一判法）', () => {
+  const out = keepNames({ keepRules: [{ value: '翡翠台', mode: 'exact' }], keepRuleSources: ['ext:third'] })
+  assert.ok(out.includes('双源台'))
+  const both = keepNames({ keepRules: [{ value: '翡翠台', mode: 'exact' }], keepRuleSources: ['ext:third', 'migu'] })
+  assert.ok(!both.includes('双源台') && !both.includes('CCTV1综合'))
+})
+
+check('只保留：屏蔽规则优先；重命名后的名字也算命中', () => {
+  const blocked = keepNames({
+    keepRules: [{ value: '台', mode: 'contains' }], keepRuleSources: ['ext:third'],
+    hiddenRules: [{ value: '明珠台', mode: 'exact' }],
+  })
+  assert.ok(blocked.includes('翡翠台') && !blocked.includes('明珠台'))
+  const renamed = keepNames({
+    keepRules: [{ value: 'TVB Jade', mode: 'exact' }], keepRuleSources: ['ext:third'],
+    channelRenameMap: { '第三方::ext-t1': 'TVB Jade' },
+  })
+  assert.ok(renamed.includes('TVB Jade') && !renamed.includes('明珠台'))
+})
+
+check('只保留：被排除空的分组不再占用分组名', () => {
+  const c = cfg({ keepRules: [{ value: 'CCTV', mode: 'contains' }], keepRuleSources: ['ext:third'], customGroups: [{ name: '第三方' }] })
+  assert.deepEqual(collectGroupConflicts(mixed(), c), [])
+  assert.equal(collectGroupConflicts(mixed(), cfg({ customGroups: [{ name: '第三方' }] })).length, 1)
+})
+
+console.log(`\n全部通过：${passed}/30 ✅`)

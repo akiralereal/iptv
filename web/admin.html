@@ -4114,7 +4114,7 @@
                     <input type="checkbox" id="resetRules" checked>
                     <div class="reset-option-info">
                         <strong>屏蔽规则</strong>
-                        <span>清空按名字长期屏蔽的规则，被规则挡掉的频道重新出现</span>
+                        <span>清空按名字屏蔽和只保留的规则，被规则挡掉的频道重新出现</span>
                     </div>
                 </label>
                 <label class="reset-option">
@@ -4132,15 +4132,33 @@
         </div>
     </div>
 
-    <!-- 按名字屏蔽频道的规则弹窗（issue #123） -->
+    <!-- 按名字屏蔽频道的规则弹窗（issue #123）；「只保留」标签页见 2026-11-23 Telegram 群 -->
     <div class="modal" id="hiddenRuleModal">
         <div class="modal-content" style="width: 620px; max-width: 92%;">
             <h3>🚫 屏蔽规则 <span style="font-size:13px;font-weight:normal;color:#888;">当前档：<span id="hiddenRuleProfileLabel">默认</span></span></h3>
-            <p style="color: #666; font-size: 13px; margin-bottom: 4px;">
-                按<strong>名字</strong>屏蔽，命中的频道不会进播放列表。和逐条「隐藏」的区别：隐藏绑的是频道 ID，
-                源换个地址 ID 就变、那条隐藏会失效；规则只看名字，<strong>源换址、频道每天重建都照样生效</strong>。
-            </p>
-            <p style="color: #999; font-size: 12px; margin-bottom: 14px;">只影响当前配置档，删掉规则即恢复。</p>
+            <div class="mode-switcher" style="display:flex;margin-bottom:12px;">
+                <button class="mode-switch-btn active" id="ruleTabBlock" onclick="switchRuleTab('block')">屏蔽</button>
+                <button class="mode-switch-btn" id="ruleTabKeep" onclick="switchRuleTab('keep')">只保留匹配项</button>
+            </div>
+
+            <div id="ruleBlockIntro">
+                <p style="color: #666; font-size: 13px; margin-bottom: 4px;">
+                    按<strong>名字</strong>屏蔽，命中的频道不会进播放列表。和逐条「隐藏」的区别：隐藏绑的是频道 ID，
+                    源换个地址 ID 就变、那条隐藏会失效；规则只看名字，<strong>源换址、频道每天重建都照样生效</strong>。
+                </p>
+                <p style="color: #999; font-size: 12px; margin-bottom: 14px;">只影响当前配置档，删掉规则即恢复。</p>
+            </div>
+
+            <div id="ruleKeepIntro" style="display:none;">
+                <p style="color: #666; font-size: 13px; margin-bottom: 4px;">
+                    勾选的来源<strong>只保留名字命中下面规则的频道</strong>，没命中的不进播放列表，源以后新加的频道也一样。
+                    没勾的来源、以后新装的源不受影响；同一个频道两条都命中时按屏蔽算。
+                </p>
+                <p style="color: #999; font-size: 12px; margin-bottom: 8px;">只影响当前配置档。没勾来源或没有规则时不生效，删掉全部规则即恢复。</p>
+                <div style="font-size: 13px; color: #333; margin-bottom: 6px;">管哪些来源：</div>
+                <div id="keepRuleSourceList" style="max-height: 150px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px;"></div>
+                <div id="keepRuleSummary" style="font-size: 12px; color: #888; margin-bottom: 12px; min-height: 18px; word-break: break-all;"></div>
+            </div>
 
             <div id="hiddenRuleList" style="max-height: 320px; overflow-y: auto; margin-bottom: 14px;"></div>
 
@@ -4572,7 +4590,7 @@
                             <div class="my-playlist-actions" style="flex-wrap: wrap; align-items: center;">
                                 <span style="font-size: 14px; color: #333;">当前档：<strong id="currentProfileLabel">默认</strong></span>
                                 <button class="btn btn-primary" onclick="openProfileModal()" title="管理多套配置档：切换 / 新建 / 改名 / 删除 / 重置">编辑</button>
-                                <button class="btn" onclick="openHiddenRuleModal()" title="按名字长期屏蔽频道：源换地址、频道每天重建都照样生效">🚫 屏蔽规则</button>
+                                <button class="btn" onclick="openHiddenRuleModal()" title="按名字长期屏蔽频道，或让某个来源只保留命中的频道：源换地址、频道每天重建都照样生效">🚫 屏蔽规则</button>
                                 <button class="btn" onclick="openMissingLogoModal()" title="列出当前档里没有台标的频道，点进去就能上传">缺台标</button>
                             </div>
                         </div>
@@ -8062,20 +8080,95 @@
             return out;
         }
 
+        // ===== 只保留匹配项（2026-11-23 Telegram 群）=====
+        // 勾选的来源只留名字命中只保留规则的频道，源以后新加的也一样；没勾的来源不受影响。
+        // 语义与服务端 utils/hiddenRules.js createKeepFilter 逐字一致：没勾来源或没有规则 = 不生效；
+        // 频道的所有来源都在勾选范围内才管（与按档禁用源同一判法）；屏蔽规则优先。
+        let ruleTab = 'block';
+
+        function keepRulesOf() { return normalizeHiddenRulesClient(myPlaylistConfig.keepRules); }
+        function keepSourcesOf() {
+            const list = Array.isArray(myPlaylistConfig.keepRuleSources) ? myPlaylistConfig.keepRuleSources : [];
+            const out = [];
+            for (const id of list) {
+                const v = typeof id === 'string' ? id.trim() : '';
+                if (v && !out.includes(v)) out.push(v);
+            }
+            return out;
+        }
+        function channelInKeepScope(ch, scope) {
+            const ids = Array.isArray(ch.sourceIds) ? ch.sourceIds : [];
+            return scope.length > 0 && ids.length > 0 && ids.every(id => scope.includes(id));
+        }
+
+        // 按给定的规则与来源范围，算勾选来源里保留 / 排除哪些频道（被屏蔽规则挡掉的不算保留）
+        function keepStats(rules, scope) {
+            const blockRules = hiddenRulesOf();
+            const kept = [], excluded = [];
+            let total = 0;
+            for (const group of (myPlaylistOriginalData || [])) {
+                for (const ch of (group.channels || [])) {
+                    if (!channelInKeepScope(ch, scope)) continue;
+                    total++;
+                    const renamed = myPlaylistConfig.channelRenameMap?.[`${group.name}::${ch.id}`];
+                    const names = [ch.name, renamed];
+                    const item = { group: group.name, name: renamed || ch.name };
+                    if (!rules.some(r => hiddenRuleHits(r, names))) excluded.push(item);
+                    else if (!blockRules.some(r => hiddenRuleHits(r, names))) kept.push(item);
+                }
+            }
+            return { total, kept, excluded };
+        }
+
+        function channelsKeptByRule(rule, scope) {
+            const out = [];
+            for (const group of (myPlaylistOriginalData || [])) {
+                for (const ch of (group.channels || [])) {
+                    if (!channelInKeepScope(ch, scope)) continue;
+                    const renamed = myPlaylistConfig.channelRenameMap?.[`${group.name}::${ch.id}`];
+                    if (hiddenRuleHits(rule, [ch.name, renamed])) out.push({ group: group.name, name: renamed || ch.name });
+                }
+            }
+            return out;
+        }
+
+        const channelListText = (items, max, sep) =>
+            items.slice(0, max).map(h => `${h.group} · ${h.name}`).join(sep) + (items.length > max ? `${sep === '\n' ? '\n' : ' '}…另 ${items.length - max} 个` : '');
+
         function openHiddenRuleModal() {
             document.getElementById('hiddenRuleProfileLabel').textContent =
                 (profileList.find(p => p.id === activeProfile) || {}).name || '默认';
             document.getElementById('hiddenRuleValue').value = '';
             document.getElementById('hiddenRulePreview').textContent = '';
-            renderHiddenRules();
+            switchRuleTab(ruleTab);
             document.getElementById('hiddenRuleModal').style.display = 'block';
+            // 来源名映射惰性加载（与配置档弹窗共用）：到手后补上来源名
+            if (!sourceProfileData) loadSourceProfiles().then(() => { if (ruleTab === 'keep') renderKeepRuleSources(); }).catch(() => {});
         }
 
         function closeHiddenRuleModal() {
             document.getElementById('hiddenRuleModal').style.display = 'none';
         }
 
+        function switchRuleTab(tab) {
+            ruleTab = tab === 'keep' ? 'keep' : 'block';
+            document.getElementById('ruleTabBlock').classList.toggle('active', ruleTab === 'block');
+            document.getElementById('ruleTabKeep').classList.toggle('active', ruleTab === 'keep');
+            document.getElementById('ruleBlockIntro').style.display = ruleTab === 'block' ? '' : 'none';
+            document.getElementById('ruleKeepIntro').style.display = ruleTab === 'keep' ? '' : 'none';
+            document.getElementById('hiddenRuleValue').placeholder = ruleTab === 'keep'
+                ? '要保留的频道名或关键字，例如：翡翠台'
+                : '频道名或关键字，例如：购物';
+            renderHiddenRules();
+            previewHiddenRule();
+        }
+
         function renderHiddenRules() {
+            if (ruleTab === 'keep') {
+                renderKeepRuleSources();
+                renderKeepRules();
+                return;
+            }
             const box = document.getElementById('hiddenRuleList');
             if (!box) return;
             const rules = hiddenRulesOf();
@@ -8105,8 +8198,94 @@
             }).join('');
         }
 
+        // 来源清单：只列当前有频道的来源（几十个抓取模块里大多没开），已勾选的即使暂时没频道也列出，免得取消不掉
+        function renderKeepRuleSources() {
+            const box = document.getElementById('keepRuleSourceList');
+            if (!box) return;
+            const scope = keepSourcesOf();
+            const counts = new Map();
+            for (const group of (myPlaylistOriginalData || [])) {
+                for (const ch of (group.channels || [])) {
+                    for (const id of (Array.isArray(ch.sourceIds) ? ch.sourceIds : [])) counts.set(id, (counts.get(id) || 0) + 1);
+                }
+            }
+            const nameMap = {};
+            ((sourceProfileData && sourceProfileData.sources) || []).forEach(s => { nameMap[s.id] = s.name; });
+            const ids = [...new Set([...counts.keys(), ...scope])];
+            const rank = id => id.startsWith('ext:') ? 0 : id.startsWith('bi:') ? 1 : 2;
+            const kind = id => id.startsWith('ext:') ? '自定义源' : id.startsWith('bi:') ? '内置源' : id === 'migu' ? '咪咕' : '模块';
+            const label = id => nameMap[id] || (id === 'migu' ? '咪咕' : id.startsWith('ext:') ? '自定义源（已删除）' : id);
+            ids.sort((a, b) => rank(a) - rank(b) || label(a).localeCompare(label(b), 'zh'));
+            if (!ids.length) {
+                box.innerHTML = '<div style="font-size:12px;color:#bbb;padding:4px 0;">播放列表里还没有带来源标记的频道</div>';
+                renderKeepRuleSummary();
+                return;
+            }
+            box.innerHTML = ids.map(id => {
+                const n = counts.get(id) || 0;
+                return `<label style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" style="width:auto;flex:0 0 auto;margin:0;" ${scope.includes(id) ? 'checked' : ''} onchange="toggleKeepRuleSource(${escapeHtml(JSON.stringify(id))}, this.checked)">
+                    <span style="flex:1;min-width:0;text-align:left;word-break:break-all;">${escapeHtml(label(id))}</span>
+                    <span style="font-size:12px;color:#999;flex-shrink:0;">${kind(id)} · ${n ? n + ' 个频道' : '当前没有频道'}</span>
+                </label>`;
+            }).join('');
+            renderKeepRuleSummary();
+        }
+
+        function renderKeepRuleSummary() {
+            const box = document.getElementById('keepRuleSummary');
+            if (!box) return;
+            const scope = keepSourcesOf();
+            const rules = keepRulesOf();
+            box.style.color = '#888';
+            if (!scope.length) {
+                box.textContent = rules.length
+                    ? `已有 ${rules.length} 条规则，但还没勾选来源，暂不生效。`
+                    : '还没勾选来源。先勾上要管的来源（比如经常加新频道的第三方订阅），再添加要保留的频道名。';
+                return;
+            }
+            const stats = keepStats(rules, scope);
+            if (!rules.length) {
+                box.textContent = `勾选的来源共 ${stats.total} 个频道。还没有规则，暂不生效——添加第一条后，这些来源只保留命中的频道。`;
+                return;
+            }
+            box.style.color = stats.excluded.length ? '#fa8c16' : '#52c41a';
+            box.textContent = `勾选的来源共 ${stats.total} 个频道：保留 ${stats.kept.length} 个，排除 ${stats.excluded.length} 个`
+                + (stats.excluded.length ? `。排除的有：${channelListText(stats.excluded, 12, '，')}` : '');
+        }
+
+        function renderKeepRules() {
+            const box = document.getElementById('hiddenRuleList');
+            if (!box) return;
+            const rules = keepRulesOf();
+            const scope = keepSourcesOf();
+            if (!rules.length) {
+                box.innerHTML = '<div class="system-config-hint" style="margin:0;">还没有只保留规则。在下面填要保留的频道名或关键字，可以加多条，命中任意一条就保留。</div>';
+                return;
+            }
+            box.innerHTML = rules.map((r, i) => {
+                const hits = channelsKeptByRule(r, scope);
+                const label = r.mode === 'exact' ? '整名相同' : '名字包含';
+                const list = hits.length
+                    ? `<div style="font-size:12px;color:#666;margin-top:6px;word-break:break-all;">${hits.slice(0, 12).map(h => `${escapeHtml(h.group)} · ${escapeHtml(h.name)}`).join('　|　')}${hits.length > 12 ? `　…另 ${hits.length - 12} 个` : ''}</div>`
+                    : `<div style="font-size:12px;color:#bbb;margin-top:6px;">${scope.length ? '勾选的来源里当前没有频道命中（以后出现同名频道会保留）' : '还没勾选来源'}</div>`;
+                return `<div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <div style="min-width:0;">
+                            <span style="color:#bbb;font-size:12px;margin-right:6px;">${i + 1}.</span>
+                            <strong style="word-break:break-all;">${escapeHtml(r.value)}</strong>
+                            <span style="font-size:12px;color:#888;margin-left:6px;">${label}</span>
+                            <span style="font-size:12px;color:${hits.length ? '#52c41a' : '#bbb'};margin-left:6px;">保留 ${hits.length} 个</span>
+                        </div>
+                        <button class="btn btn-sm btn-danger" style="flex-shrink:0;" onclick="removeHiddenRule(${i})">删除</button>
+                    </div>
+                    ${list}
+                </div>`;
+            }).join('');
+        }
+
         // 整份 POST 前必须确认配置已从服务端加载成功，否则会把默认空骨架存上去、清掉该档全部自定义
-        async function saveHiddenRules(rules, okMessage) {
+        async function saveRuleConfig(patch, okMessage) {
             if (!myPlaylistConfigLoaded) {
                 await loadMyPlaylistConfig();
                 if (!myPlaylistConfigLoaded) {
@@ -8114,8 +8293,10 @@
                     return false;
                 }
             }
-            const before = myPlaylistConfig.hiddenRules;
-            myPlaylistConfig.hiddenRules = rules;
+            const before = {};
+            for (const key of Object.keys(patch)) before[key] = myPlaylistConfig[key];
+            const rollback = () => Object.assign(myPlaylistConfig, before);   // 存失败就回滚内存，别让界面显示一个没落盘的状态
+            Object.assign(myPlaylistConfig, patch);
             try {
                 const response = await fetch(mpConfigUrl(), {
                     method: 'POST',
@@ -8124,8 +8305,9 @@
                 });
                 const result = await readJsonResponse(response);
                 if (!result.success) {
-                    myPlaylistConfig.hiddenRules = before;   // 存失败就回滚内存，别让界面显示一个没落盘的状态
+                    rollback();
                     showStatus(result.message || '保存失败', 'error');
+                    renderHiddenRules();
                     return false;
                 }
                 await loadMyPlaylist(false);
@@ -8133,10 +8315,36 @@
                 showStatus(okMessage, 'success');
                 return true;
             } catch (error) {
-                myPlaylistConfig.hiddenRules = before;
+                rollback();
                 showStatus('保存失败: ' + error.message, 'error');
+                renderHiddenRules();
                 return false;
             }
+        }
+
+        function saveHiddenRules(rules, okMessage) {
+            return saveRuleConfig({ hiddenRules: rules }, okMessage);
+        }
+
+        async function toggleKeepRuleSource(id, checked) {
+            const scope = keepSourcesOf();
+            const next = checked ? [...scope, id] : scope.filter(x => x !== id);
+            const rules = keepRulesOf();
+            if (checked && rules.length) {
+                // 规则已经在了，勾上这个来源当场就会少一批频道——先摆出来
+                const before = keepStats(rules, scope).excluded.length;
+                const after = keepStats(rules, next);
+                const added = after.excluded.length - before;
+                if (added > 0) {
+                    const name = (((sourceProfileData && sourceProfileData.sources) || []).find(s => s.id === id) || {}).name || id;
+                    const confirmed = await showConfirm(
+                        `勾选「${name}」后，它有 ${added} 个频道没命中只保留规则，将不再出现：\n${channelListText(after.excluded, 15, '\n')}\n\n确定吗？`,
+                        '只保留匹配项'
+                    );
+                    if (!confirmed) { renderKeepRuleSources(); return; }
+                }
+            }
+            await saveRuleConfig({ keepRuleSources: next }, checked ? '已勾选，此来源只保留命中规则的频道' : '已取消勾选，此来源的频道不再受只保留规则限制');
         }
 
         // 边打字边报命中数：「名字包含」很容易一刀切掉一大片，让误伤面在按「添加」之前就可见。
@@ -8146,6 +8354,22 @@
             const value = (document.getElementById('hiddenRuleValue').value || '').trim();
             const mode = document.getElementById('hiddenRuleMode').value === 'exact' ? 'exact' : 'contains';
             if (!value) { box.textContent = ''; return; }
+            if (ruleTab === 'keep') {
+                const scope = keepSourcesOf();
+                if (!scope.length) {
+                    box.style.color = '#999';
+                    box.textContent = '还没勾选来源：规则可以先存着，勾选来源后才生效';
+                    return;
+                }
+                const hits = channelsKeptByRule({ value, mode }, scope);
+                const after = keepStats([...keepRulesOf(), { value, mode }], scope);
+                box.style.color = hits.length ? '#52c41a' : '#999';
+                box.textContent = (hits.length
+                    ? `勾选的来源里命中 ${hits.length} 个：${channelListText(hits, 6, '，')}`
+                    : '勾选的来源里当前没有频道命中（以后出现同名频道会保留）')
+                    + `；添加后保留 ${after.kept.length} 个，排除 ${after.excluded.length} 个`;
+                return;
+            }
             const hits = channelsMatchedByHiddenRule({ value, mode });
             if (!hits.length) {
                 box.style.color = '#999';
@@ -8161,13 +8385,41 @@
             const input = document.getElementById('hiddenRuleValue');
             const value = (input.value || '').trim();
             const mode = document.getElementById('hiddenRuleMode').value === 'exact' ? 'exact' : 'contains';
-            if (!value) { showStatus('请先填写要屏蔽的名字或关键字', 'error'); return; }
+            const keep = ruleTab === 'keep';
+            if (!value) { showStatus(keep ? '请先填写要保留的名字或关键字' : '请先填写要屏蔽的名字或关键字', 'error'); return; }
 
-            const rules = hiddenRulesOf();
+            const rules = keep ? keepRulesOf() : hiddenRulesOf();
             if (rules.some(r => r.mode === mode && r.value.toLowerCase() === value.toLowerCase())) {
                 showStatus('这条规则已经有了', 'info');
                 return;
             }
+
+            if (keep) {
+                const scope = keepSourcesOf();
+                const after = keepStats([...rules, { value, mode }], scope);
+                const before = keepStats(rules, scope);
+                let preview;
+                if (!scope.length) {
+                    preview = '还没勾选来源，这条规则先存着，勾选来源后才生效。';
+                } else if (!rules.length) {
+                    // 第一条规则 = 开关：勾选来源里没命中的当场消失，必须把排除清单摆出来
+                    preview = `这是第一条只保留规则：添加后，勾选的来源只保留 ${after.kept.length} 个频道，排除 ${after.excluded.length} 个。`
+                        + (after.excluded.length ? `\n排除的有：\n${channelListText(after.excluded, 15, '\n')}` : '')
+                        + '\n源以后新加的频道没命中也不会出现。';
+                } else {
+                    const more = after.kept.length - before.kept.length;
+                    preview = more > 0 ? `添加后多保留 ${more} 个频道（共保留 ${after.kept.length} 个）。` : '勾选的来源里当前没有频道命中这条规则，以后出现同名频道会保留。';
+                }
+                const confirmed = await showConfirm(`${preview}\n\n确定添加吗？`, '添加只保留规则');
+                if (!confirmed) return;
+                if (await saveRuleConfig({ keepRules: [...rules, { value, mode }] },
+                    scope.length ? `已添加，勾选的来源保留 ${after.kept.length} 个频道` : '已添加，勾选来源后生效')) {
+                    input.value = '';
+                    document.getElementById('hiddenRulePreview').textContent = '';
+                }
+                return;
+            }
+
             // 先把误伤面摆出来再让用户确认——「名字包含」很容易一刀切掉一大片
             const hits = channelsMatchedByHiddenRule({ value, mode });
             const preview = hits.length
@@ -8183,6 +8435,25 @@
         }
 
         async function removeHiddenRule(index) {
+            if (ruleTab === 'keep') {
+                const rules = keepRulesOf();
+                const rule = rules[index];
+                if (!rule) return;
+                const rest = rules.filter((_, i) => i !== index);
+                const scope = keepSourcesOf();
+                let message;
+                if (!rest.length) {
+                    message = `删掉最后一条只保留规则「${rule.value}」后，勾选来源的频道全部重新出现。确定吗？`;
+                } else {
+                    const lost = keepStats(rest, scope).excluded.length - keepStats(rules, scope).excluded.length;
+                    message = lost > 0
+                        ? `删掉规则「${rule.value}」后，只靠它保留的 ${lost} 个频道将不再出现。确定吗？`
+                        : `确定删掉规则「${rule.value}」吗？`;
+                }
+                if (!await showConfirm(message, '删除只保留规则')) return;
+                await saveRuleConfig({ keepRules: rest }, '已删除规则');
+                return;
+            }
             const rules = hiddenRulesOf();
             const rule = rules[index];
             if (!rule) return;
@@ -10830,7 +11101,9 @@ if(success){
             deletedGroups: [],
             groupRenameMap: {},
             groupSortMode: {},
-            hiddenRules: []   // 按名字长期屏蔽（issue #123）：[{value, mode:'exact'|'contains'}]
+            hiddenRules: [],  // 按名字长期屏蔽（issue #123）：[{value, mode:'exact'|'contains'}]
+            keepRules: [],    // 只保留匹配项：写法同上
+            keepRuleSources: []   // 只保留规则管哪些来源；空 = 不生效
         };
         // 多套 m3u 配置档：当前编辑/查看的档 + 档列表（default 恒在首位）
         let activeProfile = 'default';
@@ -13197,6 +13470,8 @@ if(success){
             // 不能被笼统的「重置隐藏」顺手扫掉；但也不能漏——否则弹窗承诺「频道重新出现」却不出现
             if (resetRules) {
                 myPlaylistConfig.hiddenRules = [];
+                myPlaylistConfig.keepRules = [];
+                myPlaylistConfig.keepRuleSources = [];
                 parts.push('屏蔽规则');
             }
             if (resetOrder) {

@@ -6,7 +6,7 @@ import { printBlue, printGreen, printYellow, printRed } from "./colorOut.js"
 import { enableTvgNormalize, enableDisplayNameUnify, externalLogoBase } from "../config.js"
 import { getCanonicalMap, normalizeKey, normalizeTvgName, getPlaybackChannelIds } from "./channelNormalize.js"
 import { matchKeywordGroup } from "./groupRulesAPI.js"
-import { normalizeHiddenRules, matchHiddenRule } from "./hiddenRules.js"
+import { normalizeHiddenRules, matchHiddenRule, createKeepFilter } from "./hiddenRules.js"
 import { matchSourceFallbackGroup } from "./sourceGroupFallback.js"
 import { collectOptsUntilUrl, renderOpts, needsOpts } from "./channelOpts.js"
 import { stripVolatileParams } from "./urlIdentity.js"
@@ -134,8 +134,10 @@ const DEFAULT_CONFIG = {
   groupRenameMap: {},       // 分组重命名映射 { 原始名: 新名 }
   groupSortMode: {},        // 组内排序模式 { 显示分组名: 'name' }；'name'=按名称自动排序，缺省=手动(channelOrder)
   disabledSources: [],      // 本档禁用的源（issue #29/#68）：['migu' | 'bi:<id>' | 'ext:<id>']，黑名单——新源默认全档可见
-  hiddenRules: []           // 按名字长期屏蔽（issue #123）：[{value, mode:'exact'|'contains'}]，
+  hiddenRules: [],          // 按名字长期屏蔽（issue #123）：[{value, mode:'exact'|'contains'}]，
                             // 与 hiddenChannels 的区别是不绑频道 ID——源换址 / 频道每天重建都照样生效
+  keepRules: [],            // 只保留匹配项：写法同 hiddenRules，勾选来源里没命中的频道不出现（见 hiddenRules.js）
+  keepRuleSources: []       // 只保留规则管哪些来源：['migu' | 'bi:<id>' | 'ext:<id>' | 模块 id]；空 = 只保留规则不生效
 }
 
 // 时效 / 签名参数的剥离（issue #123）在 urlIdentity.js：自定义源经代理转发的频道引用也按它算，见 customSourceProxy.js
@@ -373,6 +375,7 @@ export function collectGroupConflicts(groups, config) {
   config = protectAnnouncementConfig(config)
   const renameMap = config?.groupRenameMap || {}
   const hiddenRules = normalizeHiddenRules(config?.hiddenRules)   // 规整一次，循环内复用
+  const keepFilter = createKeepFilter(config?.keepRules, config?.keepRuleSources)
   const occupiedNames = new Map([['未分组', '__reserved_ungrouped__']])
   const conflicts = []
 
@@ -392,6 +395,8 @@ export function collectGroupConflicts(groups, config) {
       // 却在列表里找不到它（就是 issue #35 那套症状）。
       if (hiddenRules.length > 0
           && matchHiddenRule([channel.name, config?.channelRenameMap?.[channelKey]], hiddenRules)) return false
+      // 被只保留规则排除——同上，与 applyConfig 同源
+      if (keepFilter && keepFilter([channel.name, config?.channelRenameMap?.[channelKey]], channel.sourceIds)) return false
       if (config?.channelGroupMap?.[channelKey]) return false             // 被移动到别的分组
       if (isGroupDeleted(group.name, config?.deletedGroups)) return false // 整组被删除
       // 全部来源被本档禁用（issue #29/#68）——与 applyConfig 的过滤语义一致
@@ -468,6 +473,7 @@ export function applyConfig(groups, config, { hiddenCustomGroups = null } = {}) 
     const resultGroups = {}
     const channelGroupMap = config.channelGroupMap || {}
     const hiddenRules = normalizeHiddenRules(config.hiddenRules)   // 规整一次，循环内复用；无规则时零成本
+    const keepFilter = createKeepFilter(config.keepRules, config.keepRuleSources)   // 不生效时为 null
 
     // EPG 名称规整（#39）/ 统一显示名（#56）共用「归一 key → 规范名」映射；构建一次循环内复用，getCanonicalMap 内部按文件 mtime 缓存
     const canonicalMap = (enableTvgNormalize || enableDisplayNameUnify) ? getCanonicalMap() : null
@@ -495,6 +501,12 @@ export function applyConfig(groups, config, { hiddenCustomGroups = null } = {}) 
       // 规则按名字判，两种情况都盖得住。原始名与改后的显示名任一命中即隐藏——
       // 用户可能照着界面上改过的名字配规则，也可能照着源里的原名配。
       if (hiddenRules.length > 0 && matchHiddenRule([originalName, channel.name], hiddenRules)) {
+        return
+      }
+
+      // 只保留匹配项：勾选来源里的频道，原始名与显示名都没命中任何一条只保留规则就不出现，
+      // 源以后新加的频道也一样。没勾的来源不受影响（判定细节见 hiddenRules.js createKeepFilter）。
+      if (keepFilter && keepFilter([originalName, channel.name], channel.sourceIds)) {
         return
       }
 

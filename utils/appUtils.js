@@ -227,6 +227,7 @@ function interfaceStr(url, headers, urlUserId, urlToken, profile, accessPrefix, 
         config.groupOrder?.length > 0 ||
         config.disabledSources?.length > 0 ||    // 按档禁用源（issue #29/#68）也需触发 applyConfig
         config.hiddenRules?.length > 0 ||        // 按名字长期屏蔽（issue #123）：只配了规则、没有任何其它自定义的档也必须走 applyConfig
+        (config.keepRules?.length > 0 && config.keepRuleSources?.length > 0) ||   // 只保留匹配项：同上
         getKeywordGroupRules().length > 0 ||
         hasSourceFallbackGroups())) {
         printGrey("应用播放列表自定义配置")

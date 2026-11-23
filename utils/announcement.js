@@ -83,6 +83,8 @@ export function protectAnnouncementConfig(input = {}) {
     ...input,
     hiddenChannels: asArray(input.hiddenChannels),
     hiddenRules: asArray(input.hiddenRules),
+    keepRules: asArray(input.keepRules),
+    keepRuleSources: asArray(input.keepRuleSources),
     deletedGroups: asArray(input.deletedGroups),
     groupOrder: asArray(input.groupOrder),
     channelGroupMap: { ...(input.channelGroupMap || {}) },

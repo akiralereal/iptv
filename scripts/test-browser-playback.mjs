@@ -41,6 +41,14 @@ for (const file of ['admin.html', 'player.html']) {
   for (const reason of ['网络不通：部署机器连不上 YouTube', '出口被拦：YouTube 要求人机验证', '未开播：订阅已保留', '需要登录：此直播要求账号年龄验证']) {
     assert.equal(serverReason({response:{code:502, data:reason}}), reason, `${file}: ${reason}`)
   }
+  // hls.js 1.7 对 4xx/5xx 只把 XHR 放在 networkDetails，response.data 为空（#244）
+  const proxyFail = '服务器没取到直播清单（此频道须经服务器转发），请稍后重试'
+  assert.equal(serverReason({response:{code:502}, networkDetails:{responseText:proxyFail}}), proxyFail, `${file}: 502 正文从 XHR 读`)
+  assert.equal(serverReason({response:{code:403}, networkDetails:{responseText:'身份认证失败'}}), '身份认证失败', `${file}: 本机 403 说明`)
+  assert.equal(serverReason({response:{code:403}, networkDetails:{responseText:'<!DOCTYPE html><title>403 Forbidden</title>'}}), '', `${file}: 上游 HTML 拒绝页不显示`)
+  const throwing = { get responseText() { throw new Error('InvalidStateError') } }
+  assert.equal(serverReason({response:{code:502}, networkDetails:throwing}), '', `${file}: 读不到 XHR 正文时不抛`)
+  assert.equal(serverReason({response:{code:502}}), '', `${file}: 没有正文`)
 }
 
 console.log(`网页播放地址测试通过（管理台和独立播放器，共 ${(cases.length + 1) * 2} 项）`)

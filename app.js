@@ -1572,18 +1572,23 @@ async function handleRequest(req, res) {
       if (!proxyMode) logRelayManifest(routeUrl.split('?')[0].replace(/^\//, ''), req, manifest)
       return
     }
+    // 同频道每 5 秒一行——播放器失败后是 100ms 级别的连环重试，逐次打印只会淹没日志。
+    const logManifestFail = (outcome) => {
+      if (!logOncePer(`manifestfail|${failKey}`, 5 * 1000)) return
+      const reason = manifestDiag.reason ? `｜${manifestDiag.reason}` : ''
+      printYellow(`${outcome}: ${routeUrl.split('?')[0]}${reason}`)
+    }
     if (result.proxyHls) {
+      // 必须由服务器转发的频道不能回退 302：地址绑定服务器的出口或 UA，播放器直连只会被上游拒绝。
+      // 播放器那边只看得到 502，真正的上游原因写进日志（#244 以前这里不打日志）。
+      logManifestFail('全代理清单取回失败，回 502')
       res.writeHead(502, { 'Content-Type': 'text/plain;charset=UTF-8', 'Cache-Control': 'no-store' })
-      res.end('当前网络模式要求服务器转发媒体，但直播清单获取失败，请稍后重试')
+      res.end('服务器没取到直播清单（此频道须经服务器转发），请稍后重试')
       return
     }
     // 取清单失败（网络抖动/非 HLS 内容）：回退 302，能跟随跳转的播放器仍可播。
     // 打一行日志：不跟随跳转的播放器此时会播不了，用户排查时能从日志看出走了回退。
-    // 同频道每 5 秒一行——播放器失败后是 100ms 级别的连环重试，逐次打印只会淹没日志。
-    if (logOncePer(`manifestfail|${failKey}`, 5 * 1000)) {
-      const reason = manifestDiag.reason ? `｜${manifestDiag.reason}` : ''
-      printYellow(`清单直出取回失败，回退 302（不跟随跳转的播放器将无法播放）: ${routeUrl.split('?')[0]}${reason}`)
-    }
+    logManifestFail('清单直出取回失败，回退 302（不跟随跳转的播放器将无法播放）')
   }
 
   // 302 成功下发此前全程零日志（issue #98）：播放器拿着旧形态地址回退播放时服务端毫无痕迹。

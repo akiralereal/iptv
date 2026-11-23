@@ -312,6 +312,8 @@ async function cachedScenicDetails(options = {}) {
   }
 }
 
+// 地址 token 绑定服务端取详情时的 UA（换 UA 即 403），只能由服务端取清单。声明 proxyHls 后，
+// 服务端取清单失败会回 502 加中文原因；不声明会回退 302 把播放器跳去官网地址，必然 403（#244）。
 export async function resolveChannel(ref, ctx = {}) {
   try {
     const scenicMatch = /^kankanews-scenic-(\d{4,5})$/.exec(String(ref || ''))
@@ -325,6 +327,7 @@ export async function resolveChannel(ref, ctx = {}) {
         url: detail.url,
         desc: `${definition.name}播放地址获取成功`,
         upstreamHeaders: UPSTREAM_HEADERS,
+        proxyHls: true,
       }
     }
 
@@ -335,6 +338,7 @@ export async function resolveChannel(ref, ctx = {}) {
       url: cached.detail.url,
       desc: `${CHANNEL_BY_ID.get(match[1]).name}播放地址获取成功`,
       upstreamHeaders: UPSTREAM_HEADERS,
+      proxyHls: true,
     }
   } catch (error) {
     return { url: '', desc: `看看新闻链接请求失败：${error?.message || String(error)}` }

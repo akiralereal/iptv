@@ -204,8 +204,13 @@
 
         // 频道入口拿不到地址时回 HTTP 200 + 一行中文原因（#131 定的兼容行为），hls.js 只会报
         // manifestParsingError。把这行原因取出来直接显示（issue #140）；开头的频道 ID 对用户没意义，去掉。
+        // 403 / 404 / 502 这类出错状态，hls.js 不把正文放进 response.data，只给 XHR（networkDetails），
+        // 本机的中文说明要从那里读；上游 CDN 的 HTML 拒绝页照旧不显示（#244）。
         function hlsServerReason(data) {
-            const body = data && data.response && data.response.data;
+            let body = data && data.response && data.response.data;
+            if (typeof body !== 'string') {
+                try { body = data && data.networkDetails && data.networkDetails.responseText; } catch (e) { body = ''; }
+            }
             if (typeof body !== 'string') return '';
             const text = body.trim();
             if (!text || text.length > 300 || text.startsWith('#EXTM3U') || text.startsWith('<')) return '';

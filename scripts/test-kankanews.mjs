@@ -63,7 +63,10 @@ function fixture() {
 
 {
   const f = fixture()
-  assert.equal((await f.resolve()).url, stream('current'), '空频道地址应改从当前节目取流')
+  const first = await f.resolve()
+  assert.equal(first.url, stream('current'), '空频道地址应改从当前节目取流')
+  // 地址绑定服务端 UA：服务端取清单失败时只能回 502，回退 302 让播放器直连必然 403（#244）
+  assert.equal(first.proxyHls, true, '电视频道必须声明全代理')
   assert.deepEqual(f.calls, [CHANNEL_DETAIL_URL, PROGRAM_LIST_URL, PROGRAM_DETAIL_URL])
   assert.equal((await f.resolve(now + 1000)).url, stream('current'))
   assert.equal(f.calls.length, 3, '轮询播放清单应复用解析缓存')
@@ -124,5 +127,17 @@ for (const [mutate, message] of [
   assert.equal((await f.resolve()).url, stream('no-program'))
   assert.deepEqual(f.calls, [CHANNEL_DETAIL_URL], '无节目单频道保留原取流方式')
 }
+{
+  clearCache()
+  const scenic = await resolveChannel('kankanews-scenic-15989', {
+    now, publicKey,
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => ({ code: '1000', result: { limit_time: 180, play_info: [{ id: 15989, title: '陆家嘴', play_url: encrypt(stream('lujiazui')) }] } }),
+    }),
+  })
+  assert.equal(scenic.url, stream('lujiazui'))
+  assert.equal(scenic.proxyHls, true, '景观频道同样必须声明全代理')
+}
 clearCache()
-console.log('✓ 看看新闻当前节目取流、版权状态、上海日期与缓存交接测试通过')
+console.log('✓ 看看新闻当前节目取流、版权状态、上海日期、全代理声明与缓存交接测试通过')

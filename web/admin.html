@@ -4785,7 +4785,6 @@
                 <div class="source-subtabs" role="tablist" aria-label="源管理分类">
                     <button type="button" class="mode-switch-btn" role="tab" aria-selected="false" aria-controls="sourceSub0" onclick="switchSourceTab(0)">自定义源 <span class="source-tab-count" id="sourceTabExternalCount"></span></button>
                     <button type="button" class="mode-switch-btn active" role="tab" aria-selected="true" aria-controls="sourceSub1" onclick="switchSourceTab(1)">内置抓取模块 <span class="source-tab-count" id="sourceTabExtractorCount"></span><span class="attention-dot" data-alert-where="extractors" role="img" hidden></span></button>
-                    <button type="button" class="mode-switch-btn" role="tab" aria-selected="false" aria-controls="sourceSub2" onclick="switchSourceTab(2)">内置源 <span class="source-tab-count" id="sourceTabBuiltInCount"></span></button>
                 </div>
 
                 <!-- ① 自定义源 ------------------------------------------------ -->
@@ -4842,55 +4841,6 @@
                 </div>
                 </div>
 
-                <!-- ③ 内置源 -------------------------------------------------- -->
-                <div class="source-subpanel" id="sourceSub2" role="tabpanel">
-                <div class="source-section">
-                    <div class="source-section-head">
-                        <div>
-                            <div class="source-section-hint">
-                                随程序自带的内容，由维护者策展、不可编辑。每项一个开关，关闭后对应内容不再加载，可能导致频道大幅减少。
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="source-grid">
-                        <div class="source-card static">
-                            <div class="source-card-title">
-                                <span class="name">内置单频道源</span>
-                                <span class="source-badge builtin">内置</span>
-                            </div>
-                            <div class="source-card-desc">自带的抓取型单频道源（当前为 纬来体育，清单随远程配置更新）；关闭后不加载也不抓取，省启动资源</div>
-                            <div class="source-card-foot">
-                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                                    <input type="checkbox" id="cfBuiltInSources" onchange="setContentFlag('enableBuiltInSources', this.checked)">
-                                    启用
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="source-card static">
-                            <div class="source-card-title">
-                                <span class="name">内置订阅源</span>
-                                <span class="source-badge builtin">内置</span>
-                            </div>
-                            <!-- 这里是内置订阅唯一的控制入口：它在「自定义源」那一段刻意不露面
-                                 （随程序自带、由维护者策展，不给用户改名/换序/删除），用户需要的
-                                 只有「要不要它」。所以这个开关必须真的管用 —— 打开时会把它播种
-                                 回来，见 extractorsAPI.setContentFlagAPI 里的 reseed 分支。 -->
-                            <!-- 频道数不写死：精选列表从仓库定时拉取、改了不用发版，写死的数字迟早对不上
-                                 （曾写「约 150」，11-09 实际只剩 20）。由 renderBuiltInSubscriptionCount 按已解析的数量填。 -->
-                            <div class="source-card-desc">自带的精选频道（地方台 / 卫视 / 港台 / 国际等）<span id="cfBuiltInSubscriptionsCount"></span>。定时从仓库更新，不可编辑。</div>
-                            <div class="source-card-foot">
-                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                                    <input type="checkbox" id="cfBuiltInSubscriptions" onchange="setContentFlag('enableBuiltInSubscriptions', this.checked)">
-                                    启用
-                                </label>
-                                <span>关闭后这些频道不再出现在播放列表里，随时可以开回来</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                </div>
             </div>
 
             <div class="panel settings-panel">
@@ -5280,7 +5230,7 @@
         let systemConfig = {};
         let updatingSourceIndex = null; // 记录正在更新的源索引
         let epgConfig = { enabled: true, sources: [] }; // EPG 聚合源配置（issue #38）
-        const sourceTabIndexes = [0, 1, 2];
+        const sourceTabIndexes = [0, 1];
         let selectedSourceTab = 1;
         try {
             const savedSourceTab = localStorage.getItem('iptv-source-tab');
@@ -5882,24 +5832,6 @@
         // 当前在详情弹窗中展示的模块 id；null = 弹窗关闭。
         let selectedExtractorId = null;
 
-        // 内置源开关的回填。**刻意独立于 renderExtractors**：那边有两条提前 return
-        // （拿不到 #extractorList、零模块），走到任何一条都会跳过回填，让后端明明
-        // 开着的开关在界面上显示成「关」——用户看一眼就会去点，一点就真关了。
-        // 内置源现在自成一段、和抓取模块没有从属关系，回填也不该寄生在它的渲染里。
-        function renderContentFlags() {
-            const flags = (extractorsState && extractorsState.contentFlags) || {};
-            const bs = document.getElementById('cfBuiltInSources');
-            if (bs) bs.checked = flags.enableBuiltInSources !== false;
-            const sub = document.getElementById('cfBuiltInSubscriptions');
-            if (sub) sub.checked = flags.enableBuiltInSubscriptions !== false;
-            const tabCount = document.getElementById('sourceTabBuiltInCount');
-            if (tabCount) {
-                const enabledCount = Number(flags.enableBuiltInSources !== false)
-                    + Number(flags.enableBuiltInSubscriptions !== false);
-                tabCount.textContent = `${enabledCount}/2`;
-            }
-        }
-
         // 顶部提示条。也从 renderExtractors 里拆出来，理由同上：零模块时也该看得见。
         function renderExtractorNotice() {
             const box = document.getElementById('extractorNotice');
@@ -6156,7 +6088,7 @@
         // 打开 / 关闭各加一：请求没回来用户就关掉又重开，旧请求的回调不该把新开的弹窗关掉
         let extractorBulkSession = 0;
 
-        /** 快照：模块看 enabled；内置源看 contentFlags，缺省视为开（同 renderContentFlags）。 */
+        /** 快照：模块看 enabled；内置源看 contentFlags，缺省视为开。 */
         function extractorBulkSnapshot(state) {
             const modules = {};
             for (const m of (state && state.modules) || []) modules[m.id] = !!m.enabled;
@@ -6194,14 +6126,13 @@
                         .map(m => ({ kind: 'module', id: m.id, name: m.name || m.id })),
                 }))
                 .filter(section => section.items.length);
-            sections.push({
-                id: '__builtin',
-                title: '内置源',
-                items: [
-                    { kind: 'flag', id: 'enableBuiltInSources', name: '内置单频道源' },
-                    { kind: 'flag', id: 'enableBuiltInSubscriptions', name: '内置订阅源（精选频道）' },
-                ],
-            });
+            // 内置单频道源的清单由远程配置下发，现在是空的（纬来体育改由精选频道里的固定地址提供）：
+            // 空着就不列，免得多一个什么也不管的开关；以后清单里再加源会自动出现。
+            const builtInItems = (builtInConfig.sources || []).length
+                ? [{ kind: 'flag', id: 'enableBuiltInSources', name: '内置单频道源' }]
+                : [];
+            builtInItems.push({ kind: 'flag', id: 'enableBuiltInSubscriptions', name: '内置订阅源（精选频道）' });
+            sections.push({ id: '__builtin', title: '内置源', items: builtInItems });
             return sections;
         }
 
@@ -6469,7 +6400,7 @@
                     if (target) target.focus({ preventScroll: true });
                 }
             }
-            // 同 setContentFlag：「内置订阅源」决定自定义源里「精选频道」是否生效，卡片要跟着重画
+            // 「内置订阅源」决定自定义源里「精选频道」是否生效，卡片要跟着重画
             if (Object.prototype.hasOwnProperty.call(changes.contentFlags, 'enableBuiltInSubscriptions')) renderExternalSources();
         }
 
@@ -6668,7 +6599,6 @@
 
         function renderExtractors() {
             renderExtractorNotice();
-            renderContentFlags();
             // 也得在下面两条提前 return 之前：批量开关弹窗开着时，新状态要换成它的「还原」基准
             syncExtractorBulkBase();
 
@@ -6927,14 +6857,6 @@
                 showStatus(`${m.name} 有未保存的配置改动已被丢弃，请重新填写`, 'error');
             }
             applySaveDirtyMarks();
-        }
-
-        async function setContentFlag(key, on) {
-            applyExtractorResult(await extractorPost({ action: 'contentFlag', key, enabled: on }),
-                on ? '已启用' : '已关闭');
-            // 「内置订阅源」开关同时决定自定义源数据中「精选频道」的实际生效状态，
-            // 不重画的话卡片会继续显示「已启用」，而它的频道其实已经不进播放列表了。
-            if (key === 'enableBuiltInSubscriptions') renderExternalSources();
         }
 
         async function extractorPost(body) {
@@ -8989,16 +8911,7 @@
             return Array.isArray(channels) && channels.length ? channels.length : null;
         }
 
-        // 「内置源 → 内置订阅源」卡片说明里的频道数。总开关关着也照样显示：那是打开后会回来的数量。
-        function renderBuiltInSubscriptionCount() {
-            const el = document.getElementById('cfBuiltInSubscriptionsCount');
-            if (!el) return;
-            const count = builtInSubscriptionChannelCount();
-            el.textContent = count ? `，现有 ${count} 个频道` : '';
-        }
-
         function renderExternalSources() {
-            renderBuiltInSubscriptionCount();
             const externalSourceList = document.getElementById('externalSourceList');
             const detail = document.getElementById('externalDetail');
             const wrap = document.getElementById('externalDetailWrap');
@@ -9012,7 +8925,7 @@
             const sources = externalConfig.sources || [];
             // 内置订阅（精选频道）不在这一段露面：它是随程序自带、由维护者策展的内容，
             // 用户不该改它的名字/分组/刷新间隔，也不该把它删掉或换序 —— 需要的只有
-            // 「要不要它」这一个开关，那个开关在「内置源」分类。
+            // 「要不要它」这一个开关，那个开关在「内置抓取模块 → 批量开关」的「内置源」一节。
             // 注意**只是不渲染，不从数组里摘掉**：externalConfig.sources 的下标是全站的
             // 定位键（还会作为 { action:'update', index } 发给服务端），动数组等于动契约。
             const visible = sources
@@ -14835,8 +14748,8 @@ if(success){
                 if (foundIndex !== -1 && isBuiltInSubscription(externalConfig.sources[foundIndex])) {
                     // 内置订阅（精选频道）在「源管理」里不露面，没有可跳转的卡片。
                     // 它是随程序自带、由维护者策展的内容，本来就不打算让用户编辑。
-                    switchSourceTab(2, false);
-                    showStatus('该频道来自内置订阅源（随程序自带，不可编辑）。如需整体关闭，请到「源管理 → 内置源」', 'error', 6000);
+                    switchSourceTab(1, false);
+                    showStatus('该频道来自自带的精选频道，不可编辑。不想要可以在「我的频道」隐藏，或在「内置抓取模块 → 批量开关」里整体关闭', 'error', 6000);
                 } else if (foundIndex !== -1) {
                     // 展开该源（selectExternalSource 是「一律展开」语义，不会 toggle）
                     selectExternalSource(foundIndex);

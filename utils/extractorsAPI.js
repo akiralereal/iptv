@@ -52,7 +52,7 @@ function readContentFlags() {
 
 /** 这一页能改的全部内容开关（单开关与批量共用），数组顺序即批量写入顺序。咪咕不在此列，见 contentFlagChanges。 */
 const CONTENT_FLAG_KEYS = ['enableBuiltInSources', 'enableBuiltInSubscriptions']
-/** 报错里用的名字，与后台「内置源」两张卡片的标题一致。 */
+/** 报错里用的名字，与后台「批量开关」里「内置源」一节的两项一致。 */
 const CONTENT_FLAG_NAMES = { enableBuiltInSources: '内置单频道源', enableBuiltInSubscriptions: '内置订阅源' }
 
 function fail(error) {

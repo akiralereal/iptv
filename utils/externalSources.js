@@ -671,7 +671,7 @@ function inheritExistingSourceIds(incoming, current) {
 const SERVER_OWNED_KEYS = ['seededBuiltInUrls', 'retiredBuiltInsV1', 'seededDefaultSubscriptions', 'networkShareNameV1']
 
 /**
- * 把内置订阅源**重新**播种回来（用户在「内置源」那一段主动打开开关时调用）。
+ * 把内置订阅源**重新**播种回来（用户在「批量开关」的「内置源」一节主动打开时调用）。
  *
  * 与启动期的 ensureBuiltInSubscriptions 区别在于它**无视 seededBuiltInUrls**：
  * 那个账本的意思是「别自己复活」，而这里是用户明确点了开关说「我要它」——

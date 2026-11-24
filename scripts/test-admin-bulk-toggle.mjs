@@ -124,8 +124,9 @@ function bulkHarness(initialState, { post } = {}) {
   })
   vm.runInContext([
     'var extractorsState = null, extractorBulkBase = null, extractorBulkDraft = null, extractorBulkBusy = false, extractorBulkSession = 0;',
-    // 精选频道的数量从这两份页面副本里读；默认没加载到，提醒里省掉数字
-    'var externalConfig = { sources: [] }, builtInConfig = {};',
+    // 精选频道的数量从这两份页面副本里读；默认没加载到，提醒里省掉数字。
+    // 内置单频道源清单默认有一项，弹窗才列「内置单频道源」（清单为空的情形单独测）
+    "var externalConfig = { sources: [] }, builtInConfig = { sources: [{ id: 'vl-sports' }] };",
     ...[...SHARED_FUNCTIONS, ...BULK_FUNCTIONS].map(functionSource),
   ].join('\n'), context)
   context.extractorsState = initialState
@@ -478,19 +479,24 @@ await check('关内置订阅源的提醒写精选列表实际解析出的数量�
   assert.equal(h.elements.extractorBulkWarning.textContent, '含「内置订阅源」：精选频道将不再出现在播放列表里，随时可以开回来。', '还没拉到就省掉数字，不显示 0')
 })
 
-await check('「内置订阅源」卡片说明按已解析的数量填频道数', () => {
-  const el = { textContent: 'stale' }
-  const context = vm.createContext({ document: { getElementById: id => (id === 'cfBuiltInSubscriptionsCount' ? el : null) } })
-  vm.runInContext([
-    "var builtInConfig = { builtInSubscriptionUrls: ['u'] }, externalConfig = { sources: [{ subscriptionUrl: 'u', parsedChannels: [1, 2, 3] }] };",
-    ...['isBuiltInSubscription', 'builtInSubscriptionChannelCount', 'renderBuiltInSubscriptionCount'].map(functionSource),
-  ].join('\n'), context)
-  context.renderBuiltInSubscriptionCount()
-  assert.equal(el.textContent, '，现有 3 个频道')
-  context.externalConfig = { sources: [] }
-  context.renderBuiltInSubscriptionCount()
-  assert.equal(el.textContent, '', '没有内置订阅时清空，不留旧数字')
-  assert.doesNotMatch(admin, /约 150 个/, '卡片与提醒都不再写死频道数')
+await check('「内置源」页签已撤，两个开关只在批量开关；内置单频道源清单为空时不列这一项，全不选也不碰它', async () => {
+  assert.doesNotMatch(admin, /id="sourceSub2"|switchSourceTab\(2/, '源管理不再有「内置源」页签')
+  assert.doesNotMatch(admin, /function (renderContentFlags|setContentFlag|renderBuiltInSubscriptionCount)\b/, '页签专用的回填 / 开关函数一并删掉')
+  assert.doesNotMatch(admin, /源管理 → 内置源/, '提示不再指向已撤的页签')
+  assert.doesNotMatch(admin, /约 150 个/, '提醒不写死频道数')
+
+  const after = stateOf({}, { enableBuiltInSources: true, enableBuiltInSubscriptions: false })
+  const h = bulkHarness(stateOf(), { post: () => ({ success: true, data: after }) })
+  h.context.builtInConfig = { sources: [] }
+  assert.deepEqual(plain(h.context.extractorBulkSections(stateOf())).find(s => s.id === '__builtin').items,
+    [{ kind: 'flag', id: 'enableBuiltInSubscriptions', name: '内置订阅源（精选频道）' }])
+  h.context.openExtractorBulk()
+  assert.equal(h.section('__builtin').count.textContent, '已选 1/1')
+  assert.equal(h.input('enableBuiltInSources'), undefined)
+  h.context.setExtractorBulkAll(false)
+  assert.equal(h.summary(), '将关闭 10 个', '9 个开着的模块 + 精选频道；没列出的内置单频道源不算')
+  await h.apply()
+  assert.deepEqual(h.posts[0].contentFlags, { enableBuiltInSubscriptions: false }, '没列出的开关不进请求')
 })
 
 const NOTICE = '官方接口曾经只放行辽宁本地网络，请自行辨别。'

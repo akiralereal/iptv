@@ -123,7 +123,7 @@ function applyConfig(systemConfig) {
   const defOn = !blank
   // 咪咕核心（CCTV/卫视抓取 + 体育赛事 + EPG + token刷新）
   enableMigu = systemConfig.enableMigu !== undefined ? systemConfig.enableMigu : parseBool(process.env.menableMigu, defOn)
-  // 内置单频道源（built-in-sources.json：纬来体育/4K卫视等）
+  // 内置单频道源（built-in-sources.json 远程下发；2026-11-24 起清单为空，纬来体育在精选频道里）
   enableBuiltInSources = systemConfig.enableBuiltInSources !== undefined ? systemConfig.enableBuiltInSources : parseBool(process.env.menableBuiltInSources, defOn)
   // 内置订阅源（精选频道）
   enableBuiltInSubscriptions = systemConfig.enableBuiltInSubscriptions !== undefined ? systemConfig.enableBuiltInSubscriptions : parseBool(process.env.menableBuiltInSubscriptions, defOn)

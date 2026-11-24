@@ -168,23 +168,6 @@
             font-size: 12px;
         }
 
-        /* 外部播放器按钮 —— 带品牌色的填充风格 */
-        .player-btn {
-            display: inline-flex;
-            align-items: center;
-            color: #fff;
-            font-weight: 500;
-            border: none;
-        }
-        .player-btn:hover { filter: brightness(1.08); }
-        .player-btn:active { filter: brightness(0.94); }
-        .player-btn-iina       { background: #7B3FF2; }
-        .player-btn-iina:hover { background: #8F5BFF; }
-        .player-btn-vlc        { background: #FF7C00; }
-        .player-btn-vlc:hover  { background: #FF9124; }
-        .player-btn-potplayer       { background: #F5C518; color: #333; }
-        .player-btn-potplayer:hover { background: #FFD53A; }
-
         .btn-primary {
             background: #1890ff;
             color: white;
@@ -2447,9 +2430,6 @@
             --ui-logo-tile: #e9ece8;
             --ui-overlay: rgba(0, 0, 0, .62);
         }
-        /* 品牌色按钮在深色下改成同色系淡底，避免一块亮黄贴在深底上 */
-        :root[data-theme="dark"] #channelDetailModal .player-btn-potplayer { background: rgba(245, 197, 24, .14); color: #f1cd4b; }
-        :root[data-theme="dark"] #channelDetailModal .player-btn-potplayer:hover { background: rgba(245, 197, 24, .22); }
         /* 台标底板深色下仍是浅底（深色字的台标才看得见），底板上的「暂无台标」用深灰字 */
         :root[data-theme="dark"] .channel-detail-logo-preview span { color: #5d645e; }
 
@@ -2613,13 +2593,13 @@
             line-height: 1.2;
             transition: color .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
         }
-        .btn:not(.btn-primary, .btn-success, .btn-danger, .btn-warning, .player-btn),
+        .btn:not(.btn-primary, .btn-success, .btn-danger, .btn-warning),
         .confirm-btn-cancel {
             color: var(--ui-text-secondary);
             border-color: var(--ui-line);
             background: var(--ui-surface-soft);
         }
-        .btn:not(.btn-primary, .btn-success, .btn-danger, .btn-warning, .player-btn):hover:not(:disabled),
+        .btn:not(.btn-primary, .btn-success, .btn-danger, .btn-warning):hover:not(:disabled),
         .confirm-btn-cancel:hover {
             color: var(--ui-text);
             border-color: var(--ui-line-strong);
@@ -4083,12 +4063,6 @@
         }
         .channel-detail-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
         #channelDetailModal .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 9px 14px; font-size: 13px; white-space: nowrap; }
-        #channelDetailModal .player-btn-vlc { background: var(--ui-warning-soft); color: var(--ui-warning); }
-        #channelDetailModal .player-btn-vlc:hover { background: var(--ui-warning-line); }
-        #channelDetailModal .player-btn-iina { background: var(--ui-violet-soft); color: var(--ui-violet); }
-        #channelDetailModal .player-btn-iina:hover { background: var(--ui-violet-line); }
-        #channelDetailModal .player-btn-potplayer { background: #fff8df; color: #816507; }
-        #channelDetailModal .player-btn-potplayer:hover { background: #fff0bb; }
         .channel-detail-buttons svg { flex: 0 0 auto; width: 13px; height: 13px; }
         .channel-detail-field { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 12px; align-items: start; }
         .channel-detail-field + .channel-detail-field { margin-top: 16px; }
@@ -4701,25 +4675,6 @@
             
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeBookmarkletGuide()">关闭</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 非咪咕源播放选项弹窗 -->
-    <div class="modal" id="nonMiguPlayModal">
-        <div class="modal-content" style="width: 460px; max-width: 90%;">
-            <h3 id="nonMiguPlayTitle" style="margin-bottom: 20px;">播放选项</h3>
-            <div style="background: var(--ui-info-soft); border: 1px solid var(--ui-info-line); padding: 16px; border-radius: 6px; margin-bottom: 20px;">
-                <p style="line-height: 1.8; margin: 0; font-size: 14px; color: var(--ui-text-secondary);">
-                    该频道来自外部源，浏览器可能无法直接播放。<br>请选择以下方式使用本地播放器（如 VLC、IINA、PotPlayer）打开：
-                </p>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
-                <button class="btn btn-primary" id="nonMiguCopyBtn" style="width: 100%; padding: 12px; font-size: 15px;">复制频道链接</button>
-                <button class="btn" id="nonMiguDownloadBtn" style="width: 100%; padding: 12px; font-size: 15px; background: #ff6600; color: white; border: none; border-radius: 4px; cursor: pointer;">⬇️ 下载为 .m3u 文件</button>
-            </div>
-            <div style="display: flex; justify-content: flex-end;">
-                <button class="btn" onclick="document.getElementById('nonMiguPlayModal').style.display='none'" style="background: var(--ui-surface-strong); color: var(--ui-text);">取消</button>
             </div>
         </div>
     </div>
@@ -14037,15 +13992,14 @@ if(success){
             `;
         }
 
-        // 普通频道与系统频道共用播放区的布局；系统频道不提供外部播放器入口。
-        function channelDetailPlayback(channel, includeExternalPlayers = true) {
+        // 普通频道与系统频道共用播放区的布局。
+        function channelDetailPlayback(channel) {
             if (!channel.url) return '';
             const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]+$/, '');
             const actualUrl = String(channel.url).replace(/\$\{replace\}/g, baseUrl);
             const urlArg = escapeHtml(JSON.stringify(actualUrl));
             const nameArg = escapeHtml(JSON.stringify(channel.name || ''));
             const playIcon = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M3.5 2.5v11l10-5.5z"/></svg>';
-            const players = includeExternalPlayers ? (PLAYERS_BY_PLATFORM[getClientPlatform()] || []) : [];
             return `
                 <section class="channel-detail-section">
                     <h4>播放地址</h4>
@@ -14053,14 +14007,7 @@ if(success){
                     <div class="channel-detail-buttons">
                         <button class="btn btn-primary" onclick="playInline(${urlArg}, ${nameArg})">${playIcon}在页面里播放</button>
                         <button class="btn" onclick="copyToClipboard(${urlArg}, '播放地址')">复制地址</button>
-                        ${players.map(p => {
-                            const label = p === 'iina' ? 'IINA' : p === 'vlc' ? 'VLC' : 'PotPlayer';
-                            const title = p === 'vlc' ? '下载 .m3u 文件后，在浏览器下载栏点击打开' : `用 ${label} 打开`;
-                            return `<button class="btn player-btn player-btn-${p}" title="${title}" onclick="openInExternalPlayer('${p}', ${urlArg}, ${nameArg})">${playIcon}${label}</button>`;
-                        }).join('')}
                     </div>
-                    ${players.length ? '<p class="channel-detail-help">外部播放器会在当前浏览器所在的设备上打开，请先安装相应播放器。</p>' : ''}
-                    ${players.includes('vlc') ? '<div class="channel-detail-note is-warning"><p><strong>VLC</strong> 会先下载一个 .m3u 文件，请在浏览器下载栏中打开该文件后播放。</p></div>' : ''}
                 </section>
             `;
         }
@@ -14375,7 +14322,7 @@ if(success){
                             <div class="channel-detail-fact channel-detail-fact-wide"><dt>显示状态</dt><dd><span class="channel-detail-badge${isHidden ? ' is-muted' : ''}">${isHidden ? '已隐藏' : '正常显示'}</span></dd></div>
                         </dl>
                     </section>
-                    ${channelDetailPlayback(channel, false)}
+                    ${channelDetailPlayback(channel)}
                     <section class="channel-detail-section">
                         <h4>系统频道</h4>
                         <p class="channel-detail-help">${escapeHtml(SYSTEM_CHANNEL_NOTES[channel.id] || SYSTEM_CHANNEL_NOTES[channel.tvgId] || '项目自带的短片')}。显示时随「公告」分组固定在订阅最前，不支持删除、移动、排序或重命名。不想在电视上显示可以隐藏，随时能在「已隐藏」里恢复。</p>
@@ -14812,42 +14759,6 @@ if(success){
             }
         }
 
-        function previewPlay(actualUrl, playerUrl, channelName, sourceType) {
-            if (sourceType === 'migu') {
-                // 咪咕源：直接浏览器打开播放
-                window.open(actualUrl, '_blank');
-            } else {
-                // 非咪咕源：弹窗提供复制链接或下载m3u
-                showNonMiguPlayModal(actualUrl, channelName);
-            }
-        }
-
-        function showNonMiguPlayModal(url, channelName) {
-            document.getElementById('nonMiguPlayTitle').textContent = '播放 - ' + channelName;
-            const copyBtn = document.getElementById('nonMiguCopyBtn');
-            const downloadBtn = document.getElementById('nonMiguDownloadBtn');
-            copyBtn.onclick = function() {
-                copyToClipboard(url, '频道链接');
-            };
-            downloadBtn.onclick = function() {
-                downloadM3u(url, channelName);
-                document.getElementById('nonMiguPlayModal').style.display = 'none';
-            };
-            document.getElementById('nonMiguPlayModal').style.display = 'block';
-        }
-
-        function downloadM3u(url, channelName) {
-            const m3uContent = '#EXTM3U\n#EXTINF:-1,' + channelName + '\n' + url + '\n';
-            const blob = new Blob([m3uContent], { type: 'audio/x-mpegurl' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = channelName + '.m3u';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-        }
-
         function copyToClipboard(text, label) {
             // 优先使用现代 Clipboard API
             if (navigator.clipboard && window.isSecureContext) {
@@ -14878,86 +14789,6 @@ if(success){
                     console.error('兼容复制失败:', err);
                 }
                 document.body.removeChild(textarea);
-            }
-        }
-
-        // 检测当前浏览器所在平台（决定显示哪些播放器按钮）
-        // 重点：播放器必须运行在"打开管理页面的这台机器"上，与服务端所在平台无关
-        function getClientPlatform() {
-            const ua = (navigator.userAgent || '').toLowerCase();
-            const p = (navigator.platform || '').toLowerCase();
-            if (/mac|iphone|ipad|ipod/.test(p) || /mac os x/.test(ua)) return 'mac';
-            if (/win/.test(p)) return 'win';
-            if (/linux/.test(p)) return 'linux';
-            return 'other';
-        }
-
-        // 各平台可用的播放器清单
-        const PLAYERS_BY_PLATFORM = {
-            mac:   ['vlc', 'iina'],
-            win:   ['vlc', 'potplayer'],
-            linux: ['vlc'],
-            other: ['vlc', 'iina', 'potplayer']
-        };
-
-        // 使用外部播放器打开链接 —— 纯客户端实现
-        // - IINA / PotPlayer：通过自定义 URL scheme 唤起，浏览器首次会弹出"打开应用"确认
-        // - VLC：macOS 没有注册可用的 URL scheme，改为下载一个 .m3u 文件，用户点击即可用 VLC 打开
-        function openInExternalPlayer(player, url, name) {
-            if (!url) {
-                showStatus('播放地址为空', 'error');
-                return;
-            }
-            const label = player === 'iina' ? 'IINA' : player === 'vlc' ? 'VLC' : 'PotPlayer';
-
-            if (player === 'vlc') {
-                // VLC：生成 .m3u 文件触发下载，点击下载项即自动用 VLC 打开（VLC 默认关联 .m3u）
-                try {
-                    const safeName = (name || 'stream').replace(/[\\/:*?"<>|]/g, '_');
-                    const content = `#EXTM3U\n#EXTINF:-1,${name || 'Stream'}\n${url}\n`;
-                    const blob = new Blob([content], { type: 'audio/x-mpegurl' });
-                    const a = document.createElement('a');
-                    const objectUrl = URL.createObjectURL(blob);
-                    a.href = objectUrl;
-                    a.download = `${safeName}.m3u`;
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => {
-                        if (a.parentNode) a.parentNode.removeChild(a);
-                        URL.revokeObjectURL(objectUrl);
-                    }, 100);
-                    showStatus(`已下载 ${safeName}.m3u，点击下载项即可用 VLC 播放`, 'success');
-                } catch (err) {
-                    console.error('生成 .m3u 下载失败:', err);
-                    showStatus('生成 .m3u 文件失败', 'error');
-                }
-                return;
-            }
-
-            // IINA / PotPlayer：自定义 URL scheme
-            let schemeUrl;
-            if (player === 'iina') {
-                schemeUrl = `iina://weblink?url=${encodeURIComponent(url)}`;
-            } else if (player === 'potplayer') {
-                schemeUrl = `potplayer://${url}`;
-            } else {
-                showStatus(`不支持的播放器: ${player}`, 'error');
-                return;
-            }
-
-            try {
-                // 用隐藏 iframe 触发协议，避免当前页面跳转
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = schemeUrl;
-                document.body.appendChild(iframe);
-                setTimeout(() => {
-                    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-                }, 2000);
-                showStatus(`正在用 ${label} 打开：${name || ''}（首次使用请在浏览器弹窗中允许）`, 'success');
-            } catch (err) {
-                console.error('唤起外部播放器失败:', err);
-                showStatus(`唤起 ${label} 失败，请确认本机已安装对应应用`, 'error');
             }
         }
 
@@ -15034,17 +14865,12 @@ if(success){
         // 点击弹窗外部关闭
         document.addEventListener('click', function(event) {
             const detailModal = document.getElementById('channelDetailModal');
-            const nonMiguModal = document.getElementById('nonMiguPlayModal');
             const extractorModal = document.getElementById('extractorDetailModal');
             
             if (event.target === detailModal) {
                 closeChannelDetail();
             }
             
-            if (event.target === nonMiguModal) {
-                nonMiguModal.style.display = 'none';
-            }
-
             if (event.target === extractorModal) {
                 closeExtractorDetailModal();
             }
@@ -15185,9 +15011,9 @@ if(success){
             try {
                 if (/\.flv(?:[?#]|$)/i.test(url)) {
                     await loadScriptOnce('player-assets/mpegts.js', () => window.mpegts);
-                    if (!mpegts.getFeatureList().mseLivePlayback) throw new Error('当前浏览器不支持 FLV 直播，请用 VLC / IINA 打开');
+                    if (!mpegts.getFeatureList().mseLivePlayback) throw new Error('当前浏览器不支持 FLV 直播，请复制地址用播放器打开');
                     const engine = mpegts.createPlayer({ type: 'flv', isLive: true, url }, { enableWorker: false, lazyLoad: false });
-                    engine.on(mpegts.Events.ERROR, (type, detail) => inlinePlayerStatus(`播放失败：${detail || type}，可尝试「新窗口打开」或用 VLC / IINA`, true));
+                    engine.on(mpegts.Events.ERROR, (type, detail) => inlinePlayerStatus(`播放失败：${detail || type}，可尝试「新窗口打开」，或复制地址用播放器打开`, true));
                     engine.attachMediaElement(video);
                     engine.load();
                     inlinePlayerCleanup = () => { engine.pause(); engine.unload(); engine.detachMediaElement(); engine.destroy(); };
@@ -15217,13 +15043,13 @@ if(success){
                             const reason = hlsServerReason(data);
                             if (reason) { inlinePlayerStatus(`播放失败：${reason}`, true); return; }
                             const code = data.response && data.response.code ? ` (HTTP ${data.response.code})` : '';
-                            inlinePlayerStatus(`播放失败：${data.details}${code}，可尝试「新窗口打开」或用 VLC / IINA`, true);
+                            inlinePlayerStatus(`播放失败：${data.details}${code}，可尝试「新窗口打开」，或复制地址用播放器打开`, true);
                         });
                         inlinePlayerCleanup = () => hls.destroy();
                     } else if (!looksHls || video.canPlayType('application/vnd.apple.mpegurl')) {
                         video.src = url;
                     } else {
-                        throw new Error('当前浏览器不支持播放此格式，可尝试「新窗口打开」或用 VLC / IINA');
+                        throw new Error('当前浏览器不支持播放此格式，可尝试「新窗口打开」，或复制地址用播放器打开');
                     }
                 }
                 video.play().catch(() => {});
@@ -15245,7 +15071,7 @@ if(success){
             dialog.addEventListener('close', closeInlinePlayer);            // Esc 关闭时也要释放播放器
             dialog.addEventListener('click', e => { if (e.target === dialog) closeInlinePlayer(); }); // 点遮罩关闭
             video.addEventListener('playing', () => inlinePlayerStatus(''));
-            video.addEventListener('error', () => { if (!inlinePlayerCleanup) inlinePlayerStatus('播放失败，可尝试「新窗口打开」或用 VLC / IINA', true); });
+            video.addEventListener('error', () => { if (!inlinePlayerCleanup) inlinePlayerStatus('播放失败，可尝试「新窗口打开」，或复制地址用播放器打开', true); });
         });
 
         // 页面加载时初始化

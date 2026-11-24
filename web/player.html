@@ -285,7 +285,7 @@
                         type: videoType,
                         customType: {
                             flv: function(video) {
-                                if (!mpegts.getFeatureList().mseLivePlayback) { showError('当前浏览器不支持 FLV，请使用 VLC、IINA 等播放器'); return; }
+                                if (!mpegts.getFeatureList().mseLivePlayback) { showError('当前浏览器不支持 FLV，请复制地址用播放器打开'); return; }
                                 let engine, timer, stable, attempts = 0, closed = false;
                                 const destroy = () => { clearTimeout(stable); if (engine) { const old = engine; engine = null; old.off(mpegts.Events.ERROR, retry); old.off(mpegts.Events.LOADING_COMPLETE, retry); old.destroy(); } };
                                 const retry = () => {
@@ -366,7 +366,7 @@
                 
                 // 播放错误处理
                 dp.on('error', function () {
-                    showError('❌ 播放失败：该频道可能需要使用专业播放器（如VLC、PotPlayer）打开');
+                    showError('❌ 播放失败：该频道可能需要复制地址用播放器打开');
                 });
                 
             } catch (error) {

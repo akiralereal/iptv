@@ -10,6 +10,53 @@
     <link rel="icon" href="favicon.ico?v=2" sizes="16x16 32x32 48x48 64x64" type="image/x-icon">
     <link rel="icon" href="favicon.svg?v=2" sizes="any" type="image/svg+xml">
     <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2" sizes="180x180">
+    <script>
+        // 外观：跟随系统 / 浅色 / 深色，存在本浏览器。放在样式之前跑，深色下打开页面不会先闪一下白。
+        (function () {
+            var media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+            function readPref() {
+                try { var v = localStorage.getItem('iptv-theme'); if (v === 'light' || v === 'dark') return v; } catch (e) {}
+                return 'system';
+            }
+            function apply() {
+                var pref = readPref();
+                var dark = pref === 'dark' || (pref === 'system' && !!(media && media.matches));
+                document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme-pref', pref);
+                var buttons = document.querySelectorAll('[data-theme-choice]');
+                for (var i = 0; i < buttons.length; i++) {
+                    buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-theme-choice') === pref));
+                }
+            }
+            // 页面开着时切换：先停掉过渡动画，否则按钮、卡片各按自己的过渡时长变色，会闪一下深浅混杂的画面
+            function switchNow() {
+                var root = document.documentElement;
+                root.classList.add('theme-switching');
+                apply();
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () { root.classList.remove('theme-switching'); });
+                });
+            }
+            apply();
+            if (media) {
+                if (media.addEventListener) media.addEventListener('change', switchNow);
+                else if (media.addListener) media.addListener(switchNow);
+            }
+            // 另一个标签页切了外观，这边跟着变
+            window.addEventListener('storage', function (e) { if (e.key === 'iptv-theme') switchNow(); });
+            document.addEventListener('DOMContentLoaded', apply);
+            document.addEventListener('click', function (e) {
+                var button = e.target.closest && e.target.closest('[data-theme-choice]');
+                if (!button) return;
+                var pref = button.getAttribute('data-theme-choice');
+                try {
+                    if (pref === 'light' || pref === 'dark') localStorage.setItem('iptv-theme', pref);
+                    else localStorage.removeItem('iptv-theme');
+                } catch (err) {}
+                switchNow();
+            });
+        })();
+    </script>
     <style>
         * {
             margin: 0;
@@ -19,7 +66,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
+            background: var(--ui-surface-soft);
             padding: 20px;
         }
 
@@ -32,7 +79,7 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            background: white;
+            background: var(--ui-surface);
             padding: 8px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
@@ -48,7 +95,7 @@
         .tabs {
             display: flex;
             gap: 8px;
-            border-bottom: 2px solid #f0f0f0;
+            border-bottom: 2px solid var(--ui-line);
             justify-content: space-between;
             align-items: center;
         }
@@ -91,14 +138,14 @@
             border-bottom: 3px solid transparent;
             cursor: pointer;
             font-size: 15px;
-            color: #666;
+            color: var(--ui-text-secondary);
             transition: all 0.3s;
             font-weight: 500;
         }
 
         .tab:hover {
             color: #1890ff;
-            background: #f5f5f5;
+            background: var(--ui-surface-soft);
         }
 
         .tab.active {
@@ -135,7 +182,7 @@
         .player-btn-iina:hover { background: #8F5BFF; }
         .player-btn-vlc        { background: #FF7C00; }
         .player-btn-vlc:hover  { background: #FF9124; }
-        .player-btn-potplayer       { background: #F5C518; color: #222; }
+        .player-btn-potplayer       { background: #F5C518; color: #333; }
         .player-btn-potplayer:hover { background: #FFD53A; }
 
         .btn-primary {
@@ -174,7 +221,7 @@
         }
 
         .panel {
-            background: white;
+            background: var(--ui-surface);
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -183,7 +230,7 @@
         .panel h2 {
             font-size: 18px;
             margin-bottom: 15px;
-            color: #333;
+            color: var(--ui-text);
             border-bottom: 2px solid #1890ff;
             padding-bottom: 8px;
         }
@@ -196,7 +243,7 @@
         }
 
         .category-sidebar {
-            border-right: 2px solid #f0f0f0;
+            border-right: 2px solid var(--ui-line);
             padding-right: 15px;
             overflow-y: auto;
             height: 100%;
@@ -205,22 +252,22 @@
         .category-nav-item {
             padding: 10px 15px;
             margin-bottom: 5px;
-            background: #fafafa;
+            background: var(--ui-surface-soft);
             border-radius: 4px;
             cursor: pointer;
             transition: all 0.3s;
             font-size: 14px;
-            color: #333;
+            color: var(--ui-text);
             border-left: 3px solid transparent;
         }
 
         .category-nav-item:hover {
-            background: #e6f7ff;
+            background: var(--ui-info-soft);
             border-left-color: #40a9ff;
         }
 
         .category-nav-item.active {
-            background: #e6f7ff;
+            background: var(--ui-info-soft);
             border-left-color: #1890ff;
             color: #1890ff;
             font-weight: 600;
@@ -228,7 +275,7 @@
 
         .category-nav-item .count {
             float: right;
-            color: #999;
+            color: var(--ui-subtle);
             font-size: 12px;
         }
 
@@ -245,7 +292,7 @@
 
         .channel-item {
             padding: 12px;
-            background: #fafafa;
+            background: var(--ui-surface-soft);
             border-radius: 4px;
             text-align: center;
             transition: all 0.3s;
@@ -255,7 +302,7 @@
         }
 
         .channel-item:hover {
-            background: #e6f7ff;
+            background: var(--ui-info-soft);
             border-color: #1890ff;
             transform: translateY(-2px);
             box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
@@ -267,11 +314,11 @@
         }
 
         .group {
-            border: 1px solid #d9d9d9;
+            border: 1px solid var(--ui-line-strong);
             border-radius: 4px;
             margin-bottom: 15px;
             padding: 15px;
-            background: #fafafa;
+            background: var(--ui-surface-soft);
         }
 
         .group-header {
@@ -283,7 +330,7 @@
 
         .group-name {
             font-weight: bold;
-            color: #333;
+            color: var(--ui-text);
             font-size: 16px;
         }
 
@@ -306,8 +353,8 @@
 
         .channel-tag {
             padding: 6px 12px;
-            background: white;
-            border: 1px solid #d9d9d9;
+            background: var(--ui-surface);
+            border: 1px solid var(--ui-line-strong);
             border-radius: 4px;
             font-size: 13px;
             display: flex;
@@ -326,7 +373,7 @@
         }
 
         .empty-group {
-            color: #999;
+            color: var(--ui-subtle);
             font-size: 13px;
             font-style: italic;
         }
@@ -338,7 +385,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: var(--ui-overlay);
             z-index: 1000;
         }
 
@@ -347,7 +394,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: white;
+            background: var(--ui-surface);
             padding: 30px;
             border-radius: 8px;
             width: 400px;
@@ -360,7 +407,7 @@
         .modal-content input {
             width: 100%;
             padding: 10px;
-            border: 1px solid #d9d9d9;
+            border: 1px solid var(--ui-line-strong);
             border-radius: 4px;
             margin-bottom: 15px;
         }
@@ -377,13 +424,13 @@
             align-items: flex-start;
             gap: 12px;
             padding: 12px 14px;
-            border: 1px solid #eee;
+            border: 1px solid var(--ui-line);
             border-radius: 8px;
             margin-bottom: 10px;
         }
         .profile-row.active {
             border-color: #1890ff;
-            background: #f0f7ff;
+            background: var(--ui-info-soft);
         }
         .profile-row-actions {
             display: flex;
@@ -396,14 +443,14 @@
         .profile-url {
             margin-top: 4px;
             font-size: 12px;
-            color: #888;
+            color: var(--ui-subtle);
             display: flex;
             align-items: center;
             gap: 6px;
             flex-wrap: wrap;
         }
         .profile-url code {
-            background: #f0f0f0;
+            background: var(--ui-surface-soft);
             padding: 2px 6px;
             border-radius: 3px;
             word-break: break-all;
@@ -438,13 +485,13 @@
         }
 
         .status.success {
-            background: #f6ffed;
+            background: var(--ui-success-soft);
             border: 1px solid #52c41a;
             color: #52c41a;
         }
 
         .status.error {
-            background: #fff2f0;
+            background: var(--ui-danger-soft);
             border: 1px solid #ff4d4f;
             color: #ff4d4f;
         }
@@ -454,8 +501,8 @@
         }
 
         .external-usage {
-            background: #e6f7ff;
-            border: 1px solid #91d5ff;
+            background: var(--ui-info-soft);
+            border: 1px solid var(--ui-info-line);
             border-radius: 6px;
             padding: 12px 16px;
             margin-bottom: 12px;
@@ -472,7 +519,7 @@
         .external-usage ol {
             margin: 0;
             padding-left: 20px;
-            color: #595959;
+            color: var(--ui-text-secondary);
         }
 
         .external-usage li {
@@ -497,7 +544,7 @@
 
         .source-section-hint {
             font-size: 12px;
-            color: #888;
+            color: var(--ui-subtle);
             margin-top: 4px;
             line-height: 1.7;
             max-width: 780px;
@@ -527,7 +574,7 @@
 
         .source-category-desc {
             flex-basis: 100%;
-            color: #999;
+            color: var(--ui-subtle);
             font-size: 12px;
             line-height: 1.6;
         }
@@ -552,8 +599,8 @@
            同一网格里的 ＋ 卡片用 .source-card-add，不进这个下标序列，位置任意。 */
         .external-nav-item {
             padding: 12px 14px;
-            background: #fafafa;
-            border: 1px solid #eee;
+            background: var(--ui-surface-soft);
+            border: 1px solid var(--ui-line);
             border-top: 3px solid transparent;
             border-radius: 6px;
             cursor: pointer;
@@ -565,14 +612,14 @@
         }
 
         .external-nav-item:hover {
-            background: #e6f7ff;
-            border-color: #91d5ff;
+            background: var(--ui-info-soft);
+            border-color: var(--ui-info-line);
             border-top-color: #40a9ff;
         }
 
         .external-nav-item.active {
-            background: #e6f7ff;
-            border-color: #91d5ff;
+            background: var(--ui-info-soft);
+            border-color: var(--ui-info-line);
             border-top-color: #1890ff;
             box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
         }
@@ -580,7 +627,7 @@
         .external-nav-title {
             font-size: 14px;
             font-weight: 600;
-            color: #333;
+            color: var(--ui-text);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -617,8 +664,8 @@
         /* 抓取模块 / 内置源的卡片。与自定义源卡片同尺寸同间距，只是内容不同。 */
         .source-card {
             padding: 12px 14px;
-            background: #fafafa;
-            border: 1px solid #eee;
+            background: var(--ui-surface-soft);
+            border: 1px solid var(--ui-line);
             border-top: 3px solid transparent;
             border-radius: 6px;
             cursor: pointer;
@@ -629,14 +676,14 @@
         }
 
         .source-card:hover {
-            background: #e6f7ff;
-            border-color: #91d5ff;
+            background: var(--ui-info-soft);
+            border-color: var(--ui-info-line);
             border-top-color: #40a9ff;
         }
 
         .source-card.active {
-            background: #e6f7ff;
-            border-color: #91d5ff;
+            background: var(--ui-info-soft);
+            border-color: var(--ui-info-line);
             border-top-color: #1890ff;
             box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
         }
@@ -645,15 +692,15 @@
         .source-card.static,
         .source-card.static:hover {
             cursor: default;
-            background: #fafafa;
-            border-color: #eee;
+            background: var(--ui-surface-soft);
+            border-color: var(--ui-line);
             border-top-color: transparent;
         }
 
         .source-card-title {
             font-size: 14px;
             font-weight: 600;
-            color: #333;
+            color: var(--ui-text);
             display: flex;
             align-items: center;
             gap: 6px;
@@ -677,7 +724,7 @@
             gap: 4px;
             font-size: 12px;
             font-weight: 500;
-            color: #666;
+            color: var(--ui-text-secondary);
             cursor: pointer;
             flex-shrink: 0;
         }
@@ -701,15 +748,15 @@
         .xt-col {
             min-width: 0;
             padding: 12px 14px 4px;
-            background: #fafafa;
-            border: 1px solid #eee;
+            background: var(--ui-surface-soft);
+            border: 1px solid var(--ui-line);
             border-radius: 6px;
         }
 
         .xt-col-title {
             font-size: 13px;
             font-weight: 600;
-            color: #333;
+            color: var(--ui-text);
             margin-bottom: 10px;
         }
 
@@ -728,10 +775,10 @@
             gap: 7px;
             min-width: 0;
             padding: 8px 10px;
-            background: #fff;
-            border: 1px solid #d9d9d9;
+            background: var(--ui-surface);
+            border: 1px solid var(--ui-line-strong);
             border-radius: 6px;
-            color: #444;
+            color: var(--ui-text);
             cursor: pointer;
             transition: border-color .15s, background .15s, color .15s;
         }
@@ -741,8 +788,8 @@
         }
 
         .xt-choice:has(input:checked) {
-            color: #0958d9;
-            background: #e6f4ff;
+            color: var(--ui-link);
+            background: var(--ui-info-soft);
             border-color: #4096ff;
             font-weight: 600;
         }
@@ -756,10 +803,10 @@
         .xt-section {
             margin: 16px 0 10px;
             padding-top: 12px;
-            border-top: 1px solid #f0f0f0;
+            border-top: 1px solid var(--ui-line);
             font-size: 13px;
             font-weight: 600;
-            color: #555;
+            color: var(--ui-text-secondary);
         }
 
         .xt-section:first-child {
@@ -780,14 +827,14 @@
 
         .login-state-badge.on {
             color: #52c41a;
-            background: #f6ffed;
-            border: 1px solid #b7eb8f;
+            background: var(--ui-success-soft);
+            border: 1px solid var(--ui-success-line);
         }
 
         .login-state-badge.off {
-            color: #888;
-            background: #f5f5f5;
-            border: 1px solid #d9d9d9;
+            color: var(--ui-subtle);
+            background: var(--ui-surface-soft);
+            border: 1px solid var(--ui-line-strong);
         }
 
         .card-open-hint {
@@ -797,8 +844,8 @@
             font-weight: 600;
             line-height: 1.6;
             color: #1890ff;
-            background: #e6f7ff;
-            border: 1px solid #91d5ff;
+            background: var(--ui-info-soft);
+            border: 1px solid var(--ui-info-line);
             border-radius: 4px;
             padding: 2px 9px;
             transition: all 0.15s;
@@ -815,9 +862,9 @@
         /* 已展开：降成次要样式，别和「去点开」抢注意力 */
         .source-card.active .card-open-hint,
         .external-nav-item.active .card-open-hint {
-            color: #888;
-            background: #f5f5f5;
-            border-color: #d9d9d9;
+            color: var(--ui-subtle);
+            background: var(--ui-surface-soft);
+            border-color: var(--ui-line-strong);
         }
 
         .source-card.active:hover .card-open-hint,
@@ -834,13 +881,13 @@
 
         .source-card-desc {
             font-size: 12px;
-            color: #888;
+            color: var(--ui-subtle);
             line-height: 1.6;
         }
 
         .source-card-foot {
             font-size: 11px;
-            color: #999;
+            color: var(--ui-subtle);
             margin-top: auto;
             padding-top: 2px;
             display: flex;
@@ -851,9 +898,9 @@
 
         /* ＋ 添加卡片：同格排布，虚线表明「这不是一个源，是入口」 */
         .source-card-add {
-            border: 1px dashed #91d5ff;
+            border: 1px dashed var(--ui-info-line);
             border-radius: 6px;
-            background: #f0f9ff;
+            background: var(--ui-info-soft);
             color: #1890ff;
             display: flex;
             flex-direction: column;
@@ -868,7 +915,7 @@
         }
 
         .source-card-add:hover {
-            background: #e6f7ff;
+            background: var(--ui-info-soft);
             border-color: #1890ff;
         }
 
@@ -880,7 +927,7 @@
         .source-card-add small {
             font-size: 11px;
             font-weight: 400;
-            color: #8c8c8c;
+            color: var(--ui-subtle);
             text-align: center;
             padding: 0 10px;
         }
@@ -891,47 +938,47 @@
             font-size: 11px;
             font-weight: 500;
             border-radius: 3px;
-            background: #f0f0f0;
-            color: #666;
-            border: 1px solid #e0e0e0;
+            background: var(--ui-surface-soft);
+            color: var(--ui-text-secondary);
+            border: 1px solid var(--ui-line);
             flex-shrink: 0;
         }
 
         .source-badge.builtin {
-            background: #f9f0ff;
-            color: #722ed1;
-            border-color: #d3adf7;
+            background: var(--ui-violet-soft);
+            color: var(--ui-violet);
+            border-color: var(--ui-violet-line);
         }
 
         .source-badge.account {
-            background: #fff7e6;
+            background: var(--ui-warning-soft);
             color: #ad4e00;
-            border-color: #ffd591;
+            border-color: var(--ui-warning-line);
         }
 
         .source-badge.live {
-            background: #e6f4ff;
-            color: #0958d9;
-            border-color: #91caff;
+            background: var(--ui-info-soft);
+            color: var(--ui-link);
+            border-color: var(--ui-info-line);
         }
 
         .source-badge.standard {
-            background: #f6ffed;
-            color: #389e0d;
-            border-color: #b7eb8f;
+            background: var(--ui-success-soft);
+            color: var(--ui-success);
+            border-color: var(--ui-success-line);
         }
 
         .source-badge.overseas {
-            background: #fff0f6;
-            color: #c41d7f;
-            border-color: #ffadd2;
+            background: var(--ui-pink-soft);
+            color: var(--ui-pink);
+            border-color: var(--ui-pink-line);
         }
 
         /* 走后台「网络代理」的模块（registry.js 的 outbound: 'proxy'），跟分类角标并排 */
         .source-badge.proxy {
-            background: #e6f4ff;
-            color: #0958d9;
-            border-color: #91caff;
+            background: var(--ui-info-soft);
+            color: var(--ui-link);
+            border-color: var(--ui-info-line);
         }
 
         /* 自定义源的展开详情区。280px 那一栏是使用说明。 */
@@ -964,20 +1011,20 @@
             height: 32px;
             border: 0;
             border-radius: 50%;
-            background: #f5f5f5;
-            color: #666;
+            background: var(--ui-surface-soft);
+            color: var(--ui-text-secondary);
             font-size: 22px;
             line-height: 30px;
             cursor: pointer;
         }
 
         .extractor-modal-close:hover {
-            background: #e8e8e8;
-            color: #222;
+            background: var(--ui-surface-strong);
+            color: var(--ui-text);
         }
 
         .extractor-detail {
-            background: white;
+            background: var(--ui-surface);
             border-radius: 8px;
             padding: 24px;
             max-height: 88vh;
@@ -996,7 +1043,7 @@
 
         .external-nav-meta {
             font-size: 11px;
-            color: #999;
+            color: var(--ui-subtle);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -1012,21 +1059,21 @@
         }
 
         .external-mode-badge.fetch {
-            background: #e6f7ff;
+            background: var(--ui-info-soft);
             color: #1890ff;
-            border: 1px solid #91d5ff;
+            border: 1px solid var(--ui-info-line);
         }
 
         .external-mode-badge.direct {
-            background: #f6ffed;
+            background: var(--ui-success-soft);
             color: #52c41a;
-            border: 1px solid #b7eb8f;
+            border: 1px solid var(--ui-success-line);
         }
 
         .external-mode-badge.subscription {
-            background: #fff7e6;
+            background: var(--ui-warning-soft);
             color: #fa8c16;
-            border: 1px solid #ffd591;
+            border: 1px solid var(--ui-warning-line);
         }
 
         /* 高度随内容走、整张卡跟着页面滚，不设高度上限、不在卡内单独滚动。
@@ -1035,8 +1082,8 @@
            页眉、模式切换、底部按钮栏一占，中间能滚的就剩一小条。
            overflow: hidden 只为裁出圆角（底部即时块是白底直角），卡内没有会溢出的浮层。 */
         .external-detail {
-            background: white;
-            border: 1px solid #e8e8e8;
+            background: var(--ui-surface);
+            border: 1px solid var(--ui-line);
             border-radius: 8px;
             overflow: hidden;
             display: flex;
@@ -1044,8 +1091,8 @@
         }
 
         .external-usage-side {
-            background: #e6f7ff;
-            border: 1px solid #91d5ff;
+            background: var(--ui-info-soft);
+            border: 1px solid var(--ui-info-line);
             border-radius: 6px;
             padding: 12px 16px;
             font-size: 13px;
@@ -1064,7 +1111,7 @@
         .external-usage-side ol {
             margin: 0;
             padding-left: 20px;
-            color: #595959;
+            color: var(--ui-text-secondary);
         }
 
         .external-usage-side li {
@@ -1073,8 +1120,8 @@
 
         .external-detail-header {
             padding: 16px 20px;
-            background: #fafafa;
-            border-bottom: 1px solid #e8e8e8;
+            background: var(--ui-surface-soft);
+            border-bottom: 1px solid var(--ui-line);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -1083,7 +1130,7 @@
         .external-detail-title {
             font-size: 16px;
             font-weight: 600;
-            color: #333;
+            color: var(--ui-text);
         }
 
         .external-detail-body {
@@ -1095,14 +1142,14 @@
            「这一块底下有按钮就必须按按钮；没有按钮的，改一下就已经存好了」。 */
         .external-instant-block {
             padding: 10px 16px 12px;
-            border-top: 1px dashed #e8e8e8;
-            background: #fcfcfc;
+            border-top: 1px dashed var(--ui-line);
+            background: var(--ui-surface-soft);
         }
 
         .external-instant-block > label {
             display: block;
             font-size: 12px;
-            color: #888;
+            color: var(--ui-subtle);
             margin-bottom: 4px;
         }
 
@@ -1113,15 +1160,15 @@
             font-size: 11px;
             font-weight: 500;
             color: #52c41a;
-            background: #f6ffed;
-            border: 1px solid #b7eb8f;
+            background: var(--ui-success-soft);
+            border: 1px solid var(--ui-success-line);
             border-radius: 3px;
         }
 
         .external-detail-footer {
             padding: 16px 20px;
-            background: #fafafa;
-            border-top: 1px solid #e8e8e8;
+            background: var(--ui-surface-soft);
+            border-top: 1px solid var(--ui-line);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -1132,7 +1179,7 @@
             align-items: center;
             justify-content: center;
             height: 100%;
-            color: #999;
+            color: var(--ui-subtle);
             font-size: 14px;
             text-align: center;
         }
@@ -1147,9 +1194,9 @@
         }
 
         .external-item {
-            border: 1px solid #d9d9d9;
+            border: 1px solid var(--ui-line-strong);
             border-radius: 8px;
-            background: white;
+            background: var(--ui-surface);
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             display: flex;
             flex-direction: column;
@@ -1163,8 +1210,8 @@
 
         .external-item-header {
             padding: 12px 16px;
-            background: #f5f5f5;
-            border-bottom: 1px solid #e8e8e8;
+            background: var(--ui-surface-soft);
+            border-bottom: 1px solid var(--ui-line);
             border-radius: 8px 8px 0 0;
             display: flex;
             justify-content: space-between;
@@ -1173,7 +1220,7 @@
 
         .external-item-title {
             font-weight: 600;
-            color: #333;
+            color: var(--ui-text);
             font-size: 14px;
         }
 
@@ -1191,15 +1238,15 @@
         }
 
         .status-badge.enabled {
-            background: #f6ffed;
+            background: var(--ui-success-soft);
             color: #52c41a;
-            border: 1px solid #b7eb8f;
+            border: 1px solid var(--ui-success-line);
         }
 
         .status-badge.disabled {
-            background: #f5f5f5;
-            color: #999;
-            border: 1px solid #d9d9d9;
+            background: var(--ui-surface-soft);
+            color: var(--ui-subtle);
+            border: 1px solid var(--ui-line-strong);
         }
 
         .mode-badge {
@@ -1207,41 +1254,41 @@
             border-radius: 4px;
             font-size: 11px;
             font-weight: 500;
-            background: #e6f7ff;
+            background: var(--ui-info-soft);
             color: #1890ff;
-            border: 1px solid #91d5ff;
+            border: 1px solid var(--ui-info-line);
             margin-left: 8px;
         }
 
         .mode-badge.mode-direct {
-            background: #f6ffed;
+            background: var(--ui-success-soft);
             color: #52c41a;
-            border: 1px solid #b7eb8f;
+            border: 1px solid var(--ui-success-line);
         }
 
         .mode-badge.mode-subscription {
-            background: #fff7e6;
+            background: var(--ui-warning-soft);
             color: #fa8c16;
-            border: 1px solid #ffd591;
+            border: 1px solid var(--ui-warning-line);
         }
 
         .mode-switcher {
             display: flex;
             gap: 8px;
             padding: 12px 16px;
-            background: #fafafa;
-            border-bottom: 1px solid #e8e8e8;
+            background: var(--ui-surface-soft);
+            border-bottom: 1px solid var(--ui-line);
         }
 
         .mode-switch-btn {
             padding: 6px 16px;
-            border: 1px solid #d9d9d9;
-            background: white;
+            border: 1px solid var(--ui-line-strong);
+            background: var(--ui-surface);
             border-radius: 4px;
             font-size: 13px;
             cursor: pointer;
             transition: all 0.3s;
-            color: #666;
+            color: var(--ui-text-secondary);
         }
 
         .mode-switch-btn:hover {
@@ -1264,7 +1311,7 @@
             flex-wrap: wrap;
             margin-bottom: 16px;
             padding-bottom: 14px;
-            border-bottom: 1px solid #e8e8e8;
+            border-bottom: 1px solid var(--ui-line);
         }
         .settings-subpanel,
         .source-subpanel {
@@ -1310,7 +1357,7 @@
         .external-field label {
             display: block;
             font-size: 12px;
-            color: #666;
+            color: var(--ui-text-secondary);
             margin-bottom: 4px;
             font-weight: 500;
         }
@@ -1320,7 +1367,7 @@
         .external-field select {
             width: 100%;
             padding: 8px 10px;
-            border: 1px solid #d9d9d9;
+            border: 1px solid var(--ui-line-strong);
             border-radius: 4px;
             font-size: 13px;
             transition: all 0.3s;
@@ -1342,14 +1389,14 @@
         .form-hint {
             margin-top: 4px;
             font-size: 11px;
-            color: #999;
+            color: var(--ui-subtle);
             line-height: 1.4;
         }
 
         .external-item-footer {
             padding: 12px 16px;
-            background: #fafafa;
-            border-top: 1px solid #e8e8e8;
+            background: var(--ui-surface-soft);
+            border-top: 1px solid var(--ui-line);
             border-radius: 0 0 8px 8px;
             display: flex;
             justify-content: space-between;
@@ -1366,7 +1413,7 @@
             display: flex;
             align-items: center;
             font-size: 12px;
-            color: #666;
+            color: var(--ui-text-secondary);
             cursor: pointer;
         }
 
@@ -1435,7 +1482,7 @@
 
             .category-sidebar {
                 border-right: none;
-                border-bottom: 2px solid #f0f0f0;
+                border-bottom: 2px solid var(--ui-line);
                 padding-right: 0;
                 padding-bottom: 10px;
                 margin-bottom: 15px;
@@ -1466,7 +1513,7 @@
         .system-config-item label {
             display: block;
             font-size: 13px;
-            color: #666;
+            color: var(--ui-text-secondary);
             margin-bottom: 4px;
             font-weight: 500;
         }
@@ -1476,7 +1523,7 @@
         .system-config-item select {
             width: 100%;
             padding: 8px;
-            border: 1px solid #d9d9d9;
+            border: 1px solid var(--ui-line-strong);
             border-radius: 4px;
             font-size: 13px;
         }
@@ -1487,7 +1534,7 @@
 
         .system-config-hint {
             font-size: 12px;
-            color: #888;
+            color: var(--ui-subtle);
             margin-top: 4px;
         }
 
@@ -1495,34 +1542,34 @@
         .group-merge-notice {
             margin: 0 0 12px;
             padding: 9px 14px;
-            background: #fffbe6;
-            border: 1px solid #ffe58f;
+            background: var(--ui-warning-soft);
+            border: 1px solid var(--ui-warning-line);
             border-left: 4px solid #faad14;
             border-radius: 6px;
-            color: #874d00;
+            color: var(--ui-warning);
             font-size: 13px;
             line-height: 1.7;
         }
 
         /* 核心内容开关：默认开启，单独成组并强调谨慎关闭 */
         .content-switches {
-            border: 1px solid #ffccc7;
+            border: 1px solid var(--ui-danger-line);
             border-radius: 8px;
-            background: #fff;
+            background: var(--ui-surface);
             margin-bottom: 20px;
             overflow: hidden;
         }
 
         .content-switches-header {
-            background: #fff1f0;
-            border-bottom: 1px solid #ffccc7;
+            background: var(--ui-danger-soft);
+            border-bottom: 1px solid var(--ui-danger-line);
             padding: 12px 16px;
         }
 
         .content-switches-header .cs-title {
             font-size: 14px;
             font-weight: 600;
-            color: #cf1322;
+            color: var(--ui-danger);
             display: flex;
             align-items: center;
             gap: 6px;
@@ -1530,14 +1577,14 @@
 
         .content-switches-header .cs-tip {
             font-size: 12px;
-            color: #ad6800;
+            color: var(--ui-warning);
             margin-top: 6px;
             line-height: 1.6;
         }
 
         .content-switch-item {
             padding: 14px 16px;
-            border-bottom: 1px solid #f7e0de;
+            border-bottom: 1px solid var(--ui-danger-line);
         }
 
         .content-switch-item:last-child {
@@ -1549,7 +1596,7 @@
             align-items: center;
             font-size: 14px;
             font-weight: 600;
-            color: #333;
+            color: var(--ui-text);
             cursor: pointer;
             margin-bottom: 4px;
         }
@@ -1568,8 +1615,8 @@
         }
 
         .bookmarklet-section {
-            background: #e6f7ff;
-            border: 1px solid #91d5ff;
+            background: var(--ui-info-soft);
+            border: 1px solid var(--ui-info-line);
             border-radius: 6px;
             padding: 16px;
             margin-bottom: 20px;
@@ -1619,7 +1666,7 @@
             justify-content: center;
             width: 28px;
             height: 28px;
-            background: #fff;
+            background: var(--ui-surface);
             border: 2px solid #1890ff;
             border-radius: 50%;
             color: #1890ff;
@@ -1640,7 +1687,7 @@
         .bookmarklet-steps {
             margin-top: 12px;
             font-size: 12px;
-            color: #595959;
+            color: var(--ui-text-secondary);
             line-height: 1.8;
         }
 
@@ -1698,14 +1745,14 @@
             align-items: flex-start;
             gap: 10px;
             padding: 10px 12px;
-            border: 1px solid #e8e8e8;
+            border: 1px solid var(--ui-line);
             border-radius: 6px;
             cursor: pointer;
             transition: background 0.2s;
         }
 
         .reset-option:hover {
-            background: #f5f5f5;
+            background: var(--ui-surface-soft);
         }
 
         .reset-option input[type="checkbox"] {
@@ -1721,12 +1768,12 @@
 
         .reset-option-info strong {
             font-size: 14px;
-            color: #333;
+            color: var(--ui-text);
         }
 
         .reset-option-info span {
             font-size: 12px;
-            color: #999;
+            color: var(--ui-subtle);
         }
 
         .confirm-overlay {
@@ -1736,7 +1783,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
+            background: var(--ui-overlay);
             z-index: 10000;
             justify-content: center;
             align-items: center;
@@ -1747,7 +1794,7 @@
         }
 
         .confirm-dialog {
-            background: white;
+            background: var(--ui-surface);
             border-radius: 8px;
             padding: 24px;
             min-width: 350px;
@@ -1770,13 +1817,13 @@
         .confirm-title {
             font-size: 16px;
             font-weight: 600;
-            color: #333;
+            color: var(--ui-text);
             margin-bottom: 12px;
         }
 
         .confirm-message {
             font-size: 14px;
-            color: #666;
+            color: var(--ui-text-secondary);
             line-height: 1.6;
             margin-bottom: 20px;
         }
@@ -1797,12 +1844,12 @@
         }
 
         .confirm-btn-cancel {
-            background: #f0f0f0;
-            color: #333;
+            background: var(--ui-surface-soft);
+            color: var(--ui-text);
         }
 
         .confirm-btn-cancel:hover {
-            background: #e0e0e0;
+            background: var(--ui-surface-strong);
         }
 
         .confirm-btn-confirm {
@@ -1816,7 +1863,7 @@
 
         /* 我的频道样式 */
         .my-playlist-header {
-            background: white;
+            background: var(--ui-surface);
             padding: 12px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
@@ -1835,17 +1882,17 @@
 
         .my-playlist-info h3 {
             margin: 0;
-            color: #333;
+            color: var(--ui-text);
         }
 
         .my-playlist-info p {
             margin: 0;
-            color: #666;
+            color: var(--ui-text-secondary);
             font-size: 14px;
         }
 
         .my-playlist-info code {
-            background: #f0f0f0;
+            background: var(--ui-surface-soft);
             padding: 2px 6px;
             border-radius: 3px;
             font-family: 'Courier New', monospace;
@@ -1898,9 +1945,9 @@
         .my-playlist-section {
             display: flex;
             flex-direction: column;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--ui-line);
             border-radius: 8px;
-            background: #f9f9f9;
+            background: var(--ui-surface-soft);
             overflow: hidden;
             height: 100%;
         }
@@ -1946,8 +1993,8 @@
         .my-playlist-group-item {
             padding: 8px 12px;
             margin-bottom: 6px;
-            background: white;
-            border: 1px solid #e0e0e0;
+            background: var(--ui-surface);
+            border: 1px solid var(--ui-line);
             border-radius: 4px;
             cursor: pointer;
             transition: all 0.2s;
@@ -1958,7 +2005,7 @@
         }
 
         .my-playlist-group-item:hover {
-            background: #f0f0f0;
+            background: var(--ui-surface-soft);
             border-color: #667eea;
             transform: translateX(2px);
         }
@@ -1970,20 +2017,20 @@
         }
 
         .my-playlist-group-item.deleted {
-            background: #f5f5f5;
-            color: #333;
-            border-color: #ccc;
+            background: var(--ui-surface-soft);
+            color: var(--ui-text);
+            border-color: var(--ui-line-strong);
         }
 
         .my-playlist-group-item.deleted:hover {
-            background: #e8e8e8;
-            color: #000;
+            background: var(--ui-surface-strong);
+            color: var(--ui-text);
         }
 
         .my-playlist-detail-header {
             padding: 15px 20px;
-            background: white;
-            border: 1px solid #e0e0e0;
+            background: var(--ui-surface);
+            border: 1px solid var(--ui-line);
             border-radius: 8px;
             margin-bottom: 15px;
             display: flex;
@@ -1994,7 +2041,7 @@
         .my-playlist-detail-title {
             font-size: 18px;
             font-weight: bold;
-            color: #333;
+            color: var(--ui-text);
         }
 
         .my-playlist-detail-actions button {
@@ -2011,10 +2058,10 @@
         }
 
         .my-playlist-group {
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--ui-line);
             border-radius: 6px;
             padding: 15px;
-            background: #fafafa;
+            background: var(--ui-surface-soft);
         }
 
         .my-playlist-group-header {
@@ -2023,13 +2070,13 @@
             align-items: center;
             margin-bottom: 10px;
             padding-bottom: 10px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid var(--ui-line);
         }
 
         .my-playlist-group-title {
             font-size: 16px;
             font-weight: 600;
-            color: #333;
+            color: var(--ui-text);
         }
 
         .my-playlist-group-actions {
@@ -2050,8 +2097,8 @@
 
         .my-playlist-channel {
             padding: 8px 12px;
-            background: white;
-            border: 1px solid #e0e0e0;
+            background: var(--ui-surface);
+            border: 1px solid var(--ui-line);
             border-radius: 4px;
             font-size: 14px;
             display: flex;
@@ -2085,7 +2132,7 @@
 
         .channel-drag-handle {
             margin-right: 8px;
-            color: #bbb;
+            color: var(--ui-faint);
             cursor: grab;
             -webkit-user-select: none;
             user-select: none;
@@ -2103,7 +2150,7 @@
         }
 
         .my-playlist-channel:hover {
-            background: #f0f8ff;
+            background: var(--ui-surface-soft);
             border-color: #1890ff;
         }
 
@@ -2111,7 +2158,7 @@
            复用项目成功提示的 Ant 绿（#f6ffed/#52c41a）。
            background/border-color 须 !important，否则 :hover 的浅蓝背景会盖掉高亮。 */
         .my-playlist-channel.recently-edited {
-            background: #f6ffed !important;
+            background: var(--ui-success-soft) !important;
             border-color: #52c41a !important;
             box-shadow: 0 0 0 2px rgba(82, 196, 26, 0.35);
             animation: editPulse 1.2s ease-out;
@@ -2126,7 +2173,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            color: #333;
+            color: var(--ui-text);
             font-weight: 500;
         }
 
@@ -2150,9 +2197,9 @@
             font-size: 11px;
             font-weight: normal;
             line-height: 16px;
-            color: #8c8c8c;
-            background: #f5f5f5;
-            border: 1px solid #e8e8e8;
+            color: var(--ui-subtle);
+            background: var(--ui-surface-soft);
+            border: 1px solid var(--ui-line);
             border-radius: 8px;
             vertical-align: middle;
             max-width: 130px;
@@ -2166,9 +2213,9 @@
             padding: 0 5px;
             font-size: 10px;
             line-height: 16px;
-            color: #666;
-            background: #fff;
-            border: 1px solid #ddd;
+            color: var(--ui-text-secondary);
+            background: var(--ui-surface);
+            border: 1px solid var(--ui-line-strong);
             border-radius: 3px;
             cursor: pointer;
         }
@@ -2177,7 +2224,7 @@
             border-color: #1890ff;
         }
         .external-order-btn:disabled {
-            color: #ccc;
+            color: var(--ui-faint);
             cursor: default;
         }
 
@@ -2201,10 +2248,10 @@
             padding: 2px 6px;
             font-size: 12px;
             background: transparent;
-            border: 1px solid #ddd;
+            border: 1px solid var(--ui-line-strong);
             border-radius: 3px;
             cursor: pointer;
-            color: #333;
+            color: var(--ui-text);
         }
 
         .my-playlist-channel-actions button.btn-primary {
@@ -2219,7 +2266,7 @@
         }
 
         .my-playlist-channel-actions button:hover {
-            background: #f5f5f5;
+            background: var(--ui-surface-soft);
         }
 
         /* 频道列表「配对状态」双圆点（issue #62）：左=节目单 右=台标，绿=已匹配 红=未匹配。
@@ -2231,38 +2278,38 @@
         /* 配对状态图例：常驻在频道列表上方 */
         .ch-status-legend {
             display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-            font-size: 12px; color: #8a8a8a; background: #fafafa;
-            border: 1px solid #f0f0f0; border-radius: 6px; padding: 6px 12px; margin-bottom: 10px;
+            font-size: 12px; color: var(--ui-subtle); background: var(--ui-surface-soft);
+            border: 1px solid var(--ui-line); border-radius: 6px; padding: 6px 12px; margin-bottom: 10px;
         }
-        .ch-status-legend b { color: #666; font-weight: 500; }
+        .ch-status-legend b { color: var(--ui-text-secondary); font-weight: 500; }
         .ch-status-legend .seg { display: inline-flex; align-items: center; gap: 5px; }
         .ch-status-legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
         /* 顶部内联订阅地址栏（issue #38：免点编辑即可复制） */
         .subscribe-bar {
             display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-            background: #f0f7ff; border: 1px solid #d6e8ff; border-radius: 6px;
+            background: var(--ui-info-soft); border: 1px solid var(--ui-info-line); border-radius: 6px;
             padding: 8px 12px; margin: 10px 0 0;
         }
         .subscribe-bar .sb-label { font-size: 12px; color: #1890ff; font-weight: 500; white-space: nowrap; }
         .subscribe-bar code {
-            flex: 1; min-width: 160px; font-size: 12px; background: #fff;
-            border: 1px solid #e6e6e6; border-radius: 4px; padding: 4px 8px; color: #444;
+            flex: 1; min-width: 160px; font-size: 12px; background: var(--ui-surface);
+            border: 1px solid var(--ui-line); border-radius: 4px; padding: 4px 8px; color: var(--ui-text);
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         /* 组内不换行；组与组之间靠较宽的间距分开，换行后行首也不会挂一条孤零零的分隔线 */
         .subscribe-bar .sb-group { display: flex; align-items: center; gap: 10px; }
         .subscribe-bar .sb-group-main { flex: 1 1 420px; }
         .subscribe-bar .sb-group-epg { flex: 1 1 260px; max-width: max-content; }
-        .subscribe-bar .sb-sep { font-size: 12px; color: #999; white-space: nowrap; }
-        .subscribe-bar code.sb-epg { flex: 0 1 auto; min-width: 0; color: #666; }
+        .subscribe-bar .sb-sep { font-size: 12px; color: var(--ui-subtle); white-space: nowrap; }
+        .subscribe-bar code.sb-epg { flex: 0 1 auto; min-width: 0; color: var(--ui-text-secondary); }
         .sb-copy {
-            border: 1px solid #1890ff; background: #fff; color: #1890ff;
+            border: 1px solid #1890ff; background: var(--ui-surface); color: #1890ff;
             padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; white-space: nowrap;
         }
-        .sb-copy:hover { background: #e6f2ff; }
-        .sb-copy.sb-copy-muted { border-color: #bbb; color: #666; }
-        .sb-copy.sb-copy-muted:hover { background: #f5f5f5; }
+        .sb-copy:hover { background: var(--ui-info-soft); }
+        .sb-copy.sb-copy-muted { border-color: var(--ui-line-strong); color: var(--ui-text-secondary); }
+        .sb-copy.sb-copy-muted:hover { background: var(--ui-surface-soft); }
 
 
         /* ===== 管理台视觉系统：白灰层次、墨色操作、深灰选中态 ===== */
@@ -2327,7 +2374,84 @@
             --ui-shadow-header: none;
             --ui-shadow-float: 0 24px 70px -24px rgba(20, 30, 22, .25);
             --ui-ring: 0 0 0 3px rgba(40, 113, 79, .16);
+            /* 墨色 / 彩色实底上的字、两档浅灰说明字、链接蓝、提示蓝底、台标底板、弹窗遮罩 */
+            --ui-on-ink: #fff;
+            --ui-on-solid: #fff;
+            --ui-subtle: #8b908c;
+            --ui-faint: #b4b8b5;
+            --ui-link: #2563eb;
+            --ui-link-hover: #1d4ed8;
+            --ui-info-soft: #eef5ff;
+            --ui-info-line: #c9defc;
+            --ui-logo-tile: var(--ui-surface-soft);
+            --ui-overlay: rgba(15, 23, 42, .48);
         }
+
+        /* 深色主题：只换变量值。<head> 里的小脚本按「跟随系统 / 浅色 / 深色」给 <html> 设 data-theme。
+           新写的界面颜色一律用 --ui-* 变量，别再写死 #fff / #333 这类，否则深色下会露白块或看不清字。 */
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --ui-bg: #131513;
+            --ui-surface: #131513;
+            --ui-surface-soft: #1c1f1c;
+            --ui-surface-strong: #262a26;
+            --ui-line: #2b2f2b;
+            --ui-line-strong: #3b403b;
+            --ui-text: #e6e9e5;
+            --ui-text-secondary: #b2b8b3;
+            --ui-muted: #8e958f;
+            --ui-subtle: #7f8680;
+            --ui-ink: #e6e9e5;
+            --ui-ink-hover: #c9cfca;
+            --ui-on-ink: #131513;
+            --ui-selected-bg: #e6e9e5;
+            --ui-selected-hover: #cdd3ce;
+            --ui-selected-text: #131513;
+            --ui-selected-muted: #4c534d;
+            --ui-selected-badge: rgba(0,0,0,.1);
+            --ui-accent: #4fb886;
+            --ui-accent-hover: #72cca0;
+            --ui-accent-soft: rgba(79, 184, 134, .12);
+            --ui-accent-line: rgba(79, 184, 134, .3);
+            --ui-accent-fill: rgba(79, 184, 134, .18);
+            --ui-accent-fill-hover: rgba(79, 184, 134, .26);
+            --ui-cyan: #3fbdc5;
+            --ui-cyan-soft: rgba(63, 189, 197, .12);
+            --ui-cyan-line: rgba(63, 189, 197, .28);
+            --ui-violet: #a68cf2;
+            --ui-violet-soft: rgba(166, 140, 242, .13);
+            --ui-violet-line: rgba(166, 140, 242, .3);
+            --ui-pink: #ec7ba6;
+            --ui-pink-soft: rgba(236, 123, 166, .13);
+            --ui-pink-line: rgba(236, 123, 166, .3);
+            --ui-success: #46c090;
+            --ui-success-soft: rgba(70, 192, 144, .12);
+            --ui-success-line: rgba(70, 192, 144, .28);
+            --ui-warning: #e3a640;
+            --ui-warning-soft: rgba(227, 166, 64, .12);
+            --ui-warning-line: rgba(227, 166, 64, .3);
+            --ui-danger: #f06b76;
+            --ui-danger-soft: rgba(240, 107, 118, .12);
+            --ui-danger-line: rgba(240, 107, 118, .3);
+            --ui-attention-bg: rgba(240, 107, 118, .2);
+            --ui-attention-line: #f06b76;
+            --ui-attention-text: #ff9ea6;
+            --ui-shadow-float: 0 24px 70px -24px rgba(0, 0, 0, .75);
+            --ui-ring: 0 0 0 3px rgba(79, 184, 134, .3);
+            --ui-on-solid: #131513;
+            --ui-faint: #626963;
+            --ui-link: #7aa9ff;
+            --ui-link-hover: #a3c3ff;
+            --ui-info-soft: rgba(110, 160, 255, .12);
+            --ui-info-line: rgba(110, 160, 255, .3);
+            --ui-logo-tile: #e9ece8;
+            --ui-overlay: rgba(0, 0, 0, .62);
+        }
+        /* 品牌色按钮在深色下改成同色系淡底，避免一块亮黄贴在深底上 */
+        :root[data-theme="dark"] #channelDetailModal .player-btn-potplayer { background: rgba(245, 197, 24, .14); color: #f1cd4b; }
+        :root[data-theme="dark"] #channelDetailModal .player-btn-potplayer:hover { background: rgba(245, 197, 24, .22); }
+        /* 台标底板深色下仍是浅底（深色字的台标才看得见），底板上的「暂无台标」用深灰字 */
+        :root[data-theme="dark"] .channel-detail-logo-preview span { color: #5d645e; }
 
         /* 四个主页面高度不同，预留滚动条位置，切换时内容宽度保持一致。 */
         html { background: var(--ui-bg); scrollbar-gutter: stable; }
@@ -2342,7 +2466,7 @@
             line-height: 1.55;
         }
         button, input, select, textarea { font: inherit; }
-        ::selection { color: #fff; background: var(--ui-accent); }
+        ::selection { color: var(--ui-on-solid); background: var(--ui-accent); }
         .container { max-width: 1720px; }
 
         /* 顶栏：品牌、主导航、运维操作各自成组 */
@@ -2430,11 +2554,40 @@
             border: 1px solid var(--ui-ink);
             border-radius: 999px;
             background: var(--ui-ink);
-            color: #fff;
+            color: var(--ui-on-ink);
             font-weight: 600;
             transition: background .16s ease, border-color .16s ease;
         }
-        .restart-btn:hover { color: #fff; border-color: var(--ui-ink-hover); background: var(--ui-ink-hover); }
+        .restart-btn:hover { color: var(--ui-on-ink); border-color: var(--ui-ink-hover); background: var(--ui-ink-hover); }
+        /* 外观切换：跟随系统 / 浅色 / 深色 */
+        .theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after { transition: none !important; }
+        .appearance-toggle {
+            display: inline-flex;
+            flex: 0 0 auto;
+            gap: 2px;
+            padding: 3px;
+            border: 1px solid var(--ui-line);
+            border-radius: 999px;
+            background: var(--ui-surface-soft);
+        }
+        .appearance-toggle button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border: 0;
+            border-radius: 999px;
+            background: transparent;
+            color: var(--ui-muted);
+            cursor: pointer;
+            transition: color .16s ease, background .16s ease, box-shadow .16s ease;
+        }
+        .appearance-toggle button:hover { color: var(--ui-text); }
+        .appearance-toggle button[aria-pressed="true"] { color: var(--ui-text); background: var(--ui-surface); box-shadow: 0 0 0 1px var(--ui-line-strong); }
+        .appearance-toggle button:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
+        .appearance-toggle svg { width: 16px; height: 16px; }
 
         /* 页面容器与标题 */
         .panel {
@@ -2474,11 +2627,11 @@
         }
         .btn-primary,
         .confirm-btn-confirm {
-            color: #fff;
+            color: var(--ui-on-ink);
             border-color: var(--ui-ink);
             background: var(--ui-ink);
         }
-        .btn-primary:hover, .confirm-btn-confirm:hover { color: #fff; border-color: var(--ui-ink-hover); background: var(--ui-ink-hover); }
+        .btn-primary:hover, .confirm-btn-confirm:hover { color: var(--ui-on-ink); border-color: var(--ui-ink-hover); background: var(--ui-ink-hover); }
         .btn-success {
             color: var(--ui-accent-hover);
             border-color: var(--ui-accent-fill-line);
@@ -2491,7 +2644,7 @@
             border-color: var(--ui-danger-line);
             background: var(--ui-danger-soft);
         }
-        .btn-danger:hover { color: #fff; border-color: var(--ui-danger); background: var(--ui-danger); }
+        .btn-danger:hover { color: var(--ui-on-solid); border-color: var(--ui-danger); background: var(--ui-danger); }
         .btn-warning {
             color: #fff;
             border-color: #d68b13;
@@ -2558,7 +2711,7 @@
         .form-modal-body input { margin-bottom: 0; }
         .form-modal-body input[type="checkbox"] { width: auto; min-height: 0; flex: 0 0 auto; padding: 0; }
         .form-modal-actions { margin-top: 18px; }
-        .form-modal input[readonly] { background: var(--ui-surface-strong, #f3f5f7); color: #888; cursor: not-allowed; }
+        .form-modal input[readonly] { background: var(--ui-surface-strong, var(--ui-surface-soft)); color: var(--ui-subtle); cursor: not-allowed; }
         /* 消息推送弹窗：内容多（字段 + 样式预览），限高后内部滚动，按钮固定在底部 */
         .notify-modal-content { width: 620px; max-width: 92%; max-height: 88vh; display: flex; flex-direction: column; padding: 24px 24px 0; }
         .notify-modal-content h3 { margin: 0 32px 14px 0; }
@@ -2567,7 +2720,7 @@
         .notify-modal-body { padding-right: 6px; }
         .notify-modal-body .notify-template-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
         .notify-modal-body .notify-preview { max-width: none; }
-        .notify-modal-actions { flex: 0 0 auto; margin: 0 -24px; padding: 14px 24px; border-top: 1px solid var(--ui-line, #eef1f6); }
+        .notify-modal-actions { flex: 0 0 auto; margin: 0 -24px; padding: 14px 24px; border-top: 1px solid var(--ui-line, var(--ui-line)); }
 
         /* 消息推送：样式选择与预览 */
         .notify-presets { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--ui-text-secondary); }
@@ -2583,7 +2736,7 @@
         .notify-template-option.active { color: var(--ui-selected-text); border-color: var(--ui-selected-bg); background: var(--ui-selected-bg); box-shadow: none; font-weight: 600; }
         .notify-template-option.active small { color: var(--ui-selected-muted); }
         .notify-template-option:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
-        .notify-preview { margin-top: 12px; max-width: 460px; border: 1px solid var(--ui-line); border-radius: 10px; background: #fff; overflow: hidden; font-size: 13px; line-height: 1.7; color: var(--ui-text); }
+        .notify-preview { margin-top: 12px; max-width: 460px; border: 1px solid var(--ui-line); border-radius: 10px; background: var(--ui-surface); overflow: hidden; font-size: 13px; line-height: 1.7; color: var(--ui-text); }
         .notify-preview-label { padding: 6px 12px; font-size: 11.5px; color: var(--ui-muted); background: var(--ui-surface-soft); border-bottom: 1px solid var(--ui-line); }
         .notify-preview-text { margin: 0; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; font-family: inherit; }
         .notify-preview-card-head { padding: 10px 12px; color: #fff; font-weight: 600; }
@@ -2592,7 +2745,7 @@
         .notify-preview-card-head.green { background: #34c724; }
         .notify-preview-card-body { padding: 10px 12px; display: grid; gap: 8px; }
         .notify-preview-card-body p { margin: 0; white-space: pre-wrap; word-break: break-word; }
-        .notify-preview-card-note { padding: 0 12px 10px; font-size: 12px; color: #8f959e; }
+        .notify-preview-card-note { padding: 0 12px 10px; font-size: 12px; color: var(--ui-subtle); }
 
         /* 表单控件 */
         input[type="text"], input[type="number"], input[type="password"], input[type="url"],
@@ -2628,13 +2781,13 @@
             outline: none;
             border-color: var(--ui-accent);
             box-shadow: var(--ui-ring);
-            background: #fff;
+            background: var(--ui-surface);
         }
-        input::placeholder, textarea::placeholder { color: #a6afbd; }
+        input::placeholder, textarea::placeholder { color: var(--ui-faint); }
         code {
             border-radius: 6px;
             background: var(--ui-surface-strong);
-            color: #39445a;
+            color: var(--ui-text);
         }
 
         /* 顶层与设置页的次级切换 */
@@ -2950,7 +3103,7 @@
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
         }
-        .channel-detail-hint, .channel-drag-handle { color: #a0a69f; }
+        .channel-detail-hint, .channel-drag-handle { color: var(--ui-subtle); }
         .channel-drag-handle { margin-right: 6px; }
         .ch-status { margin-right: 7px; gap: 3px; }
         .ch-status .dot { width: 6px; height: 6px; }
@@ -3054,7 +3207,7 @@
             padding: 5px 11px;
             border: 1px solid var(--ui-line);
             border-radius: 7px;
-            background: #fff;
+            background: var(--ui-surface);
             color: var(--ui-text-secondary);
             font-size: 12px;
             font-weight: 500;
@@ -3088,7 +3241,7 @@
             padding: 8px 13px;
             border: 1px solid var(--ui-line);
             border-radius: 8px;
-            background: #fff;
+            background: var(--ui-surface);
             color: var(--ui-text-secondary);
             font-size: 13px;
             font-weight: 600;
@@ -3122,16 +3275,16 @@
             gap: 12px;
             border: 1px solid var(--ui-line);
             border-radius: 12px;
-            background: #fff;
+            background: var(--ui-surface);
             box-shadow: none;
             transition: background .16s ease, border-color .16s ease;
         }
         .source-card:hover,
-        .external-nav-item:hover { border-color: var(--ui-line-strong); background: #fff; box-shadow: none; }
+        .external-nav-item:hover { border-color: var(--ui-line-strong); background: var(--ui-surface); box-shadow: none; }
         .source-card.active,
         .external-nav-item.active { border-color: var(--ui-selected-bg); background: var(--ui-surface-strong); box-shadow: none; }
         .source-card.static,
-        .source-card.static:hover { border-color: var(--ui-line); background: #fff; box-shadow: none; }
+        .source-card.static:hover { border-color: var(--ui-line); background: var(--ui-surface); box-shadow: none; }
         /* 已关闭仍可点开：虚线边框和明确文字同时标记停用状态。 */
         .source-card.is-off { border-style: dashed; border-color: var(--ui-line-strong); }
         .source-card.is-off.active { border-color: var(--ui-selected-bg); }
@@ -3146,7 +3299,7 @@
             box-shadow: inset 4px 0 0 var(--ui-attention-line);
         }
         .source-card.needs-attention .credential-flag { color: var(--ui-attention-text); font-weight: 650; }
-        .source-card.needs-attention .source-card-foot { color: #7b424a; }
+        .source-card.needs-attention .source-card-foot { color: var(--ui-danger); }
         /* 顶部提醒条：有异常（error）为红，只有提醒（warning）为橙 */
         .alert-bar {
             display: flex;
@@ -3172,7 +3325,7 @@
             border: 1px solid var(--ui-danger);
             border-radius: 8px;
             background: var(--ui-danger);
-            color: #fff;
+            color: var(--ui-on-solid);
             font-size: 12px;
             font-weight: 600;
             white-space: nowrap;
@@ -3223,7 +3376,7 @@
             height: 21px;
             margin: 0;
             border-radius: 999px;
-            background: #d5d8d7 radial-gradient(circle, #fff 0 7.5px, transparent 8px) no-repeat left center / 21px 21px;
+            background: var(--ui-line-strong) radial-gradient(circle, #fff 0 7.5px, transparent 8px) no-repeat left center / 21px 21px;
             cursor: pointer;
             transition: background-color .18s ease, background-position .18s ease;
         }
@@ -3239,7 +3392,7 @@
         .source-card:hover .card-open-hint,
         .external-nav-item:hover .card-open-hint { color: #fff; border-color: var(--ui-text); background: var(--ui-text); }
         .source-card.active .card-open-hint,
-        .external-nav-item.active .card-open-hint { color: var(--ui-text); border-color: var(--ui-line-strong); background: #fff; }
+        .external-nav-item.active .card-open-hint { color: var(--ui-text); border-color: var(--ui-line-strong); background: var(--ui-surface); }
         .source-card.active:hover .card-open-hint,
         .external-nav-item.active:hover .card-open-hint { color: #fff; border-color: var(--ui-text); background: var(--ui-text); }
         .source-card-add { min-height: 154px; padding: 18px; gap: 7px; border: 1px dashed var(--ui-line-strong); border-radius: 12px; background: var(--ui-surface-soft); color: var(--ui-text-secondary); font-weight: 500; }
@@ -3258,7 +3411,7 @@
         }
         .status-badge.enabled, .login-state-badge.on, .instant-badge { color: var(--ui-success); border-color: var(--ui-success-line); background: var(--ui-success-soft); }
         .status-badge.disabled, .login-state-badge.off { color: var(--ui-muted); border-color: var(--ui-line); background: var(--ui-surface-strong); }
-        .external-order-btn { min-width: 25px; min-height: 24px; color: var(--ui-muted); border: 1px solid var(--ui-line); border-radius: 5px; background: #fff; }
+        .external-order-btn { min-width: 25px; min-height: 24px; color: var(--ui-muted); border: 1px solid var(--ui-line); border-radius: 5px; background: var(--ui-surface); }
         .external-order-btn:hover:not(:disabled) { color: var(--ui-text); border-color: var(--ui-line-strong); background: var(--ui-surface-soft); }
         .source-card-foot [style*="#52c41a"],
         .external-nav-meta > [style*="#52c41a"],
@@ -3269,7 +3422,7 @@
         /* 展开的源配置与帮助块：灰色分区标题、白色表单，延续卡片层级。 */
         .external-detail-wrap { gap: 20px; margin-top: 22px; min-width: 0; }
         .external-detail,
-        .external-item { min-width: 0; border: 1px solid var(--ui-line); border-radius: 12px; background: #fff; box-shadow: none; }
+        .external-item { min-width: 0; border: 1px solid var(--ui-line); border-radius: 12px; background: var(--ui-surface); box-shadow: none; }
         .external-item:hover { border-color: var(--ui-line-strong); box-shadow: none; transform: none; }
         .external-detail-header,
         .external-item-header { gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--ui-line); border-radius: 12px 12px 0 0; background: var(--ui-surface-soft); }
@@ -3277,10 +3430,10 @@
         .external-detail-body, .external-item-body { padding: 20px; }
         .external-detail-footer,
         .external-item-footer { gap: 14px; flex-wrap: wrap; padding: 14px 20px; border-top: 1px solid var(--ui-line); background: var(--ui-surface-soft); }
-        .external-instant-block { padding: 14px 20px; border-top-color: var(--ui-line); background: #fff; }
+        .external-instant-block { padding: 14px 20px; border-top-color: var(--ui-line); background: var(--ui-surface); }
         .external-instant-block > label, .external-field label { color: var(--ui-text-secondary); }
         .form-hint { color: var(--ui-muted); }
-        .external-detail .mode-switcher { padding: 8px 12px; background: #fff; }
+        .external-detail .mode-switcher { padding: 8px 12px; background: var(--ui-surface); }
         .external-detail .mode-switch-btn { border-radius: 6px; }
         .external-detail .mode-switch-btn.active { border-color: var(--ui-selected-bg); background: var(--ui-selected-bg); color: var(--ui-selected-text); box-shadow: none; }
         .external-detail .mode-switch-btn.active:hover { background: var(--ui-selected-hover); color: var(--ui-selected-text); }
@@ -3305,7 +3458,7 @@
         .extractor-channel-group + .extractor-channel-group { margin-top: 10px; }
         .extractor-channel-group-name { margin-bottom: 6px; color: var(--ui-text-secondary); font-size: 12px; }
         .extractor-channel-chips { display: flex; flex-wrap: wrap; gap: 5px; }
-        .extractor-channel-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 8px; border: 1px solid var(--ui-line); border-radius: 5px; background: #fff; color: var(--ui-text-secondary); font-size: 12px; }
+        .extractor-channel-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 8px; border: 1px solid var(--ui-line); border-radius: 5px; background: var(--ui-surface); color: var(--ui-text-secondary); font-size: 12px; }
         button.extractor-channel-chip { margin: 0; font: inherit; font-size: 12px; line-height: inherit; cursor: pointer; }
         button.extractor-channel-chip:hover,
         button.extractor-channel-chip:focus-visible { border-color: var(--ui-accent); color: var(--ui-accent); }
@@ -3345,8 +3498,8 @@
         .settings-panel .settings-subtabs > .mode-switch-btn:hover { color: var(--ui-text); background: transparent; }
         .settings-panel .settings-subtabs > .mode-switch-btn.active { color: var(--ui-text); border-bottom-color: var(--ui-text); font-weight: 650; background: transparent; }
         .settings-panel .settings-subtabs > .mode-switch-btn:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -3px; }
-        .settings-panel .btn-success, .form-modal .btn-success, #notifyModal .btn-success { color: #fff; border-color: var(--ui-ink); background: var(--ui-ink); box-shadow: none; }
-        .settings-panel .btn-success:hover:not(:disabled), .form-modal .btn-success:hover:not(:disabled), #notifyModal .btn-success:hover:not(:disabled) { color: #fff; border-color: var(--ui-ink-hover); background: var(--ui-ink-hover); }
+        .settings-panel .btn-success, .form-modal .btn-success, #notifyModal .btn-success { color: var(--ui-on-ink); border-color: var(--ui-ink); background: var(--ui-ink); box-shadow: none; }
+        .settings-panel .btn-success:hover:not(:disabled), .form-modal .btn-success:hover:not(:disabled), #notifyModal .btn-success:hover:not(:disabled) { color: var(--ui-on-ink); border-color: var(--ui-ink-hover); background: var(--ui-ink-hover); }
         .system-config-grid { gap: 18px 24px; margin-bottom: 22px; }
         .system-config-item { min-width: 0; padding: 18px; border: 1px solid var(--ui-line); border-radius: 12px; background: var(--ui-surface); box-shadow: none; }
         .system-config-item label { margin-bottom: 8px; color: var(--ui-text); font-size: 13px; font-weight: 500; }
@@ -3410,7 +3563,7 @@
         .settings-backup > div:first-child { color: var(--ui-text) !important; font-size: 17px !important; font-weight: 600 !important; }
         #configImportFile { width: 100%; min-width: 0; }
         .user-guide-card { padding: 14px 16px !important; border-color: var(--ui-line) !important; border-radius: 10px !important; background: var(--ui-surface-soft) !important; color: var(--ui-text-secondary) !important; }
-        .settings-panel a:not(.btn) { color: #2563eb; text-decoration: none; }
+        .settings-panel a:not(.btn) { color: var(--ui-link); text-decoration: none; }
         .settings-panel a:not(.btn):hover { text-decoration: underline; }
         .settings-panel #userPassWarning { border: 1px solid var(--ui-warning-line) !important; border-radius: 10px !important; background: var(--ui-warning-soft) !important; color: var(--ui-warning) !important; }
         .settings-panel .system-config-hint[style*="#d4380d"] { padding: 10px 12px; border-radius: 9px; color: var(--ui-warning) !important; background: var(--ui-warning-soft); }
@@ -3436,12 +3589,12 @@
         .content-switches {
             border-color: var(--ui-danger-line);
             border-radius: var(--ui-radius-card);
-            background: #fff;
+            background: var(--ui-surface);
         }
         .content-switches-header { padding: 15px 18px; border-bottom-color: var(--ui-danger-line); background: var(--ui-danger-soft); }
         .content-switches-header .cs-title { color: var(--ui-danger); }
         .content-switches-header .cs-tip { color: var(--ui-text-secondary); }
-        .content-switch-item { padding: 15px 18px; border-bottom-color: #f7e1e4; }
+        .content-switch-item { padding: 15px 18px; border-bottom-color: var(--ui-danger-line); }
         .content-switch-item > label { color: var(--ui-text); }
         .bookmarklet-section {
             padding: 18px;
@@ -3470,16 +3623,16 @@
         .profile-row { padding: 15px; border-color: var(--ui-line); border-radius: 13px; }
         .profile-row.active { border-color: var(--ui-selected-bg); background: var(--ui-surface-strong); }
         .profile-url { color: var(--ui-muted); }
-        .profile-url code { background: rgba(255,255,255,.85); }
+        .profile-url code { background: var(--ui-surface); }
         .btn.save-dirty { box-shadow: 0 0 0 3px rgba(214,139,19,.18); }
         .btn.save-dirty::before { color: #d68b13; }
 
         /* 弹窗和页内播放器是全站唯一保留明显阴影的层级 */
-        .modal, .confirm-overlay { background: rgba(15, 23, 42, .48); }
+        .modal, .confirm-overlay { background: var(--ui-overlay); }
         .modal-content,
         .confirm-dialog {
             padding: 27px 29px;
-            border: 1px solid rgba(203,213,225,.9);
+            border: 1px solid var(--ui-line);
             border-radius: 20px;
             background: var(--ui-surface);
             box-shadow: var(--ui-shadow-float);
@@ -3521,7 +3674,7 @@
             background: var(--ui-surface);
             box-shadow: var(--ui-shadow-float);
         }
-        .prompt-dialog::backdrop { background: rgba(15, 23, 42, .48); }
+        .prompt-dialog::backdrop { background: var(--ui-overlay); }
         #confirmOverlay {
             width: 100%;
             height: 100%;
@@ -3532,7 +3685,7 @@
             border: 0;
             background: transparent;
         }
-        #confirmOverlay::backdrop { background: rgba(15, 23, 42, .48); }
+        #confirmOverlay::backdrop { background: var(--ui-overlay); }
         .prompt-dialog .confirm-title { margin: 0 0 20px; font-size: 18px; }
         .prompt-dialog input {
             display: block;
@@ -3557,7 +3710,7 @@
         .extractor-modal-content { padding: 0; }
         .extractor-modal-close { top: 14px; right: 15px; background: var(--ui-surface-strong); color: var(--ui-text-secondary); }
         .extractor-modal-close:hover { background: var(--ui-accent-soft); color: var(--ui-accent); }
-        .extractor-detail { padding: 27px; border-radius: 20px; background: #fff; }
+        .extractor-detail { padding: 27px; border-radius: 20px; background: var(--ui-surface); }
         /* 模块详情沿用白灰表面与深色主操作，登录状态继续保留各自语义色。 */
         #extractorDetail .bookmarklet-section {
             border-color: var(--ui-line-strong);
@@ -3573,20 +3726,20 @@
         #extractorDetail .bookmarklet-actions { flex-wrap: wrap; }
         #extractorDetail .bookmarklet-link,
         #extractorDetail .btn-success {
-            color: #fff;
+            color: var(--ui-on-ink);
             border-color: var(--ui-ink);
             background: var(--ui-ink);
         }
         #extractorDetail .bookmarklet-link:hover,
         #extractorDetail .btn-success:hover:not(:disabled) {
-            color: #fff;
+            color: var(--ui-on-ink);
             border-color: var(--ui-ink-hover);
             background: var(--ui-ink-hover);
         }
-        #extractorDetail .bookmarklet-actions > a:not(.bookmarklet-link) { color: #2563eb; text-underline-offset: 3px; }
-        #extractorDetail .bookmarklet-actions > a:not(.bookmarklet-link):hover { color: #1d4ed8; }
+        #extractorDetail .bookmarklet-actions > a:not(.bookmarklet-link) { color: var(--ui-link); text-underline-offset: 3px; }
+        #extractorDetail .bookmarklet-actions > a:not(.bookmarklet-link):hover { color: var(--ui-link-hover); }
         #extractorDetail .bookmarklet-help-btn { border-color: var(--ui-line-strong); color: var(--ui-text-secondary); }
-        #extractorDetail .bookmarklet-help-btn:hover { border-color: var(--ui-ink); background: var(--ui-ink); color: #fff; }
+        #extractorDetail .bookmarklet-help-btn:hover { border-color: var(--ui-ink); background: var(--ui-ink); color: var(--ui-on-ink); }
         #extractorDetail .bookmarklet-section > div[style*="color:#888"]:not(#yspLoginMessage) { color: var(--ui-text-secondary) !important; }
         #extractorDetail [style*="color:#ff4d4f"] { color: var(--ui-attention-text) !important; }
         #extractorDetail div[style*="color:#ff4d4f"] {
@@ -3608,11 +3761,11 @@
             padding: 18px;
             border: 1px solid var(--ui-line);
             border-radius: 20px;
-            background: #fff;
+            background: var(--ui-surface);
             color: var(--ui-text);
             box-shadow: var(--ui-shadow-float);
         }
-        dialog.inline-player::backdrop { background: rgba(15, 23, 42, .55); }
+        dialog.inline-player::backdrop { background: var(--ui-overlay); }
         .inline-player-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 13px; }
         .inline-player-top strong { font-size: 16px; }
         .inline-player-tools { display: flex; gap: 8px; }
@@ -3663,8 +3816,8 @@
         }
         .about-card-icon svg { width: 19px; height: 19px; }
         .about-card-content { padding-left: 46px; color: var(--ui-text-secondary); font-size: 14px; line-height: 1.8; }
-        .about-card-content a { color: #2563eb; text-decoration: none; overflow-wrap: anywhere; }
-        .about-card-content a:hover { color: #1d4ed8; text-decoration: underline; text-underline-offset: 3px; }
+        .about-card-content a { color: var(--ui-link); text-decoration: none; overflow-wrap: anywhere; }
+        .about-card-content a:hover { color: var(--ui-link-hover); text-decoration: underline; text-underline-offset: 3px; }
         .about-card-content a:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 4px; border-radius: 3px; }
         .about-version-card { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; }
         .about-version-card .about-card-heading { margin-bottom: 0; }
@@ -3684,7 +3837,7 @@
             align-items: center;
             gap: 6px;
             flex: 0 0 auto;
-            color: #fff;
+            color: var(--ui-on-ink);
             text-decoration: none;
             white-space: nowrap;
         }
@@ -3949,7 +4102,7 @@
         #channelDetailModal input[type="file"] { padding: 5px 7px; }
         #channelDetailModal input[type="file"]::file-selector-button { height: 28px; }
         .channel-detail-logo { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 16px; align-items: center; }
-        .channel-detail-logo-preview { display: flex; align-items: center; justify-content: center; width: 96px; height: 96px; padding: 10px; border-radius: 12px; background: var(--ui-surface-soft); }
+        .channel-detail-logo-preview { display: flex; align-items: center; justify-content: center; width: 96px; height: 96px; padding: 10px; border-radius: 12px; background: var(--ui-logo-tile); }
         .channel-detail-logo-preview img { width: 100%; height: 100%; object-fit: contain; }
         .channel-detail-logo-preview span { color: var(--ui-muted); font-size: 12px; }
         .channel-detail-source { margin: 16px 2px 0; color: var(--ui-muted); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
@@ -4092,7 +4245,7 @@
     <div class="modal" id="resetModal">
         <div class="modal-content" style="width: 420px; max-width: 90%;">
             <h3 id="resetModalTitle">重置配置</h3>
-            <p style="color: #666; font-size: 13px; margin-bottom: 16px;" id="resetModalHint">选择要重置的配置项，未选中的配置将保留不变。</p>
+            <p style="color: var(--ui-text-secondary); font-size: 13px; margin-bottom: 16px;" id="resetModalHint">选择要重置的配置项，未选中的配置将保留不变。</p>
             <div class="reset-options">
                 <label class="reset-option">
                     <input type="checkbox" id="resetRename" checked>
@@ -4133,43 +4286,43 @@
     <!-- 按名字屏蔽频道的规则弹窗（issue #123）；「只保留」标签页见 2026-11-23 Telegram 群 -->
     <div class="modal" id="hiddenRuleModal">
         <div class="modal-content" style="width: 620px; max-width: 92%;">
-            <h3>🚫 屏蔽规则 <span style="font-size:13px;font-weight:normal;color:#888;">当前档：<span id="hiddenRuleProfileLabel">默认</span></span></h3>
+            <h3>🚫 屏蔽规则 <span style="font-size:13px;font-weight:normal;color:var(--ui-subtle);">当前档：<span id="hiddenRuleProfileLabel">默认</span></span></h3>
             <div class="mode-switcher" style="display:flex;margin-bottom:12px;">
                 <button class="mode-switch-btn active" id="ruleTabBlock" onclick="switchRuleTab('block')">屏蔽</button>
                 <button class="mode-switch-btn" id="ruleTabKeep" onclick="switchRuleTab('keep')">只保留匹配项</button>
             </div>
 
             <div id="ruleBlockIntro">
-                <p style="color: #666; font-size: 13px; margin-bottom: 4px;">
+                <p style="color: var(--ui-text-secondary); font-size: 13px; margin-bottom: 4px;">
                     按<strong>名字</strong>屏蔽，命中的频道不会进播放列表。和逐条「隐藏」的区别：隐藏绑的是频道 ID，
                     源换个地址 ID 就变、那条隐藏会失效；规则只看名字，<strong>源换址、频道每天重建都照样生效</strong>。
                 </p>
-                <p style="color: #999; font-size: 12px; margin-bottom: 14px;">只影响当前配置档，删掉规则即恢复。</p>
+                <p style="color: var(--ui-subtle); font-size: 12px; margin-bottom: 14px;">只影响当前配置档，删掉规则即恢复。</p>
             </div>
 
             <div id="ruleKeepIntro" style="display:none;">
-                <p style="color: #666; font-size: 13px; margin-bottom: 4px;">
+                <p style="color: var(--ui-text-secondary); font-size: 13px; margin-bottom: 4px;">
                     勾选的来源<strong>只保留名字命中下面规则的频道</strong>，没命中的不进播放列表，源以后新加的频道也一样。
                     没勾的来源、以后新装的源不受影响；同一个频道两条都命中时按屏蔽算。
                 </p>
-                <p style="color: #999; font-size: 12px; margin-bottom: 8px;">只影响当前配置档。没勾来源或没有规则时不生效，删掉全部规则即恢复。</p>
-                <div style="font-size: 13px; color: #333; margin-bottom: 6px;">管哪些来源：</div>
-                <div id="keepRuleSourceList" style="max-height: 150px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px;"></div>
-                <div id="keepRuleSummary" style="font-size: 12px; color: #888; margin-bottom: 12px; min-height: 18px; word-break: break-all;"></div>
+                <p style="color: var(--ui-subtle); font-size: 12px; margin-bottom: 8px;">只影响当前配置档。没勾来源或没有规则时不生效，删掉全部规则即恢复。</p>
+                <div style="font-size: 13px; color: var(--ui-text); margin-bottom: 6px;">管哪些来源：</div>
+                <div id="keepRuleSourceList" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--ui-line); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px;"></div>
+                <div id="keepRuleSummary" style="font-size: 12px; color: var(--ui-subtle); margin-bottom: 12px; min-height: 18px; word-break: break-all;"></div>
             </div>
 
             <div id="hiddenRuleList" style="max-height: 320px; overflow-y: auto; margin-bottom: 14px;"></div>
 
-            <div style="border-top: 1px solid #eee; padding-top: 14px;">
+            <div style="border-top: 1px solid var(--ui-line); padding-top: 14px;">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <input type="text" id="hiddenRuleValue" placeholder="频道名或关键字，例如：购物" oninput="previewHiddenRule()" style="flex: 1; min-width: 200px; padding: 7px 10px; border: 1px solid #ddd; border-radius: 4px;">
-                    <select id="hiddenRuleMode" onchange="previewHiddenRule()" style="padding: 7px 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="text" id="hiddenRuleValue" placeholder="频道名或关键字，例如：购物" oninput="previewHiddenRule()" style="flex: 1; min-width: 200px; padding: 7px 10px; border: 1px solid var(--ui-line-strong); border-radius: 4px;">
+                    <select id="hiddenRuleMode" onchange="previewHiddenRule()" style="padding: 7px 10px; border: 1px solid var(--ui-line-strong); border-radius: 4px;">
                         <option value="contains">名字包含</option>
                         <option value="exact">整名相同</option>
                     </select>
                     <button class="btn btn-primary" onclick="addHiddenRule()">添加</button>
                 </div>
-                <div id="hiddenRulePreview" style="font-size: 12px; color: #888; margin-top: 8px; min-height: 18px;"></div>
+                <div id="hiddenRulePreview" style="font-size: 12px; color: var(--ui-subtle); margin-top: 8px; min-height: 18px;"></div>
             </div>
 
             <div class="modal-actions" style="margin-top: 18px;">
@@ -4181,9 +4334,9 @@
     <!-- 缺台标的频道清单（issue #124） -->
     <div class="modal" id="missingLogoModal">
         <div class="modal-content" style="width: 560px; max-width: 92%;">
-            <h3>缺台标的频道 <span style="font-size:13px;font-weight:normal;color:#888;">共 <span id="missingLogoCount">0</span> 个</span></h3>
-            <p style="color:#666;font-size:13px;margin-bottom:4px;">这些台的源没带台标，或带的已失效，订阅里留了空、播放器会画自己的占位图。想补的话：</p>
-            <div style="color:#999;font-size:12px;line-height:1.7;margin-bottom:12px;"><ol class="hint-list">
+            <h3>缺台标的频道 <span style="font-size:13px;font-weight:normal;color:var(--ui-subtle);">共 <span id="missingLogoCount">0</span> 个</span></h3>
+            <p style="color:var(--ui-text-secondary);font-size:13px;margin-bottom:4px;">这些台的源没带台标，或带的已失效，订阅里留了空、播放器会画自己的占位图。想补的话：</p>
+            <div style="color:var(--ui-subtle);font-size:12px;line-height:1.7;margin-bottom:12px;"><ol class="hint-list">
                 <li>点「补台标」进频道详情上传。</li>
                 <li>直接把 <code>&lt;频道名&gt;.png</code> 放进数据目录的 <code>logos/</code>。</li>
                 <li>想整批按名兜底，自己设 <code>mexternalLogoBase</code> 接一个公共台标库（默认不配，见 README）。</li>
@@ -4199,7 +4352,7 @@
     <div class="modal" id="profileModal">
         <div class="modal-content" style="width: 580px; max-width: 92%;">
             <h3>多套配置档（大分组）</h3>
-            <p style="color: #666; font-size: 13px; line-height: 1.7; margin-bottom: 16px;">
+            <p style="color: var(--ui-text-secondary); font-size: 13px; line-height: 1.7; margin-bottom: 16px;">
                 给家里不同电视各维护<strong>一套独立的频道编排</strong>——大厅给老人、卧室给年轻人、茶室……
                 每套档单独保存隐藏 / 分组 / 排序 / 重命名，<strong>用各自的地址访问、互不影响</strong>。
                 底层频道与节目单（EPG）多档共享，新增一台电视不增加任何抓取成本。
@@ -4217,14 +4370,14 @@
     <div class="modal" id="createProfileModal">
         <div class="modal-content" style="width: 440px; max-width: 90%;">
             <h3>➕ 新建配置档</h3>
-            <p style="color: #666; font-size: 13px; margin-bottom: 16px;" id="createProfileHint">将复制当前档的设置，作为新的一档。</p>
-            <label style="display:block; font-size:13px; color:#333; margin-bottom:6px;">显示名称（如：卧室、茶室）</label>
+            <p style="color: var(--ui-text-secondary); font-size: 13px; margin-bottom: 16px;" id="createProfileHint">将复制当前档的设置，作为新的一档。</p>
+            <label style="display:block; font-size:13px; color:var(--ui-text); margin-bottom:6px;">显示名称（如：卧室、茶室）</label>
             <input type="text" id="newProfileName" placeholder="卧室" autocomplete="off" maxlength="20"
                    onkeydown="if(event.key==='Enter'){document.getElementById('newProfileId').focus();}">
-            <label style="display:block; font-size:13px; color:#333; margin-bottom:6px;">访问地址短名（选填，英文/数字）</label>
+            <label style="display:block; font-size:13px; color:var(--ui-text); margin-bottom:6px;">访问地址短名（选填，英文/数字）</label>
             <input type="text" id="newProfileId" placeholder="woshi　→　/interface.m3u?profile=woshi" autocomplete="off"
                    onkeydown="if(event.key==='Enter'){confirmCreateProfile();}">
-            <p style="color:#8a8a8a; font-size:12px; margin: -6px 0 4px;">留空会自动生成短名（中文无法转拼音）。</p>
+            <p style="color:var(--ui-subtle); font-size:12px; margin: -6px 0 4px;">留空会自动生成短名（中文无法转拼音）。</p>
             <div class="modal-actions" style="margin-top: 20px;">
                 <button class="btn" onclick="closeCreateProfileModal()">取消</button>
                 <button class="btn btn-primary" onclick="confirmCreateProfile()">确定新建</button>
@@ -4318,11 +4471,11 @@
             <h3 id="aliasModalTitle">添加别名规则</h3>
             <div class="form-modal-body">
                 <div>
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">规范名（统一后的名字）</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">规范名（统一后的名字）</label>
                     <input type="text" id="aliasNewCanonical" placeholder="例如 CCTV5体育" style="width:100%;">
                 </div>
                 <div>
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">别名（多个用逗号分隔）</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">别名（多个用逗号分隔）</label>
                     <input type="text" id="aliasNewList" placeholder="例如 央视5套, 体育频道" style="width:100%;" onkeydown="submitOnEnter(event, addAliasRule)">
                     <div class="system-config-hint" style="margin:6px 0 0;">名字是这些别名之一的频道，显示名统一成上面的规范名。</div>
                 </div>
@@ -4340,11 +4493,11 @@
             <h3 id="groupRuleModalTitle">添加分组规则</h3>
             <div class="form-modal-body">
                 <div>
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">分组名</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">分组名</label>
                     <input type="text" id="groupRuleName" placeholder="例如 央视" style="width:100%;">
                 </div>
                 <div>
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">关键字（多个用逗号分隔）</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">关键字（多个用逗号分隔）</label>
                     <input type="text" id="groupRuleKeywords" placeholder="例如 CCTV, 央视" style="width:100%;" onkeydown="submitOnEnter(event, addGroupRule)">
                     <div class="system-config-hint" style="margin:6px 0 0;">「未分组」里名字含其中任一关键字的频道，自动归到这个分组。</div>
                 </div>
@@ -4362,26 +4515,26 @@
             <h3 id="epgModalTitle">添加 EPG 源</h3>
             <div class="form-modal-body">
                 <div>
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">名称</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">名称</label>
                     <input type="text" id="epgNewName" placeholder="例如 我的EPG" style="width:100%;">
                 </div>
                 <div>
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">XMLTV 地址（支持 .xml / .xml.gz）</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">XMLTV 地址（支持 .xml / .xml.gz）</label>
                     <input type="text" id="epgNewUrl" placeholder="http://.../epg.xml.gz" style="width:100%;">
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                     <div>
-                        <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">更新间隔（分钟）</label>
+                        <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">更新间隔（分钟）</label>
                         <input type="number" id="epgNewInterval" value="720" style="width:100%;">
                     </div>
                     <div>
-                        <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">优先级（数字小的优先）</label>
+                        <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">优先级（数字小的优先）</label>
                         <input type="number" id="epgNewPriority" value="10" style="width:100%;">
                     </div>
                 </div>
-                <label style="display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#555; cursor:pointer;">
+                <label style="display:flex; align-items:flex-start; gap:8px; font-size:13px; color:var(--ui-text-secondary); cursor:pointer;">
                     <input type="checkbox" id="epgNewOverride" style="margin-top:3px;">
-                    <span>优先于官方节目单<br><span style="font-size:12px; color:#888;">勾上后，这个源当前有节目的频道优先用它，咪咕和各模块的官方节目单让出来；不勾只补官方没有的频道。</span></span>
+                    <span>优先于官方节目单<br><span style="font-size:12px; color:var(--ui-subtle);">勾上后，这个源当前有节目的频道优先用它，咪咕和各模块的官方节目单让出来；不勾只补官方没有的频道。</span></span>
                 </label>
             </div>
             <div class="modal-actions form-modal-actions">
@@ -4398,12 +4551,12 @@
             <h3 id="userModalTitle">新增用户</h3>
             <div style="display:grid; gap:12px;">
                 <div>
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">用户名称</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">用户名称</label>
                     <input type="text" id="userNewName" placeholder="例如 客厅电视 / 张三" style="width:100%; margin-bottom:0;"
                            onkeydown="submitOnEnter(event, addUser)">
                 </div>
                 <div>
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">绑定档（频道内容）</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">绑定档（频道内容）</label>
                     <select id="userNewProfile" style="width:100%;"></select>
                     <div class="system-config-hint" style="margin:6px 0 0;">不选就是默认全量；选了某个档，这个人只看到那个档里的频道。</div>
                 </div>
@@ -4423,17 +4576,17 @@
             <div class="notify-modal-body">
                         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
                             <div style="min-width:170px;">
-                                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">类型</label>
+                                <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">类型</label>
                                 <select id="notifyType" style="width:100%;" onchange="renderNotifyFields()"></select>
                             </div>
                             <div style="flex:1; min-width:140px;">
-                                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">名称</label>
+                                <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">名称</label>
                                 <input type="text" id="notifyName" placeholder="例如 家里的飞书群" style="width:100%;">
                             </div>
                         </div>
                         <div id="notifyFields" style="margin-top:8px; display:grid; gap:8px;"></div>
                         <div style="margin-top:14px;">
-                            <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">消息样式</label>
+                            <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">消息样式</label>
                             <div class="notify-template-options" id="notifyTemplates" role="radiogroup" aria-label="消息样式"></div>
                             <div class="notify-preview" id="notifyPreview" aria-label="消息样式预览"></div>
                         </div>
@@ -4450,12 +4603,12 @@
     <div class="modal" id="biliQrModal">
         <div class="modal-content" style="width: 380px; max-width: 92%; text-align: center;">
             <h3 style="margin-bottom: 8px;">📱 扫码登录 B 站</h3>
-            <div style="font-size:13px; color:#666; margin-bottom:14px;">用 <strong>哔哩哔哩手机 App</strong> 扫描下方二维码</div>
+            <div style="font-size:13px; color:var(--ui-text-secondary); margin-bottom:14px;">用 <strong>哔哩哔哩手机 App</strong> 扫描下方二维码</div>
             <div id="biliQrBox" style="min-height:240px; display:flex; align-items:center; justify-content:center;">
-                <span style="color:#999;">正在获取二维码…</span>
+                <span style="color:var(--ui-subtle);">正在获取二维码…</span>
             </div>
-            <div id="biliQrStatus" style="margin-top:12px; font-size:14px; color:#666; min-height:22px;"></div>
-            <div style="font-size:12px; color:#999; margin-top:10px; line-height:1.7;">
+            <div id="biliQrStatus" style="margin-top:12px; font-size:14px; color:var(--ui-text-secondary); min-height:22px;"></div>
+            <div style="font-size:12px; color:var(--ui-subtle); margin-top:10px; line-height:1.7;">
                 登录凭据由服务端直接保存，不经过这个页面。<br>二维码约 3 分钟失效，过期点「重新获取」即可。
             </div>
             <div class="modal-actions" style="margin-top:16px;">
@@ -4534,8 +4687,8 @@
     <div class="modal" id="nonMiguPlayModal">
         <div class="modal-content" style="width: 460px; max-width: 90%;">
             <h3 id="nonMiguPlayTitle" style="margin-bottom: 20px;">播放选项</h3>
-            <div style="background: #e6f7ff; border: 1px solid #91d5ff; padding: 16px; border-radius: 6px; margin-bottom: 20px;">
-                <p style="line-height: 1.8; margin: 0; font-size: 14px; color: #666;">
+            <div style="background: var(--ui-info-soft); border: 1px solid var(--ui-info-line); padding: 16px; border-radius: 6px; margin-bottom: 20px;">
+                <p style="line-height: 1.8; margin: 0; font-size: 14px; color: var(--ui-text-secondary);">
                     该频道来自外部源，浏览器可能无法直接播放。<br>请选择以下方式使用本地播放器（如 VLC、IINA、PotPlayer）打开：
                 </p>
             </div>
@@ -4544,7 +4697,7 @@
                 <button class="btn" id="nonMiguDownloadBtn" style="width: 100%; padding: 12px; font-size: 15px; background: #ff6600; color: white; border: none; border-radius: 4px; cursor: pointer;">⬇️ 下载为 .m3u 文件</button>
             </div>
             <div style="display: flex; justify-content: flex-end;">
-                <button class="btn" onclick="document.getElementById('nonMiguPlayModal').style.display='none'" style="background: #eee; color: #333;">取消</button>
+                <button class="btn" onclick="document.getElementById('nonMiguPlayModal').style.display='none'" style="background: var(--ui-surface-strong); color: var(--ui-text);">取消</button>
             </div>
         </div>
     </div>
@@ -4563,6 +4716,17 @@
                         <button class="tab" onclick="switchTab(3)">关于我们</button>
                     </div>
                     <div class="tabs-right">
+                        <div class="appearance-toggle" role="group" aria-label="外观">
+                            <button type="button" data-theme-choice="system" aria-pressed="false" title="外观：跟随系统" aria-label="跟随系统">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+                            </button>
+                            <button type="button" data-theme-choice="light" aria-pressed="false" title="外观：浅色" aria-label="浅色">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                            </button>
+                            <button type="button" data-theme-choice="dark" aria-pressed="false" title="外观：深色" aria-label="深色">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+                            </button>
+                        </div>
                         <button class="restart-btn" onclick="restartService()">重启服务</button>
                     </div>
                 </div>
@@ -4586,7 +4750,7 @@
                                 <h3>我的频道 <span id="myChannelTotal" style="font-size: 14px; font-weight: normal; color: #1890ff;"></span></h3>
                             </div>
                             <div class="my-playlist-actions" style="flex-wrap: wrap; align-items: center;">
-                                <span style="font-size: 14px; color: #333;">当前档：<strong id="currentProfileLabel">默认</strong></span>
+                                <span style="font-size: 14px; color: var(--ui-text);">当前档：<strong id="currentProfileLabel">默认</strong></span>
                                 <button class="btn btn-primary" onclick="openProfileModal()" title="管理多套配置档：切换 / 新建 / 改名 / 删除 / 重置">编辑</button>
                                 <button class="btn" onclick="openHiddenRuleModal()" title="按名字长期屏蔽频道，或让某个来源只保留命中的频道：源换地址、频道每天重建都照样生效">🚫 屏蔽规则</button>
                                 <button class="btn" onclick="openMissingLogoModal()" title="列出当前档里没有台标的频道，点进去就能上传">缺台标</button>
@@ -4666,9 +4830,9 @@
                         <div class="external-detail" id="externalDetail"></div>
                         <div class="external-usage-side">
                             <h4>使用说明</h4>
-                            <div style="background: #f6ffed; padding: 12px; border-radius: 4px; margin-bottom: 15px;">
+                            <div style="background: var(--ui-success-soft); padding: 12px; border-radius: 4px; margin-bottom: 15px;">
                                 <strong style="color: #52c41a;">自定义源配置</strong>
-                                <ol style="margin: 8px 0 0 0; padding-left: 20px; font-size: 13px; color: #666; line-height: 1.8;">
+                                <ol style="margin: 8px 0 0 0; padding-left: 20px; font-size: 13px; color: var(--ui-text-secondary); line-height: 1.8;">
                                     <li>点击"添加自定义源"选择模式：<strong>直连模式</strong>、<strong>抓取模式</strong>或<strong>订阅模式</strong></li>
                                     <li>想加回港澳台等网络第三方频道：点「添加「网络分享」列表」，再点"导入并保存"</li>
                                     <li><strong>抓取模式</strong>：填写频道名、分组和网页地址，点击"抓取并保存"</li>
@@ -4842,7 +5006,7 @@
                 <!-- 频道别名（issue #56）：自定义批量统一规则 -->
                 <div class="settings-editor-card" style="margin-top: 4px;">
                     <div>
-                        <div style="font-size:16px; font-weight:600; color:#333;">频道别名（统一命名规则）</div>
+                        <div style="font-size:16px; font-weight:600; color:var(--ui-text);">频道别名（统一命名规则）</div>
                         <div class="system-config-hint">给上面的「统一频道显示名」加自定义规则：把若干<strong>别名</strong>都归到一个<strong>规范名</strong>下（如 规范名 <code>CCTV5体育</code>，别名 <code>央视5套, 体育频道</code>）。内置规则（CCTV 系列、清晰度后缀等）已覆盖大部分，这里只补兜不住的写法。保存后下次刷新播放列表即生效。</div>
                     </div>
                     <div style="margin-top:12px;">
@@ -4855,7 +5019,7 @@
                 <!-- 关键字自动分组（issue #69）：按频道名关键字把「未分组」频道自动归类 -->
                 <div class="settings-editor-card" style="margin-top: 4px;">
                     <div>
-                        <div style="font-size:16px; font-weight:600; color:#333;">关键字自动分组</div>
+                        <div style="font-size:16px; font-weight:600; color:var(--ui-text);">关键字自动分组</div>
                         <div class="system-config-hint">自定义订阅源里没写分组的频道会落到「未分组」，每次刷新又回到未分组。这里按<strong>频道名关键字</strong>配规则：<ol class="hint-list">
                         <li>名字含关键字的<strong>未分组</strong>频道自动归到对应分组，如 分组 <code>央视</code> ← 关键字 <code>CCTV, 央视</code>。</li>
                         <li>多条规则从上到下，首条命中生效。</li>
@@ -4874,7 +5038,7 @@
                 <div class="settings-editor-card" style="margin-top: 4px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                         <div>
-                            <div style="font-size:16px; font-weight:600; color:#333;">EPG 节目单源（聚合）</div>
+                            <div style="font-size:16px; font-weight:600; color:var(--ui-text);">EPG 节目单源（聚合）</div>
                             <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕和各模块官方节目单都没覆盖的频道补节目单。<ol class="hint-list">
                         <li>默认已开启，但不带内置外部源；需要更广覆盖时点「＋ 添加 EPG 源」自己加。</li>
                         <li>勾了「优先于官方节目单」的源，对它当前有节目的频道会覆盖咪咕和各模块的官方节目单；源停更只剩旧数据时自动让回官方。</li>
@@ -4903,7 +5067,7 @@
                 <!-- 用户访问令牌（一人一源）-->
                 <div class="settings-editor-card" style="margin-top: 4px;">
                     <div>
-                        <div style="font-size:16px; font-weight:600; color:#333;">用户管理（一人一源）</div>
+                        <div style="font-size:16px; font-weight:600; color:var(--ui-text);">用户管理（一人一源）</div>
                         <div class="system-config-hint">给每个家人 / 朋友生成独立的源地址 <code>/u/&lt;令牌&gt;/interface.m3u</code>，可单独停用、泄露可追溯，且<strong>令牌进不了本后台</strong>。不新增用户则对现有链接零影响。</div>
                     </div>
                     <div style="margin-top:12px;">
@@ -4911,16 +5075,16 @@
                     </div>
 
                     <!-- 没设访问密码时裸地址对所有人开放，令牌挡不住任何人（issue #141）；由 /api/users 的 passSet 决定显隐 -->
-                    <div id="userPassWarning" style="display:none; margin-top:10px; padding:12px 14px; background:#fff7e6; border:1px solid #ffd591; border-left:4px solid #fa8c16; border-radius:6px; color:#874d00; font-size:13px; line-height:1.7;">
+                    <div id="userPassWarning" style="display:none; margin-top:10px; padding:12px 14px; background:var(--ui-warning-soft); border:1px solid var(--ui-warning-line); border-left:4px solid #fa8c16; border-radius:6px; color:var(--ui-warning); font-size:13px; line-height:1.7;">
                         ⚠️ <strong>还没设访问密码，一人一源等于没生效</strong>：去掉令牌的地址（如 <code>http://ip:端口/m3u</code>）谁都能直接用，后台也没上锁。请先到 <a href="javascript:void(0)" onclick="switchSettingsTab(0)">系统配置</a> 设置「访问密码」；已发出去的 <code>/u/&lt;令牌&gt;/…</code> 链接不受影响。
                     </div>
 
-                    <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
-                        <div style="font-weight:600; color:#333; margin-bottom:4px;">怎么用</div>
+                    <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:var(--ui-surface-soft); border:1px solid var(--ui-line); border-radius:6px; font-size:13px; color:var(--ui-text-secondary); line-height:1.7;">
+                        <div style="font-weight:600; color:var(--ui-text); margin-bottom:4px;">怎么用</div>
                         <div>① 点「＋ 新增用户」，给每个人起个名（如「客厅电视」「老王」）；</div>
                         <div>② 用每行的「复制 m3u」把各自的源地址发给对应的人；</div>
                         <div>③ 每行底部「访问来源」列出用过这条链接的 IP 和播放器；冒出不认识的，或者不想给了 → 关掉那一行的开关（或「重置令牌」），<strong>只影响这一个人</strong>，其他人照常。</div>
-                        <div style="font-weight:600; color:#333; margin:8px 0 4px;">注意</div>
+                        <div style="font-weight:600; color:var(--ui-text); margin:8px 0 4px;">注意</div>
                         <div>• 这是「<strong>可追溯 + 可单独吊销</strong>」，不是「漏了也用不了」——发现异常停掉即可；</div>
                         <div>• 你自己的<strong>站长密码不要外发</strong>（它能进后台）；发出去的只该是 <code>/u/&lt;令牌&gt;/…</code>；</div>
                         <div>• 「绑定档」可给不同人不同频道，不选就是默认全量。</div>
@@ -4933,10 +5097,10 @@
                 <!-- 消息推送（utils/notify.js）：提醒中心的新提醒 / 已恢复发到群机器人或手机 -->
                 <div class="settings-editor-card" style="margin-top: 4px;">
                     <div>
-                        <div style="font-size:16px; font-weight:600; color:#333;">消息推送</div>
+                        <div style="font-size:16px; font-weight:600; color:var(--ui-text);">消息推送</div>
                         <div class="system-config-hint">后台顶部「需要处理的提醒」里出现需要你动手处理的新问题（登录凭证失效、EPG 源失败、模块配置损坏等）或问题恢复时，发一条消息到飞书、企业微信（群机器人或自建应用）、钉钉、Telegram、Bark、你自己的 Webhook，或 PushPlus、Server酱 这类推送平台（自定义接口），不用开着后台也能知道。只发消息，不接收任何指令。</div>
                     </div>
-                    <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:#f7f9fc; border:1px solid #eef1f6; border-radius:6px; font-size:13px; color:#555; line-height:1.7;">
+                    <div class="user-guide-card" style="margin-top:10px; padding:12px 14px; background:var(--ui-surface-soft); border:1px solid var(--ui-line); border-radius:6px; font-size:13px; color:var(--ui-text-secondary); line-height:1.7;">
                         <div>• 模块抓取失败、官方服务故障<strong>不推送</strong>（你处理不了，会自动重试），只在后台提醒里显示；其他提醒出现即发，恢复时再发一条「已恢复」；</div>
                         <div>• 升级前就已存在的提醒不发；同一个问题没恢复前只发一次；</div>
                         <div>• Telegram 的接口在大陆连不上：部署在大陆的到 <a href="javascript:void(0)" onclick="switchSettingsTab(7)">网络代理</a> 填代理地址，或在「API 地址」填自己的反代；</div>
@@ -4952,7 +5116,7 @@
                 <div class="settings-subpanel" id="settingsSub6">
                 <!-- 配置备份 / 迁移（issue #99） -->
                 <div class="settings-backup settings-editor-card" style="margin-top: 4px;">
-                    <div style="font-size:16px; font-weight:600; color:#333;">配置备份 / 迁移</div>
+                    <div style="font-size:16px; font-weight:600; color:var(--ui-text);">配置备份 / 迁移</div>
                     <div class="system-config-hint">一键把全部配置导出为单个备份文件，换机 / 重装后导入即可恢复。<ol class="hint-list">
                         <li>包含系统配置、外部源、我的频道与各配置档、EPG 源、别名 / 分组规则、用户令牌、消息推送。</li>
                         <li><strong>⚠️ 导出文件包含咪咕账号、访问密码与推送机器人地址，请勿随意发给他人。</strong></li>
@@ -4966,7 +5130,7 @@
                     <div class="system-config-hint" style="margin-top:6px;">导入会<strong>覆盖当前同名配置</strong>（导入前会自动把当前配置备份到数据目录 <code>config-pre-import-backup.json</code>，写坏可手动恢复）；导入后多数配置即时生效，端口修改需重启。</div>
                 </div>
                 <div class="settings-backup settings-editor-card" style="margin-top: 12px;">
-                    <div style="font-size:16px; font-weight:600; color:#333;">清理崩溃转储</div>
+                    <div style="font-size:16px; font-weight:600; color:var(--ui-text);">清理崩溃转储</div>
                     <div class="system-config-hint">程序崩溃时系统可能在服务器上留下 <code>core.数字</code> 文件，每个几十 MB。服务启动时和之后每小时会自动清理，也可以马上清一次。只删这类文件，不影响配置和缓存。</div>
                     <div style="margin-top:10px;">
                         <button class="btn btn-primary" onclick="cleanCoreDumps()">立即清理</button>
@@ -5265,7 +5429,7 @@
                 empty:  ['#faad14', '无频道'],
                 failed: ['#ff4d4f', '失败'],
                 risk:   ['#ff4d4f', '被风控'],
-                idle:   ['#999', '未抓取'],
+                idle:   ['var(--ui-subtle)', '未抓取'],
             };
             const [color, text] = map[h.status] || map.idle;
             const when = h.lastSuccessAt ? new Date(h.lastSuccessAt).toLocaleString() : '从未';
@@ -5273,7 +5437,7 @@
             if (h.skippedCount) extra += ' · 跳过 ' + h.skippedCount;
             if (h.consecutiveFailures) extra += ' · 连续失败 ' + h.consecutiveFailures + ' 次';
             let line = `<span style="color:${color};">● ${escapeHtml(text)}</span>` +
-                `<span style="color:#888;"> · ${escapeHtml(extractorChannelSummary(h))}${escapeHtml(extra)} · 上次成功 ${escapeHtml(when)}</span>`;
+                `<span style="color:var(--ui-subtle);"> · ${escapeHtml(extractorChannelSummary(h))}${escapeHtml(extra)} · 上次成功 ${escapeHtml(when)}</span>`;
             if (h.credentialRejected) {
                 line += `<div style="color:#ff4d4f; font-size:12px; margin-top:4px; word-break:break-all;">⚠️ ${escapeHtml(h.credentialRejected)}</div>`;
             }
@@ -5301,7 +5465,7 @@
             const hintBody = Array.isArray(field.hint)
                 ? (field.hint.length ? `<ol class="hint-list">${field.hint.map(h => `<li>${escapeHtml(h)}</li>`).join('')}</ol>` : '')
                 : escapeHtml(field.hint || '');
-            const hint = hintBody ? `<div style="font-size:12px; color:#888; margin-top:3px;">${hintBody}</div>` : '';
+            const hint = hintBody ? `<div style="font-size:12px; color:var(--ui-subtle); margin-top:3px;">${hintBody}</div>` : '';
             const envNote = envProvided[field.key]
                 ? `<div style="font-size:12px; color:#faad14; margin-top:3px;">当前值来自环境变量 <code>${escapeHtml(envProvided[field.key])}</code>，在此填写会覆盖它</div>`
                 : '';
@@ -5318,7 +5482,7 @@
                     `<option value="${escapeHtml(o.value)}" ${String(config[field.key]) === String(o.value) ? 'selected' : ''}>${escapeHtml(o.label ?? o.value)}</option>`
                 ).join('');
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">${label}</label>
                     <select id="${id}" onchange="setSaveDirty('xt:${moduleId}')" style="min-width:180px;">${opts}</select>
                     ${hint}${envNote}</div>`;
             }
@@ -5338,14 +5502,14 @@
                     </label>`;
                 }).join('');
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#555; font-weight:600; margin-bottom:6px;">${label}</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-text-secondary); font-weight:600; margin-bottom:6px;">${label}</label>
                     <input type="hidden" id="${id}" value="${escapeHtml(value)}">
                     <div class="xt-multiselect" id="${choicesId}" role="group" aria-label="${label}">${choices}</div>
                     ${hint}${envNote}</div>`;
             }
             if (field.type === 'int') {
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">${label}</label>
                     <input type="number" id="${id}" oninput="setSaveDirty('xt:${moduleId}')" value="${escapeHtml(config[field.key] != null ? config[field.key] : '')}" style="width:140px;">
                     ${hint}${envNote}</div>`;
             }
@@ -5358,7 +5522,7 @@
                     ? `<button class="btn btn-sm" type="button" onclick="markSecretCleared('${moduleId}','${field.key}')" title="清空已保存的凭据（点「保存配置」生效）">清除</button>`
                     : '';
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">${label}</label>
                     <div style="display:flex; gap:6px; align-items:center;">
                         <input type="password" id="${id}" oninput="this.removeAttribute('data-cleared'); setSaveDirty('xt:${moduleId}')" value="" placeholder="${escapeHtml(ph)}" autocomplete="new-password" style="flex:1; min-width:0;">
                         ${clearBtn}
@@ -5367,12 +5531,12 @@
             }
             if (field.multiline) {
                 return `<div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">${label}</label>
                     <textarea id="${id}" oninput="setSaveDirty('xt:${moduleId}')" rows="6" placeholder="${escapeHtml(field.placeholder || '')}" style="width:100%; font-family:monospace;">${escapeHtml(config[field.key] || '')}</textarea>
                     ${hint}${envNote}</div>`;
             }
             return `<div style="margin-bottom:12px;">
-                <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${label}</label>
+                <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">${label}</label>
                 <input type="text" id="${id}" oninput="setSaveDirty('xt:${moduleId}')" value="${escapeHtml(config[field.key] || '')}" placeholder="${escapeHtml(field.placeholder || '')}" style="width:100%;">
                 ${hint}${envNote}</div>`;
         }
@@ -5621,7 +5785,7 @@
                     </div>
                     <div class="bookmarklet-actions"><a id="fengshowsBookmarklet" class="bookmarklet-link" draggable="true">获取凤凰秀 Token</a>
                         <a href="https://www.fengshows.com/live" target="_blank" rel="noreferrer">打开凤凰秀官网 ↗</a></div>
-                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;">普通账号即可获取三台 720p / 25 帧，无需付费会员。<ol class="hint-list">
+                    <div style="font-size:12px; color:var(--ui-subtle); margin-top:8px; line-height:1.7;">普通账号即可获取三台 720p / 25 帧，无需付费会员。<ol class="hint-list">
                             <li>把“获取凤凰秀 Token”拖到书签栏，在已登录的官网点击。</li>
                             <li>将复制结果粘贴到下方并保存。也可在开发者工具 Application → Cookies 中复制 <code>App.user.token</code>。</li>
                         </ol>凭证过期后重新获取。</div>
@@ -5662,7 +5826,7 @@
                         <button class="btn btn-sm btn-primary" onclick="openBiliQrLogin()">📱 ${loggedIn ? '重新扫码登录' : '扫码登录'}</button>
                         <button class="bookmarklet-help-btn" onclick="openBiliSessdataGuide()" title="不想扫码？手动获取的步骤">?</button>
                     </div>
-                    <div style="font-size:12px; color:#888; margin-top:6px;">用 B 站手机 App 扫一下即可，凭据直接存到服务端、不经过这个页面。下面的输入框留空即不修改已保存的凭据。</div>
+                    <div style="font-size:12px; color:var(--ui-subtle); margin-top:6px;">用 B 站手机 App 扫一下即可，凭据直接存到服务端、不经过这个页面。下面的输入框留空即不修改已保存的凭据。</div>
                 </div>`;
             }
             if (key === 'yangshipin-login') {
@@ -5677,15 +5841,15 @@
                         <button id="yspLoginCheck" class="btn btn-sm" onclick="checkYspBrowserLogin()">检查登录态</button>
                         <button id="yspLoginClose" class="btn btn-sm" onclick="closeYspBrowserSession()">关闭后台浏览器</button>
                     </div>
-                    <div id="yspLoginMessage" style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;">登录态保存在服务端数据目录的专用浏览器 profile；10 个会员频道共用，无需逐台导入。自动弹窗只支持从运行服务的电脑本机访问 localhost 后台；Docker / NAS 等没有桌面的部署请从自己电脑的浏览器复制 Cookie 导入。</div>
+                    <div id="yspLoginMessage" style="font-size:12px; color:var(--ui-subtle); margin-top:8px; line-height:1.7;">登录态保存在服务端数据目录的专用浏览器 profile；10 个会员频道共用，无需逐台导入。自动弹窗只支持从运行服务的电脑本机访问 localhost 后台；Docker / NAS 等没有桌面的部署请从自己电脑的浏览器复制 Cookie 导入。</div>
                     <div class="bookmarklet-actions" style="margin-top:10px;">
                         <a href="https://www.yangshipin.cn/tv/home" target="_blank" rel="noreferrer">打开央视频官网 ↗</a>
                     </div>
                     <div style="display:flex; gap:8px; align-items:flex-start; margin-top:8px; flex-wrap:wrap;">
-                        <textarea id="yspLoginImportInput" rows="2" placeholder="粘贴从开发者工具复制的整段 Cookie 值（vusession=…; ysp_strRefreshtoken=…; …）" style="flex:1; min-width:240px; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:12px; font-family:monospace; resize:vertical;"></textarea>
+                        <textarea id="yspLoginImportInput" rows="2" placeholder="粘贴从开发者工具复制的整段 Cookie 值（vusession=…; ysp_strRefreshtoken=…; …）" style="flex:1; min-width:240px; padding:6px 8px; border:1px solid var(--ui-line-strong); border-radius:4px; font-size:12px; font-family:monospace; resize:vertical;"></textarea>
                         <button id="yspLoginImport" class="btn btn-sm btn-primary" onclick="importYspLoginState()">导入登录态</button>
                     </div>
-                    <div style="font-size:12px; color:#888; margin-top:6px; line-height:1.7;">在自己电脑的浏览器里：<ol class="hint-list">
+                    <div style="font-size:12px; color:var(--ui-subtle); margin-top:6px; line-height:1.7;">在自己电脑的浏览器里：<ol class="hint-list">
                             <li>登录央视频官网，按 F12（Mac 按 ⌥⌘I）打开开发者工具，切到 Network（网络）。</li>
                             <li>刷新页面，点开任意一个 <code>yangshipin.cn</code> 的请求。</li>
                             <li>在 Request Headers（请求标头）里单击 <code>Cookie</code> 的值，按 ⌘C（Windows 按 Ctrl+C）复制。</li>
@@ -5705,7 +5869,7 @@
                     <div class="bookmarklet-actions">
                         <a href="https://www.btime.com/btv/btvsy_index" target="_blank" rel="noreferrer">打开北京时间官网 ↗</a>
                     </div>
-                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;"><ol class="hint-list">
+                    <div style="font-size:12px; color:var(--ui-subtle); margin-top:8px; line-height:1.7;"><ol class="hint-list">
                             <li>先在官网完成登录，再打开开发者工具的 Network（网络）。</li>
                             <li>刷新页面，点开 <code>getUserInfo</code> 请求。</li>
                             <li>在 Request Headers 中单击 <code>Cookie</code> 的值，按 ⌘C（Windows/Linux 按 Ctrl+C）复制，不需要鼠标右键。</li>
@@ -5728,7 +5892,7 @@
                         <a id="sichuanBookmarklet" class="bookmarklet-link" draggable="true">获取四川 Token</a>
                         <a href="https://www.sctv.com/channelLive" target="_blank" rel="noreferrer">打开四川官网 ↗</a>
                     </div>
-                    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.7;"><ol class="hint-list">
+                    <div style="font-size:12px; color:var(--ui-subtle); margin-top:8px; line-height:1.7;"><ol class="hint-list">
                             <li>先在四川官网登录，并确认官网里电视频道能正常播放（官网只在播放时检查登录，页面显示已登录不代表还有效）。</li>
                             <li>把“获取四川 Token”拖到浏览器书签栏，在该页面点击书签。</li>
                             <li>复制结果粘贴到下方并保存，再点“立即刷新”。</li>
@@ -5765,7 +5929,7 @@
             if (!box) return;
             let html = '';
             if (extractorsState.corrupt) {
-                html += `<div style="border:1px solid #ff4d4f; background:#fff1f0; border-radius:6px; padding:10px; margin-bottom:12px; color:#a8071a;">
+                html += `<div style="border:1px solid #ff4d4f; background:var(--ui-danger-soft); border-radius:6px; padding:10px; margin-bottom:12px; color:var(--ui-danger);">
                     配置文件损坏，已保留原文件并另存 <code>.corrupt</code> 副本；在修复前所有改动都会被拒绝，以免覆盖你的原数据。<br>
                     <span style="font-size:12px;">${escapeHtml(extractorsState.corrupt.message || '')}</span>
                 </div>`;
@@ -5780,7 +5944,7 @@
                 empty:  ['#faad14', '无频道'],
                 failed: ['#ff4d4f', '失败'],
                 risk:   ['#ff4d4f', '被风控'],
-                idle:   ['#999', '未抓取'],
+                idle:   ['var(--ui-subtle)', '未抓取'],
             };
             const [color, text] = map[h.status] || map.idle;
             return `<span style="color:${color};">● ${escapeHtml(text)}</span>`;
@@ -6744,24 +6908,24 @@
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:10px; padding-right:36px;">
                     <div style="display:flex; align-items:center; gap:6px; min-width:0;">
                         <strong id="extractorDetailTitle" style="font-size:17px;">${escapeHtml(m.name)}</strong>
-                        ${m.enabledEnv ? `<span style="font-size:12px; color:#888;">（启用开关也可用环境变量 <code>${escapeHtml(m.enabledEnv)}</code> 控制）</span>` : ''}
+                        ${m.enabledEnv ? `<span style="font-size:12px; color:var(--ui-subtle);">（启用开关也可用环境变量 <code>${escapeHtml(m.enabledEnv)}</code> 控制）</span>` : ''}
                     </div>
                     ${canManualRefresh ? `<button class="btn btn-sm btn-primary" onclick="refreshExtractorNow('${escapeHtml(m.id)}')">立即刷新</button>` : ''}
                 </div>
                 <div style="font-size:12px; margin-bottom:12px;">${extractorHealthHtml(m.health || {})}</div>
                 ${extractorChannelsHtml(m)}
-                <div style="border-top:1px solid #f5f5f5; padding-top:12px;">
+                <div style="border-top:1px solid var(--ui-line); padding-top:12px;">
                     ${m.helperSection ? '' : extractorHelperHtml(m.helper, m.secretsSet || {}, m.config || {}, m.health || {})}
                     ${extractorFieldsHtml(m.id, m.configSchema || [], m.config || {}, m.secretsSet || {}, m.envProvided || {}, m.helperSection ? { key: m.helper, section: m.helperSection, health: m.health || {} } : null, m.secretHints || {})}
                     ${m.refreshConfigurable === false ? `
-                    <div style="margin-bottom:12px; padding:10px 12px; border-radius:6px; background:#f7f9fb; color:#666; font-size:12px; line-height:1.6;">
-                        <div style="font-weight:600; color:#555; margin-bottom:2px;">自动刷新</div>
+                    <div style="margin-bottom:12px; padding:10px 12px; border-radius:6px; background:var(--ui-surface-soft); color:var(--ui-text-secondary); font-size:12px; line-height:1.6;">
+                        <div style="font-weight:600; color:var(--ui-text-secondary); margin-bottom:2px;">自动刷新</div>
                         ${escapeHtml(m.refreshDescription || '模块会根据播放地址有效期自动更新，无需手动设置。')}
                     </div>` : `
                     <div style="margin-bottom:12px;">
-                        <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">刷新间隔（分钟）</label>
+                        <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">刷新间隔（分钟）</label>
                         <input type="number" min="${m.minRefreshMinutes || 1}" max="${m.maxRefreshMinutes || 1440}" id="xf-${escapeHtml(m.id)}-__refresh" oninput="setSaveDirty('xt:${escapeHtml(m.id)}')" value="${m.refreshMinutes}" style="width:140px;">
-                        <div style="font-size:12px; color:#888; margin-top:3px;">允许范围 ${m.minRefreshMinutes || 1}–${m.maxRefreshMinutes || 1440} 分钟，默认 ${m.defaultRefreshMinutes} 分钟。${m.id === 'bilibili-live' ? '只决定多久重新挑一次直播间（热门榜换人、主播下播）；播放地址在播放时实时换取，与此无关。过短容易触发风控。' : m.id === 'douyin-live' ? '只决定多久重新选一次房间；播放器刷新订阅不会强制重抓。播放时会获取当前地址。' : ''}</div>
+                        <div style="font-size:12px; color:var(--ui-subtle); margin-top:3px;">允许范围 ${m.minRefreshMinutes || 1}–${m.maxRefreshMinutes || 1440} 分钟，默认 ${m.defaultRefreshMinutes} 分钟。${m.id === 'bilibili-live' ? '只决定多久重新挑一次直播间（热门榜换人、主播下播）；播放地址在播放时实时换取，与此无关。过短容易触发风控。' : m.id === 'douyin-live' ? '只决定多久重新选一次房间；播放器刷新订阅不会强制重抓。播放时会获取当前地址。' : ''}</div>
                     </div>`}
                     ${hasEditableConfig ? `<button class="btn btn-sm btn-success" data-save-scope="xt:${escapeHtml(m.id)}" onclick="saveExtractorConfig('${escapeHtml(m.id)}')">保存配置</button>` : ''}
                 </div>`;
@@ -6938,7 +7102,7 @@
                     ? ' 也可以按下方说明从自己电脑的浏览器复制 Cookie 导入。'
                     : ' 请按下方说明从自己电脑的浏览器复制 Cookie 导入；在运行服务的电脑上用 localhost 打开后台时也可直接弹出官方登录窗。';
             }
-            detail.style.color = (data && data.status === 'error') || !available ? '#ff4d4f' : '#888';
+            detail.style.color = (data && data.status === 'error') || !available ? '#ff4d4f' : 'var(--ui-subtle)';
             if (open) {
                 open.disabled = active || !canOpenWindow;
                 open.textContent = authenticated ? '检查/恢复央视频登录' : '打开央视频官方登录窗口';
@@ -6981,7 +7145,7 @@
             stopYspLoginPolling();
             const gen = yspLoginGen;
             const detail = document.getElementById('yspLoginMessage');
-            if (detail) { detail.textContent = '正在把登录态种进服务端浏览器并让官网校验，约需十几秒…'; detail.style.color = '#888'; }
+            if (detail) { detail.textContent = '正在把登录态种进服务端浏览器并让官网校验，约需十几秒…'; detail.style.color = 'var(--ui-subtle)'; }
             if (button) { button.disabled = true; button.textContent = '导入中…'; }
             let r = null;
             try { r = await extractorPost({ action: 'browserLoginImport', id: 'yangshipin', payload }); }
@@ -7012,7 +7176,7 @@
             stopYspLoginPolling();
             const gen = yspLoginGen;
             const detail = document.getElementById('yspLoginMessage');
-            if (detail) { detail.textContent = '正在用已保存的 profile 检查央视频登录态…'; detail.style.color = '#888'; }
+            if (detail) { detail.textContent = '正在用已保存的 profile 检查央视频登录态…'; detail.style.color = 'var(--ui-subtle)'; }
             let r = null;
             try { r = await extractorPost({ action: 'browserLoginCheck', id: 'yangshipin' }); }
             catch (e) { r = null; }
@@ -7100,9 +7264,9 @@
             biliQrFailStreak = 0;
             const box = document.getElementById('biliQrBox');
             const status = document.getElementById('biliQrStatus');
-            box.innerHTML = '<span style="color:#999;">正在获取二维码…</span>';
+            box.innerHTML = '<span style="color:var(--ui-subtle);">正在获取二维码…</span>';
             status.textContent = '';
-            status.style.color = '#666';
+            status.style.color = 'var(--ui-text-secondary)';
 
             let r = null;
             try {
@@ -7182,7 +7346,7 @@
                 return;
             }
             status.textContent = st === 'scanned' ? '📱 已扫码，请在手机上确认' : '等待扫码…';
-            status.style.color = st === 'scanned' ? '#1890ff' : '#666';
+            status.style.color = st === 'scanned' ? '#1890ff' : 'var(--ui-text-secondary)';
             biliQrTimer = setTimeout(() => pollBiliQr(key, gen), 2000);
         }
 
@@ -7226,17 +7390,17 @@
         function epgLegacyHint(s) {
             if (!s || !epgLegacyUrls.includes(String(s.url || '').trim())) return '';
             const suggest = epgDefaultUrl ? `建议把地址改成 <code>${escapeHtml(epgDefaultUrl)}</code>，或` : '建议';
-            return `<div style="margin-top:4px;font-size:12px;color:#d46b08;">⚠ 这是停用的老默认源：51zmt 只剩央视和卫视（咪咕本来就有），erw 已停止免费下载。`
+            return `<div style="margin-top:4px;font-size:12px;color:var(--ui-warning);">⚠ 这是停用的老默认源：51zmt 只剩央视和卫视（咪咕本来就有），erw 已停止免费下载。`
                 + `${suggest}删掉这条。节目单现由咪咕和各模块的官方接口提供，这条留着只会挂上过期节目单。</div>`;
         }
 
         function epgStatusHtml(s) {
-            let color = '#999', text = '未抓取';
+            let color = 'var(--ui-subtle)', text = '未抓取';
             if (s.lastStatus === 'ok') { color = '#52c41a'; text = '正常'; }
             else if (typeof s.lastStatus === 'string' && s.lastStatus.indexOf('失败') >= 0) { color = '#ff4d4f'; text = s.lastStatus; }
             const when = s.lastUpdated ? new Date(s.lastUpdated).toLocaleString() : '从未';
             return `<span style="color:${color};">● ${escapeHtml(text)}</span>` +
-                `<span style="color:#888;"> · 频道 ${s.channelCount || 0} · 已匹配 ${s.matchedCount || 0} · 上次 ${escapeHtml(when)}</span>` +
+                `<span style="color:var(--ui-subtle);"> · 频道 ${s.channelCount || 0} · 已匹配 ${s.matchedCount || 0} · 上次 ${escapeHtml(when)}</span>` +
                 epgLegacyHint(s);
         }
 
@@ -7252,7 +7416,7 @@
                 return;
             }
             box.innerHTML = sources.map((s, i) => `
-                <div style="border:1px solid #eee; border-radius:6px; padding:10px; margin-bottom:8px;">
+                <div style="border:1px solid var(--ui-line); border-radius:6px; padding:10px; margin-bottom:8px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                         <label style="display:flex; align-items:center; gap:6px; min-width:0;">
                             <input type="checkbox" ${s.enabled !== false ? 'checked' : ''} onchange="toggleEpgSource(${i}, this.checked)">
@@ -7260,9 +7424,9 @@
                         </label>
                         <button class="btn btn-sm btn-danger" onclick="deleteEpgSource(${i})">删除</button>
                     </div>
-                    <div style="font-size:12px; color:#888; word-break:break-all; margin:4px 0;">${escapeHtml(s.url || '')}</div>
+                    <div style="font-size:12px; color:var(--ui-subtle); word-break:break-all; margin:4px 0;">${escapeHtml(s.url || '')}</div>
                     <div style="font-size:12px; margin-bottom:6px;">${epgStatusHtml(s)}</div>
-                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; font-size:12px; color:#888;">
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--ui-subtle);">
                         <span>间隔(分钟) <input type="number" value="${s.refreshInterval || 720}" style="width:84px;" onchange="updateEpgSource(${i}, { refreshInterval: this.value })"></span>
                         <span>优先级 <input type="number" value="${s.priority != null ? s.priority : 10}" style="width:64px;" onchange="updateEpgSource(${i}, { priority: this.value })"></span>
                         <label title="勾上后，这个源当前有节目的频道优先用它，咪咕和各模块的官方节目单让出来；源停更只剩旧数据时自动让回官方" style="display:flex; align-items:center; gap:4px;">
@@ -7401,18 +7565,18 @@
             const rows = clients.map(c => {
                 const uas = (Array.isArray(c.uas) ? c.uas : []).map(ua => ua || '未带 UA');
                 const when = c.lastSeenAt ? new Date(c.lastSeenAt).toLocaleString() : '';
-                return `<div style="padding:4px 0;border-top:1px dashed #eee;">
-                    <span style="font-family:monospace;color:#555;">${escapeHtml(c.ip)}</span>
+                return `<div style="padding:4px 0;border-top:1px dashed var(--ui-line);">
+                    <span style="font-family:monospace;color:var(--ui-text-secondary);">${escapeHtml(c.ip)}</span>
                     · ${c.count || 0} 次 · 最近 ${escapeHtml(when)}
-                    <div style="color:#aaa;word-break:break-all;">${uas.map(ua => escapeHtml(ua)).join('<br>')}</div>
+                    <div style="color:var(--ui-faint);word-break:break-all;">${uas.map(ua => escapeHtml(ua)).join('<br>')}</div>
                 </div>`;
             }).join('');
             const lanHint = clients.every(c => isLanIpText(c.ip))
-                ? '<div style="color:#b58105;margin-top:4px;">全是内网地址：要么都在局域网里看，要么经过了反向代理或 Docker 网关，要在反代上转发 X-Forwarded-For 才看得到真实来源。</div>'
+                ? '<div style="color:var(--ui-warning);margin-top:4px;">全是内网地址：要么都在局域网里看，要么经过了反向代理或 Docker 网关，要在反代上转发 X-Forwarded-For 才看得到真实来源。</div>'
                 : '';
             return {
                 summary: ` · 近 24 小时 ${recent} 个 IP`,
-                details: `<details style="font-size:12px;color:#999;margin-top:4px;">
+                details: `<details style="font-size:12px;color:var(--ui-subtle);margin-top:4px;">
                     <summary style="cursor:pointer;">访问来源（最近 ${clients.length} 个 IP，下面是各自用过的播放器）</summary>
                     <div style="margin-top:4px;">同一时段冒出不认识的 IP 或播放器，可能是链接被转给了别人，点「重置令牌」后把新链接重新发给对方；重置后这里会清空重新记。</div>
                     ${rows}${lanHint}
@@ -7439,7 +7603,7 @@
                 const profOpts = userProfileOptionList()
                     .map(o => `<option value="${escapeHtml(o.value)}"${o.value === (u.profile || '') ? ' selected' : ''}>${escapeHtml(o.name)}</option>`).join('');
                 return `
-                <div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;${u.enabled === false ? 'opacity:.6;' : ''}">
+                <div style="border:1px solid var(--ui-line);border-radius:6px;padding:10px;margin-bottom:8px;${u.enabled === false ? 'opacity:.6;' : ''}">
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
                         <label style="display:flex;align-items:center;gap:6px;">
                             <input type="checkbox" ${u.enabled !== false ? 'checked' : ''} onchange="toggleUser('${u.id}', this.checked)">
@@ -7450,16 +7614,16 @@
                             <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">删除</button>
                         </div>
                     </div>
-                    <div style="font-size:12px;color:#888;margin:6px 0;word-break:break-all;">源地址：<span style="font-family:monospace;">${escapeHtml(m3u)}</span></div>
+                    <div style="font-size:12px;color:var(--ui-subtle);margin:6px 0;word-break:break-all;">源地址：<span style="font-family:monospace;">${escapeHtml(m3u)}</span></div>
                     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
                         <button class="btn btn-sm" onclick="copyToClipboard('${m3u.replace(/'/g, "\\'")}', 'm3u 源地址')">复制 m3u</button>
                         <button class="btn btn-sm" onclick="copyToClipboard('${(m3u + '?relay=1').replace(/'/g, "\\'")}', '兼容版 m3u 地址')" title="播放一直转圈/失败？极空间极影视、部分老电视盒不跟随跳转——发兼容版给对方">兼容版</button>
                         <button class="btn btn-sm" onclick="copyToClipboard('${(m3u + '?relay=2').replace(/'/g, "\\'")}', '全代理版 m3u 地址')" title="兼容版仍播不了再用它：连视频分片也经服务器转发（占服务器带宽），给极空间极影视这类「清单里的绝对地址取不动」的播放器（issue #98）">全代理版</button>
                         <button class="btn btn-sm" onclick="copyToClipboard('${pb.replace(/'/g, "\\'")}', 'EPG 地址')">复制 EPG</button>
                         <button class="btn btn-sm" onclick="copyToClipboard('${txt.replace(/'/g, "\\'")}', 'txt 地址')">复制 txt</button>
-                        <span style="font-size:12px;color:#888;">绑定档 <select onchange="updateUserProfile('${u.id}', this.value)" style="font-size:12px;">${profOpts}</select></span>
+                        <span style="font-size:12px;color:var(--ui-subtle);">绑定档 <select onchange="updateUserProfile('${u.id}', this.value)" style="font-size:12px;">${profOpts}</select></span>
                     </div>
-                    <div style="font-size:12px;color:#999;margin-top:6px;">最近访问：${escapeHtml(last)} · 请求数 ${u.reqCount || 0}${clients.summary}</div>
+                    <div style="font-size:12px;color:var(--ui-subtle);margin-top:6px;">最近访问：${escapeHtml(last)} · 请求数 ${u.reqCount || 0}${clients.summary}</div>
                     ${clients.details}
                 </div>`;
             }).join('');
@@ -7650,7 +7814,7 @@
                            placeholder="${escapeHtml(placeholder)}" autocomplete="off" style="width:100%;">`;
                 }
                 return `<div>
-                    <label style="display:block; font-size:12px; color:#888; margin-bottom:6px;">${escapeHtml(f.label)}${f.required || f.options ? '' : '（可选）'}</label>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">${escapeHtml(f.label)}${f.required || f.options ? '' : '（可选）'}</label>
                     ${control}
                 </div>`;
             }).join('');
@@ -7855,8 +8019,8 @@
             }
             box.innerHTML = keys.map(k => {
                 const aliases = Array.isArray(aliasesData[k]) ? aliasesData[k] : [];
-                return `<div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                    <div style="min-width:0;"><strong>${escapeHtml(k)}</strong> <span style="color:#888;font-size:12px;">←</span> <span style="font-size:13px;color:#555;word-break:break-all;">${escapeHtml(aliases.join('、'))}</span></div>
+                return `<div style="border:1px solid var(--ui-line);border-radius:6px;padding:10px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                    <div style="min-width:0;"><strong>${escapeHtml(k)}</strong> <span style="color:var(--ui-subtle);font-size:12px;">←</span> <span style="font-size:13px;color:var(--ui-text-secondary);word-break:break-all;">${escapeHtml(aliases.join('、'))}</span></div>
                     <div style="display:flex;gap:6px;flex-shrink:0;">
                         <button class="btn btn-sm" onclick="editAliasRule('${k.replace(/'/g, "\\'")}')">编辑</button>
                         <button class="btn btn-sm btn-danger" onclick="removeAliasRule('${k.replace(/'/g, "\\'")}')">删除</button>
@@ -7938,8 +8102,8 @@
                 // 上移/下移调整优先级（issue #69）：顺序即优先级，首条命中胜；顶/底禁用对应按钮
                 const upDisabled = i === 0 ? 'disabled style="opacity:.4;cursor:not-allowed;"' : '';
                 const downDisabled = i === groupRulesData.length - 1 ? 'disabled style="opacity:.4;cursor:not-allowed;"' : '';
-                return `<div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                    <div style="min-width:0;"><span style="color:#bbb;font-size:12px;margin-right:6px;">${i + 1}.</span><strong>${escapeHtml(g)}</strong> <span style="color:#888;font-size:12px;">←</span> <span style="font-size:13px;color:#555;word-break:break-all;">${escapeHtml(kws.join('、'))}</span></div>
+                return `<div style="border:1px solid var(--ui-line);border-radius:6px;padding:10px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                    <div style="min-width:0;"><span style="color:var(--ui-faint);font-size:12px;margin-right:6px;">${i + 1}.</span><strong>${escapeHtml(g)}</strong> <span style="color:var(--ui-subtle);font-size:12px;">←</span> <span style="font-size:13px;color:var(--ui-text-secondary);word-break:break-all;">${escapeHtml(kws.join('、'))}</span></div>
                     <div style="display:flex;gap:6px;flex-shrink:0;">
                         <button class="btn btn-sm" title="上移（提高优先级）" onclick="moveGroupRule('${gEsc}', 'up')" ${upDisabled}>↑</button>
                         <button class="btn btn-sm" title="下移（降低优先级）" onclick="moveGroupRule('${gEsc}', 'down')" ${downDisabled}>↓</button>
@@ -8158,15 +8322,15 @@
                 const label = r.mode === 'exact' ? '整名相同' : '名字包含';
                 // 命中清单直接摊开给用户看——这是误伤的唯一可见入口
                 const list = hits.length
-                    ? `<div style="font-size:12px;color:#666;margin-top:6px;word-break:break-all;">${hits.slice(0, 12).map(h => `${escapeHtml(h.group)} · ${escapeHtml(h.name)}`).join('　|　')}${hits.length > 12 ? `　…另 ${hits.length - 12} 个` : ''}</div>`
-                    : '<div style="font-size:12px;color:#bbb;margin-top:6px;">当前没有频道命中（源里暂时没有这个名字，规则仍然有效）</div>';
-                return `<div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;">
+                    ? `<div style="font-size:12px;color:var(--ui-text-secondary);margin-top:6px;word-break:break-all;">${hits.slice(0, 12).map(h => `${escapeHtml(h.group)} · ${escapeHtml(h.name)}`).join('　|　')}${hits.length > 12 ? `　…另 ${hits.length - 12} 个` : ''}</div>`
+                    : '<div style="font-size:12px;color:var(--ui-faint);margin-top:6px;">当前没有频道命中（源里暂时没有这个名字，规则仍然有效）</div>';
+                return `<div style="border:1px solid var(--ui-line);border-radius:6px;padding:10px;margin-bottom:8px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div style="min-width:0;">
-                            <span style="color:#bbb;font-size:12px;margin-right:6px;">${i + 1}.</span>
+                            <span style="color:var(--ui-faint);font-size:12px;margin-right:6px;">${i + 1}.</span>
                             <strong style="word-break:break-all;">${escapeHtml(r.value)}</strong>
-                            <span style="font-size:12px;color:#888;margin-left:6px;">${label}</span>
-                            <span style="font-size:12px;color:${hits.length ? '#fa8c16' : '#bbb'};margin-left:6px;">屏蔽 ${hits.length} 个</span>
+                            <span style="font-size:12px;color:var(--ui-subtle);margin-left:6px;">${label}</span>
+                            <span style="font-size:12px;color:${hits.length ? '#fa8c16' : 'var(--ui-faint)'};margin-left:6px;">屏蔽 ${hits.length} 个</span>
                         </div>
                         <button class="btn btn-sm btn-danger" style="flex-shrink:0;" onclick="removeHiddenRule(${i})">删除</button>
                     </div>
@@ -8194,7 +8358,7 @@
             const label = id => nameMap[id] || (id === 'migu' ? '咪咕' : id.startsWith('ext:') ? '自定义源（已删除）' : id);
             ids.sort((a, b) => rank(a) - rank(b) || label(a).localeCompare(label(b), 'zh'));
             if (!ids.length) {
-                box.innerHTML = '<div style="font-size:12px;color:#bbb;padding:4px 0;">播放列表里还没有带来源标记的频道</div>';
+                box.innerHTML = '<div style="font-size:12px;color:var(--ui-faint);padding:4px 0;">播放列表里还没有带来源标记的频道</div>';
                 renderKeepRuleSummary();
                 return;
             }
@@ -8203,7 +8367,7 @@
                 return `<label style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px;cursor:pointer;">
                     <input type="checkbox" style="width:auto;flex:0 0 auto;margin:0;" ${scope.includes(id) ? 'checked' : ''} onchange="toggleKeepRuleSource(${escapeHtml(JSON.stringify(id))}, this.checked)">
                     <span style="flex:1;min-width:0;text-align:left;word-break:break-all;">${escapeHtml(label(id))}</span>
-                    <span style="font-size:12px;color:#999;flex-shrink:0;">${kind(id)} · ${n ? n + ' 个频道' : '当前没有频道'}</span>
+                    <span style="font-size:12px;color:var(--ui-subtle);flex-shrink:0;">${kind(id)} · ${n ? n + ' 个频道' : '当前没有频道'}</span>
                 </label>`;
             }).join('');
             renderKeepRuleSummary();
@@ -8214,7 +8378,7 @@
             if (!box) return;
             const scope = keepSourcesOf();
             const rules = keepRulesOf();
-            box.style.color = '#888';
+            box.style.color = 'var(--ui-subtle)';
             if (!scope.length) {
                 box.textContent = rules.length
                     ? `已有 ${rules.length} 条规则，但还没勾选来源，暂不生效。`
@@ -8244,15 +8408,15 @@
                 const hits = channelsKeptByRule(r, scope);
                 const label = r.mode === 'exact' ? '整名相同' : '名字包含';
                 const list = hits.length
-                    ? `<div style="font-size:12px;color:#666;margin-top:6px;word-break:break-all;">${hits.slice(0, 12).map(h => `${escapeHtml(h.group)} · ${escapeHtml(h.name)}`).join('　|　')}${hits.length > 12 ? `　…另 ${hits.length - 12} 个` : ''}</div>`
-                    : `<div style="font-size:12px;color:#bbb;margin-top:6px;">${scope.length ? '勾选的来源里当前没有频道命中（以后出现同名频道会保留）' : '还没勾选来源'}</div>`;
-                return `<div style="border:1px solid #eee;border-radius:6px;padding:10px;margin-bottom:8px;">
+                    ? `<div style="font-size:12px;color:var(--ui-text-secondary);margin-top:6px;word-break:break-all;">${hits.slice(0, 12).map(h => `${escapeHtml(h.group)} · ${escapeHtml(h.name)}`).join('　|　')}${hits.length > 12 ? `　…另 ${hits.length - 12} 个` : ''}</div>`
+                    : `<div style="font-size:12px;color:var(--ui-faint);margin-top:6px;">${scope.length ? '勾选的来源里当前没有频道命中（以后出现同名频道会保留）' : '还没勾选来源'}</div>`;
+                return `<div style="border:1px solid var(--ui-line);border-radius:6px;padding:10px;margin-bottom:8px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div style="min-width:0;">
-                            <span style="color:#bbb;font-size:12px;margin-right:6px;">${i + 1}.</span>
+                            <span style="color:var(--ui-faint);font-size:12px;margin-right:6px;">${i + 1}.</span>
                             <strong style="word-break:break-all;">${escapeHtml(r.value)}</strong>
-                            <span style="font-size:12px;color:#888;margin-left:6px;">${label}</span>
-                            <span style="font-size:12px;color:${hits.length ? '#52c41a' : '#bbb'};margin-left:6px;">保留 ${hits.length} 个</span>
+                            <span style="font-size:12px;color:var(--ui-subtle);margin-left:6px;">${label}</span>
+                            <span style="font-size:12px;color:${hits.length ? '#52c41a' : 'var(--ui-faint)'};margin-left:6px;">保留 ${hits.length} 个</span>
                         </div>
                         <button class="btn btn-sm btn-danger" style="flex-shrink:0;" onclick="removeHiddenRule(${i})">删除</button>
                     </div>
@@ -8334,13 +8498,13 @@
             if (ruleTab === 'keep') {
                 const scope = keepSourcesOf();
                 if (!scope.length) {
-                    box.style.color = '#999';
+                    box.style.color = 'var(--ui-subtle)';
                     box.textContent = '还没勾选来源：规则可以先存着，勾选来源后才生效';
                     return;
                 }
                 const hits = channelsKeptByRule({ value, mode }, scope);
                 const after = keepStats([...keepRulesOf(), { value, mode }], scope);
-                box.style.color = hits.length ? '#52c41a' : '#999';
+                box.style.color = hits.length ? '#52c41a' : 'var(--ui-subtle)';
                 box.textContent = (hits.length
                     ? `勾选的来源里命中 ${hits.length} 个：${channelListText(hits, 6, '，')}`
                     : '勾选的来源里当前没有频道命中（以后出现同名频道会保留）')
@@ -8349,11 +8513,11 @@
             }
             const hits = channelsMatchedByHiddenRule({ value, mode });
             if (!hits.length) {
-                box.style.color = '#999';
+                box.style.color = 'var(--ui-subtle)';
                 box.textContent = '当前没有频道命中（规则仍可保存，以后出现同名频道会被挡掉）';
                 return;
             }
-            box.style.color = hits.length > 20 ? '#cf1322' : '#fa8c16';
+            box.style.color = hits.length > 20 ? 'var(--ui-danger)' : '#fa8c16';
             box.textContent = `将屏蔽 ${hits.length} 个频道：` + hits.slice(0, 6).map(h => `${h.group} · ${h.name}`).join('，')
                 + (hits.length > 6 ? ` …另 ${hits.length - 6} 个` : '');
         }
@@ -8502,9 +8666,9 @@
                 }
                 box.innerHTML = [...byGroup.entries()].map(([g, items]) => `
                     <div style="margin-bottom:10px;">
-                        <div style="font-size:12px;color:#888;margin-bottom:4px;">${escapeHtml(g)} · ${items.length}</div>
+                        <div style="font-size:12px;color:var(--ui-subtle);margin-bottom:4px;">${escapeHtml(g)} · ${items.length}</div>
                         ${items.map(it => `
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 8px;border:1px solid #eee;border-radius:5px;margin-bottom:4px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 8px;border:1px solid var(--ui-line);border-radius:5px;margin-bottom:4px;">
                             <span style="min-width:0;word-break:break-all;">${escapeHtml(it.name)}</span>
                             <button class="btn btn-sm" style="flex-shrink:0;" onclick="closeMissingLogoModal(); showChannelDetail('${String(it.id).replace(/'/g, "\\'")}', false)">补台标</button>
                         </div>`).join('')}
@@ -8919,7 +9083,7 @@
                     <div class="external-nav-meta">
                         <span class="external-mode-badge ${modeClass}">${modeText}</span>
                         ${isBuiltInSubscription(source) ? '<span class="source-badge builtin">内置</span>' : ''}
-                        <span style="color: ${on ? '#52c41a' : '#999'};" ${suppressedByBuiltIn ? 'title="「内置源 → 内置订阅源」的开关是关的，本源不进播放列表"' : ''}>${
+                        <span style="color: ${on ? '#52c41a' : 'var(--ui-subtle)'};" ${suppressedByBuiltIn ? 'title="「内置源 → 内置订阅源」的开关是关的，本源不进播放列表"' : ''}>${
                             suppressedByBuiltIn ? '⊘ 被「内置源」关闭' : (on ? '✓ 已启用' : '× 已停用')
                         }</span>
                     </div>
@@ -9065,7 +9229,7 @@
                 if (!r.success) { showStatus(r.message || '启动检测失败', 'error'); return; }
                 lastProbeData = null;
                 document.getElementById('sourceProbeTitle').textContent = `失效检测 - ${externalConfig.sources[index]?.name || '未命名源'}`;
-                document.getElementById('sourceProbeContent').innerHTML = '<div style="padding:20px; color:#666;">正在启动检测…</div>';
+                document.getElementById('sourceProbeContent').innerHTML = '<div style="padding:20px; color:var(--ui-text-secondary);">正在启动检测…</div>';
                 document.getElementById('sourceProbeHideBtn').style.display = 'none';
                 document.getElementById('sourceProbeCancelBtn').style.display = 'inline-block';
                 document.getElementById('sourceProbeModal').style.display = 'block';
@@ -9105,27 +9269,27 @@
             const s = d.summary || { alive: 0, dead: 0, skip: 0 };
             let html = `
                 <div style="margin-bottom:12px;">
-                    <div style="display:flex; justify-content:space-between; font-size:13px; color:#555; margin-bottom:6px;">
+                    <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--ui-text-secondary); margin-bottom:6px;">
                         <span>${d.state === 'running' ? '⏳ 检测中' : (d.cancelled ? '⏹ 已停止' : '✅ 检测完成')} ${d.done}/${d.total}</span>
                         <span>✅ 存活 ${s.alive} · ❌ 失效 ${s.dead} · ⏭️ 跳过 ${s.skip}</span>
                     </div>
-                    <div style="height:8px; background:#f0f0f0; border-radius:4px; overflow:hidden;">
+                    <div style="height:8px; background:var(--ui-surface-soft); border-radius:4px; overflow:hidden;">
                         <div style="height:100%; width:${pct}%; background:#52c41a; transition:width .3s;"></div>
                     </div>
                 </div>`;
             if (d.state === 'done') {
                 if (typeof s.aliveTtfbMedianMs === 'number') {
-                    html += `<div style="font-size:12px; color:#888; margin-bottom:10px;">存活频道首字节延迟中位数：${s.aliveTtfbMedianMs} ms（服务器侧参考值，同网部署越小越流畅）</div>`;
+                    html += `<div style="font-size:12px; color:var(--ui-subtle); margin-bottom:10px;">存活频道首字节延迟中位数：${s.aliveTtfbMedianMs} ms（服务器侧参考值，同网部署越小越流畅）</div>`;
                 }
                 const dead = d.dead || [];
                 if (dead.length > 0) {
                     html += `<div style="font-weight:600; margin-bottom:6px;">❌ 失效频道（${dead.length}）</div>`;
-                    html += '<div style="border:1px solid #eee; border-radius:6px; max-height:320px; overflow-y:auto;">';
+                    html += '<div style="border:1px solid var(--ui-line); border-radius:6px; max-height:320px; overflow-y:auto;">';
                     html += dead.map(ch => `
-                        <div style="display:flex; gap:8px; align-items:center; padding:6px 10px; border-bottom:1px solid #f5f5f5; font-size:13px;">
-                            <span style="color:#cf1322; background:#fff1f0; border-radius:4px; padding:0 6px; font-size:11px; white-space:nowrap;">${escapeHtml(String(ch.code))}</span>
+                        <div style="display:flex; gap:8px; align-items:center; padding:6px 10px; border-bottom:1px solid var(--ui-line); font-size:13px;">
+                            <span style="color:var(--ui-danger); background:var(--ui-danger-soft); border-radius:4px; padding:0 6px; font-size:11px; white-space:nowrap;">${escapeHtml(String(ch.code))}</span>
                             <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(ch.url || '')}">${escapeHtml(ch.name || '未命名')}</span>
-                            <span style="color:#999; font-size:12px;">${escapeHtml(ch.group || '')}</span>
+                            <span style="color:var(--ui-subtle); font-size:12px;">${escapeHtml(ch.group || '')}</span>
                         </div>`).join('');
                     html += '</div>';
                 } else if (!d.cancelled) {
@@ -9133,9 +9297,9 @@
                 }
                 const skipList = d.skip || [];
                 if (skipList.length > 0) {
-                    html += `<div style="font-size:12px; color:#888; margin-top:10px;">⏭️ 跳过 ${skipList.length} 个非 HTTP 频道（rtmp/rtp/udp 等无法探测，保留不动）</div>`;
+                    html += `<div style="font-size:12px; color:var(--ui-subtle); margin-top:10px;">⏭️ 跳过 ${skipList.length} 个非 HTTP 频道（rtmp/rtp/udp 等无法探测，保留不动）</div>`;
                 }
-                html += `<div style="font-size:12px; color:#d46b08; background:#fff7e6; border-radius:6px; padding:8px 10px; margin-top:12px;">
+                html += `<div style="font-size:12px; color:var(--ui-warning); background:var(--ui-warning-soft); border-radius:6px; padding:8px 10px; margin-top:12px;">
                     ⚠️ 检测只看连通性：带 UA/Referer/token 防盗链的源可能被误判失效，请以实际播放为准。「一键隐藏」只隐藏不删除，可随时在「已隐藏」里恢复。
                 </div>`;
             }
@@ -9433,7 +9597,7 @@
                             <input type="text" value="${source.subscriptionUrl || ''}" oninput="updateExternalField(${index}, 'subscriptionUrl', this.value)" placeholder="例：https://example.com/playlist.m3u 或 .txt">
                             <div class="form-hint">填写包含多个频道的 m3u/m3u8 或 txt（频道名,地址）播放列表地址，系统会自动识别格式并解析其中的所有频道</div>
                             ${isFromTheWebUrl(source.subscriptionUrl) ? `
-                            <div style="margin-top:8px;padding:8px 10px;background:#fffbe6;border:1px solid #ffe58f;border-radius:4px;font-size:12px;color:#8c6d1f;line-height:1.6;">
+                            <div style="margin-top:8px;padding:8px 10px;background:var(--ui-warning-soft);border:1px solid var(--ui-warning-line);border-radius:4px;font-size:12px;color:var(--ui-warning);line-height:1.6;">
                                 这是仓库 from-the-web 里的<strong>网络源订阅</strong>，包含第三方转发源、平台分发源及来源待确认的 CDN。第三方转发站国内直连大多播不了，其他线路按各自情况判断；需要代理时，可使用海外网络、路由器全局代理，或填好「设置 → 网络代理」后勾下方「经网络代理转发」；本项目不维护，失效不作为 bug 处理。不想要了删掉这条订阅即可。<a href="${FROM_THE_WEB_README}" target="_blank" rel="noopener">收录范围 ↗</a>
                             </div>` : (!isSaved && findFromTheWebSource(index) === -1 ? `
                             <div class="form-hint">想加回以前精选列表里的港澳台、新马、影视等网络第三方频道？<a href="javascript:void(0)" onclick="fillFromTheWeb(${index})">一键填入「网络分享」列表</a></div>` : '')}
@@ -9609,7 +9773,7 @@
             box.innerHTML = sourceProfileData.profiles.map(p => {
                 const dis = (sourceProfileData.disabled[p.id] || []).includes(sid);
                 const pEsc = p.id.replace(/'/g, "\\'");
-                return `<label style="display:inline-flex; align-items:center; gap:4px; margin-right:12px; cursor:pointer; color:#333;"><input type="checkbox" ${dis ? '' : 'checked'} onchange="toggleProfileSource('${pEsc}', '${sid}', this.checked, ${index})">${escapeHtml(p.name)}</label>`;
+                return `<label style="display:inline-flex; align-items:center; gap:4px; margin-right:12px; cursor:pointer; color:var(--ui-text);"><input type="checkbox" ${dis ? '' : 'checked'} onchange="toggleProfileSource('${pEsc}', '${sid}', this.checked, ${index})">${escapeHtml(p.name)}</label>`;
             }).join('') + '<div class="form-hint" style="margin-top:4px;">默认全部勾选（所有配置档可见）；取消勾选＝该档不出现本源频道。改动即时保存。</div>';
         }
 
@@ -10951,7 +11115,7 @@ if(success){
                 if (result.hasUpdate) {
                     versionEl.textContent = `v${result.currentVersion}`;
                     updateInfo.style.color = '#fa8c16';
-                    updateInfo.innerHTML = `发现新版本 <strong>v${result.latestVersion}</strong>！请在宿主机执行 <code style="background:#f5f5f5;padding:2px 6px;border-radius:3px;">docker compose pull && docker compose up -d</code> 更新`;
+                    updateInfo.innerHTML = `发现新版本 <strong>v${result.latestVersion}</strong>！请在宿主机执行 <code style="background:var(--ui-surface-soft);padding:2px 6px;border-radius:3px;">docker compose pull && docker compose up -d</code> 更新`;
                 } else {
                     updateInfo.style.color = '#52c41a';
                     updateInfo.textContent = '✔ 当前已是最新版本';
@@ -11370,7 +11534,7 @@ if(success){
                 const url = base + '/interface.m3u' + (isDefault ? '' : '?profile=' + p.id);
                 const compatUrl = url + (isDefault ? '?relay=1' : '&relay=1');   // 兼容版（issue #98）
                 const proxyUrl = url + (isDefault ? '?relay=2' : '&relay=2');    // 全代理版：分片也经服务器转发（issue #98）
-                const slugHtml = isDefault ? '' : ` <span style="color:#999;font-weight:normal;font-size:12px;">(${escapeHtml(p.id)})</span>`;
+                const slugHtml = isDefault ? '' : ` <span style="color:var(--ui-subtle);font-weight:normal;font-size:12px;">(${escapeHtml(p.id)})</span>`;
                 // 改名按钮紧跟档名右侧（默认档不可改名）
                 const renameBtn = isDefault ? '' :
                     ` <button class="btn btn-sm" onclick="renameProfilePrompt('${p.id}')" title="重命名该档" style="padding:2px 8px; font-size:12px;">改名</button>`;
@@ -11380,7 +11544,7 @@ if(success){
                     ` <button class="btn btn-sm" onclick="toggleProfileSourcesRow('${p.id}')" title="选择本档启用哪些源" style="padding:2px 8px; font-size:12px;">源${disCount ? `（禁${disCount}）` : ''}</button>` : '';
                 // 展开的源勾选面板：取消勾选＝该源频道不在本档出现
                 const srcPanel = (sourceProfileData && expandedSourceRows.has(p.id)) ?
-                    `<div style="margin-top:6px; padding:8px 10px; background:#fafafa; border:1px solid #eee; border-radius:6px; font-size:13px;">
+                    `<div style="margin-top:6px; padding:8px 10px; background:var(--ui-surface-soft); border:1px solid var(--ui-line); border-radius:6px; font-size:13px;">
                         ${sourceProfileData.sources.map(s => {
                             const dis = (sourceProfileData.disabled[p.id] || []).includes(s.id);
                             const sEsc = s.id.replace(/'/g, "\\'");
@@ -11666,7 +11830,7 @@ if(success){
 
             renderGroupSelectControls();
             if (myPlaylistData.length === 0) {
-                activeList.innerHTML = '<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">暂无频道</div>';
+                activeList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--ui-subtle); font-size: 12px;">暂无频道</div>';
             } else if (groupSelectMode) {
                 activeList.innerHTML = myPlaylistData.map(groupSelectItemMarkup).join('');
             } else {
@@ -11676,7 +11840,7 @@ if(success){
                     <div class="my-playlist-group-item ${!channelSearchQuery && !isViewingDeleted && selectedGroupIndex === originalIndex ? 'active' : ''}"
                          onclick="selectGroup(${originalIndex}, false)">
                         <span>${group.name}${mergedCount ? ` <span style="color:#faad14;" title="和订阅源里的同名分组合并显示了，点开看详情">⚠</span>` : ''}</span>
-                        <span style="color: #999; font-size: 12px;">${group.channels.length}</span>
+                        <span style="color: var(--ui-subtle); font-size: 12px;">${group.channels.length}</span>
                     </div>
                 `;
                 }).join('');
@@ -11696,20 +11860,20 @@ if(success){
             }
 
             if (allDeletedGroups.length === 0) {
-                deletedList.innerHTML = '<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">无隐藏内容</div>';
+                deletedList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--ui-subtle); font-size: 12px;">无隐藏内容</div>';
             } else {
                 deletedList.innerHTML = allDeletedGroups.map((group, index) => {
                     // 被通配规则盖住的分组标出来源，否则用户看到一个自己没手动隐藏过的分组
                     // 出现在这里，完全无从判断是谁干的（新装的源冒出同前缀分组时尤其如此）。
                     const pattern = group.isPartialDelete || group.isCustomHidden ? null : groupHiddenByPattern(group.name);
                     const badge = pattern && pattern.endsWith('*')
-                        ? `<span title="被规则 ${escapeHtml(pattern)} 自动隐藏" style="font-size:11px;color:#fa8c16;border:1px solid #ffd591;border-radius:3px;padding:0 3px;margin-left:5px;">${escapeHtml(pattern)}</span>`
+                        ? `<span title="被规则 ${escapeHtml(pattern)} 自动隐藏" style="font-size:11px;color:#fa8c16;border:1px solid var(--ui-warning-line);border-radius:3px;padding:0 3px;margin-left:5px;">${escapeHtml(pattern)}</span>`
                         : '';
                     return `
                     <div class="my-playlist-group-item deleted ${!channelSearchQuery && isViewingDeleted && selectedGroupIndex === index ? 'active' : ''}"
                          onclick="selectGroup(${index}, true)">
                         <span>${escapeHtml(group.name)}${group.isPartialDelete ? ' (隐藏频道)' : ''}${badge}</span>
-                        <span style="color: #999; font-size: 12px;">${group.channels.length}</span>
+                        <span style="color: var(--ui-subtle); font-size: 12px;">${group.channels.length}</span>
                     </div>
                 `}).join('');
             }
@@ -11743,7 +11907,7 @@ if(success){
             const item = groupHidePlanItem(group);
             const checked = !item.skip && selectedGroupNames.has(group.name);
             const name = `<span>${escapeHtml(group.name)}</span>`;
-            const count = `<span style="color: #999; font-size: 12px;">${group.channels.length}</span>`;
+            const count = `<span style="color: var(--ui-subtle); font-size: 12px;">${group.channels.length}</span>`;
             if (item.skip) {
                 const reason = escapeHtml(GROUP_HIDE_SKIP_REASONS[item.skip]);
                 return `
@@ -11985,8 +12149,8 @@ if(success){
                 actions.innerHTML = `
                     <button class="btn btn-sm" onclick="selectAllSearchResults()">全选</button>
                     <button class="btn btn-sm" onclick="deselectAllSearchResults()">取消全选</button>
-                    <span style="margin-left: 6px; color: #555; font-size: 13px;">移动选中到</span>
-                    <select id="searchMoveSelect" onchange="lastSearchMoveTarget = this.value" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ddd; max-width: 160px;" ${selectedCount === 0 ? 'disabled' : ''}>${targets.map(name => `<option value="${escapeHtml(name)}" ${name === preset ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select>
+                    <span style="margin-left: 6px; color: var(--ui-text-secondary); font-size: 13px;">移动选中到</span>
+                    <select id="searchMoveSelect" onchange="lastSearchMoveTarget = this.value" style="padding: 3px 6px; border-radius: 4px; border: 1px solid var(--ui-line-strong); max-width: 160px;" ${selectedCount === 0 ? 'disabled' : ''}>${targets.map(name => `<option value="${escapeHtml(name)}" ${name === preset ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select>
                     <button class="btn btn-success btn-sm" onclick="moveSearchSelected()" ${selectedCount === 0 ? 'disabled' : ''}>移动 (${selectedCount})</button>
                     <button class="btn btn-primary btn-sm" onclick="toggleSearchBatchMode()">退出批量</button>
                     <button class="btn btn-sm" onclick="clearChannelSearch(false)">退出搜索</button>
@@ -11999,7 +12163,7 @@ if(success){
             }
 
             if (total === 0) {
-                container.innerHTML = `<div style="text-align: center; padding: 40px; color: #999;">没有名字里带「${escapeHtml(channelSearchQuery)}」的频道</div>`;
+                container.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--ui-subtle);">没有名字里带「${escapeHtml(channelSearchQuery)}」的频道</div>`;
                 return;
             }
             container.innerHTML = `
@@ -12232,7 +12396,7 @@ if(success){
 
                 // 调整selectedGroupIndex到有效范围
                 if (allDeletedGroups.length === 0) {
-                    container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">无隐藏内容</div>';
+                    container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--ui-subtle);">无隐藏内容</div>';
                     header.style.display = 'none';
                     return;
                 }
@@ -12265,8 +12429,8 @@ if(success){
                     actions.innerHTML = `
                         <button class="btn btn-sm" onclick="selectAllChannels()">全选</button>
                         <button class="btn btn-sm" onclick="deselectAllChannels()">取消全选</button>
-                        <span style="margin-left: 6px; color: #555; font-size: 13px;">移动选中到</span>
-                        <select id="hiddenMoveSelect" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ddd; max-width: 160px;" ${selectedCount === 0 ? 'disabled' : ''}>${moveOpts}</select>
+                        <span style="margin-left: 6px; color: var(--ui-text-secondary); font-size: 13px;">移动选中到</span>
+                        <select id="hiddenMoveSelect" style="padding: 3px 6px; border-radius: 4px; border: 1px solid var(--ui-line-strong); max-width: 160px;" ${selectedCount === 0 ? 'disabled' : ''}>${moveOpts}</select>
                         <button class="btn btn-success btn-sm" onclick="moveSelectedFromHidden()" ${selectedCount === 0 ? 'disabled' : ''}>移动 (${selectedCount})</button>
                         <button class="btn btn-primary btn-sm" onclick="toggleBatchMode()">退出批量</button>
                     `;
@@ -12314,7 +12478,7 @@ if(success){
             } else {
                 // 显示活跃分组
                 if (myPlaylistData.length === 0 || selectedGroupIndex >= myPlaylistData.length) {
-                    container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">请选择左侧分组</div>';
+                    container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--ui-subtle);">请选择左侧分组</div>';
                     header.style.display = 'none';
                     return;
                 }
@@ -12329,7 +12493,7 @@ if(success){
                 // 根据批量模式显示不同的操作按钮
                 if (isProtectedAnnouncement) {
                     SYSTEM_CHANNEL_IDS.forEach(id => selectedChannels.delete(id));
-                    actions.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;color:#5b6b80;font-size:13px;">🔒 系统公告固定置顶，可隐藏，不支持删除、移动或调整位置</span>`;
+                    actions.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;color:var(--ui-text-secondary);font-size:13px;">🔒 系统公告固定置顶，可隐藏，不支持删除、移动或调整位置</span>`;
                 } else if (isBatchMode) {
                     const selectedCount = selectedChannels.size;
                     const batchMoveOpts = myPlaylistData.map(g => {
@@ -12350,7 +12514,7 @@ if(success){
                                 <button class="btn btn-danger btn-sm" onclick="keepSelectedChannels()" ${selectedCount === 0 ? 'disabled' : ''}>只保留选中 (${selectedCount})</button>
                                 <span class="group-action-set">
                                     <span class="group-action-sub">移动到</span>
-                                    <select id="batchMoveSelect" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ddd; max-width: 160px;" ${selectedCount === 0 ? 'disabled' : ''}>${batchMoveOpts}</select>
+                                    <select id="batchMoveSelect" style="padding: 3px 6px; border-radius: 4px; border: 1px solid var(--ui-line-strong); max-width: 160px;" ${selectedCount === 0 ? 'disabled' : ''}>${batchMoveOpts}</select>
                                     <button class="btn btn-success btn-sm" onclick="moveSelectedChannels()" ${selectedCount === 0 ? 'disabled' : ''}>移动 (${selectedCount})</button>
                                 </span>
                                 <span class="group-action-set">
@@ -12375,7 +12539,7 @@ if(success){
                         </div>
                     ` : ''}
                     ${group.channels.length === 0 ? `
-                        <div style="text-align: center; padding: 40px; color: #999;">当前分组暂无频道</div>
+                        <div style="text-align: center; padding: 40px; color: var(--ui-subtle);">当前分组暂无频道</div>
                     ` : `
                         <div class="my-playlist-channels">
                             ${group.channels.map(channel => {

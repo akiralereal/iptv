@@ -3965,7 +3965,7 @@
         @media (max-width: 380px) {
             .sources-panel .source-subtabs { gap: 6px; }
             .sources-panel .source-subtabs > .mode-switch-btn { padding-inline: 4px; }
-            .sources-panel .source-subtabs > .mode-switch-btn:nth-child(2) { flex-grow: 1.4; }
+            .sources-panel .source-subtabs > .mode-switch-btn[aria-controls="sourceSub1"] { flex-grow: 1.4; }
         }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
@@ -4780,11 +4780,13 @@
             </div>
 
             <!-- 源管理：平台的全部内容来源集中在这一页，并像设置页一样用二级标签分区。
-                 首次默认展示核心的「内置抓取模块」，同时记住用户上次停留的分类。 -->
+                 「内置抓取模块」排第一，首次默认展示它，同时记住用户上次停留的分类。
+                 标签编号是固定的（0 = 自定义源 → #sourceSub0，1 = 内置抓取模块 → #sourceSub1），
+                 与按钮排在第几个无关：switchSourceTab 按 aria-controls / id 对应，记住的位置和各处跳转都用这个编号。 -->
             <div class="panel sources-panel">
                 <div class="source-subtabs" role="tablist" aria-label="源管理分类">
-                    <button type="button" class="mode-switch-btn" role="tab" aria-selected="false" aria-controls="sourceSub0" onclick="switchSourceTab(0)">自定义源 <span class="source-tab-count" id="sourceTabExternalCount"></span></button>
                     <button type="button" class="mode-switch-btn active" role="tab" aria-selected="true" aria-controls="sourceSub1" onclick="switchSourceTab(1)">内置抓取模块 <span class="source-tab-count" id="sourceTabExtractorCount"></span><span class="attention-dot" data-alert-where="extractors" role="img" hidden></span></button>
+                    <button type="button" class="mode-switch-btn" role="tab" aria-selected="false" aria-controls="sourceSub0" onclick="switchSourceTab(0)">自定义源 <span class="source-tab-count" id="sourceTabExternalCount"></span></button>
                 </div>
 
                 <!-- ① 自定义源 ------------------------------------------------ -->
@@ -5314,12 +5316,14 @@
             const next = sourceTabIndexes.includes(Number(index)) ? Number(index) : 1;
             fitSubtabPanelHeight(document.querySelector('.sources-panel'));
             selectedSourceTab = next;
-            document.querySelectorAll('.source-subtabs .mode-switch-btn').forEach((button, i) => {
-                const active = i === next;
+            // 按编号对应按钮和面板，不按排列顺序：「内置抓取模块」(1) 的按钮排在「自定义源」(0) 前面
+            const panelId = `sourceSub${next}`;
+            document.querySelectorAll('.source-subtabs .mode-switch-btn').forEach(button => {
+                const active = button.getAttribute('aria-controls') === panelId;
                 button.classList.toggle('active', active);
                 button.setAttribute('aria-selected', active ? 'true' : 'false');
             });
-            document.querySelectorAll('.source-subpanel').forEach((panel, i) => panel.classList.toggle('active', i === next));
+            document.querySelectorAll('.source-subpanel').forEach(panel => panel.classList.toggle('active', panel.id === panelId));
             try {
                 localStorage.setItem('iptv-source-tab', String(next));
             } catch (e) {

@@ -4106,6 +4106,28 @@
         .channel-detail-logo-preview img { width: 100%; height: 100%; object-fit: contain; }
         .channel-detail-logo-preview span { color: var(--ui-muted); font-size: 12px; }
         .channel-detail-source { margin: 16px 2px 0; color: var(--ui-muted); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+        /* 同名线路：所有分组里同名的条目，按分组聚在一起，逐条试播 / 隐藏 / 调先后 */
+        .same-name-badge { display: inline-block; margin-left: 5px; padding: 0 5px; border: 1px solid var(--ui-accent-line); border-radius: 5px; background: var(--ui-accent-soft); color: var(--ui-accent); font-size: 10px; font-weight: 500; line-height: 16px; vertical-align: 1px; white-space: nowrap; cursor: pointer; }
+        .same-name-badge:hover { background: var(--ui-accent-line); }
+        .same-name-group-title { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; margin: 14px 0 6px; color: var(--ui-text-secondary); font-size: 12px; font-weight: 600; }
+        .same-name-group-title span { color: var(--ui-muted); font-weight: 400; }
+        .same-name-line { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--ui-line); border-radius: 10px; background: var(--ui-surface); }
+        .same-name-line + .same-name-line { margin-top: 6px; }
+        .same-name-line.is-current { border-color: var(--ui-accent-line); background: var(--ui-accent-soft); }
+        .same-name-line.is-hidden .same-name-info, .same-name-line.is-hidden .same-name-pos { opacity: .6; }
+        .same-name-pos { flex: 0 0 22px; height: 22px; border-radius: 6px; background: var(--ui-surface-strong); color: var(--ui-text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; line-height: 22px; text-align: center; }
+        .same-name-info { flex: 1 1 auto; min-width: 0; }
+        .same-name-source { display: flex; flex-wrap: wrap; gap: 3px 6px; align-items: center; color: var(--ui-text); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+        .same-name-host { color: var(--ui-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+        .same-name-flag { padding: 0 6px; border: 1px solid var(--ui-accent-line); border-radius: 5px; color: var(--ui-accent); font-size: 11px; line-height: 18px; white-space: nowrap; }
+        .same-name-flag.is-muted { border-color: var(--ui-line); background: var(--ui-surface-strong); color: var(--ui-text-secondary); }
+        .same-name-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+        #channelDetailModal .same-name-actions .btn { min-height: 32px; padding: 5px 10px; font-size: 12px; }
+        #channelDetailModal .same-name-actions .btn[aria-label] { min-width: 32px; padding: 5px 0; }
+        @media (max-width: 560px) {
+            .same-name-line { flex-wrap: wrap; }
+            .same-name-actions { width: 100%; justify-content: flex-end; }
+        }
         #channelDetailModal .modal-actions { flex: 0 0 auto; margin: 0; padding: 16px 24px; border-top: 1px solid var(--ui-line); background: var(--ui-glass-card); }
         @media (max-width: 560px) {
             #channelDetailModal .modal-content { width: calc(100% - 20px) !important; max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); }
@@ -12181,10 +12203,18 @@ if(success){
                                 </div>
                             `;
                         }
+                        // 搜同一个台时多半是在挑线路：每条直接给试播和隐藏 / 恢复，不用先跳进分组
+                        let toggle = '';
+                        if (!result.hidden) toggle = `<button title="在当前配置档隐藏这一条" onclick="event.stopPropagation(); hideSearchResult(${i})">隐藏</button>`;
+                        else if (result.partial) toggle = `<button title="恢复显示这一条" onclick="event.stopPropagation(); restoreSearchResult(${i})">恢复</button>`;
                         return `
                             <div class="my-playlist-channel search-result" onclick="jumpToSearchResult(${i})" title="${escapeHtml(result.channel.name)} —— 点击跳到「${escapeHtml(result.groupName)}」分组${result.hidden ? '（已隐藏）' : ''}">
-                                <div class="my-playlist-channel-name">${escapeHtml(result.channel.name)}</div>
+                                <div class="my-playlist-channel-name">${escapeHtml(result.channel.name)}${channelSourceBadge(result.channel)}</div>
                                 ${tag}
+                                <div class="my-playlist-channel-actions">
+                                    ${result.channel.url ? `<button class="channel-play-btn" title="在页面里播放" onclick="event.stopPropagation(); playSearchResult(${i})">▶ 播放</button>` : ''}
+                                    ${toggle}
+                                </div>
                             </div>
                         `;
                     }).join('')}
@@ -12294,6 +12324,28 @@ if(success){
         }
 
         // 点搜索结果：退出搜索，切到频道所在的分组，并用「刚编辑过」的高亮（issue #50）定位到那一行
+        function playSearchResult(i) {
+            const result = channelSearchResults[i];
+            if (result) playInline(result.channel.url, result.channel.name);
+        }
+
+        async function hideSearchResult(i) {
+            const result = channelSearchResults[i];
+            if (!result || result.hidden) return;
+            const key = searchResultKey(result);
+            if (!Array.isArray(myPlaylistConfig.hiddenChannels)) myPlaylistConfig.hiddenChannels = [];
+            if (!myPlaylistConfig.hiddenChannels.includes(key)) myPlaylistConfig.hiddenChannels.push(key);
+            await saveMyPlaylistConfigAndReload(`已隐藏「${result.channel.name}」（${result.groupName}）`);
+        }
+
+        async function restoreSearchResult(i) {
+            const result = channelSearchResults[i];
+            if (!result || !result.hidden || !result.partial) return;
+            const key = searchResultKey(result);
+            myPlaylistConfig.hiddenChannels = (myPlaylistConfig.hiddenChannels || []).filter(k => k !== key);
+            await saveMyPlaylistConfigAndReload(`已恢复「${result.channel.name}」`);
+        }
+
         function jumpToSearchResult(i) {
             const result = channelSearchResults[i];
             if (!result) return;
@@ -12554,7 +12606,7 @@ if(success){
                                     ` : (isNameSorted ? `<span class="channel-drag-handle" aria-hidden="true"></span>` : `<span class="channel-drag-handle" aria-hidden="true" title="拖拽排序">⠿</span>`)}
                                     ${channelStatusDots(channel)}
                                     <div class="my-playlist-channel-name" title="点击查看详情：${channel.name}" onclick="showChannelDetail('${channel.id}', false)" style="cursor: pointer;">
-                                        <span class="channel-detail-hint" aria-hidden="true">ⓘ</span>${channel.name}${channelSourceBadge(channel)}
+                                        <span class="channel-detail-hint" aria-hidden="true">ⓘ</span>${channel.name}${channelSourceBadge(channel)}${isBatchMode ? '' : sameNameBadge(channel)}
                                     </div>
                                     ${!isBatchMode ? `
                                         <div class="my-playlist-channel-actions">
@@ -14013,8 +14065,252 @@ if(success){
             `;
         }
 
+        // ===== 同名线路 =====
+        // 不同源给同一个台的几条线路默认都保留，互为备份（服务端组内去重只收「名字 + 地址」都相同的）。
+        // 这里把所有分组里同名的条目集中列出来：逐条试播、隐藏 / 恢复，同一分组里的几条用 ↑↓ 调先后。
+        // 同名按当前显示名比（去首尾空白、不分大小写），与服务端 sortChannelsByOrder 同一口径；
+        // 不用归一 key，否则「CCTV16 4K」和「CCTV16奥林匹克」、「广东4K超高清」和「广东移动」会被算成一台。
+
+        let sameNameTarget = null;     // 详情弹窗里正在列的同名线路：{ nameKey, name, selfKey }
+        let sameNameLines = [];        // 当前渲染出来的同名线路，点击时按下标取（不把名字 / 地址拼进 onclick）
+        let sameNameCountCache = null; // 分组列表「同名×N」徽标的计数，跟着 myPlaylistData 走
+
+        function sameNameKey(name) {
+            return String(name || '').trim().toLowerCase();
+        }
+
+        function channelConfigKey(channel, groupName) {
+            return `${channel?.originalGroup || groupName}::${channel?.id}`;
+        }
+
+        /**
+         * 所有频道条目：可见分组在前，「已隐藏」区在后，同一条只列一次（与 findChannelsByName 同源）。
+         * 已隐藏的条目没经过服务端改名：名字用单独改过的名字，没改过用源里的原名；分组记成恢复后会回到的
+         * 分组（单独移动过的回目标分组，改过名的分组用新名），好和同组的可见线路排在一起。
+         * hidden：'' 可见 / 'channel' 单独隐藏（可在这里恢复）/ 'group' 所在分组整组隐藏。
+         */
+        function collectChannelLines() {
+            const lines = [];
+            const seen = new Set();
+            (myPlaylistData || []).forEach(group => {
+                (group.channels || []).forEach(channel => {
+                    if (isSystemAnnouncementChannel(channel)) return;
+                    const key = channelConfigKey(channel, group.name);
+                    seen.add(key);
+                    lines.push({ key, channel, groupName: group.name, name: channel.name || '', hidden: '' });
+                });
+            });
+            hiddenAreaGroups().forEach(group => {
+                (group.channels || []).forEach(channel => {
+                    if (isSystemAnnouncementChannel(channel)) return;
+                    const key = channelConfigKey(channel, group.name);
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    if (group.isCustomHidden) {
+                        lines.push({ key, channel, groupName: group.name, name: channel.name || '', hidden: 'group' });
+                        return;
+                    }
+                    const original = channel.originalGroup || group.name;
+                    const renamed = (myPlaylistConfig.channelRenameMap || {})[key];
+                    const name = renamed || channel.name || '';
+                    if (!group.isPartialDelete) {
+                        lines.push({ key, channel, groupName: original, name, hidden: 'group' });
+                        return;
+                    }
+                    const target = channelMovedTo(original, channel) || (myPlaylistConfig.groupRenameMap || {})[original] || original;
+                    lines.push({ key, channel, groupName: target, name, hidden: 'channel' });
+                });
+            });
+            return lines;
+        }
+
+        // 分组列表里的「同名×N」：只数播放列表里实际会出现的（可见的），点开详情再看全部，含已隐藏的
+        function sameNameBadge(channel) {
+            if (!sameNameCountCache || sameNameCountCache.data !== myPlaylistData) {
+                const counts = new Map();
+                (myPlaylistData || []).forEach(group => (group.channels || []).forEach(ch => {
+                    if (isSystemAnnouncementChannel(ch)) return;
+                    const key = sameNameKey(ch.name);
+                    if (key) counts.set(key, (counts.get(key) || 0) + 1);
+                }));
+                sameNameCountCache = { data: myPlaylistData, counts };
+            }
+            const count = sameNameCountCache.counts.get(sameNameKey(channel.name)) || 0;
+            if (count < 2) return '';
+            return `<span class="same-name-badge" title="播放列表里共有 ${count} 个叫这个名字的频道，点开可以逐条试播、隐藏、调整先后" onclick="event.stopPropagation(); showChannelDetail('${channel.id}', false, { focusSameName: true })">同名×${count}</span>`;
+        }
+
+        // 地址的主机名，用来区分同一个源给的几条线路；本机转发的（${replace}/…）不显示
+        function lineHostLabel(url) {
+            const text = String(url || '');
+            if (!/^https?:\/\//i.test(text)) return '';
+            try { return new URL(text).host; } catch (e) { return ''; }
+        }
+
+        // 详情弹窗打开时定下「列谁的同名线路」：优先取当前选中分组里的那一条（同一 ID 可能在体育组和省份组各有一条）
+        function initSameNameSection(channelId, isDeleted) {
+            const lines = collectChannelLines();
+            const group = isDeleted ? hiddenAreaGroups()[selectedGroupIndex] : myPlaylistData[selectedGroupIndex];
+            const inGroup = (group?.channels || []).find(ch => ch.id === channelId);
+            const selfKey = inGroup ? channelConfigKey(inGroup, group.name) : '';
+            const self = lines.find(line => line.key === selfKey) || lines.find(line => line.channel.id === channelId);
+            sameNameTarget = self ? { nameKey: sameNameKey(self.name), name: self.name, selfKey: self.key } : null;
+            renderSameNameSection();
+        }
+
+        function renderSameNameSection() {
+            const box = document.getElementById('sameNameSection');
+            if (!box) return;
+            const target = sameNameTarget;
+            const lines = target && target.nameKey ? collectChannelLines().filter(line => sameNameKey(line.name) === target.nameKey) : [];
+            if (lines.length < 2) {
+                sameNameLines = [];
+                box.hidden = true;
+                box.innerHTML = '';
+                return;
+            }
+            sameNameLines = lines;
+            // 按分组聚在一起，分组按播放列表里的先后；组内可见的按播放列表顺序，已隐藏的排在后面
+            const groupRank = new Map((myPlaylistData || []).map((group, i) => [group.name, i]));
+            const byGroup = new Map();
+            lines.forEach((line, i) => {
+                if (!byGroup.has(line.groupName)) byGroup.set(line.groupName, []);
+                byGroup.get(line.groupName).push(i);
+            });
+            const rankOf = name => groupRank.has(name) ? groupRank.get(name) : Number.MAX_SAFE_INTEGER;
+            const groups = [...byGroup.entries()].sort((a, b) => rankOf(a[0]) - rankOf(b[0]));
+            const hiddenCount = lines.filter(line => line.hidden).length;
+            box.hidden = false;
+            box.innerHTML = `
+                <h4>同名线路 · ${lines.length} 条</h4>
+                <p class="channel-detail-help">所有分组里叫「${escapeHtml(target.name)}」的频道${hiddenCount ? `，其中 ${hiddenCount} 条已隐藏` : ''}。同一分组里的先后就是播放列表里的先后，支持同名聚合的播放器会把排在前面的当默认源。改动只对当前配置档「${escapeHtml(currentProfileName())}」生效。</p>
+                ${groups.map(([groupName, indexes]) => {
+                    const nameSorted = !!(myPlaylistConfig.groupSortMode && myPlaylistConfig.groupSortMode[groupName] === 'name');
+                    const visible = indexes.filter(i => !lines[i].hidden);
+                    return `
+                        <div class="same-name-group">
+                            <div class="same-name-group-title">${escapeHtml(groupName)}${nameSorted && visible.length > 1 ? '<span>这个分组按名称自动排序，不能手动调先后</span>' : ''}</div>
+                            ${indexes.map(i => sameNameLineMarkup(lines[i], i, visible, nameSorted)).join('')}
+                        </div>
+                    `;
+                }).join('')}
+                <p class="channel-detail-help">订阅源的频道按地址识别：订阅换了地址的线路会当作新线路重新出现，排在同名线路后面，需要时再隐藏一次。</p>
+            `;
+        }
+
+        function sameNameLineMarkup(line, i, visible, nameSorted) {
+            const pos = visible.indexOf(i);
+            const isSelf = !!sameNameTarget && line.key === sameNameTarget.selfKey;
+            const sources = sourceNamesFor(line.channel);
+            const host = lineHostLabel(line.channel.url);
+            const status = line.hidden === 'group' ? '分组已隐藏' : line.hidden ? '已隐藏' : '';
+            const canMove = !line.hidden && !nameSorted && visible.length > 1;
+            let toggle = '';
+            if (line.hidden === 'channel') toggle = `<button class="btn btn-sm" onclick="restoreSameNameLine(${i})">恢复</button>`;
+            else if (!line.hidden) toggle = `<button class="btn btn-sm" onclick="hideSameNameLine(${i})">隐藏</button>`;
+            return `
+                <div class="same-name-line${isSelf ? ' is-current' : ''}${line.hidden ? ' is-hidden' : ''}">
+                    <span class="same-name-pos" title="${pos >= 0 ? `本组同名里排第 ${pos + 1}` : '不在播放列表里'}">${pos >= 0 ? pos + 1 : '–'}</span>
+                    <div class="same-name-info">
+                        <div class="same-name-source">${escapeHtml(sources.length ? sources.join('、') : '来源未知')}${isSelf ? '<span class="same-name-flag">当前</span>' : ''}${status ? `<span class="same-name-flag is-muted" title="${line.hidden === 'group' ? '所在分组整组隐藏了，到「已隐藏」里恢复分组' : ''}">${status}</span>` : ''}</div>
+                        ${host ? `<div class="same-name-host">${escapeHtml(host)}</div>` : ''}
+                    </div>
+                    <div class="same-name-actions">
+                        ${line.channel.url ? `<button class="btn btn-sm" onclick="playSameNameLine(${i})" title="在页面里播放这一条">▶ 播放</button>` : ''}
+                        ${canMove ? `
+                            <button class="btn btn-sm" onclick="moveSameNameLine(${i}, -1)" ${pos === 0 ? 'disabled' : ''} title="往前挪一位" aria-label="往前挪一位">↑</button>
+                            <button class="btn btn-sm" onclick="moveSameNameLine(${i}, 1)" ${pos === visible.length - 1 ? 'disabled' : ''} title="往后挪一位" aria-label="往后挪一位">↓</button>
+                        ` : ''}
+                        ${toggle}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 存当前档配置并重新加载；失败时从服务端重读配置，免得本地改了一半的配置下次随别的操作存上去
+        async function saveMyPlaylistConfigAndReload(successMessage) {
+            if (!myPlaylistConfigLoaded) {
+                showStatus('配置还没加载完，请稍后再试', 'error');
+                return false;
+            }
+            let ok = false;
+            try {
+                const response = await fetch(mpConfigUrl(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(myPlaylistConfig)
+                });
+                const result = await response.json();
+                ok = !!result.success;
+                if (!ok) showStatus('保存失败' + (result.message ? ': ' + result.message : ''), 'error');
+            } catch (error) {
+                showStatus('保存失败: ' + error.message, 'error');
+            }
+            if (!ok) await loadMyPlaylistConfig();
+            await loadMyPlaylist(false);
+            if (ok) showStatus(successMessage, 'success');
+            return ok;
+        }
+
+        function playSameNameLine(i) {
+            const line = sameNameLines[i];
+            if (line) playInline(line.channel.url, line.name);
+        }
+
+        async function hideSameNameLine(i) {
+            const line = sameNameLines[i];
+            if (!line || line.hidden) return;
+            if (!Array.isArray(myPlaylistConfig.hiddenChannels)) myPlaylistConfig.hiddenChannels = [];
+            if (!myPlaylistConfig.hiddenChannels.includes(line.key)) myPlaylistConfig.hiddenChannels.push(line.key);
+            await saveMyPlaylistConfigAndReload('已隐藏这条线路');
+            renderSameNameSection();
+        }
+
+        async function restoreSameNameLine(i) {
+            const line = sameNameLines[i];
+            if (!line || line.hidden !== 'channel') return;
+            myPlaylistConfig.hiddenChannels = (myPlaylistConfig.hiddenChannels || []).filter(key => key !== line.key);
+            await saveMyPlaylistConfigAndReload('已恢复这条线路');
+            renderSameNameSection();
+        }
+
+        /**
+         * 同组同名线路里把第 p 条和相邻的一条换个先后（纯函数，返回新数组；不能挪时返回 null）。
+         * 同名的几条先收拢成一块、放在其中第一条原来的位置，组内其它频道的相对顺序不动：
+         * 只是互换两条的位置的话，订阅里排在几十个频道之后的线路挪到前面，原先那条就被换到组尾去了。
+         */
+        function reorderSameNameBlock(channels, isSameName, keyOf, key, dir) {
+            const block = channels.filter(isSameName);
+            const p = block.findIndex(channel => keyOf(channel) === key);
+            if (p === -1 || p + dir < 0 || p + dir >= block.length) return null;
+            [block[p], block[p + dir]] = [block[p + dir], block[p]];
+            const anchor = channels.findIndex(isSameName);
+            const rest = channels.filter(channel => !isSameName(channel));
+            rest.splice(anchor, 0, ...block);   // 第一条同名之前的频道都不是同名，拿掉同名后 anchor 位置不变
+            return rest;
+        }
+
+        // 存成整组的手动顺序，与拖拽排序同一份 channelOrder
+        async function moveSameNameLine(i, dir) {
+            const line = sameNameLines[i];
+            if (!line || line.hidden || !sameNameTarget) return;
+            const group = (myPlaylistData || []).find(g => g.name === line.groupName);
+            if (!group || (myPlaylistConfig.groupSortMode || {})[group.name] === 'name') return;
+            const keyOf = channel => channelConfigKey(channel, group.name);
+            const nameKey = sameNameTarget.nameKey;
+            const isSameName = channel => !isSystemAnnouncementChannel(channel) && sameNameKey(channel.name) === nameKey;
+            const next = reorderSameNameBlock(group.channels, isSameName, keyOf, line.key, dir);
+            if (!next) return;
+            group.channels = next;
+            if (!myPlaylistConfig.channelOrder) myPlaylistConfig.channelOrder = {};
+            myPlaylistConfig.channelOrder[group.name] = next.map(keyOf);
+            await saveMyPlaylistConfigAndReload(dir < 0 ? '已往前挪一位' : '已往后挪一位');
+            renderSameNameSection();
+        }
+
         // readOnly：从源管理的模块名单点进来，只看不改（见 openModuleChannelDetail），弹窗叠在模块详情上面
-        function showChannelDetail(channelId, isDeleted, { readOnly = false } = {}) {
+        // focusSameName：从分组列表的「同名×N」点进来，打开后直接滚到「同名线路」
+        function showChannelDetail(channelId, isDeleted, { readOnly = false, focusSameName = false } = {}) {
             document.getElementById('channelDetailModal').classList.toggle('is-stacked', readOnly);
             // 从原始数据中查找频道
             let channel = null;
@@ -14138,6 +14434,7 @@ if(success){
                     ` : ''}
                 </section>
                 ${channelDetailPlayback(channel)}
+                ${readOnly ? '' : '<section class="channel-detail-section" id="sameNameSection" hidden></section>'}
             `;
 
             // 隐藏频道不提供移动、重命名、复制或台标编辑；系统频道已在上方提前返回。
@@ -14256,7 +14553,10 @@ if(success){
             document.getElementById('channelDetailContent').innerHTML = detailHTML;
             document.getElementById('channelDetailContent').scrollTop = 0;
             document.getElementById('channelDetailEditBtn').style.display = sourceType === 'external' && !readOnly ? '' : 'none';
+            if (!readOnly) initSameNameSection(channelId, isDeleted);
             document.getElementById('channelDetailModal').style.display = 'block';
+            const sameNameBox = focusSameName && document.getElementById('sameNameSection');
+            if (sameNameBox && !sameNameBox.hidden) sameNameBox.scrollIntoView({ block: 'start' });
         }
 
         function closeChannelDetail() {

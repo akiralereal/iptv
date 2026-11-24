@@ -663,14 +663,7 @@ export function applyConfig(groups, config, { hiddenCustomGroups = null } = {}) 
       }
       const order = channelOrder[group.name]
       if (Array.isArray(order) && order.length > 0) {
-        group.channels.sort((a, b) => {
-          const ia = order.indexOf(`${a.originalGroup}::${a.id}`)
-          const ib = order.indexOf(`${b.originalGroup}::${b.id}`)
-          if (ia !== -1 && ib !== -1) return ia - ib
-          if (ia !== -1) return -1   // 已排序的在前
-          if (ib !== -1) return 1
-          return 0                   // 都不在列表中：保持相对顺序（V8 稳定排序）
-        })
+        group.channels = sortChannelsByOrder(group.channels, order)
       }
     })
 
@@ -685,6 +678,39 @@ export function applyConfig(groups, config, { hiddenCustomGroups = null } = {}) 
     printRed(`应用配置失败: ${error.message}`)
     return groups // 返回原始数据
   }
+}
+
+/** 同名比对口径：去首尾空白、不分大小写（与后台「同名线路」面板的 sameNameKey 一致） */
+function sameNameKey(name) {
+  return String(name || '').trim().toLowerCase()
+}
+
+/**
+ * 按手动排序（channelOrder 里的 ["原始分组::频道ID", ...]）排一个分组的频道，返回新数组。
+ *
+ * 不在顺序表里的频道是上次排序之后才出现的：新加的源，或者订阅源换了地址的线路（ID 含地址）。
+ * 原先一律排到组尾；和已排好的某个频道同名时，改为紧跟在它最后一条同名线路后面——聚合订阅换了
+ * 地址，同一台的几条线路仍挨在一起，不会有一条掉到几十个频道之后。没有同名的仍按原先相对顺序排到组尾。
+ */
+export function sortChannelsByOrder(channels, order) {
+  const rank = new Map()
+  order.forEach((key, i) => { if (!rank.has(key)) rank.set(key, i) })
+  const keyOf = channel => `${channel.originalGroup}::${channel.id}`
+  const result = channels
+    .filter(channel => rank.has(keyOf(channel)))
+    .sort((a, b) => rank.get(keyOf(a)) - rank.get(keyOf(b)))
+  const tail = []
+  for (const channel of channels) {
+    if (rank.has(keyOf(channel))) continue
+    const name = sameNameKey(channel.name)
+    let at = -1
+    for (let i = result.length - 1; i >= 0; i--) {
+      if (sameNameKey(result[i].name) === name) { at = i; break }
+    }
+    if (at === -1) tail.push(channel)
+    else result.splice(at + 1, 0, channel)
+  }
+  return [...result, ...tail]
 }
 
 /**

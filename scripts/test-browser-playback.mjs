@@ -57,7 +57,8 @@ console.log(`网页播放地址测试通过（管理台和独立播放器，共 
 const admin = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8')
 const names = ['dynamicSportsSource', 'blockDynamicSportsDetailEdit', 'dynamicSportsDetail', 'channelDetailPlayback',
   'showChannelDetail', 'channelsMissingLogo', 'channelStatusDots', 'setAliasFromDetail', 'uploadCurrentChannelLogo',
-  'removeCurrentChannelLogo', 'copyCurrentChannelToGroups', 'moveCurrentChannel', 'renameCurrentChannel', 'editChannelFromDetail']
+  'removeCurrentChannelLogo', 'copyCurrentChannelToGroups', 'moveCurrentChannel', 'renameCurrentChannel', 'editChannelFromDetail',
+  'sameNameKey', 'channelConfigKey', 'collectChannelLines', 'lineHostLabel', 'initSameNameSection', 'renderSameNameSection', 'sameNameLineMarkup']
 const functions = names.map(name => {
   const source = admin.match(new RegExp(`^ {8}(?:async )?function ${name}\\([^]*?^ {8}\\}`, 'm'))?.[0]
   assert.ok(source, `missing detail helper ${name}`)
@@ -73,11 +74,12 @@ const sandbox = {
   document: { getElementById(id) { if (!nodes.has(id)) nodes.set(id, { style: {}, innerHTML: '', textContent: '', scrollTop: 0, classes: new Set(), classList: { toggle(name, on) { const set = nodes.get(id).classes; on ? set.add(name) : set.delete(name) }, contains(name) { return nodes.get(id).classes.has(name) } } }); return nodes.get(id) } },
   builtInConfig: {}, externalConfig: {}, myPlaylistOriginalData: groups, myPlaylistData: groups,
   myPlaylistConfig: { hiddenChannels: [] }, PLAYERS_BY_PLATFORM: {}, getClientPlatform: () => 'test',
+  hiddenAreaGroups: () => [], channelMovedTo: () => '', currentProfileName: () => '默认', selectedGroupIndex: 1,
   sourceNamesFor: () => ['咪咕'], isSystemAnnouncementChannel: () => false, isSystemAnnouncementGroup: () => false,
   escapeHtml: value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
   showStatus: (...args) => messages.push(args), fetch: () => { throw new Error('Detail UI regression must not fetch channels') },
 }
-const ui = runInNewContext(`let currentChannelDetail = null;\n${functions}\n({${names.join(',')}})`, sandbox)
+const ui = runInNewContext(`let currentChannelDetail = null; let sameNameTarget = null; let sameNameLines = [];\n${functions}\n({${names.join(',')}})`, sandbox)
 assert.equal(ui.dynamicSportsSource(miguEvent), '咪咕')
 assert.equal(ui.dynamicSportsSource({ ...miguEvent, sourceIds: [], originalGroup: '体育-今天' }), '咪咕', 'legacy Migu schedule')
 assert.equal(ui.dynamicSportsSource({ ...miguEvent, originalGroup: '体育-明天' }, '我的分组'), '咪咕', 'moved events retain their original schedule identity')
@@ -112,5 +114,24 @@ assert.ok(nodes.get('channelDetailModal').classList.contains('is-stacked'))
 ui.showChannelDetail(television.id, false)
 assert.ok(!nodes.get('channelDetailModal').classList.contains('is-stacked'), 'group view detail is not stacked')
 assert.doesNotMatch(ui.dynamicSportsDetail({ ...miguEvent, name: '<script>bad</script>' }, '咪咕'), /<script>/)
-console.log('动态赛事详情测试通过：咪咕赛事精简，固定电视频道保留原有编辑功能（纯静态样例）')
+
+// 同名线路：只有一条时不出现；另一分组有同名线路时列出全部，同组的才有 ↑↓；只读详情不放这一节
+ui.showChannelDetail(television.id, false)
+assert.match(nodes.get('channelDetailContent').innerHTML, /id="sameNameSection"/)
+assert.equal(nodes.get('sameNameSection').hidden, true, 'single line hides the same-name section')
+groups.push({ name: '央视频', channels: [
+  { id: 'ysp-cctv5', name: ' cctv5体育 ', sourceIds: ['xt:yangshipin'], url: '${replace}/relay/ysp-cctv5.m3u8', originalGroup: '央视频' },
+  { id: 'ext-line', name: 'CCTV5体育', sourceIds: ['ext:a'], url: 'http://line.example.com/live/5.m3u8', originalGroup: '央视频' },
+  { id: 'other', name: 'CCTV5+体育赛事', sourceIds: ['migu'], url: '${replace}/641886683', originalGroup: '央视频' },
+] })
+ui.showChannelDetail(television.id, false)
+const sameName = nodes.get('sameNameSection')
+assert.equal(sameName.hidden, false)
+assert.match(sameName.innerHTML, /同名线路 · 3 条/)
+assert.doesNotMatch(sameName.innerHTML, /CCTV5\+/, 'only exact same names, not prefixes')
+assert.equal((sameName.innerHTML.match(/moveSameNameLine\(/g) || []).length, 4, 'arrows only for the two lines sharing a group')
+assert.match(sameName.innerHTML, /line\.example\.com/, 'external line shows its host')
+ui.showChannelDetail(television.id, true, { readOnly: true })
+assert.doesNotMatch(nodes.get('channelDetailContent').innerHTML, /sameNameSection/, 'read-only detail has no same-name section')
+console.log('动态赛事详情测试通过：咪咕赛事精简，固定电视频道保留原有编辑功能，同名线路按显示名列出（纯静态样例）')
 

@@ -9,7 +9,7 @@
 | 时间轴 | 视频开头起的绝对秒 | 墙钟（服务器时间） |
 | 取法 | 按分钟取 `?part=N`，每分钟一次 | 带游标每 `pollSeconds` 秒轮询一次 |
 | 条目 `time` | 视频内秒 | 上屏时刻的 Unix 秒（来源能保证时效时用发送时刻，否则用服务端收到的时刻） |
-| 现用来源 | 红果短剧（Emby 点播） | 咪咕体育赛事聊天室 |
+| 现用来源 | 暂无 | 咪咕体育赛事聊天室 |
 
 ## 元数据 `GET <danmaku-url>`
 
@@ -36,8 +36,6 @@
 ## 点播分段 `GET <segmentsURL>?part=N`
 
 N 从 1 起，每段 60 秒。返回 `schemaVersion`、`videoID`、`part`、`start`、`end` 和 `items`；`time` 为视频内绝对秒，必须落在 `[start, end]`。
-
-红果在 Emby 的分集元数据里提供 `DanmakuUrl`，格式是 `/Items/<分集ID>/Danmaku`，相对于 Emby 服务器地址。经 Emby 登录后，Ceau 按当前分集和播放进度读取官方弹幕，切集时加载新一集的弹幕。
 
 ## 直播增量 `GET <liveURL>[?cursor=<游标>]`
 

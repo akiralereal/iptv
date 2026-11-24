@@ -5,13 +5,11 @@ services:
     init: true                                  # 用 init 进程回收 Chromium 退出后的僵尸进程
     ports:
       - "1905:1905"                             # 宿主机:容器端口映射
-      - "1906:1906"                             # 红果 Emby 无路径端口，改端口后同步调整映射
     environment:
       - muserId=                                # 可选：咪咕账号ID（留空为游客模式）
       - mtoken=                                 # 可选：咪咕登录令牌（用于高画质/VIP）
       # - mSichuanAccessToken=                  # 可选：四川广电官网登录令牌；也可在后台源管理中填写
       - mport=1905                              # 必须：容器监听端口，与 ports 对应
-      # - mHongguoEmbyPort=1906                  # 可选：首次启动的无路径端口，后台保存的端口优先
       - mhost=                                  # 可选：外部访问地址（如 http://192.168.1.100:1905）
       - mrateType=3                             # 画质：2=标清(480p)，3=高清(720p)，4=蓝光(1080p,需VIP)
       - mpass=                                  # 可选：访问密码（设置后访问: http://ip:port/密码/...）

@@ -3128,8 +3128,6 @@
         }
         .source-card:hover,
         .external-nav-item:hover { border-color: var(--ui-line-strong); background: #fff; box-shadow: none; }
-        a.source-card { text-decoration: none; }
-        a.source-card:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
         .source-card.active,
         .external-nav-item.active { border-color: var(--ui-selected-bg); background: var(--ui-surface-strong); box-shadow: none; }
         .source-card.static,
@@ -4647,7 +4645,6 @@
                     <button type="button" class="mode-switch-btn" role="tab" aria-selected="false" aria-controls="sourceSub0" onclick="switchSourceTab(0)">自定义源 <span class="source-tab-count" id="sourceTabExternalCount"></span></button>
                     <button type="button" class="mode-switch-btn active" role="tab" aria-selected="true" aria-controls="sourceSub1" onclick="switchSourceTab(1)">内置抓取模块 <span class="source-tab-count" id="sourceTabExtractorCount"></span><span class="attention-dot" data-alert-where="extractors" role="img" hidden></span></button>
                     <button type="button" class="mode-switch-btn" role="tab" aria-selected="false" aria-controls="sourceSub2" onclick="switchSourceTab(2)">内置源 <span class="source-tab-count" id="sourceTabBuiltInCount"></span></button>
-                    <button type="button" class="mode-switch-btn" id="vodSourceTab" role="tab" aria-selected="false" aria-controls="sourceSub3" onclick="switchSourceTab(3)">点播源</button>
                 </div>
 
                 <!-- ① 自定义源 ------------------------------------------------ -->
@@ -4752,17 +4749,6 @@
                         </div>
                     </div>
                 </div>
-                </div>
-                <div class="source-subpanel" id="sourceSub3" role="tabpanel" aria-labelledby="vodSourceTab">
-                    <div class="source-section">
-                        <div class="source-grid">
-                            <a class="source-card" href="hongguo/">
-                                <span class="source-card-title"><span class="name">红果短剧</span></span>
-                                <span class="source-card-desc">登录红果，选剧并发布到 Emby 点播目录。</span>
-                                <span class="source-card-foot"><span class="card-open-hint">管理 →</span></span>
-                            </a>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -5153,7 +5139,7 @@
         let systemConfig = {};
         let updatingSourceIndex = null; // 记录正在更新的源索引
         let epgConfig = { enabled: true, sources: [] }; // EPG 聚合源配置（issue #38）
-        const sourceTabIndexes = [0, 1, 2, 3];
+        const sourceTabIndexes = [0, 1, 2];
         let selectedSourceTab = 1;
         try {
             const savedSourceTab = localStorage.getItem('iptv-source-tab');
@@ -5253,15 +5239,6 @@
                 loadExtractors();
             }
         }
-
-        function openVodSourcesFromHash() {
-            if (window.location.hash !== '#vod-sources') return;
-            selectedSourceTab = 3;
-            switchTab(1);
-            window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
-        }
-        window.addEventListener('DOMContentLoaded', openVodSourcesFromHash);
-        window.addEventListener('hashchange', openVodSourcesFromHash);
 
         // ===== EPG 节目单聚合（issue #38）=====
         // ---- 抓取模块（extractors/）----

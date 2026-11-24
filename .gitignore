@@ -50,7 +50,7 @@ probe-report.md
 # Private iQiyi VOD account/progress/job state when DATA_DIR is the repository root
 /iqiyi-vod/
 
-# 红果短剧账号会话、设备会话和媒体缓存（mdataDir 未设置时）
+# 红果短剧（已下线）旧版留下的账号会话和媒体缓存（mdataDir 未设置时）；启动时会删，规则留着兜底
 /hongguo-vod/
 
 # 本地 YouTube 解析环境

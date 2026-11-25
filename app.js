@@ -52,10 +52,13 @@ import { checkForUpdate } from "./utils/updateCheck.js";
 import { removeRetiredData } from "./utils/retiredData.js";
 
 // 自定义源「经网络代理转发」的播放引用（${replace}/proxy/cp-<hex>.m3u8）：不是抓取模块，挂到 resolverFor 上
-registerRefResolver(createCustomProxyResolver({
+const customProxyResolver = createCustomProxyResolver({
   getChannels: () => externalSourceManager.proxiedChannels(),
+  // 后台网页播放自定义源频道时由服务器转发（/proxy/web.m3u8，见下方路由）
+  getWebChannels: () => externalSourceManager.webPlaybackChannels(),
   getVersion: () => externalSourceManager.revision,
-}))
+})
+registerRefResolver(customProxyResolver)
 
 // 全代理/兼容模式（issue #98）的服务端可观测性。上一版的日志设计在实战里分不清三种情况
 // （首行不带分片数、每 pid 每分钟一行会让 curl 与播放器互吞对方的行、分片 404 与上游失败全静默），
@@ -1215,6 +1218,27 @@ async function handleRequest(req, res) {
     routeUrl += url.substring(queryIndex)
   }
 
+  // 后台网页播放自定义源频道：/proxy/web.m3u8?u=<频道原地址>（utils/customSourceProxy.js 的 web 模式）。
+  // 第三方地址多数不给网页跨域许可，后台页面和独立播放页拿原地址来问，这里换成该频道的固定引用，
+  // 接着走下面的全代理路由，清单和分片都由服务器转发。
+  // 只认用户自己源里已有的地址，不是谁给个地址都替它取；只给站长密码（后台页面用的就是它），
+  // 用户令牌不放行——令牌只该拿到分给它的那份内容。
+  // 必须排在 relay / 分片 / proxy 这几条路由之前：u 里的原地址若没编码，可能正好长得像它们的路径。
+  let webPlayback = false
+  const webEntry = routeUrl.match(/^([^?]*)\/proxy\/web\.m3u8\?(.*)$/i)
+  if (webEntry) {
+    const ref = passAuthed && !userAuthed
+      ? customProxyResolver.webRefFor(new URLSearchParams(webEntry[2]).get('u') || '')
+      : ''
+    if (!ref) {
+      res.writeHead(404, { 'Content-Type': 'text/plain;charset=UTF-8', 'Cache-Control': 'no-store' })
+      res.end('这个地址不在已启用的自定义源里')
+      return
+    }
+    webPlayback = true
+    routeUrl = `${webEntry[1]}/proxy/${ref}.m3u8`
+  }
+
   // 清单直出兼容模式（issue #98）：/relay/<pid> 的 relay 段必须在下方「/userId/token」
   // 两段解析之前剥掉，否则会被误当成账号注入前缀（relay 当 userId、pid 当 token）返回订阅内容。
   // 支持前面带账号注入段的组合（/userId/token/relay/<pid>），剥掉 relay 段、其余原样保留。
@@ -1485,6 +1509,7 @@ async function handleRequest(req, res) {
   const origin = relayMode ? originOf(req) : ''
   const result = await channel(routeUrl, urlUserId, urlToken, clientOf(req), {
     selfBase: origin ? `${origin}${accessPrefix}` : '',
+    web: webPlayback,
   })
 
   // 结果异常

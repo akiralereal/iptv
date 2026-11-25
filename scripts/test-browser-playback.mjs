@@ -49,9 +49,53 @@ for (const file of ['admin.html', 'player.html']) {
   const throwing = { get responseText() { throw new Error('InvalidStateError') } }
   assert.equal(serverReason({response:{code:502}, networkDetails:throwing}), '', `${file}: 读不到 XHR 正文时不抛`)
   assert.equal(serverReason({response:{code:502}}), '', `${file}: 没有正文`)
+
+  // 自定义源的第三方地址：先问本机能不能转发（/proxy/web.m3u8?u=<原地址>），不能就还是原地址
+  const forwardSource = ['webForwardUrl', 'pickWebPlayback'].map(name => {
+    const source = html.match(new RegExp(`        (?:async )?function ${name}\\([\\s\\S]*?\\n        }\\n`))?.[0]
+    assert.ok(source, `${file} 必须提供 ${name}`)
+    return source
+  }).join('\n')
+  const calls = []
+  let reply = { status: 200, body: '#EXTM3U\n#EXTINF:8,\ns0123456789abcdef.ts\n' }
+  const fetchStub = async (url, options) => {
+    calls.push({ url, options })
+    if (reply.throws) throw new TypeError('Failed to fetch')
+    return { ok: reply.status >= 200 && reply.status < 300, status: reply.status, text: async () => reply.body }
+  }
+  const forward = runInNewContext(`${forwardSource}\n({ webForwardUrl, pickWebPlayback })`,
+    { URL, encodeURIComponent, fetch: fetchStub, window: { location: { href: `${origin}/pass/admin` } } })
+  const raw = 'https://cdn.example/163189/chu?token=a b&x=1'
+  const expected = `${origin}/pass/proxy/web.m3u8?u=${encodeURIComponent(raw)}`
+  assert.equal(forward.webForwardUrl(raw), expected, `${file}: 第三方地址带上访问前缀去问本机，原地址整段编码`)
+  assert.equal(forward.webForwardUrl('http://cdn.example/live', `${origin}/admin`), `${origin}/proxy/web.m3u8?u=${encodeURIComponent('http://cdn.example/live')}`, `${file}: 没有访问密码`)
+  for (const skip of [`${origin}/pass/608807420`, '/608807420', 'rtp://239.0.0.1:5000', 'rtmp://cdn.example/live/a',
+    'https://cdn.example/live/a.flv', 'https://cdn.example/clip.mp4?sign=1', 'https://cdn.example/a.mp3', 'http://[invalid', '', null]) {
+    assert.equal(forward.webForwardUrl(skip), '', `${file}: 不问本机 ${skip}`)
+  }
+  assert.equal(new URL(forward.webForwardUrl('https://cdn.example/live?file=a.mp4')).searchParams.get('u'), 'https://cdn.example/live?file=a.mp4', `${file}: 只有路径像短片才不问`)
+  calls.length = 0
+  assert.deepEqual({ ...await forward.pickWebPlayback(raw) }, { url: expected, reason: '' }, `${file}: 本机能转发就播本机地址`)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].url, expected)
+  reply = { status: 404, body: '这个地址不在已启用的自定义源里' }
+  assert.deepEqual({ ...await forward.pickWebPlayback(raw) }, { url: raw, reason: '' }, `${file}: 不在源里 → 原地址，不带原因`)
+  reply = { status: 502, body: '我的订阅「CCTV1」 取清单失败：对方回 HTTP 403' }
+  assert.deepEqual({ ...await forward.pickWebPlayback(raw) }, { url: raw, reason: reply.body }, `${file}: 服务器没取到 → 原地址，原因留着`)
+  reply = { status: 502, body: '<html><body>Bad Gateway</body></html>' }
+  assert.deepEqual({ ...await forward.pickWebPlayback(raw) }, { url: raw, reason: '' }, `${file}: 反代的网页式报错不显示`)
+  reply = { status: 200, body: '<!DOCTYPE html><title>登录</title>' }
+  assert.deepEqual({ ...await forward.pickWebPlayback(raw) }, { url: raw, reason: '' }, `${file}: 回 200 但不是清单 → 原地址`)
+  reply = { throws: true }
+  assert.deepEqual({ ...await forward.pickWebPlayback(raw) }, { url: raw, reason: '' }, `${file}: 请求本机失败 → 原地址`)
+  calls.length = 0
+  assert.deepEqual({ ...await forward.pickWebPlayback(`${origin}/pass/608807420`) }, { url: `${origin}/pass/608807420`, reason: '' }, `${file}: 本机地址不问`)
+  assert.equal(calls.length, 0)
+  // 转发地址结尾可能正好像 .mp4，必须按「已转发」当 HLS，不能交给浏览器原生播放
+  assert.match(html, /!forwarded && \/\\\.\(\?:mp4\|/, `${file}: 转发的地址不按后缀判成短片`)
 }
 
-console.log(`网页播放地址测试通过（管理台和独立播放器，共 ${(cases.length + 1) * 2} 项）`)
+console.log(`网页播放地址测试通过（管理台和独立播放器，共 ${(cases.length + 1) * 2} 项；自定义源转发判断同样两页各一遍）`)
 
 // Detail UI regression uses only static records: it never fetches Migu channels.
 const admin = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8')

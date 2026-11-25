@@ -1259,6 +1259,31 @@ class ExternalSourceManager {
   }
 
   /**
+   * 后台网页播放时可由服务器转发的频道（customSourceProxy.js 的 web 模式）：用户自己加的源
+   * （订阅 / 直连 / 抓取）里的公网 http(s) 地址。内置「精选频道」订阅不在内。
+   * 改写过播放入口的频道沿用它的引用，其余按同一算法现算——开关一开一关引用不变。
+   * 这里只是名单，不改订阅里写的地址。
+   */
+  webPlaybackChannels() {
+    const names = new Map((this.sources.sources || []).filter(s => s && s.id).map(s => [`ext:${s.id}`, s.name]))
+    const out = []
+    for (const group of this.getValidChannels()) {
+      for (const ch of group.dataList) {
+        if (ch.builtInSubscription || !proxiableUrl(ch.url)) continue
+        const sourceId = String(ch.sourceId || '').replace(/^ext:/, '')
+        if (!sourceId) continue
+        out.push({
+          ref: ch.proxyRef || proxyRefFor(sourceId, ch.name, ch.url),
+          name: ch.name, url: ch.url, opts: ch.opts,
+          useProxy: ch.useProxy === true, topFirst: ch.topFirst === true,
+          sourceId: ch.sourceId, sourceName: names.get(ch.sourceId) || '',
+        })
+      }
+    }
+    return out
+  }
+
+  /**
    * 手动设置 m3u8 链接（用于已知链接的情况）
    */
   setM3u8Url(index, m3u8Url) {

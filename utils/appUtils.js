@@ -402,6 +402,8 @@ async function channel(url, urlUserId, urlToken, client, request = {}) {
       query: Object.fromEntries(new URLSearchParams(params)),
       client,
       selfBase: request.selfBase || '',
+      // 后台网页播放（app.js 的 /proxy/web.m3u8 入口）：只有自定义源的解析者用得上
+      web: request.web === true,
     })
   } catch (error) {
     // 模块契约要求 resolve 不抛。万一抛了也绝不能让异常冒出去——app.js 的

@@ -20,6 +20,13 @@
  *
  * 引用 cp-<hex> 按「源 id + 频道名 + 剥掉时效参数的原地址」算：订阅刷新换了签名，播放器收藏的地址不变，
  * 播放时总是取最新的原地址。
+ *
+ * 后台网页播放（web 模式）：自定义源的频道地址在别人的服务器上，多数不给网页跨域许可，浏览器读不到清单；
+ * 地址没有 .m3u8 后缀的，浏览器还认不出是直播。后台页面和独立播放页播这类频道时，拿原地址来问
+ * /proxy/web.m3u8?u=<原地址>：地址在用户自己的源里（webRefFor 查得到）且是 HLS，就由服务器取清单、转发分片；
+ * 没勾「经网络代理转发」的源服务器直连去取，勾了且代理生效的照旧经代理。不在源里、不是 HLS、服务器取不到，
+ * 都回出错状态，页面退回浏览器直连（和以前一样）。只影响网页播放，订阅里的地址不变。
+ * 只认源里已有的地址、且同样只认公网 http(s)：订阅内容是第三方给的，不能让它指挥服务器去取任意地址或家里的机器。
  */
 import { createHash } from 'node:crypto'
 import { isIP } from 'node:net'
@@ -130,6 +137,18 @@ function hostOf(url) {
   try { return new URL(url).host } catch { return '' }
 }
 
+/** 按原地址查频道用的键：原样一份，规范化后（主机名小写、补上根路径）再一份，网页传来哪种写法都对得上。 */
+function urlKeys(raw) {
+  const text = String(raw || '').trim()
+  if (!text) return []
+  try {
+    const href = new URL(text).href
+    return href === text ? [text] : [text, href]
+  } catch {
+    return [text]
+  }
+}
+
 /**
  * 本机入口 ${replace}/proxy/cp-….m3u8 不带「?」：原地址带 ? 的源常把回看模板写成 &playseek=…，
  * 播放器直接拼在入口后面会拼成 cp-….m3u8&playseek=…，认不出来就 404。写盘时把开头的 & 换成 ?，
@@ -171,10 +190,12 @@ async function readHlsText(response) {
  *
  * @param {object} deps
  * @param {() => Array<{ref, name, url, useProxy?, topFirst?, opts?, sourceId?, sourceName?}>} deps.getChannels 改写了播放入口的频道
+ * @param {() => Array<{ref, name, url, useProxy?, topFirst?, opts?, sourceId?, sourceName?}>} deps.getWebChannels 后台网页播放时可由服务器转发的频道（含没改写入口的）
  * @param {() => unknown} deps.getVersion 源配置的版本号；变了才重建索引（订阅刷新会换掉原地址里的签名）
  */
 export function createCustomProxyResolver({
   getChannels,
+  getWebChannels = () => [],
   getVersion = () => undefined,
   fetchImpl = customSourceFetch,
   directFetchImpl = undiciFetch,
@@ -183,6 +204,9 @@ export function createCustomProxyResolver({
   now = Date.now,
 } = {}) {
   let index = null
+  // 网页播放单独一份索引：播放器拿着旧入口来问没改写过的频道，仍要回「已关闭播放处理」，不能被这份名单接住
+  let webIndex = null
+  let webByUrl = null
   let indexVersion
   const lastLogged = new Map()
 
@@ -194,28 +218,59 @@ export function createCustomProxyResolver({
     log(message)
   }
 
-  function lookup(ref) {
+  function refresh() {
     const version = getVersion()
-    if (!index || version !== indexVersion) {
-      index = new Map()
-      for (const channel of getChannels() || []) {
-        if (channel && claimsRef(channel.ref) && channel.url) index.set(channel.ref, channel)
-      }
-      indexVersion = version
+    if (index && version === indexVersion) return
+    index = new Map()
+    for (const channel of getChannels() || []) {
+      if (channel && claimsRef(channel.ref) && channel.url) index.set(channel.ref, channel)
     }
+    webIndex = new Map()
+    webByUrl = new Map()
+    for (const channel of getWebChannels() || []) {
+      if (!channel || !claimsRef(channel.ref) || !channel.url) continue
+      if (!webIndex.has(channel.ref)) webIndex.set(channel.ref, channel)
+      // 两个源列了同一个地址：取先出现的那个，取的是同一路流
+      for (const key of urlKeys(channel.url)) if (!webByUrl.has(key)) webByUrl.set(key, channel.ref)
+    }
+    indexVersion = version
+  }
+
+  function lookup(ref) {
+    refresh()
     return index.get(ref)
   }
 
-  async function resolve(ref, ctx = {}) {
-    const entry = claimsRef(ref) ? lookup(String(ref)) : null
-    if (!entry) {
-      return { url: '', status: 404, desc: '这个自定义源频道已更新，或已关闭播放处理，请在播放器里刷新订阅' }
+  function lookupWeb(ref) {
+    refresh()
+    return webIndex.get(ref)
+  }
+
+  /** 后台网页播放：按频道原地址查它的引用；不在用户自己的源里就没有（返回空串）。 */
+  function webRefFor(rawUrl) {
+    refresh()
+    for (const key of urlKeys(rawUrl)) {
+      const ref = webByUrl.get(key)
+      if (ref) return ref
     }
-    const label = `${entry.sourceName || '自定义源'}「${entry.name}」`
+    return ''
+  }
+
+  async function resolve(ref, ctx = {}) {
+    // web：后台网页播放（app.js 的 /proxy/web.m3u8 入口才会带）。清单和分片一律由服务器转发，浏览器不直连对方
+    const web = ctx.web === true
+    const entry = claimsRef(ref) ? (web ? lookupWeb(String(ref)) : lookup(String(ref))) : null
+    if (!entry) {
+      return web
+        ? { url: '', status: 404, silent: true, desc: '这个地址不在已启用的自定义源里' }
+        : { url: '', status: 404, desc: '这个自定义源频道已更新，或已关闭播放处理，请在播放器里刷新订阅' }
+    }
+    // 直连 / 抓取源只有一个频道，源名就是台名，不重复写两遍
+    const label = `${entry.sourceName && entry.sourceName !== entry.name ? entry.sourceName : '自定义源'}「${entry.name}」`
     const url = withQuery(entry.url, ctx.query)
     const proxied = entry.useProxy === true && proxyEnabled()
     const topFirst = entry.topFirst === true
-    if (!proxied && !topFirst) {
+    if (!web && !proxied && !topFirst) {
       note(`direct|${entry.sourceId || ''}`, `${entry.sourceName || '自定义源'}：没有生效的网络代理，开了「经网络代理转发」的频道暂由播放器直连`)
       // directRedirect：app.js 据此直接 302，不因入口在 /proxy/ 下就改由服务器取清单、转发分片
       return { url, directRedirect: 'no-proxy', desc: `${label} 没有生效的网络代理，改由播放器直连` }
@@ -233,6 +288,11 @@ export function createCustomProxyResolver({
         throw new Error(`对方回 HTTP ${response.status}`)
       }
       const text = await readHlsText(response)
+      if (text == null && web) {
+        // 网页播放不能 302 回原地址（跨域跳转浏览器读不到）：明说不是 HLS，页面自己退回浏览器直连。
+        // MP4 之类本来就该浏览器直接播，不算异常，不打日志
+        return { url: '', status: 404, silent: true, desc: `${label} 不是 HLS 直播，网页里由浏览器直接播放` }
+      }
       if (text == null) {
         // 转发链路只管 HLS；FLV、TS 裸流这类交还给播放器，和没开开关时一样
         note(`nonhls|${entry.ref}`, `${label} 不是 HLS 直播，改由播放器直连（自定义源播放处理只支持 HLS）`)
@@ -241,11 +301,11 @@ export function createCustomProxyResolver({
       const manifestUrl = response.url || url
       return {
         url: manifestUrl,
-        ...(proxied ? { proxyHls: true } : { relayHls: true }),
+        ...(proxied || web ? { proxyHls: true } : { relayHls: true }),
         manifestText: topFirst ? topVariantFirst(text) : text,
         manifestUrl,
         upstreamHeaders,
-        desc: `${label}${topFirst ? ' 最高画质优先' : ''}${proxied ? ' 经网络代理转发' : ''}`,
+        desc: `${label}${topFirst ? ' 最高画质优先' : ''}${proxied ? ' 经网络代理转发' : ''}${web ? ' 网页播放由服务器转发' : ''}`,
       }
     } catch (error) {
       // 和「测试」按钮同一套话：分得清是连代理就失败，还是代理接通后对方那一步失败
@@ -254,7 +314,7 @@ export function createCustomProxyResolver({
         : { stage: '', message: error?.message || String(error) }
       const reason = `${message}${stage === 'target' ? TARGET_FAILURE_HINT : ''}`
       // 开了代理就不悄悄绕过它直连：用户勾这个开关，多半正是因为直连不通
-      const action = proxied ? '经网络代理取清单' : '取最高画质清单'
+      const action = proxied ? '经网络代理取清单' : topFirst ? '取最高画质清单' : '取清单'
       note(`fail|${entry.ref}`, `${label} ${action}失败（${hostOf(url)}）：${reason}`)
       return { url: '', status: 502, silent: true, desc: `${label} ${action}失败：${reason}` }
     }
@@ -268,9 +328,11 @@ export function createCustomProxyResolver({
     relayProxyCompatible: true,
     claimsRef,
     resolve,
+    webRefFor,
     // /proxy 或浏览器全转发模式也遵守源的出站选择；最高画质标记本身不代表启用网络代理。
+    // 网页播放登记的分片也从这里取：没改写入口的频道只在网页名单里
     fetchProxyMedia: (ref, _config, url, options) => {
-      const entry = lookup(ref)
+      const entry = lookup(ref) || lookupWeb(ref)
       if (!entry) throw new Error('自定义源频道已更新，请刷新订阅')
       return fetchUpstreamResponse(url, {
         ...options,

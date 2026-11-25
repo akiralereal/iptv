@@ -14828,6 +14828,10 @@ if(success){
 
         // ===== 页面内播放（不跳新窗口）：HLS 走 hls.js（按需加载），FLV 走 mpegts.js，Safari 原生 HLS 兜底 =====
         let inlinePlayerCleanup = null;
+        // 每次关闭 / 重开播放窗口加一：问本机能不能转发要等一下，期间用户关了窗口或换了台，回来就不再接着播
+        let inlinePlayerSession = 0;
+        // 服务器转发没取到清单时给的原因（见 pickWebPlayback）；浏览器直连也失败时显示它
+        let inlineForwardReason = '';
         function inlinePlayerBaseUrl() {
             return window.location.origin + window.location.pathname.replace(/\/[^/]+$/, '');
         }
@@ -14867,6 +14871,31 @@ if(success){
                 return url.href;
             } catch { return rawUrl; }
         }
+        // 自定义源频道的地址在别人的服务器上，多数不给网页跨域许可，浏览器读不到清单；没有 .m3u8 后缀的，
+        // 浏览器还认不出是直播。网页播放时先问本机（/proxy/web.m3u8，见 utils/customSourceProxy.js）：
+        // 地址在用户自己的自定义源里、又是 HLS，就由服务器取清单和分片再转给页面；本机说不行（不在源里、
+        // 不是 HLS、服务器取不到）就照旧由浏览器直连。只影响网页播放，订阅给播放器的地址不变。
+        function webForwardUrl(rawUrl, pageUrl = window.location.href) {
+            try {
+                const page = new URL(pageUrl);
+                const url = new URL(rawUrl);
+                if (!/^https?:$/.test(url.protocol) || url.origin === page.origin) return '';
+                if (/\.(?:flv|mp4|m4v|webm|mov|mp3|m4a|aac|ogg)$/i.test(url.pathname)) return '';
+                return `${page.origin}${page.pathname.replace(/\/[^/]+$/, '')}/proxy/web.m3u8?u=${encodeURIComponent(rawUrl)}`;
+            } catch { return ''; }
+        }
+        async function pickWebPlayback(rawUrl, pageUrl = window.location.href) {
+            const forward = webForwardUrl(rawUrl, pageUrl);
+            if (!forward) return { url: rawUrl, reason: '' };
+            try {
+                const response = await fetch(forward, { cache: 'no-store' });
+                const text = (await response.text()).trim();
+                if (response.ok && text.startsWith('#EXTM3U')) return { url: forward, reason: '' };
+                // 502 是服务器去取了但没取到：原因留着，浏览器直连也播不了时，它比浏览器的报错有用
+                const reason = response.status === 502 && text.length <= 300 && !text.startsWith('<') ? text : '';
+                return { url: rawUrl, reason };
+            } catch { return { url: rawUrl, reason: '' }; }
+        }
         function loadScriptOnce(src, isReady) {
             return new Promise((resolve, reject) => {
                 if (isReady()) return resolve();
@@ -14901,6 +14930,8 @@ if(success){
             const dialog = document.getElementById('inlinePlayer');
             const video = document.getElementById('inlinePlayerVideo');
             if (inlinePlayerCleanup) { try { inlinePlayerCleanup(); } catch (e) {} inlinePlayerCleanup = null; }
+            inlinePlayerSession++;
+            inlineForwardReason = '';
             video.pause();
             video.removeAttribute('src');
             video.load();
@@ -14918,6 +14949,7 @@ if(success){
             const dialog = document.getElementById('inlinePlayer');
             const video = document.getElementById('inlinePlayerVideo');
             closeInlinePlayer();
+            const session = inlinePlayerSession;
             dialog.dataset.url = url;
             document.getElementById('inlinePlayerTitle').textContent = name || '播放';
             inlinePlayerStatus('正在连接媒体…');
@@ -14932,36 +14964,44 @@ if(success){
                     engine.load();
                     inlinePlayerCleanup = () => { engine.pause(); engine.unload(); engine.detachMediaElement(); engine.destroy(); };
                 } else {
+                    // 自定义源的第三方地址：本机能转发就换成本机地址，不能就还是原地址（见 webForwardUrl）
+                    const picked = await pickWebPlayback(url);
+                    if (session !== inlinePlayerSession) return;
+                    const playUrl = picked.url;
+                    const forwarded = playUrl !== url;
+                    inlineForwardReason = picked.reason;
                     let sameOrigin = false;
-                    try { sameOrigin = new URL(url, window.location.href).origin === window.location.origin; } catch (e) {}
+                    try { sameOrigin = new URL(playUrl, window.location.href).origin === window.location.origin; } catch (e) {}
                     // 同源地址默认按 HLS：延迟解析频道的旧地址没有 .m3u8 后缀，但本机按 HLS 直出。
                     // 例外是本机静态媒体（公告短片 /assets/announcement.mp4 等）：必须走原生播放，
                     // 喂给 hls.js 只会得到 manifestParsingError（issue #119）。
-                    const looksDirectMedia = /\.(?:mp4|m4v|webm|mov|mp3|m4a|aac|ogg)(?:[?#]|$)/i.test(url);
-                    const looksHls = !looksDirectMedia && (/\.m3u8(?:[?#]|$)/i.test(url) || sameOrigin);
+                    // 转发地址的 u 参数里是原地址，结尾可能正好像 .mp4，不能按它判断：转发的一律是 HLS
+                    const looksDirectMedia = !forwarded && /\.(?:mp4|m4v|webm|mov|mp3|m4a|aac|ogg)(?:[?#]|$)/i.test(playUrl);
+                    const looksHls = forwarded || (!looksDirectMedia && (/\.m3u8(?:[?#]|$)/i.test(playUrl) || sameOrigin));
                     let hlsReady = false;
                     if (looksHls) {
                         try { await loadScriptOnce('player-assets/hls.min.js', () => window.Hls); hlsReady = !!(window.Hls && Hls.isSupported()); } catch (e) {}
                     }
+                    if (session !== inlinePlayerSession) return;
                     if (hlsReady) {
                         // 央视频等来源每次刷新清单会换 CDN 节点，同一分片序号的地址随之变化；hls.js 1.6 起
                         // 把这当成清单错误，只有一个清晰度时直接放弃，十几秒后停播（issue #142）。内容是同一路
                         // 流，照常播即可，只记警告。
                         const hls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 90, ignorePlaylistParsingErrors: true, autoStartLoad: false });
                         startHlsAtTopLevel(hls);
-                        hls.loadSource(url);
+                        hls.loadSource(playUrl);
                         hls.attachMedia(video);
                         hls.on(Hls.Events.ERROR, (event, data) => {
                             if (!data.fatal) return;
                             if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { hls.recoverMediaError(); return; }
-                            const reason = hlsServerReason(data);
+                            const reason = hlsServerReason(data) || inlineForwardReason;
                             if (reason) { inlinePlayerStatus(`播放失败：${reason}`, true); return; }
                             const code = data.response && data.response.code ? ` (HTTP ${data.response.code})` : '';
                             inlinePlayerStatus(`播放失败：${data.details}${code}，可尝试「新窗口打开」，或复制地址用播放器打开`, true);
                         });
                         inlinePlayerCleanup = () => hls.destroy();
                     } else if (!looksHls || video.canPlayType('application/vnd.apple.mpegurl')) {
-                        video.src = url;
+                        video.src = playUrl;
                     } else {
                         throw new Error('当前浏览器不支持播放此格式，可尝试「新窗口打开」，或复制地址用播放器打开');
                     }
@@ -14985,7 +15025,7 @@ if(success){
             dialog.addEventListener('close', closeInlinePlayer);            // Esc 关闭时也要释放播放器
             dialog.addEventListener('click', e => { if (e.target === dialog) closeInlinePlayer(); }); // 点遮罩关闭
             video.addEventListener('playing', () => inlinePlayerStatus(''));
-            video.addEventListener('error', () => { if (!inlinePlayerCleanup) inlinePlayerStatus('播放失败，可尝试「新窗口打开」，或复制地址用播放器打开', true); });
+            video.addEventListener('error', () => { if (!inlinePlayerCleanup) inlinePlayerStatus(inlineForwardReason ? `播放失败：${inlineForwardReason}` : '播放失败，可尝试「新窗口打开」，或复制地址用播放器打开', true); });
         });
 
         // 页面加载时初始化

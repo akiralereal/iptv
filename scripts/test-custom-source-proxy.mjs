@@ -12,6 +12,9 @@
  *  - 播放：有代理 → 经代理取清单、交全代理链路，请求头（UA / Referer）由服务器带上，回看参数接回原地址；
  *    没有代理 → 302 回原地址；不是 HLS → 302 回原地址，且不把整条直播流读进内存；经代理失败 → 502，不悄悄直连；
  *  - 拉订阅列表也经代理；失效检测按播放时的路子经代理探。
+ *  - 后台网页播放（web 模式）：用户自己加的源里的公网 http(s) 频道，按原地址查得到引用；清单和分片一律由服务器转发，
+ *    没勾开关的源服务器直连、勾了且代理生效的经代理；不是 HLS / 取不到 / 不在名单都回出错状态，不 302；
+ *    播放器的请求不受这份名单影响；内置精选频道、局域网、非 HTTP、FLV 不在名单里。
  *
  * 运行： node scripts/test-custom-source-proxy.mjs   （或 npm test）
  */
@@ -222,6 +225,7 @@ try {
   const logs = []
   const resolver = cp.createCustomProxyResolver({
     getChannels: () => mgr.proxiedChannels(),
+    getWebChannels: () => mgr.webPlaybackChannels(),
     getVersion: () => mgr.revision,
     proxyEnabled: () => proxyOn,
     directFetchImpl: (url, options) => {
@@ -359,6 +363,125 @@ try {
     assert.equal(direct.directRedirect, 'no-proxy')
     assert.equal(direct.proxyHls, false)
     assert.equal(direct.playURL, 'http://cdn.example/live/master.m3u8?id=1&token=T2&playseek=a-b')
+  })
+
+  // ---- 后台网页播放（web 模式）：此时 直连台A 已关掉开关，没勾的订阅、抓取台本来就没有引用 ----
+  const webByName = () => Object.fromEntries(mgr.webPlaybackChannels().map(c => [`${c.sourceName}/${c.name}`, c]))
+  const DIRECT_A = 'http://cdn.example/live/media.m3u8?sign=a'
+
+  await check('网页播放名单：用户自己加的源里的公网 http(s) 频道都在，引用与开关无关；局域网 / 非 HTTP / FLV / 内置精选不在', () => {
+    const web = webByName()
+    for (const name of ['海外订阅/代理台', '海外订阅/回看台', '海外订阅/裸流台', '海外订阅/拒绝台', '没勾的订阅/直连台', '直连台A/直连台A', '抓取台/抓取台']) {
+      assert.ok(web[name] && cp.claimsRef(web[name].ref), name)
+    }
+    const names = mgr.webPlaybackChannels().map(c => c.name)
+    for (const name of ['FLV台', '局域网台', '组播台', '精选台']) assert.ok(!names.includes(name), name)
+    // 改写过入口的沿用原引用；没改写的按同一算法现算（以后勾上开关，引用不变）
+    assert.equal(web['海外订阅/代理台'].ref, refOf('代理台'))
+    assert.equal(web['海外订阅/代理台'].useProxy, true)
+    assert.equal(web['直连台A/直连台A'].ref, cp.proxyRefFor('dir00001', '直连台A', DIRECT_A))
+    assert.equal(web['直连台A/直连台A'].useProxy, false)
+    assert.equal(web['抓取台/抓取台'].ref, cp.proxyRefFor('fet00001', '抓取台', 'http://cdn.example/live/fetch.m3u8'))
+    // 名单不改订阅里写的地址：没勾的频道照旧没有 proxyRef
+    assert.equal(channelsByName()['直连台A'].proxyRef, undefined)
+    assert.ok(!mgr.proxiedChannels().some(c => c.name === '直连台A'))
+  })
+
+  await check('网页播放：按原地址查引用，只认名单里的地址', () => {
+    const ref = webByName()['直连台A/直连台A'].ref
+    assert.equal(resolver.webRefFor(DIRECT_A), ref)
+    assert.equal(resolver.webRefFor('HTTP://CDN.EXAMPLE/live/media.m3u8?sign=a'), ref, '主机名大小写不同也对得上')
+    assert.equal(resolver.webRefFor(` ${DIRECT_A} `), ref)
+    // 两个源列了同一个地址：取先出现的
+    assert.equal(resolver.webRefFor('http://cdn.example/live/media.m3u8'), webByName()['海外订阅/回看台'].ref)
+    for (const url of ['http://evil.example/any.m3u8', 'http://192.168.1.1/admin', 'http://192.168.1.2:4022/udp/239.0.0.1:5000',
+      'http://cdn.example/live/a.flv', 'http://cdn.example/live/featured.m3u8', 'rtp://239.0.0.1:5000', 'file:///etc/passwd', 'not a url', '', null]) {
+      assert.equal(resolver.webRefFor(url), '', String(url))
+    }
+  })
+
+  await check('网页播放：没勾开关的源由服务器直连取清单，交全代理链路；播放器的请求不受影响', async () => {
+    const ref = webByName()['直连台A/直连台A'].ref
+    connects.length = 0
+    seen.length = 0
+    const before = directCalls
+    const r = await resolver.resolve(ref, { query: {}, web: true })
+    assert.equal(r.proxyHls, true, r.desc)
+    assert.equal(r.relayHls, undefined)
+    assert.equal(r.directRedirect, undefined)
+    assert.match(r.manifestText, /seg1\.ts/)
+    // 测试里的直连替身把 cdn.example 换成了本机源站，清单地址跟着是本机的
+    assert.equal(r.manifestUrl, `${localBase}/live/media.m3u8?sign=a`)
+    assert.equal(directCalls, before + 1)
+    assert.equal(connects.length, 0, '没勾开关的源不能擅自走已配置的网络代理')
+    // 分片也由服务器直连去取（引用只在网页名单里）
+    const seg = await resolver.fetchProxyMedia(ref, {}, 'http://cdn.example/live/seg1.ts', {})
+    assert.equal(seg.status, 200)
+    await seg.body.cancel()
+    assert.equal(directCalls, before + 2)
+    assert.equal(connects.length, 0)
+    // 播放器拿这个引用来问（旧订阅里的入口）：照旧 404 提示刷新订阅，不被网页名单接住
+    const player = await resolver.resolve(ref, { query: {} })
+    assert.equal(player.status, 404)
+    assert.match(player.desc, /刷新订阅/)
+    // channel() 外壳把 web 带给解析者
+    const shell = await channel(`/${ref}`, '', '', { key: 'w', tag: 'w' }, { web: true })
+    assert.equal(shell.code, 302, shell.desc)
+    assert.equal(shell.proxyHls, true)
+    assert.ok(inlineResolvedManifest(shell).includes(`${localBase}/live/seg1.ts`), '相对分片按清单地址展开')
+    assert.equal((await channel(`/${ref}`, '', '', { key: 'w', tag: 'w' }, {})).code, 404)
+  })
+
+  await check('网页播放：勾了开关且代理生效的经代理；代理没生效也由服务器转发，不 302', async () => {
+    const ref = refOf('代理台')
+    seen.length = 0
+    const before = directCalls
+    const r = await resolver.resolve(ref, { query: {}, web: true })
+    assert.equal(r.proxyHls, true, r.desc)
+    assert.ok(seen.some(hit => hit.host === 'cdn.example'), '勾了开关的源网页播放也要经代理')
+    assert.equal(directCalls, before)
+    assert.equal(seen.find(s => s.url.startsWith('/live/master.m3u8')).ua, 'Own/1.0', '请求头照样由服务器带上')
+    proxyOn = false
+    const direct = await resolver.resolve(ref, { query: {}, web: true })
+    proxyOn = true
+    assert.equal(direct.proxyHls, true, direct.desc)
+    assert.equal(direct.directRedirect, undefined)
+    assert.equal(directCalls, before + 1)
+  })
+
+  await check('网页播放：不是 HLS / 服务器取不到 / 不在名单，都回出错状态让页面退回浏览器直连', async () => {
+    const web = webByName()
+    const started = Date.now()
+    logs.length = 0
+    const raw = await resolver.resolve(web['海外订阅/裸流台'].ref, { query: {}, web: true })
+    assert.equal(raw.url, '')
+    assert.equal(raw.status, 404)
+    assert.equal(raw.directRedirect, undefined, '跨域 302 浏览器读不到，不能跳回原地址')
+    assert.match(raw.desc, /不是 HLS/)
+    assert.ok(Date.now() - started < 3000, '没在开头停下')
+    assert.equal(logs.length, 0, 'MP4、裸流本来就该浏览器直接播，不打日志')
+    const missing = await resolver.resolve(web['抓取台/抓取台'].ref, { query: {}, web: true })
+    assert.equal(missing.status, 502)
+    assert.equal(missing.silent, true)
+    assert.match(missing.desc, /^自定义源「抓取台」 取清单失败：对方回 HTTP 404$/)
+    const denied = await resolver.resolve(web['海外订阅/拒绝台'].ref, { query: {}, web: true })
+    assert.equal(denied.status, 502)
+    assert.match(denied.desc, /经网络代理取清单失败.*HTTP 403/)
+    const unknown = await resolver.resolve('cp-00000000000000ff', { query: {}, web: true })
+    assert.equal(unknown.status, 404)
+    assert.match(unknown.desc, /不在已启用的自定义源里/)
+  })
+
+  await check('网页播放入口：app.js 排在 relay / 分片 / proxy 路由之前，只给站长密码', () => {
+    const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8')
+    const entry = app.indexOf('const webEntry = routeUrl.match(')
+    assert.ok(entry > 0, 'app.js 必须有 /proxy/web.m3u8 入口')
+    for (const later of ['const relayMatch = routeUrl.match(', 'const proxySegMatch = routeUrl.match(', 'const proxyMatch = routeUrl.match(']) {
+      assert.ok(app.indexOf(later) > entry, `${later} 必须排在网页播放入口之后`)
+    }
+    assert.match(app.slice(entry, entry + 400), /passAuthed && !userAuthed/)
+    assert.match(app, /getWebChannels: \(\) => externalSourceManager\.webPlaybackChannels\(\)/)
+    assert.match(app, /web: webPlayback,/)
   })
 
   await check('回看模板：本机入口不带 ?，& 开头的改成 ? 开头，其余原样', () => {

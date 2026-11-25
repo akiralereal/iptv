@@ -15,7 +15,7 @@
  * 5. 没有任何源时聚合直接返回，不联网；
  * 6. 缓存改 gzip 落盘后，老部署里已有的明文缓存仍能直接读（不作废、不重下）。
  *
- * 全程离线：不到期的源只读缓存，不联网。
+ * 全程离线：本轮已下过的源只读缓存，不联网。
  *
  * 运行： node scripts/test-epg-source-migrate.mjs   （或 npm test）
  */
@@ -42,7 +42,8 @@ const readSources = () => JSON.parse(readFileSync(SOURCES_PATH, 'utf-8')).source
 const writeSources = sources => writeFileSync(SOURCES_PATH, JSON.stringify({ enabled: true, sources }, null, 2))
 const cachePath = (name, index) => join(DATA_DIR, 'epg-cache', `${name}_${index}.xml`)
 
-// 不到期的源只读缓存，据此让整个测试离线跑
+// 本轮已下过的源（下载时间晚于本轮开始）只读缓存，据此让整个测试离线跑；
+// refreshInterval 是老配置里的字段，留着模拟升级上来的数据（程序已不看它）
 function seedCache(name, index, xml, { gzip }) {
   mkdirSync(join(DATA_DIR, 'epg-cache'), { recursive: true })
   writeFileSync(cachePath(name, index), gzip ? gzipSync(Buffer.from(xml, 'utf-8')) : Buffer.from(xml, 'utf-8'))
@@ -56,7 +57,7 @@ const xmlFor = title => `<?xml version="1.0"?>
 const source = overrides => ({
   name: '默认EPG', url: ERW_URL, enabled: true, format: 'auto',
   refreshInterval: 720, priority: 10,
-  lastUpdated: new Date().toISOString(), lastStatus: 'ok', channelCount: 518, matchedCount: 160,
+  lastUpdated: new Date(Date.now() + 3600e3).toISOString(), lastStatus: 'ok', channelCount: 518, matchedCount: 160,
   ...overrides
 })
 
@@ -118,7 +119,7 @@ check('改过名 / 改过地址 / 自己加的源一律不动', () => {
   assert.equal(s[2].url, MY_URL)
 })
 
-// 缓存兼容：源未到期 → 只读缓存，不联网
+// 缓存兼容：本轮已下过 → 只读缓存，不联网
 for (const [label, gzip] of [['明文（老部署遗留）', false], ['gzip（新写入）', true]]) {
   writeSources([source({ name: '缓存源', url: MY_URL })])
   seedCache('缓存源', 0, xmlFor('都市新前程'), { gzip })

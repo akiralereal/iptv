@@ -10,7 +10,7 @@
  * 5. 后台接口能存取这个开关，默认关；
  * 6. 官方让出来的频道只由此刻还有节目的勾选源写，某个勾选源停更的留给后面的源补；官方本来没有的频道勾不勾都照常补。
  *
- * 全程离线：源不到期只读缓存。
+ * 全程离线：源的下载时间晚于本轮开始（本轮已下过），只读缓存。
  *
  * 运行： node scripts/test-epg-override.mjs   （或 npm test）
  */
@@ -41,10 +41,10 @@ const seedCache = (name, index, xml) => {
   mkdirSync(join(DATA_DIR, 'epg-cache'), { recursive: true })
   writeFileSync(join(DATA_DIR, 'epg-cache', `${name}_${index}.xml`), gzipSync(Buffer.from(xml, 'utf-8')))
 }
-// 不到期：只读缓存、不联网
+// 本轮已下过（下载时间晚于本轮开始）：只读缓存、不联网
 const source = overrides => ({
   name: '源', url: 'https://example.invalid/e.xml', enabled: true, format: 'auto',
-  refreshInterval: 720, priority: 10, lastUpdated: new Date().toISOString(), lastStatus: 'ok',
+  priority: 10, lastUpdated: new Date(Date.now() + 3600e3).toISOString(), lastStatus: 'ok',
   ...overrides,
 })
 

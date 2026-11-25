@@ -7,7 +7,7 @@
  * 2. 咪咕 / 模块节目单已覆盖的（它们记原名的 key），外部源不再重复写；
  * 3. 没设别名的频道照旧按原名配。
  *
- * 全程离线：源不到期只读缓存。
+ * 全程离线：源的下载时间晚于本轮开始（本轮已下过），只读缓存。
  *
  * 运行： node scripts/test-epg-alias.mjs   （或 npm test）
  */
@@ -31,7 +31,7 @@ const checkAsync = async (n, fn) => { await fn(); passed++; console.log('  ✅ '
 writeFileSync(join(DATA_DIR, 'channel-aliases.json'), JSON.stringify({ 'NHK東京・総合': ['NHK総合（東京）'] }))
 writeFileSync(join(DATA_DIR, 'epg-sources.json'), JSON.stringify({ enabled: true, sources: [{
   name: '日本', url: 'https://example.invalid/jp.xml', enabled: true, format: 'auto',
-  refreshInterval: 720, priority: 10, lastUpdated: new Date().toISOString(), lastStatus: 'ok',
+  priority: 10, lastUpdated: new Date(Date.now() + 3600e3).toISOString(), lastStatus: 'ok',
 }] }))
 mkdirSync(join(DATA_DIR, 'epg-cache'), { recursive: true })
 writeFileSync(join(DATA_DIR, 'epg-cache', '日本_0.xml'), gzipSync(Buffer.from(`<?xml version="1.0"?>

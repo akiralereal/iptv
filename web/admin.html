@@ -4518,15 +4518,9 @@
                     <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">XMLTV 地址（支持 .xml / .xml.gz）</label>
                     <input type="text" id="epgNewUrl" placeholder="http://.../epg.xml.gz" style="width:100%;">
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                    <div>
-                        <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">更新间隔（分钟）</label>
-                        <input type="number" id="epgNewInterval" value="720" style="width:100%;">
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">优先级（数字小的优先）</label>
-                        <input type="number" id="epgNewPriority" value="10" style="width:100%;">
-                    </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:var(--ui-subtle); margin-bottom:6px;">优先级（数字小的优先）</label>
+                    <input type="number" id="epgNewPriority" value="10" style="width:100%;">
                 </div>
                 <label style="display:flex; align-items:flex-start; gap:8px; font-size:13px; color:var(--ui-text-secondary); cursor:pointer;">
                     <input type="checkbox" id="epgNewOverride" style="margin-top:3px;">
@@ -4971,7 +4965,8 @@
                             <div class="system-config-hint">把外部 XMLTV 源的节目单归一后合并进 <code>/playback.xml</code>，给咪咕和各模块官方节目单都没覆盖的频道补节目单。<ol class="hint-list">
                         <li>默认已开启，但不带内置外部源；需要更广覆盖时点「＋ 添加 EPG 源」自己加。</li>
                         <li>勾了「优先于官方节目单」的源，对它当前有节目的频道会覆盖咪咕和各模块的官方节目单；源停更只剩旧数据时自动让回官方。</li>
-                        <li>改动即时保存、无需重启，下次更新生效（或点「立即刷新」）。</li>
+                        <li>每轮节目单更新都会重新下载各源（间隔见「系统配置 → 节目单更新间隔」，另外每天 0:10 补一次）。</li>
+                        <li>改动即时保存、无需重启，下次更新生效（或点「立即刷新并应用」）。</li>
                     </ol></div>
                         </div>
                         <label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
@@ -7330,7 +7325,6 @@
                     <div style="font-size:12px; color:var(--ui-subtle); word-break:break-all; margin:4px 0;">${escapeHtml(s.url || '')}</div>
                     <div style="font-size:12px; margin-bottom:6px;">${epgStatusHtml(s)}</div>
                     <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--ui-subtle);">
-                        <span>间隔(分钟) <input type="number" value="${s.refreshInterval || 720}" style="width:84px;" onchange="updateEpgSource(${i}, { refreshInterval: this.value })"></span>
                         <span>优先级 <input type="number" value="${s.priority != null ? s.priority : 10}" style="width:64px;" onchange="updateEpgSource(${i}, { priority: this.value })"></span>
                         <label title="勾上后，这个源当前有节目的频道优先用它，咪咕和各模块的官方节目单让出来；源停更只剩旧数据时自动让回官方" style="display:flex; align-items:center; gap:4px;">
                             <input type="checkbox" ${s.overrideOfficial === true ? 'checked' : ''} onchange="updateEpgSource(${i}, { overrideOfficial: this.checked })"> 优先于官方节目单
@@ -7357,7 +7351,6 @@
         function openEpgModal() {
             document.getElementById('epgNewName').value = '';
             document.getElementById('epgNewUrl').value = '';
-            document.getElementById('epgNewInterval').value = '720';
             document.getElementById('epgNewPriority').value = '10';
             document.getElementById('epgNewOverride').checked = false;
             openFormModal('epgModal', 'epgNewName');
@@ -7367,7 +7360,6 @@
             const source = {
                 name: document.getElementById('epgNewName').value,
                 url: document.getElementById('epgNewUrl').value,
-                refreshInterval: document.getElementById('epgNewInterval').value,
                 priority: document.getElementById('epgNewPriority').value,
                 overrideOfficial: document.getElementById('epgNewOverride').checked
             };
@@ -7375,7 +7367,7 @@
             if (r.success) {
                 epgConfig = r.data; renderEpgSources();
                 closeFormModal('epgModal');
-                showStatus('已添加 EPG 源，下次更新生效（或点「立即刷新」）', 'success');
+                showStatus('已添加 EPG 源，下次更新生效（或点「立即刷新并应用」）', 'success');
             } else {
                 showStatus(r.message || '添加失败', 'error');
             }

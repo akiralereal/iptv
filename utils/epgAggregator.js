@@ -124,7 +124,6 @@ function readCachedXml(cachePath) {
   return (isGz ? gunzipSync(buf) : buf).toString('utf-8')
 }
 
-// 是否到刷新时间：无缓存/无 lastUpdated → 需要；否则按 refreshInterval 判断
 // 外部源的处理顺序：勾了「优先于官方节目单」的在前，其余按 priority（数字小的先）。
 // 缓存文件名带这个顺序里的序号，覆盖预取（loadOverrideKeys）与正式聚合必须共用这一个顺序。
 function orderedSources(config) {
@@ -134,12 +133,16 @@ function orderedSources(config) {
       || ((a.priority ?? 100) - (b.priority ?? 100)))
 }
 
-function isDue(source) {
+// 每轮完整更新（默认 8 小时一轮，另有每天 00:10 的零点补刷）都重新下载；本轮开始之后已经
+// 下载过的不再下（「优先于官方节目单」的源在 loadOverrideKeys 里先下了一次，正式聚合直接用）。
+// 以前按源自己的「间隔(分钟)」（默认 720）判：8 小时那轮总是差几个小时没到点，实际要隔
+// 16 小时左右才重下，零点补刷也多半跳过，只发当天节目单的源新一天的节目迟迟不出来。
+// 那个字段已从后台撤掉，老配置里留着的值不再看。
+function isDue(source, runStartedAt) {
   if (!source.lastUpdated) return true
   const last = new Date(source.lastUpdated).getTime()
   if (!last || Number.isNaN(last)) return true
-  const intervalMs = (source.refreshInterval || 720) * 60 * 1000
-  return Date.now() - last >= intervalMs
+  return last < runStartedAt
 }
 
 // 下载并按需 gunzip，返回 XML 文本
@@ -163,10 +166,10 @@ async function downloadXml(source) {
   }
 }
 
-// 保证本地有可用的原始 XML 缓存：到期则下载刷新，失败则沿用上次缓存。返回是否有缓存可用。
-async function ensureRawXml(source, cachePath) {
+// 保证本地有可用的原始 XML 缓存：本轮还没下过就下载刷新，失败则沿用上次缓存。返回是否有缓存可用。
+async function ensureRawXml(source, cachePath, runStartedAt) {
   const haveCache = existsSync(cachePath)
-  if (haveCache && !isDue(source)) return true
+  if (haveCache && !isDue(source, runStartedAt)) return true
   try {
     const xml = await downloadXml(source)
     writeCachedXml(cachePath, xml)
@@ -192,10 +195,11 @@ async function ensureRawXml(source, cachePath) {
  * @param {string} playbackBakPath  - 正在写入的 playback.xml.bak 路径
  * @param {string[]} playlistChannelNames - 播放列表中实际写入的频道原始名（含咪咕/外部/内置）
  * @param {Set<string>} coveredKeys - 已由咪咕给到 EPG 的频道归一 key（这些频道不再被外部覆盖）
- * @param {{now?: number, overrideKeys?: Set<string>}} [opts] overrideKeys：loadOverrideKeys 让官方节目单让出来的频道
+ * @param {{now?: number, overrideKeys?: Set<string>, runStartedAt?: number}} [opts] overrideKeys：loadOverrideKeys 让官方节目单让出来的频道；
+ *   runStartedAt：本轮完整更新开始的时间，在它之前下载的源本轮重新下载（不传按此刻算，即全部重下）
  * @returns {Promise<{appended:number, unmatched?:number, skipped?:string}>}
  */
-async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, coveredKeys, { now = Date.now(), overrideKeys = null } = {}) {
+async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, coveredKeys, { now = Date.now(), overrideKeys = null, runStartedAt = Date.now() } = {}) {
   if (!enableEpgAggregation) return { appended: 0, skipped: 'disabled-config' }
 
   const config = loadEpgConfig()
@@ -228,7 +232,7 @@ async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, cover
     const source = sources[i]
     const cachePath = cacheFileFor(source, i)
 
-    const ok = await ensureRawXml(source, cachePath)
+    const ok = await ensureRawXml(source, cachePath, runStartedAt)
     if (!ok) { source.matchedCount = 0; continue }
 
     let xml
@@ -279,9 +283,10 @@ async function aggregateExternalEpg(playbackBakPath, playlistChannelNames, cover
  * 自动让回内置节目单，不会像当年的 erw 那样拿过期缓存占着频道。
  * 顺带完成这些源的下载与缓存，正式聚合时不再重复下载。
  *
+ * @param {{now?: number, runStartedAt?: number}} [opts] runStartedAt 同 aggregateExternalEpg，两处要传同一个值
  * @returns {Promise<Set<string>>}
  */
-async function loadOverrideKeys({ now = Date.now() } = {}) {
+async function loadOverrideKeys({ now = Date.now(), runStartedAt = Date.now() } = {}) {
   const keys = new Set()
   if (!enableEpgAggregation) return keys
   const config = loadEpgConfig()
@@ -295,7 +300,7 @@ async function loadOverrideKeys({ now = Date.now() } = {}) {
     const source = sources[i]
     if (source.overrideOfficial !== true) continue
     const cachePath = cacheFileFor(source, i)
-    if (!(await ensureRawXml(source, cachePath))) continue
+    if (!(await ensureRawXml(source, cachePath, runStartedAt))) continue
     try {
       const channels = channelsWithCurrentProgrammes(readCachedXml(cachePath), now)
       channelCount += channels.size

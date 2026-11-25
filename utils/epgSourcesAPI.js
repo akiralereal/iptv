@@ -61,7 +61,6 @@ export function addEpgSourceAPI(source = {}) {
       url,
       enabled: source.enabled !== false,
       format: trimStr(source.format) || 'auto',
-      refreshInterval: clampInt(source.refreshInterval, 720, 10, 100000),
       priority: clampInt(source.priority, 10, 0, 9999),
       // 勾上后，这个源此刻有节目的频道优先用它，咪咕与各模块官方节目单让出来
       overrideOfficial: source.overrideOfficial === true,
@@ -96,7 +95,6 @@ export function updateEpgSourceAPI(index, fields = {}) {
     }
     if (fields.enabled !== undefined) s.enabled = !!fields.enabled
     if (fields.format !== undefined) s.format = trimStr(fields.format) || 'auto'
-    if (fields.refreshInterval !== undefined) s.refreshInterval = clampInt(fields.refreshInterval, 720, 10, 100000)
     if (fields.priority !== undefined) s.priority = clampInt(fields.priority, 10, 0, 9999)
     if (fields.overrideOfficial !== undefined) s.overrideOfficial = fields.overrideOfficial === true
 

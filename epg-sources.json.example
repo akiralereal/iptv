@@ -6,7 +6,6 @@
       "url": "https://example.com/epg.xml.gz",
       "enabled": true,
       "format": "auto",
-      "refreshInterval": 720,
       "priority": 10
     }
   ]

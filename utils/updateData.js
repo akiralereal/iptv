@@ -393,7 +393,7 @@ async function updateTV(hours, options = {}) {
   let epgOverrideKeys = new Set()
   if (!regenerateOnly) {
     try {
-      epgOverrideKeys = await loadOverrideKeys()
+      epgOverrideKeys = await loadOverrideKeys({ runStartedAt: start })
     } catch (e) {
       printYellow(`「优先于官方节目单」的外部源读取失败，这些频道照常用官方节目单: ${e.message}`)
     }
@@ -567,7 +567,8 @@ async function updateTV(hours, options = {}) {
     }
     // EPG 聚合（issue #38）：为仍未覆盖的频道，从外部 XMLTV 源补节目单。失败不影响基础节目单。
     try {
-      await aggregateExternalEpg(playbackFile, playlistChannelNames, epgCoveredKeys, { overrideKeys: epgOverrideKeys })
+      // 外部源每轮都重新下载；runStartedAt 让上面预取过的「优先于官方节目单」源本轮不再下第二次
+      await aggregateExternalEpg(playbackFile, playlistChannelNames, epgCoveredKeys, { overrideKeys: epgOverrideKeys, runStartedAt: start })
     } catch (e) {
       printYellow(`EPG 聚合失败（不影响基础节目单）: ${e.message}`)
     }

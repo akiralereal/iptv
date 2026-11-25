@@ -47,7 +47,7 @@ export function buildChannels() {
   return CHANNELS.map(channel => ({
     name: channel.name,
     deferredRef: `gdtv-${channel.id}`,
-    relayHls: true,
+    proxyHls: true,
     catchup: 'none',
     logo: channel.logo || '',
     opts: ['network-caching=3000'],

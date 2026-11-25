@@ -29,7 +29,9 @@ check('频道表固定排除购物频道，同时保留广东移动与 4K', () =
   assert.equal(channels.some(channel => /购物/.test(channel.name)), false)
   assert.ok(channels.some(channel => channel.name === '广东移动'))
   assert.ok(channels.some(channel => channel.name === '广东4K超高清'))
-  assert.ok(channels.every(channel => channel.relayHls === true))
+  assert.ok(channels.every(channel => channel.proxyHls === true && channel.relayHls === undefined))
+  // 部分分片主机拒绝 FFmpeg 默认 UA（Lavf），整个模块由服务器转发清单与分片
+  assert.equal(gdtv.channelHlsMode, 'proxy')
   assert.ok(channels.every(channel => channel.deferredRef.startsWith('gdtv-')))
   assert.equal(gdtv.capabilities.catchup, false)
   assert.ok(channels.every(channel => channel.catchup === 'none'), '纯直播：逐条关掉订阅头的回看声明')
@@ -111,7 +113,7 @@ await checkAsync('纪录片取到一次地址后 25 分钟内不再请求频道�
   assert.equal(calls, 2, '离过期 5 分钟后台换票')
 })
 
-await checkAsync('首次播放并发只取一次票，固定入口自动启用清单中继', async () => {
+await checkAsync('首次播放并发只取一次票，旧 /relay/ 与无后缀入口也改走全代理', async () => {
   let calls = 0
   let finish
   const captured = new Promise(resolve => { finish = resolve })
@@ -124,7 +126,8 @@ await checkAsync('首次播放并发只取一次票，固定入口自动启用�
   const [a, b] = await Promise.all([first, second])
   assert.equal(a.url, stream('first'))
   assert.equal(b.url, stream('first'))
-  assert.equal(a.relayHls, true)
+  assert.equal(a.proxyHls, true)
+  assert.equal(a.relayHls, undefined)
 })
 
 await checkAsync('45 秒后后台换票且不阻塞播放器，成功后切到新地址', async () => {

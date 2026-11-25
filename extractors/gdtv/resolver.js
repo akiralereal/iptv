@@ -96,8 +96,9 @@ export function createResolver({
         desc: entry.lastError
           ? `${CHANNEL_BY_ID.get(channelId).name}续签暂时失败，沿用安全窗口内的地址`
           : `${CHANNEL_BY_ID.get(channelId).name}短效播放地址获取成功`,
-        // 旧的无 /relay/ 地址也必须进入清单中继，否则一次 302 后就失去自动续签。
-        relayHls: true,
+        // 清单和分片都由服务器转发（原因见 index.js 的 channelHlsMode）。订阅里已经下发的
+        // /relay/gdtv-N.m3u8 和无后缀旧地址也靠这一条改走全代理，否则播放器仍拿自己的 UA 直连分片。
+        proxyHls: true,
       }
     } catch (error) {
       return { url: '', desc: `广东台链接请求失败：${error?.message || String(error)}` }

@@ -8,7 +8,7 @@
  *   3. App 媒体域名使用内置 FFmpeg 的 Lavf 标识，旧官网媒体域名使用 Chrome。
  *      seclive 的 HTTPS 证书当前不匹配，仅该域名遇到此错误时改用同域 HTTP，不关闭 TLS 校验。
  *      清单与分片使用同一标识全代理，不附加 Referer / Origin。
- *      卫视会在 seclive 与 live.ahcartv.dev.geek-zoo.cn 之间迁移，按 App 配置动态读取。
+ *      卫视的媒体主机随 App 栏目配置迁移，2026-11-25 栏目返回 dlbimve.ahsx.ahtv.cn。
  *      2026-11-20 seclive 也已拒绝 ijkplayer，与卫视另一域名统一使用 Lavf/58.12.100。
  *
  * 官网旧接口还会返回 8 路地址，能取到清单和分片，但画面全是「网站直播已下线，请使用安徽视讯」
@@ -24,12 +24,11 @@ export const ANHUI_TV_CATALOG_API = 'https://console.ahsx.ahtv.cn/api/appapi/api
 export const ANHUI_API_CDN_BASE = 'https://web.ahsx.ahtv.cn/facadestatic/appapi/'
 export const MEDIA_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-export const MEDIA_HOSTS = Object.freeze([
-  'live.ahsx.ahtv.cn', 'lives.ahsx.ahtv.cn', 'nrtapush.ahsx.ahtv.cn',
-  'seclive.ahsx.ahtv.cn', 'live.ahcartv.dev.geek-zoo.cn',
-])
 const SEC_LIVE_HOST = 'seclive.ahsx.ahtv.cn'
-const SATELLITE_LIVE_HOST = 'live.ahcartv.dev.geek-zoo.cn'
+const APP_MEDIA_HOSTS = [SEC_LIVE_HOST, 'live.ahcartv.dev.geek-zoo.cn', 'dlbimve.ahsx.ahtv.cn']
+export const MEDIA_HOSTS = Object.freeze([
+  'live.ahsx.ahtv.cn', 'lives.ahsx.ahtv.cn', 'nrtapush.ahsx.ahtv.cn', ...APP_MEDIA_HOSTS,
+])
 const APP_MEDIA_USER_AGENT = 'Lavf/58.12.100'
 export const APP_TOKEN_LIFETIME_MS = 2 * 60 * 60 * 1000
 export const AUTH_KEY_TTL_MS = 15 * 60 * 1000
@@ -118,7 +117,7 @@ export function officialHlsUrl(raw) {
  */
 export function upstreamHeadersFor(raw) {
   const url = new URL(officialMediaUrl(raw))
-  const appMedia = url.hostname === SEC_LIVE_HOST || url.hostname === SATELLITE_LIVE_HOST
+  const appMedia = APP_MEDIA_HOSTS.includes(url.hostname)
   return { 'User-Agent': appMedia ? APP_MEDIA_USER_AGENT : MEDIA_USER_AGENT }
 }
 

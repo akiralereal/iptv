@@ -78,10 +78,10 @@ function fakeUpstream({ manifestStatuses = [], configPayload = CONFIG_PAYLOAD, c
       200, { 'content-type': 'application/json' })
     }
     if (/\/live\/\/[a-z\d]+\.m3u8\?txSecret=/.test(String(url))) {
-      // App 两个媒体域名均已拒绝 ijkplayer，须用内置 FFmpeg 的 Lavf；旧源仍用 Chrome。
+      // App 媒体域名使用内置 FFmpeg 的 Lavf；旧源仍用 Chrome。
       const host = new URL(url).hostname
       const userAgent = options.headers?.['User-Agent'] || ''
-      const accepted = ['seclive.ahsx.ahtv.cn', 'live.ahcartv.dev.geek-zoo.cn'].includes(host)
+      const accepted = ['seclive.ahsx.ahtv.cn', 'live.ahcartv.dev.geek-zoo.cn', 'dlbimve.ahsx.ahtv.cn'].includes(host)
         ? userAgent === 'Lavf/58.12.100'
         : /Chrome\//.test(userAgent)
       if (!accepted
@@ -406,19 +406,23 @@ await checkAsync('源被拒后重新读取官方配置，卫视换域名与流 I
   assert.equal(upstream.catalogCalls().length, 2)
 })
 
-await checkAsync('卫视迁到 App 新域名后动态读取流 ID，清单与分片沿用原频道引用', async () => {
-  const domain = 'https://live.ahcartv.dev.geek-zoo.cn/live/'
-  const upstream = fakeUpstream({ channelConfig: channel => channel === CHANNELS[0]
-    ? { liveDomain: domain, liveId: '1104' } : {} })
-  const result = await createResolver({ fetchImpl: upstream.fetchImpl }).resolve('anhui-ahwssx')
-  assert.ok(result.url, result.desc)
-  assert.equal(new URL(result.url).hostname, 'live.ahcartv.dev.geek-zoo.cn')
-  assert.equal(new URL(result.url).pathname, '/live//1104.m3u8')
-  const segment = new URL('1104-1.ts', result.url).href
-  assert.equal(result.upstreamUrlTransform(segment), segment)
-  assert.deepEqual(result.upstreamHeaders(segment), { 'User-Agent': 'Lavf/58.12.100' })
-  assert.equal(upstream.catalogCalls().length, 1)
-})
+for (const host of ['live.ahcartv.dev.geek-zoo.cn', 'dlbimve.ahsx.ahtv.cn']) {
+  await checkAsync(`卫视迁到 ${host} 后沿用原频道引用，清单与分片走 HTTPS`, async () => {
+    const domain = `https://${host}/live/`
+    const upstream = fakeUpstream({ channelConfig: channel => channel === CHANNELS[0]
+      ? { liveDomain: domain, liveId: '1104' } : {} })
+    const result = await createResolver({ fetchImpl: upstream.fetchImpl }).resolve('anhui-ahwssx')
+    assert.ok(result.url, result.desc)
+    assert.equal(new URL(result.url).hostname, host)
+    assert.equal(new URL(result.url).pathname, '/live//1104.m3u8')
+    const segment = new URL('1104-1.ts', result.url).href
+    assert.equal(result.upstreamUrlTransform(segment), segment)
+    assert.deepEqual(result.upstreamHeaders(segment), { 'User-Agent': 'Lavf/58.12.100' })
+    assert.equal(upstream.catalogCalls().length, 1)
+    assert.throws(() => officialMediaUrl(`http://${host}/live/x.ts`))
+    assert.throws(() => officialMediaUrl(`https://${host}.example.org/live/x.ts`))
+  })
+}
 
 await checkAsync('卫视迁回 seclive 后丢弃被拒的旧缓存，清单与分片统一使用 App 的 Lavf 标识', async () => {
   let migrated = false

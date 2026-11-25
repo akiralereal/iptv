@@ -424,41 +424,45 @@ for (const host of ['live.ahcartv.dev.geek-zoo.cn', 'dlbimve.ahsx.ahtv.cn']) {
   })
 }
 
-await checkAsync('卫视失效后跟随官方目录迁到未预置的 HTTPS 主机，授权仅限本频道和目录指定的主机', async () => {
-  const ref = 'anhui-ahwssx'
-  const host = 'future-edge.ahsx.ahtv.cn'
-  const newDomain = `https://${host}/live/`
-  let migrated = false
-  const upstream = fakeUpstream({
-    channelConfig: () => migrated ? { liveDomain: newDomain, liveId: 'new1104' } : {},
-    manifestStatuses: [200, 410, 200],
+for (const channel of CHANNELS) {
+  await checkAsync(`${channel.rawName}失效后跟随官方目录迁到新主机，其他频道仍按各自目录播放`, async () => {
+    const ref = channel.ref
+    const host = 'future-edge.ahsx.ahtv.cn'
+    const newDomain = `https://${host}/live/`
+    let migrated = false
+    const upstream = fakeUpstream({
+      channelConfig: entry => migrated && entry.ref === ref ? { liveDomain: newDomain, liveId: 'new1104' } : {},
+      manifestStatuses: [200, 410, 200],
+    })
+    const resolver = createResolver({ fetchImpl: upstream.fetchImpl })
+    assert.ok((await resolver.resolve(ref)).url)
+    migrated = true
+    const current = await resolver.resolve(ref)
+    assert.ok(current.url, current.desc)
+    assert.equal(new URL(current.url).hostname, host)
+    assert.equal(new URL(current.url).pathname, '/live//new1104.m3u8')
+    assert.equal(upstream.catalogCalls().length, 2)
+    const segment = new URL('new1104-1.ts', current.url).href
+    assert.equal(current.upstreamUrlTransform(segment), segment)
+    assert.throws(() => officialMediaUrl(segment), /非官方/)
+    assert.ok((await resolver.resolve(ref)).url, '缓存命中时保留栏目指定的主机')
+    const unaffected = await resolver.resolve(CHANNELS.find(entry => entry.ref !== ref).ref)
+    assert.ok(unaffected.url, unaffected.desc)
+    assert.throws(() => unaffected.upstreamUrlTransform(segment), /非官方/)
+    const other = 'https://other-edge.ahsx.ahtv.cn/live/x.m3u8'
+    for (const url of [other, segment.replace('https:', 'http:')]) {
+      assert.throws(() => current.upstreamUrlTransform(url), /非官方/)
+      assert.throws(() => current.upstreamHeaders(url), /非官方/)
+    }
+    assert.throws(() => validateHls(`#EXTM3U\n${other}`, current.url, host), /非官方/)
+    let calls = 0
+    await assert.rejects(requestManifest(current.url, { catalogHost: host, fetchImpl: () => {
+      calls++
+      return response('', 302, { location: other })
+    } }), /非官方/)
+    assert.equal(calls, 1)
   })
-  const resolver = createResolver({ fetchImpl: upstream.fetchImpl })
-  assert.ok((await resolver.resolve(ref)).url)
-  migrated = true
-  const current = await resolver.resolve(ref)
-  assert.ok(current.url, current.desc)
-  assert.equal(new URL(current.url).hostname, host)
-  assert.equal(new URL(current.url).pathname, '/live//new1104.m3u8')
-  assert.equal(upstream.catalogCalls().length, 2)
-  const segment = new URL('new1104-1.ts', current.url).href
-  assert.equal(current.upstreamUrlTransform(segment), segment)
-  assert.throws(() => officialMediaUrl(segment), /非官方/)
-  assert.ok((await resolver.resolve(ref)).url, '缓存命中时保留栏目指定的主机')
-  assert.equal((await resolver.resolve('anhui-jjshtv')).url, '')
-  const other = 'https://other-edge.ahsx.ahtv.cn/live/x.m3u8'
-  for (const url of [other, segment.replace('https:', 'http:')]) {
-    assert.throws(() => current.upstreamUrlTransform(url), /非官方/)
-    assert.throws(() => current.upstreamHeaders(url), /非官方/)
-  }
-  assert.throws(() => validateHls(`#EXTM3U\n${other}`, current.url, host), /非官方/)
-  let calls = 0
-  await assert.rejects(requestManifest(current.url, { catalogHost: host, fetchImpl: () => {
-    calls++
-    return response('', 302, { location: other })
-  } }), /非官方/)
-  assert.equal(calls, 1)
-})
+}
 
 check('卫视目录给出外域、非媒体服务或不安全入口时拒绝使用', () => {
   const channel = CHANNELS[0]

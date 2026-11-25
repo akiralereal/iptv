@@ -240,7 +240,7 @@ export function channelConfigFromCatalog(records, channel) {
     throw new Error('安徽频道直播配置无效或签名方式已变化')
   }
   const domain = safeUrl(movie.liveDomain, '媒体')
-  const catalogHost = channel.ref === 'anhui-ahwssx' && !MEDIA_HOSTS.includes(domain.hostname) ? domain.hostname : undefined
+  const catalogHost = MEDIA_HOSTS.includes(domain.hostname) ? undefined : domain.hostname
   officialMediaUrl(domain.href, catalogHost)
   if (domain.search || !/^\/(?:[a-z\d_-]+\/){0,3}(?:[a-z\d_-]+\/?)?$/i.test(domain.pathname)) {
     throw new Error('安徽频道直播目录无效')

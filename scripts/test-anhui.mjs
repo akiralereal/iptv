@@ -81,7 +81,7 @@ function fakeUpstream({ manifestStatuses = [], configPayload = CONFIG_PAYLOAD, c
       // App 媒体域名使用内置 FFmpeg 的 Lavf；旧源仍用 Chrome。
       const host = new URL(url).hostname
       const userAgent = options.headers?.['User-Agent'] || ''
-      const accepted = ['seclive.ahsx.ahtv.cn', 'live.ahcartv.dev.geek-zoo.cn', 'dlbimve.ahsx.ahtv.cn'].includes(host)
+      const accepted = ['seclive.ahsx.ahtv.cn', 'live.ahcartv.dev.geek-zoo.cn', 'dlbimve.ahsx.ahtv.cn', 'future-edge.ahsx.ahtv.cn'].includes(host)
         ? userAgent === 'Lavf/58.12.100'
         : /Chrome\//.test(userAgent)
       if (!accepted
@@ -423,6 +423,51 @@ for (const host of ['live.ahcartv.dev.geek-zoo.cn', 'dlbimve.ahsx.ahtv.cn']) {
     assert.throws(() => officialMediaUrl(`https://${host}.example.org/live/x.ts`))
   })
 }
+
+await checkAsync('卫视失效后跟随官方目录迁到未预置的 HTTPS 主机，授权仅限本频道和目录指定的主机', async () => {
+  const ref = 'anhui-ahwssx'
+  const host = 'future-edge.ahsx.ahtv.cn'
+  const newDomain = `https://${host}/live/`
+  let migrated = false
+  const upstream = fakeUpstream({
+    channelConfig: () => migrated ? { liveDomain: newDomain, liveId: 'new1104' } : {},
+    manifestStatuses: [200, 410, 200],
+  })
+  const resolver = createResolver({ fetchImpl: upstream.fetchImpl })
+  assert.ok((await resolver.resolve(ref)).url)
+  migrated = true
+  const current = await resolver.resolve(ref)
+  assert.ok(current.url, current.desc)
+  assert.equal(new URL(current.url).hostname, host)
+  assert.equal(new URL(current.url).pathname, '/live//new1104.m3u8')
+  assert.equal(upstream.catalogCalls().length, 2)
+  const segment = new URL('new1104-1.ts', current.url).href
+  assert.equal(current.upstreamUrlTransform(segment), segment)
+  assert.throws(() => officialMediaUrl(segment), /非官方/)
+  assert.ok((await resolver.resolve(ref)).url, '缓存命中时保留栏目指定的主机')
+  assert.equal((await resolver.resolve('anhui-jjshtv')).url, '')
+  const other = 'https://other-edge.ahsx.ahtv.cn/live/x.m3u8'
+  for (const url of [other, segment.replace('https:', 'http:')]) {
+    assert.throws(() => current.upstreamUrlTransform(url), /非官方/)
+    assert.throws(() => current.upstreamHeaders(url), /非官方/)
+  }
+  assert.throws(() => validateHls(`#EXTM3U\n${other}`, current.url, host), /非官方/)
+  let calls = 0
+  await assert.rejects(requestManifest(current.url, { catalogHost: host, fetchImpl: () => {
+    calls++
+    return response('', 302, { location: other })
+  } }), /非官方/)
+  assert.equal(calls, 1)
+})
+
+check('卫视目录给出外域、非媒体服务或不安全入口时拒绝使用', () => {
+  const channel = CHANNELS[0]
+  for (const origin of ['https://edge.ahsx.ahtv.cn.example.org', 'https://127.0.0.1',
+    'http://future-edge.ahsx.ahtv.cn', 'https://future-edge.ahsx.ahtv.cn:8443',
+    'https://console.ahsx.ahtv.cn', 'https://web.ahsx.ahtv.cn', 'https://image.ahsx.ahtv.cn']) {
+    assert.throws(() => readChannel(channelPayload(channel, { liveDomain: origin + '/live/' }), channel), /非官方/)
+  }
+})
 
 await checkAsync('卫视迁回 seclive 后丢弃被拒的旧缓存，清单与分片统一使用 App 的 Lavf 标识', async () => {
   let migrated = false

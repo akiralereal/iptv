@@ -92,20 +92,25 @@ function safeUrl(raw, label) {
   }
 }
 
+// 只有官方电视目录能为当前频道指定新的安徽视讯主机。播放清单、分片和重定向不能自行增加主机。
+const APP_HOST_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.ahsx\.ahtv\.cn$/
+const NON_MEDIA_HOSTS = new Set([ANHUI_CONFIG_API, ANHUI_API_CDN_BASE, LOGO_BASE].map(raw => new URL(raw).hostname))
+
 /** 只放行 App 自己的直播域名；旧官网 /forbid/ 路径是「直播已下线」占位画面，能取到清单也不能当频道。 */
-export function officialMediaUrl(raw) {
+export function officialMediaUrl(raw, catalogHost) {
   const url = safeUrl(raw, '媒体')
   const protocolAllowed = url.protocol === 'https:' || (url.protocol === 'http:' && url.hostname === SEC_LIVE_HOST)
+  const fromCatalog = url.hostname === catalogHost && APP_HOST_PATTERN.test(url.hostname) && !NON_MEDIA_HOSTS.has(url.hostname)
   if (!protocolAllowed || url.username || url.password || url.port
-      || !MEDIA_HOSTS.includes(url.hostname) || /%2f|%5c/i.test(url.pathname) || url.hash) {
+      || (!MEDIA_HOSTS.includes(url.hostname) && !fromCatalog) || /%2f|%5c/i.test(url.pathname) || url.hash) {
     throw new Error('安徽视讯返回了非官方媒体地址')
   }
   if (/^\/forbid(?:\/|$)/i.test(url.pathname)) throw new Error('安徽视讯返回了直播下线占位地址')
   return url.href
 }
 
-export function officialHlsUrl(raw) {
-  const url = new URL(officialMediaUrl(raw))
+export function officialHlsUrl(raw, catalogHost) {
+  const url = new URL(officialMediaUrl(raw, catalogHost))
   if (!/\.m3u8$/i.test(url.pathname)) throw new Error('安徽视讯返回的不是有效 HLS 入口')
   return url.href
 }
@@ -115,9 +120,9 @@ export function officialHlsUrl(raw) {
  * 加上浏览器式的 Referer / Origin / Sec-Fetch 头后清单与分片全部 403。
  * 函数形态：代理层只对函数返回的 User-Agent 放行（见 utils/hlsProxy.js）。
  */
-export function upstreamHeadersFor(raw) {
-  const url = new URL(officialMediaUrl(raw))
-  const appMedia = APP_MEDIA_HOSTS.includes(url.hostname)
+export function upstreamHeadersFor(raw, catalogHost) {
+  const url = new URL(officialMediaUrl(raw, catalogHost))
+  const appMedia = url.hostname === catalogHost || APP_MEDIA_HOSTS.includes(url.hostname)
   return { 'User-Agent': appMedia ? APP_MEDIA_USER_AGENT : MEDIA_USER_AGENT }
 }
 
@@ -234,11 +239,13 @@ export function channelConfigFromCatalog(records, channel) {
   if (String(movie.txFlag) !== '1' || !/^[a-z\d_-]{1,96}$/.test(String(movie.liveId || ''))) {
     throw new Error('安徽频道直播配置无效或签名方式已变化')
   }
-  const domain = new URL(officialMediaUrl(movie.liveDomain))
+  const domain = safeUrl(movie.liveDomain, '媒体')
+  const catalogHost = channel.ref === 'anhui-ahwssx' && !MEDIA_HOSTS.includes(domain.hostname) ? domain.hostname : undefined
+  officialMediaUrl(domain.href, catalogHost)
   if (domain.search || !/^\/(?:[a-z\d_-]+\/){0,3}(?:[a-z\d_-]+\/?)?$/i.test(domain.pathname)) {
     throw new Error('安徽频道直播目录无效')
   }
-  return { liveId: movie.liveId, liveDomain: domain.href }
+  return { liveId: movie.liveId, liveDomain: domain.href, ...(catalogHost && { catalogHost }) }
 }
 
 export async function requestTvCatalog(options = {}) {
@@ -246,13 +253,13 @@ export async function requestTvCatalog(options = {}) {
 }
 
 /** 与 App 运行时完全一致的腾讯云直播签名：txTime 取过期时刻（秒，十六进制），txSecret = md5(key + liveId + txTime)。 */
-export function signedStreamUrl(liveId, authKey, now = Date.now(), liveDomain = `${LIVE_ORIGIN}/live/`) {
+export function signedStreamUrl(liveId, authKey, now = Date.now(), liveDomain = `${LIVE_ORIGIN}/live/`, catalogHost) {
   if (!/^[a-z\d_-]{1,96}$/.test(String(liveId || ''))) throw new Error('安徽视讯 liveId 无效')
   if (typeof authKey !== 'string' || !authKey) throw new Error('安徽视讯直播鉴权密钥无效')
   const txTime = Math.floor((Number(now) + APP_TOKEN_LIFETIME_MS) / 1000).toString(16)
   const txSecret = md5(`${authKey}${liveId}${txTime}`)
   // 与 App 一样直接在 liveDomain 后拼接斜杠，保留配置末尾斜杠带来的双斜杠。
-  return officialHlsUrl(`${liveDomain}/${liveId}.m3u8?txSecret=${txSecret}&txTime=${txTime}`)
+  return officialHlsUrl(`${liveDomain}/${liveId}.m3u8?txSecret=${txSecret}&txTime=${txTime}`, catalogHost)
 }
 
 async function discardResponse(response) {
@@ -344,11 +351,11 @@ function hlsRefs(text, baseUrl) {
   return refs
 }
 
-export function validateHls(text, baseUrl) {
+export function validateHls(text, baseUrl, catalogHost) {
   if (typeof text !== 'string' || !text.trimStart().startsWith('#EXTM3U')) {
     throw new Error('安徽视讯上游不是 HLS 清单')
   }
-  for (const ref of hlsRefs(text, baseUrl)) officialMediaUrl(ref)
+  for (const ref of hlsRefs(text, baseUrl)) officialMediaUrl(ref, catalogHost)
   return text
 }
 
@@ -357,18 +364,19 @@ export function validateHls(text, baseUrl) {
  * 所以播放器每次轮询都必须重新拉，模块层不缓存清单文本。
  */
 export async function requestManifest(raw, {
+  catalogHost,
   timeoutMs = 15000,
   fetchImpl = proxyAwareFetch,
 } = {}) {
   const controller = new AbortController()
+  let url = officialHlsUrl(raw, catalogHost)
   const timer = setTimeout(() => controller.abort(), timeoutMs)
-  let url = officialHlsUrl(raw)
   try {
     for (let redirects = 0; redirects <= 3; redirects++) {
       let response
       try {
         response = await fetchImpl(url, {
-          redirect: 'manual', signal: controller.signal, headers: upstreamHeadersFor(url),
+          redirect: 'manual', signal: controller.signal, headers: upstreamHeadersFor(url, catalogHost),
         })
       } catch (error) {
         const target = new URL(url)
@@ -376,14 +384,14 @@ export async function requestManifest(raw, {
         if ((error?.cause?.code || error?.code) !== 'ERR_TLS_CERT_ALTNAME_INVALID'
             || target.hostname !== SEC_LIVE_HOST || target.protocol !== 'https:') throw error
         target.protocol = 'http:'
-        url = officialHlsUrl(target.href)
+        url = officialHlsUrl(target.href, catalogHost)
         continue
       }
       if (REDIRECT_STATUSES.has(response.status)) {
         const location = response.headers.get('location')
         await discardResponse(response)
         if (!location) throw new Error('安徽直播清单重定向缺少地址')
-        url = officialHlsUrl(new URL(location, url).href)
+        url = officialHlsUrl(new URL(location, url).href, catalogHost)
         continue
       }
       if (!response.ok) {
@@ -391,7 +399,7 @@ export async function requestManifest(raw, {
         throw new Error(`安徽直播清单 HTTP ${response.status}`)
       }
       const text = await responseText(response)
-      validateHls(text, url)
+      validateHls(text, url, catalogHost)
       return { text, url }
     }
     throw new Error('安徽直播清单重定向次数过多')
@@ -463,16 +471,17 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
   }
 
   // 签名两小时有效；半小时内复用同一份，避免每次轮询都换 txTime 让日志和登记表无谓抖动
-  async function streamUrlFor(channel, options) {
+  async function streamFor(channel, options) {
     const state = stateFor(options.fetchImpl)
     const now = Number(options.now ?? Date.now())
     const cached = state.streams.get(channel.ref)
-    if (cached && cached.expiresAt > now) return cached.url
+    if (cached && cached.expiresAt > now) return cached
     const [authKey, records] = await Promise.all([authKeyFor(options), catalogFor(options)])
-    const current = channelConfigFromCatalog(records, channel)
-    const url = signedStreamUrl(current.liveId, authKey, now, current.liveDomain)
-    state.streams.set(channel.ref, { url, expiresAt: now + STREAM_URL_TTL_MS })
-    return url
+    const { liveId, liveDomain, catalogHost } = channelConfigFromCatalog(records, channel)
+    const url = signedStreamUrl(liveId, authKey, now, liveDomain, catalogHost)
+    const stream = { url, catalogHost, expiresAt: now + STREAM_URL_TTL_MS }
+    state.streams.set(channel.ref, stream)
+    return stream
   }
 
   function invalidate(channel, fetchImpl) {
@@ -491,28 +500,28 @@ export function createResolver({ fetchImpl: defaultFetch = proxyAwareFetch } = {
       now: ctx.now,
     }
     try {
-      let streamUrl = await streamUrlFor(channel, options)
+      let stream = await streamFor(channel, options)
       let manifest
       try {
-        manifest = await requestManifest(streamUrl, options)
+        manifest = await requestManifest(stream.url, { ...options, catalogHost: stream.catalogHost })
       } catch (error) {
         // 密钥、域名或流 ID 变化都可能拒绝旧源：重新读配置并签名一次，再失败才放弃。
         if (error?.name === 'AbortError') throw error
         invalidate(channel, options.fetchImpl)
-        streamUrl = await streamUrlFor(channel, options)
-        manifest = await requestManifest(streamUrl, options)
+        stream = await streamFor(channel, options)
+        manifest = await requestManifest(stream.url, { ...options, catalogHost: stream.catalogHost })
       }
       // 同域 HTTP 兼容或官方跳转成功后复用实际入口，避免每次轮询重复遇到同一证书错误。
-      const cached = stateFor(options.fetchImpl).streams.get(channel.ref)
-      if (cached && cached.url === streamUrl) cached.url = manifest.url
+      stream.url = manifest.url
+      const { catalogHost } = stream
       return {
         url: manifest.url,
         desc: `${channel.name} 官方直播地址获取成功`,
         relayHls: true,
         manifestText: manifest.text,
         manifestUrl: manifest.url,
-        upstreamHeaders: upstreamHeadersFor,
-        upstreamUrlTransform: officialMediaUrl,
+        upstreamHeaders: catalogHost ? raw => upstreamHeadersFor(raw, catalogHost) : upstreamHeadersFor,
+        upstreamUrlTransform: catalogHost ? raw => officialMediaUrl(raw, catalogHost) : officialMediaUrl,
       }
     } catch (error) {
       const reason = error?.name === 'AbortError'

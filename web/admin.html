@@ -12227,6 +12227,8 @@ if(success){
         function groupDetailActionsMarkup(group, groupIndex) {
             const isUngrouped = group.name === '未分组';
             const isCustomGroup = isCustomGroupName(group.name);
+            // 按钮不置灰：点了用提示说明原因（触屏上看不到悬停说明）
+            const hideSkip = isUngrouped || isCustomGroup ? null : groupHidePlanItem(group).skip;
             const isNameSorted = !!(myPlaylistConfig.groupSortMode && myPlaylistConfig.groupSortMode[group.name] === 'name');
             const atTop = isUngrouped || groupIndex <= groupOrderFloor();
             const atBottom = isUngrouped || groupIndex === myPlaylistData.length - 1;
@@ -12240,7 +12242,7 @@ if(success){
                         <button class="btn btn-sm" onclick="moveGroup(${groupIndex}, 'up')" ${atTop ? 'disabled' : ''} title="把这个分组往前挪一位"><svg class="group-action-icon" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M6 10V2M3 5l3-3 3 3"/></svg>上移</button>
                         <button class="btn btn-sm" onclick="moveGroup(${groupIndex}, 'down')" ${atBottom ? 'disabled' : ''} title="把这个分组往后挪一位"><svg class="group-action-icon" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M6 2v8M3 7l3 3 3-3"/></svg>下移</button>
                         <button class="btn btn-sm" onclick="moveGroup(${groupIndex}, 'bottom')" ${atBottom ? 'disabled' : ''} title="把这个分组移到所有分组最后"><svg class="group-action-icon" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 10h8M6 2v6M3 5l3 3 3-3"/></svg>置底</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})" ${isUngrouped ? 'disabled' : ''} title="${isUngrouped ? '「未分组」不可隐藏' : isCustomGroup ? '隐藏整个分组（连同移进来的频道），可在右侧「已隐藏」里原样恢复' : '隐藏整个分组，可在右侧「已隐藏」里恢复'}">隐藏分组</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteGroup(${groupIndex})" ${isUngrouped ? 'disabled' : ''} title="${isUngrouped ? '「未分组」不可隐藏' : isCustomGroup ? '隐藏整个分组（连同移进来的频道），可在右侧「已隐藏」里原样恢复' : hideSkip ? GROUP_HIDE_SKIP_REASONS[hideSkip] : '隐藏整个分组，可在右侧「已隐藏」里恢复'}">隐藏分组</button>
                         <button class="btn btn-danger btn-sm" onclick="keepOnlyGroup(${groupIndex})" title="隐藏当前配置档的其他分组，只留下这一个；隐藏的分组可在「已隐藏」里恢复">只保留此分组</button>
                     </div>
                     <span class="group-action-label">组内频道</span>
@@ -12949,6 +12951,20 @@ if(success){
                 await hideCustomGroup(group);
                 return;
             }
+            // 与左栏多选、「只保留此分组」同一套判断（groupHidePlanItem）。以前这里不判断，直接把显示名写进
+            // deletedGroups：按规则归类 / 手动移入凑出来的分组背后没有源分组，提示「已隐藏」，分组却原样还在，
+            // 那条记录还会把以后源里真出现的同名分组悄悄藏掉。
+            const plan = groupHidePlanItem(group);
+            const leftovers = groupHideLeftoverChannels(group, myPlaylistConfig);
+            const ownCount = group.channels.length - leftovers.length;
+            // 源分组自己的频道都已移走或单独隐藏，眼前全是移入 / 归类来的：写进去也藏不掉任何一个
+            if (plan.skip || ownCount === 0) {
+                showStatus(GROUP_HIDE_SKIP_REASONS[plan.skip || 'synthetic'], 'error', 5000);
+                return;
+            }
+            const leftoverNote = leftovers.length
+                ? `\n另有 ${leftovers.length} 个是手动移入或按规则归类的频道，不会跟着隐藏，分组会留着它们`
+                : '';
             // 同前缀的兄弟分组（体育-昨天 / 今天 / 明天）：这类分组每天重建，只隐藏眼前这一个，
             // 明天新的照样冒出来。deletedGroups 早就支持 `前缀*` 通配（issue #2 加的），但一直只有
             // 手改配置文件才用得上。与其教用户敲通配符语法，不如在他真正需要的这一刻由界面认出来。
@@ -12960,61 +12976,67 @@ if(success){
                     '隐藏分组',
                     `「${group.name}」还有 ${siblings.names.length} 个同前缀分组：\n${preview}\n\n`
                     + `选「连同同前缀一起隐藏」会存成规则 ${siblings.prefix}*，`
-                    + `以后新出现的 ${siblings.prefix} 开头的分组也会自动隐藏——赛事回放这类每天重建的分组适合这么处理。`,
+                    + `以后新出现的 ${siblings.prefix} 开头的分组也会自动隐藏——赛事回放这类每天重建的分组适合这么处理。`
+                    + leftoverNote,
                     [
-                        { key: 'one', label: `只隐藏这一个（${group.channels.length} 个频道）`, primary: true },
+                        { key: 'one', label: `只隐藏这一个（${ownCount} 个频道）`, primary: true },
                         { key: 'prefix', label: `连同 ${siblings.names.length} 个一起隐藏` },
                     ]
                 );
                 if (!choice) return;
                 if (choice === 'prefix') wildcardPrefix = siblings.prefix + '*';
             } else {
-                const confirmed = await showConfirm(`确定隐藏分组 "${group.name}" 吗？\n该分组的 ${group.channels.length} 个频道将被移到"已隐藏"区域`);
+                const confirmed = await showConfirm(`确定隐藏分组 "${group.name}" 吗？\n该分组的 ${ownCount} 个频道将被移到"已隐藏"区域${leftoverNote}`);
                 if (!confirmed) return;
             }
 
-            // 隐藏分组：需要把所有映射到此名称的原始分组都加入 deletedGroups
             const currentName = group.name;
+            const config = myPlaylistConfig;
+            const before = (config.deletedGroups || []).slice();
+            if (!Array.isArray(config.deletedGroups)) config.deletedGroups = [];
 
             if (wildcardPrefix) {
                 // 通配规则会盖住这些分组，原先逐条写进去的精确条目就是冗余了，一并清掉，
                 // 免得日后「解除规则」时残留一堆看不见的精确隐藏。
                 const prefix = wildcardPrefix.slice(0, -1);
-                myPlaylistConfig.deletedGroups = myPlaylistConfig.deletedGroups
+                config.deletedGroups = config.deletedGroups
                     .filter(p => !(p === wildcardPrefix || (!p.endsWith('*') && p.startsWith(prefix))));
-                myPlaylistConfig.deletedGroups.push(wildcardPrefix);
+                config.deletedGroups.push(wildcardPrefix);
             }
 
-            // 选了通配规则时不再补当前名称这条：规则已经盖住它，多写一条精确条目会在「解除规则」后残留。
-            markGroupHidden(currentName, { includeSelf: !wildcardPrefix });
-            myPlaylistData.splice(index, 1);
-            
-            // 调整选中索引
-            if (selectedGroupIndex >= myPlaylistData.length) {
-                selectedGroupIndex = Math.max(0, myPlaylistData.length - 1);
+            // 写法同多选：按原始分组名写 deletedGroups，改名和 groupOrder 留着，恢复后名字、位置原样回来。
+            // 通配规则已经盖住的原始分组不再补精确条目，多写一条会在「解除规则」后残留。
+            const item = { name: currentName, originals: plan.originals.filter(original => !isGroupHiddenByConfig(original)) };
+            if (!await applyGroupHidePlan([item])) {
+                // applyGroupHidePlan 只退回它自己写的部分，通配规则那步在这里退；切了档则什么都不动
+                if (myPlaylistConfig === config) config.deletedGroups = before;
+                return;
             }
-            
-            updateGroupOrder();
-            
-            // 自动保存配置并重新加载数据
-            try {
-                const response = await fetch(mpConfigUrl(), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(myPlaylistConfig)
-                });
-                const result = await response.json();
-                if (result.success) {
-                    await loadMyPlaylist(false);
-                    showStatus(wildcardPrefix
-                        ? `已按规则 ${wildcardPrefix} 隐藏 ${siblings.names.length + 1} 个分组，以后新出现的也会自动隐藏`
-                        : `已隐藏分组 "${group.name}"`, 'success');
-                } else {
-                    showStatus('隐藏失败', 'error');
-                }
-            } catch (error) {
-                showStatus('隐藏失败: ' + error.message, 'error');
-            }
+
+            // 移入 / 归类来的频道不跟着隐藏，分组会留下：选中它，让用户看到剩下的是什么
+            const targets = wildcardPrefix ? [currentName, ...siblings.names] : [currentName];
+            const left = targets.filter(name => myPlaylistData.some(g => g.name === name));
+            const stay = myPlaylistData.findIndex(g => g.name === currentName);
+            if (stay !== -1) selectedGroupIndex = stay;
+            else if (selectedGroupIndex >= myPlaylistData.length) selectedGroupIndex = Math.max(0, myPlaylistData.length - 1);
+            renderMyPlaylist();
+            showStatus((wildcardPrefix
+                ? `已按规则 ${wildcardPrefix} 隐藏 ${siblings.names.length + 1} 个分组，以后新出现的也会自动隐藏`
+                : `已隐藏分组 "${currentName}"`) + hideLeftoverNote(left), 'success', left.length ? 6000 : 3000);
+        }
+
+        /**
+         * 整组隐藏一个源分组后，还会留在这个显示分组里的频道（纯函数，scripts/test-move-hide.mjs 抽出来和 applyConfig 对照）：
+         * 手动移入的（移动优先于整组隐藏），和按关键字规则 / 源默认分组从「未分组」归进来的（原始分组改名后也不叫这个名字）。
+         */
+        function groupHideLeftoverChannels(group, config) {
+            const renameMap = config.groupRenameMap || {};
+            const movedMap = config.channelGroupMap || {};
+            return (group?.channels || []).filter(channel => {
+                const origin = channel.originalGroup;
+                if (movedMap[`${origin}::${channel.id}`]) return true;
+                return (renameMap[origin] || origin) !== group.name;
+            });
         }
 
         // 自定义分组整组隐藏：记在分组自己身上（customGroups[].hidden），不写 deletedGroups，也不动 groupOrder——
@@ -13054,25 +13076,8 @@ if(success){
             }
         }
 
-        /** 把一个显示分组写进 deletedGroups：被改名成这个名字的原始分组都要写（并去掉改名），名称本身也可能是原始分组名。 */
-        function markGroupHidden(currentName, { includeSelf = true } = {}) {
-            if (myPlaylistConfig.groupRenameMap) {
-                for (const [original, renamed] of Object.entries(myPlaylistConfig.groupRenameMap)) {
-                    if (renamed === currentName) {
-                        if (!myPlaylistConfig.deletedGroups.includes(original)) {
-                            myPlaylistConfig.deletedGroups.push(original);
-                        }
-                        delete myPlaylistConfig.groupRenameMap[original];
-                    }
-                }
-            }
-            if (includeSelf && !myPlaylistConfig.deletedGroups.includes(currentName)) {
-                myPlaylistConfig.deletedGroups.push(currentName);
-            }
-        }
-
         /**
-         * 整组隐藏一个显示分组要写什么（「只保留此分组」和左栏多选隐藏共用）：
+         * 整组隐藏一个显示分组要写什么（「隐藏分组」按钮、「只保留此分组」和左栏多选隐藏共用）：
          * - 自定义分组 → { name, custom: true }，打上 hidden 标记（customGroups[].hidden，连同移进去的频道一起隐藏）；
          * - 源分组 → { name, originals }，要写进 deletedGroups 的原始分组名（改名留着）；
          * - 不能整组隐藏 → { name, skip }：

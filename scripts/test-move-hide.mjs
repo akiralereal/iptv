@@ -234,13 +234,14 @@ const planFns = new Function(`
   let myPlaylistConfig, myPlaylistOriginalData
   const isSystemAnnouncementGroup = g => g?.name === '公告'
   ${['isGroupHiddenByConfig', 'getCustomGroupNames', 'isCustomGroupName', 'setCustomGroupHidden',
-     'groupHidePlanItem', 'writeGroupHidePlan'].map(extract).join('\n')}
+     'groupHidePlanItem', 'writeGroupHidePlan', 'groupHideLeftoverChannels'].map(extract).join('\n')}
   return {
     planFor: (cfg, data, names) => {
       myPlaylistConfig = cfg; myPlaylistOriginalData = data
       return names.map(name => groupHidePlanItem({ name, channels: [] }))
     },
     writeGroupHidePlan,
+    groupHideLeftoverChannels,
   }
 `)()
 const groups5 = () => ([
@@ -303,4 +304,37 @@ check('批量里带自定义分组：打 hidden 标记、不写 deletedGroups；
   assert.deepEqual(Object.keys(shown5(cfg)), ['体育-今天'])
 })
 
-console.log(`\n全部通过：${passed}/23 ✅`)
+// ---- 单个「隐藏分组」按钮：与批量同一套计划，另外先预判哪些频道会留下 ----
+// 以前按钮直接把显示名写进 deletedGroups：凑出来的分组提示「已隐藏」却原样还在，还留下一条会误伤同名源分组的记录
+const hideOne = (cfg, name) => {
+  const group = applyConfig(groups5(), cfg).find(g => g.name === name)
+  const leftovers = planFns.groupHideLeftoverChannels(group, cfg).map(c => c.name)
+  const [plan] = planFns.planFor(cfg, groups5(), [name])
+  if (!plan.skip && leftovers.length < group.channels.length) planFns.writeGroupHidePlan(cfg, [plan])
+  return { plan, leftovers }
+}
+
+check('单个隐藏：改过名、有移入频道的源分组只藏自己的频道，预判留下的正是服务端还显示的那些', () => {
+  const cfg = base5()
+  cfg.groupRenameMap = { 卫视: '地方台' }
+  cfg.channelGroupMap = { '央视::a1': '地方台' }
+  const { plan, leftovers } = hideOne(cfg, '地方台')
+  assert.deepEqual(plan, { name: '地方台', originals: ['卫视'] })
+  assert.deepEqual(leftovers, ['CCTV1'])
+  assert.deepEqual(shown5(cfg)['地方台'], leftovers)
+  // 不再把显示名「地方台」本身写进去（以后源里真出现「地方台」会被悄悄藏掉），改名也留着
+  assert.deepEqual(cfg.deletedGroups, ['卫视'])
+  assert.deepEqual(cfg.groupRenameMap, { 卫视: '地方台' })
+})
+
+check('单个隐藏：只由移入频道凑成的分组不写任何配置，频道全算留下', () => {
+  const cfg = base5()
+  cfg.channelGroupMap = { '电影::d1': '新组' }
+  const { plan, leftovers } = hideOne(cfg, '新组')
+  assert.equal(plan.skip, 'synthetic')
+  assert.deepEqual(leftovers, ['片'])
+  assert.deepEqual(cfg.deletedGroups, [])
+  assert.deepEqual(shown5(cfg)['新组'], ['片'])
+})
+
+console.log(`\n全部通过：${passed}/25 ✅`)
